@@ -5,8 +5,9 @@ without changing any prompt, scenario, scorecard, or verifier: the repository
 license (Apache-2.0), npm/Composer distribution metadata, the Symfony fixture
 (which now installs from Packagist without custom Composer repositories), and
 the registry wording in the skill's installation guidance. The receipt and
-transcript hashes were re-bound to the changed bytes on 2026-09-28 without
-re-running the model evaluation; the recorded samples were generated against
+transcript hashes were re-bound to the changed bytes on 2026-09-28 (and again
+after a dependency security update in `pnpm-lock.yaml`) without re-running the
+model evaluation; the recorded samples were generated against
 the previous inputs. Re-run and independently review a fresh evaluation before
 the next release that changes skill behaviour.
 

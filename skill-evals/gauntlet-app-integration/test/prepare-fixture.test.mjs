@@ -13,7 +13,7 @@ const EXPECTED_RUNTIME_DEPENDENCY_PINS = {
   "ajv-formats": "3.0.1",
   canonicalize: "4.0.0",
   "fast-deep-equal": "3.1.3",
-  "fast-uri": "3.1.6",
+  "fast-uri": "3.1.8",
   "json-schema-traverse": "1.0.0",
   "require-from-string": "2.0.2",
 };

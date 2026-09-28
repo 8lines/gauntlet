@@ -27,7 +27,7 @@
     },
     {
       "path": "pnpm-lock.yaml",
-      "sha256": "4ddef1982cc7c221ba04ede98a910c87885714f968a6d9aebe747a7127724f85"
+      "sha256": "3ac4e68981ca03d35dbba1c50fb30ec63f42bc172b4e8950e9c93cbeda14542d"
     },
     {
       "path": "pnpm-workspace.yaml",
@@ -114,8 +114,8 @@
       "sha256": "ea85657b7620ba191de22ee347f8a0eb2f1427761824ebfc7b200f7978a1ad6e"
     },
     {
-      "path": "node_modules/.pnpm/fast-uri@3.1.6/node_modules/fast-uri",
-      "sha256": "5066102c086157e7a5c4b04eefba5bf3099bda4f06e5734362c621208520e812"
+      "path": "node_modules/.pnpm/fast-uri@3.1.8/node_modules/fast-uri",
+      "sha256": "90115fda9206b833062c16fd4bf570f88e601a5c6c1dd58313416a69b103722d"
     },
     {
       "path": "node_modules/.pnpm/json-schema-traverse@1.0.0/node_modules/json-schema-traverse",

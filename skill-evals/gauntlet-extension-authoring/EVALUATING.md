@@ -3,8 +3,9 @@
 The open-source release (2026-09-28) changed this evaluation's external inputs
 (the repository license and npm distribution metadata) without changing any
 prompt, scenario, scorecard, fixture, or the skill itself. The receipt and
-transcript hashes were re-bound to the changed bytes on 2026-09-28 without
-re-running the model evaluation; the recorded samples were generated against
+transcript hashes were re-bound to the changed bytes on 2026-09-28 (and again
+after a dependency security update in `pnpm-lock.yaml`) without re-running the
+model evaluation; the recorded samples were generated against
 the previous inputs. Re-run and independently review a fresh evaluation before
 the next release that changes skill behaviour.
 
