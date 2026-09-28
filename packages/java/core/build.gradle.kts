@@ -6,9 +6,9 @@ plugins {
 }
 
 dependencies {
-    implementation("com.networknt:json-schema-validator:3.0.4")
-    implementation("tools.jackson.core:jackson-core:3.1.4")
-    implementation("tools.jackson.core:jackson-databind:3.1.4")
+    implementation("com.networknt:json-schema-validator:3.0.7")
+    implementation("tools.jackson.core:jackson-core:3.2.3")
+    implementation("tools.jackson.core:jackson-databind:3.2.3")
 }
 
 spotless {

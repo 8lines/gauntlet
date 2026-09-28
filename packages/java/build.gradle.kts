@@ -16,7 +16,7 @@ import java.nio.file.Path
 import java.net.URI
 
 plugins {
-    id("com.diffplug.spotless") version "8.10.1" apply false
+    id("com.diffplug.spotless") version "8.10.3" apply false
 }
 
 val releaseVersionFile = rootProject.file("../../VERSION")
@@ -79,8 +79,8 @@ subprojects {
         options.compilerArgs.add("-Xlint:deprecation")
     }
     dependencies {
-        add("testImplementation", "org.junit.jupiter:junit-jupiter:6.0.3")
-        add("testRuntimeOnly", "org.junit.platform:junit-platform-launcher:6.0.3")
+        add("testImplementation", "org.junit.jupiter:junit-jupiter:6.1.3")
+        add("testRuntimeOnly", "org.junit.platform:junit-platform-launcher:6.1.3")
     }
     tasks.withType<Test>().configureEach { useJUnitPlatform() }
     dependencyLocking {
