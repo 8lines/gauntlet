@@ -391,7 +391,10 @@ jobs:
           SKOPEO_IMAGE="quay.io/skopeo/stable:v1.20.0@sha256:47853bb9fb24202af9110531ebd6e43c5f97701254ca290596640290d17942f4"
           DIGEST_DIRECTORY="$(mktemp -d "$RUNNER_TEMP/gauntlet-image-copy.XXXXXXXX")"
           DIGEST_FILE="$DIGEST_DIRECTORY/digest"
+          # Run as the runner's user: the staged archives and the registry login are
+          # 0600 files that root cannot read once every capability is dropped.
           docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --user "$(id -u):$(id -g)" \
             --network bridge \
             --mount "type=bind,src=$HOME/.docker,dst=/docker-config,readonly" \
             --mount "type=bind,src=$RELEASE_DIRECTORY/image,dst=/release,readonly" \
@@ -425,6 +428,7 @@ jobs:
           TRIVY_IMAGE="aquasec/trivy:0.66.0@sha256:086971aaf400beebd94e8300fd8ea623774419597169156cec56eec5b00dfb1e"
           for PLATFORM in linux/amd64 linux/arm64; do
             docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
+              --user "$(id -u):$(id -g)" \
               --network bridge \
               --env DOCKER_CONFIG=/docker-config \
               --env HOME=/tmp/home \
