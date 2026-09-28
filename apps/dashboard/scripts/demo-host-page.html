@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Host application — Gauntlet widget demo</title>
+  </head>
+  <body>
+    <h1>Host application</h1>
+    <p>Simulates an agency application page that embeds the Gauntlet widget.</p>
+    <p>Current path: <code id="current-path"></code></p>
+    <ul>
+      <li>
+        <a href="/applications/11111111-1111-4111-8111-111111111111" data-application-id="11111111-1111-4111-8111-111111111111">
+          Application 11111111-1111-4111-8111-111111111111
+        </a>
+      </li>
+      <li>
+        <a href="/applications/22222222-2222-4222-8222-222222222222" data-application-id="22222222-2222-4222-8222-222222222222">
+          Application 22222222-2222-4222-8222-222222222222
+        </a>
+      </li>
+    </ul>
+
+    <script>
+      // Gauntlet stub: queues calls until the loader loads and replaces it.
+      window.Gauntlet ||= function () { (Gauntlet.q ||= []).push(arguments); };
+    </script>
+    <script>
+      Gauntlet("boot", {
+        target: "example",
+        routes: [{ pattern: "/applications/:applicationId", subject: "agency-application" }],
+      });
+
+      function showPath() {
+        document.getElementById("current-path").textContent = location.pathname;
+      }
+      showPath();
+      window.addEventListener("popstate", showPath);
+
+      // Moves between applications with pushState, without reloading the page — after boot()
+      // the loader listens to history.pushState/replaceState and recomputes the context itself.
+      for (const link of document.querySelectorAll("a[data-application-id]")) {
+        link.addEventListener("click", (event) => {
+          event.preventDefault();
+          history.pushState(null, "", link.getAttribute("href"));
+          showPath();
+        });
+      }
+    </script>
+    <script src="http://127.0.0.1:8080/widget/loader.js" async></script>
+  </body>
+</html>

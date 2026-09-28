@@ -1,0 +1,33 @@
+{
+  "operationRevision": "sha256:2e301a636fb48d2bec64fc7e91b62d8a45e47af3a28f665b6b809f6a4b19d9e8",
+  "input": {
+    "applicationId": "app-42",
+    "message": "Review quarterly access",
+    "notify": true,
+    "options": { "includeInactive": false, "mode": "preview" },
+    "roles": ["viewer", "auditor"],
+    "apiToken": "write-only-secret",
+    "attachment": {
+      "kind": "file",
+      "uploadId": "upload-01",
+      "name": "review-notes.txt",
+      "mediaType": "text/plain",
+      "sizeBytes": 128,
+      "expiresAt": "2026-08-29T13:00:00Z"
+    }
+  },
+  "context": {
+    "requestId": "request-01",
+    "locale": "en-GB",
+    "timeZone": "Europe/Warsaw",
+    "actor": { "id": "operator-01", "displayName": "Operator" },
+    "target": { "id": "acme-portal", "environment": "development" }
+  },
+  "dryRun": true,
+  "idempotencyKey": "access-review-2026-q3",
+  "confirmation": {
+    "operationId": "application-access-review",
+    "operationRevision": "sha256:2e301a636fb48d2bec64fc7e91b62d8a45e47af3a28f665b6b809f6a4b19d9e8",
+    "impact": "write"
+  }
+}

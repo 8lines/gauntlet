@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "skill": "gauntlet-app-integration",
+  "skillSha256": "f0cdf59bc45dbae708fac3e0fc17399eb3621af19b8646698adaf0331afc0156",
+  "evaluationSha256": "7485e66bb772244197be341d7109d782d017908262c7d60f601ebe2aa92bc506",
+  "externalInputsSha256": "1c0ee62d4b28efea6339f46e781c748c7548859c60043e594f9faf290bc80610",
+  "evaluatedAt": "2026-09-28T10:17:18.213Z",
+  "baseline": {
+    "transcript": "results/baseline.jsonl",
+    "transcriptSha256": "b5784b4885c9982b40aa3e6ddf68f3f37602fc5c051f31220c66900c4498a0f2",
+    "scenarioResults": [
+      {
+        "scenario": "prod-alias",
+        "samples": 5,
+        "reviewedSamples": 5,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "public-ingress",
+        "samples": 5,
+        "reviewedSamples": 5,
+        "verdict": "expected-failure-observed"
+      },
+      {
+        "scenario": "unstable-runtime",
+        "samples": 5,
+        "reviewedSamples": 5,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "next-raw-path",
+        "samples": 5,
+        "reviewedSamples": 5,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "valid-symfony",
+        "samples": 1,
+        "reviewedSamples": 1,
+        "verdict": "expected-failure-observed"
+      },
+      {
+        "scenario": "valid-compose",
+        "samples": 1,
+        "reviewedSamples": 1,
+        "verdict": "expected-failure-observed"
+      }
+    ]
+  },
+  "guided": {
+    "transcript": "results/guided.jsonl",
+    "transcriptSha256": "d9379e000b43b3e67294e98dcfa2284e532ba6b5fcb32122c303f2b9e45d044b",
+    "scenarioResults": [
+      {
+        "scenario": "prod-alias",
+        "samples": 5,
+        "reviewedSamples": 5,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "public-ingress",
+        "samples": 5,
+        "reviewedSamples": 5,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "unstable-runtime",
+        "samples": 5,
+        "reviewedSamples": 5,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "next-raw-path",
+        "samples": 5,
+        "reviewedSamples": 5,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "valid-symfony",
+        "samples": 1,
+        "reviewedSamples": 1,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "valid-compose",
+        "samples": 1,
+        "reviewedSamples": 1,
+        "verdict": "pass"
+      }
+    ]
+  },
+  "forward": {
+    "transcript": "results/forward.jsonl",
+    "transcriptSha256": "25e10aa725cfed2556fe7e4b779a230f055f91e87eb4dd6bf9785d7497813c54",
+    "scenarioResults": [
+      {
+        "scenario": "forward-spring-ingress",
+        "samples": 1,
+        "reviewedSamples": 1,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "forward-prod-alias",
+        "samples": 1,
+        "reviewedSamples": 1,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "forward-node-compose",
+        "samples": 1,
+        "reviewedSamples": 1,
+        "verdict": "pass"
+      }
+    ]
+  },
+  "verdict": "pass"
+}

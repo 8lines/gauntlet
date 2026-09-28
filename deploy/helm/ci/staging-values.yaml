@@ -1,0 +1,15 @@
+config:
+  instance:
+    name: acme-staging
+    environment:
+      name: staging
+      kind: staging
+  targets:
+    - id: organizations
+      label: Organizations staging
+      adapterUrl: http://organizations.acme-staging.svc.cluster.local:8080
+      expectedEnvironment:
+        name: staging
+        kind: staging
+      tags:
+        - symfony

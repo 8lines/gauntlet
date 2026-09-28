@@ -1,0 +1,11 @@
+ingress:
+  enabled: true
+  className: tailscale
+  annotations: {}
+  hosts:
+    - paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - gauntlet

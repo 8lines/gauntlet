@@ -1,0 +1,251 @@
+openapi: 3.1.0
+info:
+  title: Gauntlet Adapter API
+  version: 1.0.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+paths:
+  /_gauntlet/v1/health:
+    get:
+      operationId: getAdapterHealth
+      responses:
+        "200":
+          description: Adapter health and negotiated protocol version.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/v1/health.schema.json
+        default:
+          $ref: "#/components/responses/Problem"
+  /_gauntlet/v1/manifest:
+    get:
+      operationId: getAdapterManifest
+      responses:
+        "200":
+          description: Canonical adapter manifest.
+          headers:
+            ETag:
+              description: Quoted manifest revision for conditional requests.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/v1/manifest.schema.json
+        "304":
+          description: Not modified; the cached manifest identified by the request validator remains current.
+        default:
+          $ref: "#/components/responses/Problem"
+  /_gauntlet/v1/operations/{operationId}:
+    parameters:
+      - $ref: "#/components/parameters/OperationId"
+    get:
+      operationId: getOperationDefinition
+      responses:
+        "200":
+          description: Canonical operation definition.
+          headers:
+            ETag:
+              description: Quoted operation revision for conditional requests.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/v1/operation-definition.schema.json
+        "304":
+          description: Not modified; the cached operation definition identified by the request validator remains current.
+        default:
+          $ref: "#/components/responses/Problem"
+  /_gauntlet/v1/operations/{operationId}/runs:
+    parameters:
+      - $ref: "#/components/parameters/OperationId"
+    post:
+      operationId: createRun
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/v1/create-run-request.schema.json
+      responses:
+        "201":
+          description: Synchronously completed terminal adapter-owned run snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/v1/run.schema.json
+        "202":
+          description: Accepted non-terminal adapter-owned run snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/v1/run.schema.json
+        default:
+          $ref: "#/components/responses/Problem"
+  /_gauntlet/v1/runs/{runId}:
+    parameters:
+      - $ref: "#/components/parameters/RunId"
+    get:
+      operationId: getRun
+      responses:
+        "200":
+          description: Latest immutable run snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/v1/run.schema.json
+        default:
+          $ref: "#/components/responses/Problem"
+  /_gauntlet/v1/runs/{runId}/cancel:
+    parameters:
+      - $ref: "#/components/parameters/RunId"
+    post:
+      operationId: cancelRun
+      responses:
+        "202":
+          description: Latest run snapshot after accepting cancellation.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/v1/run.schema.json
+        default:
+          $ref: "#/components/responses/Problem"
+  /_gauntlet/v1/runs/{runId}/events:
+    parameters:
+      - $ref: "#/components/parameters/RunId"
+      - name: Last-Event-ID
+        in: header
+        required: false
+        schema:
+          type: string
+    get:
+      operationId: streamRunEvents
+      responses:
+        "200":
+          description: Server-sent events whose data field contains a complete RunEvent snapshot.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                contentMediaType: application/json
+                contentSchema:
+                  $ref: ../schemas/v1/run-event.schema.json
+        default:
+          $ref: "#/components/responses/Problem"
+  /_gauntlet/v1/data-sources/{dataSourceId}/query:
+    parameters:
+      - $ref: "#/components/parameters/DataSourceId"
+    post:
+      operationId: queryDataSource
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/v1/data-source-query.schema.json
+      responses:
+        "200":
+          description: Cursor-paginated data-source items.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/v1/data-source-page.schema.json
+        default:
+          $ref: "#/components/responses/Problem"
+  /_gauntlet/v1/data-sources/{dataSourceId}/resolve:
+    parameters:
+      - $ref: "#/components/parameters/DataSourceId"
+    post:
+      operationId: resolveDataSourceValues
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/v1/data-source-resolve-request.schema.json
+      responses:
+        "200":
+          description: Ordered value resolution results.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/v1/data-source-resolve-response.schema.json
+        default:
+          $ref: "#/components/responses/Problem"
+  /_gauntlet/v1/uploads:
+    post:
+      operationId: uploadFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+              additionalProperties: false
+      responses:
+        "201":
+          description: Opaque expiring file reference.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/v1/upload.schema.json
+        default:
+          $ref: "#/components/responses/Problem"
+  /_gauntlet/v1/runs/{runId}/artifacts/{artifactId}/launch:
+    parameters:
+      - $ref: "#/components/parameters/RunId"
+      - $ref: "#/components/parameters/ArtifactId"
+    post:
+      operationId: launchBrowserSession
+      responses:
+        "201":
+          description: Newly minted single-use browser URL.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/v1/session-launch.schema.json
+        default:
+          $ref: "#/components/responses/Problem"
+components:
+  parameters:
+    OperationId:
+      name: operationId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    RunId:
+      name: runId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    DataSourceId:
+      name: dataSourceId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    ArtifactId:
+      name: artifactId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  responses:
+    Problem:
+      description: Typed protocol problem.
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/v1/problem.schema.json

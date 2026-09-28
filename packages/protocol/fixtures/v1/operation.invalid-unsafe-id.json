@@ -1,0 +1,28 @@
+{
+  "id": "unsafe/id",
+  "revision": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "label": "Unsafe ID operation",
+  "featureId": "security",
+  "order": 40,
+  "tags": [],
+  "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false
+  },
+  "dataSources": [],
+  "presets": [],
+  "execution": {
+    "impact": "read",
+    "confirmationRequired": false,
+    "dryRunSupported": false,
+    "idempotency": "none",
+    "cancellationSupported": false
+  },
+  "output": {
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "null"
+    }
+  }
+}

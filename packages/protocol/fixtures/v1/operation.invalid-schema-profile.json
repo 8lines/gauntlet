@@ -1,0 +1,28 @@
+{
+  "id": "unsupported-schema-operation",
+  "revision": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "label": "Unsupported schema operation",
+  "featureId": "security",
+  "order": 30,
+  "tags": [],
+  "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "transform": ["trim"]
+  },
+  "dataSources": [],
+  "presets": [],
+  "execution": {
+    "impact": "read",
+    "confirmationRequired": false,
+    "dryRunSupported": false,
+    "idempotency": "none",
+    "cancellationSupported": false
+  },
+  "output": {
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "null"
+    }
+  }
+}

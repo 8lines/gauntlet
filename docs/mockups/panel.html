@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gauntlet — Acme Training</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+tailwind.config = { theme: { extend: {
+  colors:{
+    border:'hsl(240 6% 90%)', input:'hsl(240 6% 90%)',
+    bg:'hsl(0 0% 100%)', fg:'hsl(240 10% 4%)',
+    sub:'hsl(240 4% 46%)', soft:'hsl(240 5% 96%)',
+    brand:{DEFAULT:'hsl(240 6% 10%)', fg:'hsl(0 0% 98%)'},
+    ok:{DEFAULT:'hsl(158 64% 32%)', bg:'hsl(152 76% 96%)', bd:'hsl(152 45% 84%)'},
+    wait:{DEFAULT:'hsl(32 81% 36%)', bg:'hsl(48 96% 95%)', bd:'hsl(45 75% 82%)'},
+    stop:{DEFAULT:'hsl(347 70% 42%)', bg:'hsl(356 90% 97%)', bd:'hsl(356 65% 88%)'},
+    info:{DEFAULT:'hsl(235 62% 46%)', bg:'hsl(230 90% 97%)', bd:'hsl(230 65% 88%)'},
+  },
+  fontFamily:{sans:['Inter','ui-sans-serif','system-ui'], mono:['JetBrains Mono','ui-monospace','monospace']},
+}}}
+</script>
+<style>
+  body{font-feature-settings:"cv02","cv03","cv04","cv11"}
+  [hidden]{display:none!important}
+  .sheet-in{animation:si .16s ease-out}
+  @keyframes si{from{transform:translateX(20px);opacity:.5}to{transform:none;opacity:1}}
+  @media (prefers-reduced-motion:reduce){.sheet-in{animation:none}}
+</style>
+</head>
+<body class="h-full bg-soft text-fg font-sans antialiased">
+
+<div class="flex h-screen overflow-hidden">
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-border bg-bg transition-transform lg:static lg:translate-x-0">
+    <div class="flex h-14 shrink-0 items-center gap-2.5 border-b border-border px-5">
+      <span class="flex h-6 w-6 items-center justify-center rounded bg-brand text-[11px] font-semibold text-brand-fg">G</span>
+      <span class="text-[14px] font-semibold tracking-tight">Gauntlet</span>
+    </div>
+
+    <div class="border-b border-border p-3">
+      <p class="border-x border-transparent px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-sub">Environment</p>
+      <button data-go="environment" class="flex w-full items-center gap-2.5 rounded-md border border-border px-2 py-2 text-left hover:bg-soft">
+        <span class="flex h-4 w-4 shrink-0 items-center justify-center"><span class="h-2 w-2 rounded-full bg-ok"></span></span>
+        <span class="min-w-0 flex-1">
+          <span class="block truncate text-[13px] font-medium">staging</span>
+          <span class="block truncate text-[11px] text-sub">training.staging.example.test</span>
+        </span>
+        <span class="text-sub">⌄</span>
+      </button>
+    </div>
+
+    <nav id="nav" class="flex-1 overflow-y-auto p-3"></nav>
+
+    <div class="shrink-0 border-t border-border p-3">
+      <div class="flex items-center gap-2.5 border-x border-transparent px-2">
+        <span class="flex h-7 w-7 items-center justify-center rounded-full bg-soft text-[11px] font-medium">TU</span>
+        <span class="min-w-0 flex-1">
+          <span class="block truncate text-[12px] font-medium">Test User</span>
+          <span class="block truncate text-[11px] text-sub">tester</span>
+        </span>
+      </div>
+    </div>
+  </aside>
+  <div id="navscrim" hidden class="fixed inset-0 z-30 bg-black/40 lg:hidden"></div>
+
+  <!-- ================= MAIN COLUMN ================= -->
+  <div class="flex min-w-0 flex-1 flex-col">
+
+    <header class="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-bg px-4 sm:px-6">
+      <button id="burger" class="rounded-md border border-border px-2.5 py-2 text-[13px] leading-none lg:hidden">☰</button>
+      <nav id="crumbs" class="flex min-w-0 items-center gap-1.5 text-[13px]"></nav>
+      <span class="flex-1"></span>
+      <div class="hidden items-center gap-2 rounded-md border border-border px-2.5 py-1.5 sm:flex">
+        <span class="text-sub">⌕</span>
+        <span class="text-[12px] text-sub">Search trainings, orders, people…</span>
+      </div>
+    </header>
+
+    <main id="page" class="flex-1 overflow-y-auto"></main>
+  </div>
+</div>
+
+<!-- operation panel -->
+<div id="scrim" hidden class="fixed inset-0 z-40 bg-black/40"></div>
+<aside id="sheet" hidden class="sheet-in fixed right-0 top-0 z-50 flex h-full w-full max-w-[440px] flex-col border-l border-border bg-bg shadow-2xl"></aside>
+<div id="toast" hidden class="fixed bottom-5 left-1/2 z-[60] -translate-x-1/2 rounded-lg bg-brand px-4 py-3 text-[13px] font-medium text-brand-fg shadow-lg"></div>
+
+<script>
+/* ===================== ICONS ===================== */
+const ICON = {
+  start:'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
+  trainings:'M5 5h14a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1zM4 10h16M8 3v4M16 3v4',
+  orders:'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6',
+  learners:'M15 19v-1a4 4 0 00-4-4H7a4 4 0 00-4 4v1M11 7a3 3 0 11-6 0 3 3 0 016 0zM21 19v-1a4 4 0 00-3-3.87M17 4.13a4 4 0 010 7.75',
+  environment:'M4 5h16v5H4zM4 14h16v5H4zM7.5 7.5h.01M7.5 16.5h.01',
+  history:'M12 21a9 9 0 100-18 9 9 0 000 18zM12 7v5l3 2',
+};
+const icon = (k, cls='h-4 w-4') =>
+  `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="${ICON[k]}"/></svg>`;
+
+/* ===================== NAVIGATION ===================== */
+const NAV = [
+  { group:null, items:[ {id:'start', icon:'start', title:'Start'} ] },
+  { group:'Application data', items:[
+      {id:'trainings',  icon:'trainings',  title:'Trainings',  count:4},
+      {id:'orders', icon:'orders', title:'Orders', count:4},
+      {id:'learners',   icon:'learners',   title:'Learners',   count:4} ] },
+  { group:'Environment', items:[
+      {id:'environment', icon:'environment', title:'Queues and processes', dot:'stop'},
+      {id:'history',   icon:'history',   title:'Change history'} ] },
+];
+
+/* ===================== DATA ===================== */
+const TRAININGS = [
+  { id:'rc-118', name:'Safety course for facility staff', dates:'12–14.09.2026', trainer:'Terry Trainer', seats:'8/12', status:'upcoming', tone:'wait', issues:3 },
+  { id:'rc-117', name:'First aid in the workplace', dates:'03.08.2026', trainer:'Tina Tutor', seats:'10/10', status:'finished', tone:'ok', issues:0 },
+  { id:'rc-116', name:'Fire safety', dates:'20–21.09.2026', trainer:'Terry Trainer', seats:'3/12', status:'upcoming', tone:'wait', issues:1 },
+  { id:'rc-115', name:'Periodic workplace safety', dates:'05–07.09.2026', trainer:'Tina Tutor', seats:'12/12', status:'finished', tone:'ok', issues:0 },
+];
+const ORDERS = [
+  { id:'order-4821', number:'#4821', buyer:'Example Corp', seats:5, amount:'EUR 2,450.00', status:'awaiting payment', tone:'stop', issues:2 },
+  { id:'order-4820', number:'#4820', buyer:'Alice Example', seats:1, amount:'EUR 590.00', status:'paid', tone:'ok', issues:0 },
+  { id:'order-4819', number:'#4819', buyer:'Sample Industries', seats:3, amount:'EUR 1,470.00', status:'paid', tone:'ok', issues:1 },
+  { id:'order-4818', number:'#4818', buyer:'Heidi Example', seats:1, amount:'EUR 490.00', status:'cancelled', tone:'sub', issues:0 },
+];
+const LEARNERS = [
+  { id:'person-alice', name:'Alice Example', mail:'alice@example.test', trainings:2, elearning:'5 of 12', certificates:'1 valid, 1 in review', issues:2 },
+  { id:'person-bob', name:'Bob Example', mail:'bob@example.test', trainings:1, elearning:'—', certificates:'none', issues:1 },
+  { id:'person-carol', name:'Carol Example', mail:'carol@example.test', trainings:0, elearning:'—', certificates:'none', issues:0 },
+  { id:'person-terry', name:'Terry Trainer', mail:'terry.trainer@example.test', trainings:12, elearning:'—', certificates:'3 valid', issues:0 },
+];
+
+/* Details — the same template for every entity */
+const DETAILS = {
+  'rc-118': {
+    type:'trainings', title:'Safety course for facility staff', subtitle:'12–14.09.2026 · Terry Trainer · in person, Springfield · 3 sessions',
+    status:{ text:'Not held yet', tone:'wait' },
+    stats:[ ['8/12','seats taken',''], ['3','on the waiting list','wait'], ['1','unpaid order','stop'], ['7','waiting in queues','info'] ],
+    blockers:[
+      { id:'b1', tone:'stop', title:'The training has not taken place yet', description:'A certificate cannot be issued before the last session.', action:'shift_dates', cta:'Move dates' },
+      { id:'b2', tone:'stop', title:'Order #4821 is awaiting payment', description:'Eve Example will not be enrolled until the payment provider confirms the payment.', action:'payment', cta:'Mark as paid' },
+      { id:'b3', tone:'wait', title:'7 items waiting in queues', description:'4 emails, 1 invoice, 2 certificates. The worker will pick them up in 4 minutes.', action:'queues', cta:'Flush now' },
+    ],
+    table:{ title:'Participants', headers:['Participant','Order','Attendance','Certificate',''], rows:[
+      { cells:['Alice Example','<ok>paid','3 of 3','<ok>issued'], actions:[['login','Log in as her']], link:'person-alice' },
+      { cells:['Bob Example','<ok>paid','<wait>2 of 3','none — attendance too low'], actions:[['complete','Complete participation']], link:'person-bob' },
+      { cells:['Eve Example','<stop>awaiting payment','—','—'], actions:[['payment','Mark as paid']] },
+      { cells:['Dave Example','<ok>paid','3 of 3','<wait>queued'], actions:[['certificate','Issue certificate']] },
+    ]},
+    lists:[
+      { title:'Waiting list', items:[['Carol Example','first in line','waitlist','Allocate seat'],['Frank Example','',null,null],['Grace Example','',null,null]] },
+      { title:'Queues for this training', items:[['email-outbox','4 waiting','queues','Send'],['certificate-outbox','2 waiting','queues','Send'],['invoice-outbox','1 waiting','queues','Send']] },
+    ],
+    operations:['shift_dates','payment','queues','add_participant','certificate','complete','waitlist'],
+  },
+  'order-4821': {
+    type:'orders', title:'Order #4821', subtitle:'Example Corp · 5 seats for “Safety course for facility staff” · EUR 2,450.00 · buyer: Judy Example',
+    status:{ text:'Awaiting payment', tone:'stop' },
+    stats:[ ['5','seats purchased',''], ['1','redeemed','ok'], ['2','invitations with a problem','stop'], ['1','invoice queued','wait'] ],
+    blockers:[
+      { id:'b1', tone:'stop', title:'The order is not paid', description:'The invoice is created only after payment. The payment provider runs in sandbox mode here.', action:'order_paid', cta:'Mark as paid' },
+      { id:'b2', tone:'stop', title:'The invitation for seat 4 bounced', description:'The address former.employee@corp.example.test does not exist, and the buyer was not notified.', action:'change_address', cta:'Change address' },
+    ],
+    table:{ title:'Who will take the purchased seats', headers:['Seat','Assigned to','Invitation status',''], rows:[
+      { cells:['1','Alice Example','<ok>redeemed'], actions:[['login','Log in as her']], link:'person-alice' },
+      { cells:['2','bob@example.test','<wait>sent, pending'], actions:[['expire_invite','Force expiry']] },
+      { cells:['3','nobody','<sub>unassigned'], actions:[['assign_person','Assign person']] },
+      { cells:['4','former.employee@corp.example.test','<stop>email bounced'], actions:[['change_address','Change address']] },
+      { cells:['5','moved.employee@corp.example.test','<wait>needs reassignment'], actions:[['notify','Notify buyer']] },
+    ]},
+    lists:[
+      { title:'Payment and invoice', items:[['Payment provider','awaiting payment',null,null],['Invoice','created after payment','invoice_now','Issue now']] },
+      { title:'Member discount', items:[['Example Corp','not an association member','membership','Grant member status']] },
+    ],
+    operations:['order_paid','change_address','assign_person','expire_invite','invoice_now','membership','notify'],
+  },
+  'person-alice': {
+    type:'learners', title:'Alice Example', subtitle:'alice@example.test · SSO account active · joined 14.03.2025',
+    status:{ text:'No group', tone:'sub' },
+    stats:[ ['2','in-person trainings',''], ['5/12','e-learning lessons','wait'], ['1','valid certificate','ok'], ['1','awaiting review','wait'] ],
+    blockers:[
+      { id:'b1', tone:'stop', title:'E-learning completed in 5 of 12 lessons', description:'The certificate is issued automatically only once every lesson is done. Clicking through the lessons one by one takes a quarter of an hour.', action:'lessons', cta:'Mark all lessons' },
+      { id:'b2', tone:'wait', title:'Membership certificate awaiting review', description:'Until it is approved, Alice will not join the members group and will not get the discount.', action:'approve_cert', cta:'Approve certificate' },
+    ],
+    table:{ title:'Certificates', headers:['Number','For','Status',''], rows:[
+      { cells:['CERT/2026/00190','Internal course — First aid','<ok>valid'], actions:[['revoke_cert','Revoke']] },
+      { cells:['CERT/2026/00214','Association membership','<wait>in review'], actions:[['approve_cert','Approve']] },
+      { cells:['CERT/2025/00877','Internal course — Workplace safety 2025','<sub>revoked'], actions:[] },
+    ]},
+    lists:[
+      { title:'E-learning', items:[['Workplace safety — periodic online course','5 of 12 lessons','lessons','Mark all']] },
+      { title:'In-person trainings', items:[['Safety course for facility staff — 12–14.09.2026','enrolled',null,null,'rc-118'],['First aid — 03.08.2026','completed',null,null]] },
+    ],
+    operations:['lessons','approve_cert','revoke_cert','group','login','mailing'],
+  },
+};
+
+/* ===================== OPERATIONS ===================== */
+const A = (title, description, effects, fields, cta, result, tech, extra={}) => ({title,description,effects,fields,cta,result,tech,...extra});
+const OPERATIONS = {
+  shift_dates: A('Move session dates','Move the sessions back so the training counts as finished.',
+    [['ok','Changes the dates of three sessions to the end of August.'],['ok','The edition will count as finished, so certificates become possible.'],['no','Does not notify participants about the date change.']],
+    [{k:'select',l:'Move back by',o:['2 weeks','1 week','1 month']}],'Move back 2 weeks',
+    {title:'The edition is now in the past',lines:['Sessions: 29–31.08.2026','Status: finished','Certificates possible for 6 people'],next:['Issue a certificate to Dave','Flush the certificate queue']},
+    {command:'Training\\...\\ShiftSessionDates',undo:'possible'}),
+  payment: A('Mark order as paid','Simulates a confirmation from the payment provider.',
+    [['ok','Eve Example will be enrolled in the training.'],['ok','Triggers the same as a real payment — enrollment and invoice.'],['no','Does not touch the real payment gateway.']],
+    [],'Mark as paid',
+    {title:'Order paid',lines:['Eve Example enrolled','Seats: 9 of 12','Invoice queued'],next:['Flush the invoice queue']},
+    {command:'Payment\\...\\CompletePayment',undo:'not possible'}),
+  queues: A('Flush queues','Do not wait for the worker — push out whatever is waiting.',
+    [['ok','Sends 4 emails, issues an invoice and generates 2 certificates.'],['warn','Emails go to the capture inbox, not to real people.'],['ok','You can cancel it while it runs.']],
+    [{k:'check',l:'email-outbox — 4 waiting',on:true},{k:'check',l:'certificate-outbox — 2 waiting',on:true},{k:'check',l:'invoice-outbox — 1 waiting',on:true}],'Flush 7 items',
+    {title:'Queues empty',lines:['4 emails sent','1 invoice issued','2 certificates generated'],next:['Open the capture inbox']},
+    {workers:'email-, certificate-, invoice-outbox',undo:'not possible'},{cancellable:true}),
+  complete: A('Complete participation','Fills in attendance for every session.',
+    [['ok','Attendance goes from 2 of 3 to 3 of 3.'],['ok','Unlocks the certificate — the threshold is every session.'],['no','Does not change attendance for anyone else.']],
+    [],'Complete participation',{title:'Bob Example has full attendance',lines:['Attendance: 3 of 3','Certificate: possible'],next:['Issue him a certificate']},
+    {command:'Training\\...\\CompleteParticipation',undo:'possible'}),
+  certificate: A('Issue certificate','Generates the document immediately, bypassing the queue.',
+    [['ok','Generates a PDF from the real template and assigns a number from the test pool.'],['ok','You get a preview before anything is emailed.'],['warn','The email goes to the queue — flush it separately.']],
+    [{k:'select',l:'Template',o:['Default — Safety course for facility staff','Named, without hours']},{k:'check',l:'Also send by email',on:false}],'Issue certificate',
+    {title:'Certificate issued',lines:['Number: CERT/2026/00318','Dave Example','Email: not sent'],file:'CERT-2026-00318.pdf',next:['Issue for the remaining 5 people']},
+    {command:'Training\\...\\IssueTrainingCertificate',undo:'possible'}),
+  add_participant: A('Add participant','Enrolls someone without a cart or payment.',
+    [['ok','The person appears on the list as paid.'],['ok','Takes one of the free seats.'],['no','Does not create an order or an invoice.']],
+    [{k:'search',l:'Who',v:'Carol Example',items:[['Carol Example','on the waiting list'],['New test person','will be created']]}],'Add participant',
+    {title:'Carol Example enrolled',lines:['Seats: 9 of 12','Order: none'],next:['Complete her participation']},
+    {command:'Training\\...\\AddParticipantToTraining',undo:'possible'}),
+  waitlist: A('Allocate a seat from the waiting list','Runs the waiting list mechanism.',
+    [['ok','Carol gets an invitation with an expiry date.'],['ok','She leaves the list and everyone else moves up.'],['warn','The invitation goes through the email queue.']],
+    [{k:'select',l:'Invitation validity',o:['48 hours','24 hours','7 days']}],'Allocate seat',
+    {title:'Carol has an invitation',lines:['Valid until 01.09.2026','Waiting list: 2 people'],next:['Flush the email queue']},
+    {command:'WaitingList\\...\\AllocateWaitingListSpot',undo:'possible'}),
+  order_paid: A('Mark order #4821 as paid','Simulates a payment provider confirmation for the whole pool.',
+    [['ok','The invitations become active.'],['ok','An invoice for Example Corp is created.'],['warn','The invoice goes to the queue.']],
+    [],'Mark as paid',{title:'Order #4821 paid',lines:['Amount: EUR 2,450.00','Invoice INV/2026/0913 queued'],next:['Issue invoice now']},
+    {command:'Payment\\...\\CompletePayment',undo:'not possible'}),
+  change_address: A('Change address and resend','The email bounced — enter a different address.',
+    [['ok','The invitation goes to the new address.'],['ok','The status goes back from “email bounced” to “sent, pending”.']],
+    [{k:'search',l:'New address',v:'new.employee@corp.example.test',items:[['new.employee@corp.example.test','Example Corp employee'],['Enter another','manually']]}],'Send to the new address',
+    {title:'Invitation resent',lines:['Seat 4 → new.employee@corp.example.test','Expires 06.09.2026'],next:['Flush the email queue']},
+    {command:'Training\\...\\IssueRedemptionInvite',undo:'possible'}),
+  assign_person: A('Assign a person to a free seat','Seat 3 is not assigned to anyone.',
+    [['ok','The person gets an invitation.'],['ok','The seat status changes to “sent, pending”.']],
+    [{k:'search',l:'Assignee',v:'spare.employee@corp.example.test',items:[['spare.employee@corp.example.test','Example Corp employee'],['New test person','will be created']]},{k:'check',l:'Skip the invitation and enroll immediately',on:false}],'Assign seat',
+    {title:'Seat 3 assigned',lines:['spare.employee@corp.example.test','Status: sent, pending'],next:['Flush the email queue']},
+    {command:'Purchase\\...\\SaveCheckoutAssignments',undo:'possible'}),
+  expire_invite: A('Force invitation expiry','See what someone who clicked the link too late sees.',
+    [['ok','The invitation expires immediately.'],['ok','The link shows the “invitation no longer valid” page.'],['no','Does not free the seat.']],
+    [],'Force expiry',{title:'Invitation expired',lines:['Seat 2 · bob@example.test'],next:['Resend']},
+    {command:'Purchase\\...\\ExpireAssignment',undo:'possible'}),
+  invoice_now: A('Issue invoice now','Bypasses the queue so you can see the PDF right away.',
+    [['ok','Generates the invoice from the real template.'],['warn','The order must be paid.'],['no','Does not email it unless checked.']],
+    [{k:'check',l:'Also email it to the buyer',on:false}],'Issue invoice',
+    {title:'Invoice issued',lines:['INV/2026/0913','Example Corp','EUR 2,450.00'],file:'INV-2026-0913.pdf',next:['Send by email']},
+    {queue:'invoice-outbox (bypassed)',undo:'not possible'}),
+  membership: A('Grant the company member status','Unlocks the lower price — this is how you check the discount.',
+    [['ok','Example Corp joins the members group.'],['ok','The discount applies to the next order.'],['no','Does not reprice #4821 — the discount applies from a new cart.']],
+    [],'Grant member status',{title:'Example Corp is a member',lines:['Discount active from the next order'],next:['Create a new test order']},
+    {check:'IsMemberDiscountEligible',undo:'possible'}),
+  notify: A('Notify the buyer about the change','Check whether Judy Example receives the email.',
+    [['ok','The buyer gets a link to assign someone else.'],['no','Does not free the seat automatically.']],
+    [],'Send notification',{title:'Buyer notified',lines:['Judy Example','Seat 5 is waiting for a new person'],next:['Flush the email queue']},
+    {command:'Purchase\\...\\NotifyBuyerOfReassignmentNeeded',undo:'n/a'}),
+  lessons: A('Mark all lessons as completed','Twelve lessons in one click.',
+    [['ok','Progress jumps from 5 to 12 of 12.'],['ok','The application issues the certificate itself — usually exactly what you want to check.'],['warn','The certificate email goes to the queue.']],
+    [{k:'select',l:'Up to which point',o:['All lessons','Half','All but the last']}],'Mark all',
+    {title:'E-learning completed',lines:['12 of 12 lessons','CERT/2026/00301 issued automatically'],next:['Flush the email queue']},
+    {command:'ELearning\\...\\MarkLessonCompleted',side_effect:'automatic certificate',undo:'possible'}),
+  approve_cert: A('Approve membership certificate','Moves it from review to valid.',
+    [['ok','The certificate becomes valid.'],['ok','Alice joins the members group on her own — groups are assigned based on certificates.'],['ok','This unlocks her discount.']],
+    [],'Approve certificate',{title:'Certificate approved',lines:['CERT/2026/00214 — valid','Group: Association members'],next:['Log in as Alice and check the price']},
+    {state:'in_review → valid',rule:'CertificateGroupRules',undo:'possible'}),
+  revoke_cert: A('Revoke certificate','See what happens when someone loses an entitlement.',
+    [['warn','The certificate stops being valid.'],['warn','If a group relied on it, Alice drops out of that group.'],['ok','It stays in the history with the status “revoked”.']],
+    [{k:'select',l:'Reason',o:['Revocation scenario test','Data error','Expiry']}],'Revoke certificate',
+    {title:'Certificate revoked',lines:['CERT/2026/00190 — revoked'],next:['Log in as Alice']},
+    {state:'valid → revoked',undo:'not possible'}),
+  group: A('Add to group manually','Bypasses the certificate-based rule.',
+    [['ok','Alice joins the group immediately.'],['warn','The automatic rule may remove her on recalculation if she has no certificate.']],
+    [{k:'select',l:'Group',o:['Association members','Instructors','Business customers']}],'Add to group',
+    {title:'Added to group',lines:['Association members','Basis: added manually'],next:['Approve the certificate to make it permanent']},
+    {command:'Student\\...\\AddStudentToGroup',undo:'possible'}),
+  login: A('Log in as this person','See the portal through her eyes, without asking for a password.',
+    [['ok','Opens the portal in a new tab, logged in as her.'],['ok','One-time access, expires after 5 minutes.'],['no','Does not change her password or log her out.']],
+    [],'Open the portal as her',{title:'Access ready',lines:['Expires in 5 minutes','One-time'],launch:'Open the portal as Alice Example',next:['Generate access for someone else']},
+    {mechanism:'identity provider — one-time token',undo:'n/a'}),
+  mailing: A('Sync to the mailing list','Pushes the contact to the mailing list immediately.',
+    [['ok','The contact is added to the list assigned to the course.'],['warn','Staging uses a separate test list.'],['no','Does not send any campaign.']],
+    [],'Sync',{title:'Contact synced',lines:['List: staging-safety-2026'],next:['Sync the whole group']},
+    {command:'Mailing\\...\\SyncContactToMailingList',undo:'not possible'}),
+  cron: A('Run training reminders','Do not wait for the schedule.',
+    [['ok','Sends reminders to participants of trainings starting soon.'],['warn','Affects all trainings, not just yours.'],['ok','Emails go to the capture inbox.']],
+    [],'Run now',{title:'Reminders sent',lines:['14 editions checked','23 reminders sent'],next:['Open the inbox']},
+    {command:'Training\\...\\SendUpcomingTrainingReminders',undo:'not possible'},{cancellable:true}),
+  restart: A('Restart the certificate worker','Three restarts in an hour mean something is failing.',
+    [['ok','The pod is recreated and the queue starts again.'],['ok','You get the last 200 log lines.'],['warn','A job being processed during the restart goes back to the queue.']],
+    [],'Restart and show logs',{title:'Worker restarted',lines:['Restart count reset','In the logs: certificate template error for a course without hours'],next:['Issue the certificate again']},
+    {shell:'kubectl -n staging rollout restart',undo:'n/a'}),
+  purge: A('Delete test data','Deletes editions and participants created by Gauntlet.',
+    [['warn','Deletes 14 editions along with their participants and certificates.'],['warn','Cannot be undone — there is no trash.'],['ok','Does not touch editions created in the admin panel.']],
+    [{k:'select',l:'What to delete',o:['Created by Gauntlet','Everything older than 30 days']}],'Delete 14 editions',
+    {title:'Deleted 14 editions',lines:['78 participants, 41 certificates','Editions from the admin panel: untouched'],next:['Create a new test edition']},
+    {command:'Gauntlet\\...\\PurgeTestData',undo:'not possible'},{destructive:true,phrase:'delete test data'}),
+};
+
+/* ===================== SHARED ELEMENTS ===================== */
+const TONES = { ok:'bg-ok-bg text-ok', wait:'bg-wait-bg text-wait', stop:'bg-stop-bg text-stop', info:'bg-info-bg text-info', sub:'bg-soft text-sub' };
+const MARKS = { ok:['text-ok','✓'], warn:['text-wait','!'], no:['text-sub','—'] };
+const el = id => document.getElementById(id);
+const badge = (tone, t) => `<span class="rounded px-1.5 py-0.5 text-[12px] font-medium ${TONES[tone]||TONES.sub}">${t}</span>`;
+const cell = v => v.startsWith('<') ? badge(v.slice(1, v.indexOf('>')), v.slice(v.indexOf('>')+1)) : v;
+const button = (t, a='', variant='secondary') => {
+  const c = variant==='primary' ? 'bg-brand text-brand-fg hover:opacity-90 border-brand'
+    : variant==='destructive' ? 'bg-stop text-white hover:opacity-90 border-stop' : 'bg-bg hover:bg-soft border-border';
+  return `<button ${a} class="rounded-md border px-3.5 py-2 text-[13px] font-medium ${c}">${t}</button>`;
+};
+const card = (title, body, action='') => `
+  <section class="rounded-lg border border-border bg-bg">
+    ${title ? `<div class="flex items-center gap-3 border-b border-border px-4 py-3">
+      <h2 class="text-[13px] font-semibold">${title}</h2><span class="flex-1"></span>${action}</div>` : ''}
+    ${body}
+  </section>`;
+
+let state = { view:'start', id:null, active:null };
+
+/* ===================== SIDEBAR + BREADCRUMBS ===================== */
+function renderNav() {
+  el('nav').innerHTML = NAV.map(section => `
+    ${section.group ? `<p class="mb-1 mt-4 border-x border-transparent px-2 text-[11px] font-medium uppercase tracking-wide text-sub">${section.group}</p>` : ''}
+    ${section.items.map(p => {
+      const current = state.view === p.id || (state.view === 'detail' && DETAILS[state.id]?.type === p.id);
+      return `<button data-go="${p.id}" class="mb-0.5 flex w-full items-center gap-2.5 rounded-md border border-transparent px-2 py-2 text-left text-[13px] ${
+        current ? 'bg-soft font-medium text-fg' : 'text-sub hover:bg-soft hover:text-fg'}">
+        ${icon(p.icon)}<span class="flex-1">${p.title}</span>
+        ${p.count ? `<span class="text-[11px] tabular-nums text-sub">${p.count}</span>` : ''}
+        ${p.dot ? `<span class="h-1.5 w-1.5 rounded-full bg-${p.dot}"></span>` : ''}</button>`;
+    }).join('')}`).join('');
+}
+function renderCrumbs() {
+  const NAMES = { start:'Start', trainings:'Trainings', orders:'Orders', learners:'Learners', environment:'Queues and processes', history:'Change history' };
+  let parts;
+  if (state.view === 'detail') {
+    const det = DETAILS[state.id];
+    parts = [`<button data-go="${det.type}" class="text-sub hover:text-fg hover:underline">${NAMES[det.type]}</button>`,
+          `<span class="truncate font-medium">${det.title}</span>`];
+  } else parts = [`<span class="font-medium">${NAMES[state.view]}</span>`];
+  el('crumbs').innerHTML = parts.map((c,i) => (i ? '<span class="text-sub">/</span>' : '') + c).join('');
+}
+
+/* ===================== PAGES: LISTS ===================== */
+const LISTS = {
+  trainings: { title:'Trainings', description:'Course editions in this environment.', primary:['add_participant','Create a test edition'],
+    columns:['Course','Dates','Trainer','Seats','Status','To do'], data:TRAININGS,
+    row:s => ({ id:s.id, cells:[`<span class="font-medium">${s.name}</span>`, s.dates, s.trainer, s.seats, badge(s.tone, s.status),
+      s.issues ? badge('stop', `${s.issues} to clear`) : '<span class="text-sub">—</span>'] }) },
+  orders: { title:'Orders', description:'Seat purchases for trainings.', primary:null,
+    columns:['Number','Buyer','Seats','Amount','Status','To do'], data:ORDERS,
+    row:z => ({ id:z.id, cells:[`<span class="font-mono text-[12px] font-medium">${z.number}</span>`, z.buyer, z.seats, z.amount, badge(z.tone, z.status),
+      z.issues ? badge('stop', `${z.issues} to clear`) : '<span class="text-sub">—</span>'] }) },
+  learners: { title:'Learners', description:'People enrolled in trainings and online courses.', primary:null,
+    columns:['Person','Email','Trainings','E-learning','Certificates','To do'], data:LEARNERS,
+    row:o => ({ id:o.id, cells:[`<span class="font-medium">${o.name}</span>`, `<span class="text-sub">${o.mail}</span>`, o.trainings, o.elearning, o.certificates,
+      o.issues ? badge('stop', `${o.issues} to clear`) : '<span class="text-sub">—</span>'] }) },
+};
+function listPage(k) {
+  const L = LISTS[k];
+  const rows = L.data.map(d => {
+    const w = L.row(d);
+    const clickable = DETAILS[w.id] ? `data-open="${w.id}"` : '';
+    return `<tr ${clickable} class="border-b border-border last:border-0 ${DETAILS[w.id] ? 'cursor-pointer hover:bg-soft' : ''}">
+      ${w.cells.map((c,i) => `<td class="px-4 py-3 ${i===0?'':'text-sub'}">${c}</td>`).join('')}
+      <td class="px-4 py-3 text-right">${DETAILS[w.id] ? '<span class="text-sub">›</span>' : ''}</td></tr>`;
+  }).join('');
+  return pageHeader(L.title, L.description, L.primary ? button(L.primary[1], `data-action="${L.primary[0]}"`, 'primary') : '') +
+    `<div class="p-4 sm:p-6">${card('', `<div class="overflow-x-auto"><table class="w-full text-[13px]">
+      <thead><tr class="border-b border-border bg-soft/60 text-[11px] uppercase tracking-wide text-sub">
+        ${L.columns.map(c => `<th class="px-4 py-2 text-left font-semibold">${c}</th>`).join('')}<th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`)}</div>`;
+}
+
+/* ===================== PAGE: DETAIL ===================== */
+function pageHeader(title, subtitle, actions='', pill='') {
+  return `<div class="border-b border-border bg-bg px-4 py-5 sm:px-6">
+    <div class="flex flex-wrap items-start gap-3">
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center gap-2.5">
+          <h1 class="text-[20px] font-semibold tracking-tight">${title}</h1>${pill}
+        </div>
+        <p class="mt-1 text-[13px] text-sub">${subtitle}</p>
+      </div>
+      ${actions?`<div class="flex shrink-0 gap-2">${actions}</div>`:''}
+    </div></div>`;
+}
+function detailPage(id) {
+  const det = DETAILS[id];
+  const stats = `<div class="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
+    ${det.stats.map(([w,o,t]) => `<div class="bg-bg px-4 py-3.5">
+      <p class="text-[20px] font-semibold tabular-nums tracking-tight ${t?'text-'+t:''}">${w}</p>
+      <p class="mt-0.5 text-[12px] text-sub">${o}</p></div>`).join('')}</div>`;
+
+  const blockers = card(`Needs attention`, det.blockers.length ? `<div class="divide-y divide-border">
+      ${det.blockers.map(b => `<div class="flex flex-wrap items-center gap-3 px-4 py-3">
+        <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-${b.tone} text-[12px] font-semibold text-white">!</span>
+        <div class="min-w-0 flex-1"><p class="text-[13px] font-medium">${b.title}</p><p class="text-[12px] text-sub">${b.description}</p></div>
+        ${button(b.cta, `data-action="${b.action}"`, 'primary')}</div>`).join('')}</div>`
+    : `<div class="flex items-center gap-2.5 px-4 py-4 text-[13px] text-ok"><span>✓</span>
+        <span>Nothing is blocking. Everything is ready for testing.</span></div>`);
+
+  const table = card(det.table.title, `<div class="overflow-x-auto"><table class="w-full text-[13px]">
+    <thead><tr class="border-b border-border bg-soft/60 text-[11px] uppercase tracking-wide text-sub">
+      ${det.table.headers.map(h => `<th class="px-4 py-2 text-left font-semibold">${h}</th>`).join('')}</tr></thead>
+    <tbody>${det.table.rows.map(w => `<tr class="border-b border-border last:border-0">
+      ${w.cells.map((c,i) => `<td class="px-4 py-3 ${i===0?'':'text-sub'}">${i===0&&w.link?`<button data-open="${w.link}" class="font-medium text-info hover:underline">${c}</button>`:cell(c)}</td>`).join('')}
+      <td class="space-x-3 px-4 py-3 text-right">${w.actions.map(([a,t]) =>
+        `<button data-action="${a}" class="text-[12px] font-medium text-info hover:underline">${t}</button>`).join('')}</td></tr>`).join('')}
+    </tbody></table></div>`);
+
+  const lists = det.lists.map(l => card(l.title, `<div class="divide-y divide-border">
+    ${l.items.map(([t,o,a,cta,link]) => `<div class="flex items-center gap-3 px-4 py-3">
+      <span class="min-w-0 flex-1">${link?`<button data-open="${link}" class="text-[13px] text-info hover:underline">${t}</button>`:`<span class="text-[13px]">${t}</span>`}
+        ${o?`<span class="block text-[12px] text-sub">${o}</span>`:''}</span>
+      ${a?`<button data-action="${a}" class="shrink-0 text-[12px] font-medium text-info hover:underline">${cta}</button>`:''}</div>`).join('')}</div>`)).join('');
+
+  const rail = card('Operations', `<div class="space-y-2 p-4">
+    ${det.operations.map(c => `<button data-action="${c}" class="w-full rounded-md border border-border px-3 py-2 text-left text-[13px] hover:bg-soft">
+      ${OPERATIONS[c].title}</button>`).join('')}</div>`);
+
+  return pageHeader(det.title, det.subtitle,
+      button(OPERATIONS[det.operations[0]].title, `data-action="${det.operations[0]}"`, 'primary'),
+      badge(det.status.tone, det.status.text)) +
+    `<div class="space-y-4 p-4 sm:p-6">
+      ${stats}${blockers}
+      <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div class="space-y-4">${table}${lists}</div>
+        <div class="lg:sticky lg:top-4 lg:self-start">${rail}</div>
+      </div></div>`;
+}
+
+/* ===================== PAGES: ENVIRONMENT, HISTORY, START ===================== */
+function environmentPage() {
+  return pageHeader('Queues and processes', 'training.staging.example.test · namespace staging · refreshed 2 minutes ago',
+      button('Flush all queues','data-action="queues"','primary'), badge('wait','One thing to check')) +
+    `<div class="space-y-4 p-4 sm:p-6">
+      <div class="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
+        <div class="bg-bg px-4 py-3.5"><p class="text-[20px] font-semibold tabular-nums text-ok">7/7</p><p class="mt-0.5 text-[12px] text-sub">processes running</p></div>
+        <div class="bg-bg px-4 py-3.5"><p class="text-[20px] font-semibold tabular-nums text-stop">3</p><p class="mt-0.5 text-[12px] text-sub">restarts in an hour</p></div>
+        <div class="bg-bg px-4 py-3.5"><p class="text-[20px] font-semibold tabular-nums">11</p><p class="mt-0.5 text-[12px] text-sub">minutes until reminders</p></div>
+        <div class="bg-bg px-4 py-3.5"><p class="text-[20px] font-semibold tabular-nums text-ok">0</p><p class="mt-0.5 text-[12px] text-sub">emails to real people</p></div>
+      </div>
+      ${card('Needs attention', `<div class="flex flex-wrap items-center gap-3 px-4 py-3">
+        <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-stop text-[12px] font-semibold text-white">!</span>
+        <div class="min-w-0 flex-1"><p class="text-[13px] font-medium">The certificate worker restarted three times in the last hour</p>
+        <p class="text-[12px] text-sub">Certificates may not be generated. If your test involves them, check this first.</p></div>
+        ${button('Restart and show logs','data-action="restart"','primary')}</div>`)}
+      <div class="grid gap-4 lg:grid-cols-2">
+        ${card('Queues', `<div class="divide-y divide-border">
+          ${[['email-outbox','4 waiting','wait'],['certificate-outbox','2 waiting','wait'],['invoice-outbox','1 waiting','wait'],['integration-events','empty','sub']].map(([n,s,t]) =>
+            `<div class="flex items-center gap-3 px-4 py-3"><span class="flex-1 font-mono text-[12px]">${n}</span>${badge(t,s)}
+             ${t!=='sub'?`<button data-action="queues" class="text-[12px] font-medium text-info hover:underline">Send</button>`:''}</div>`).join('')}</div>`)}
+        ${card('Integrations', `<div class="divide-y divide-border">
+          ${[['Payment provider','sandbox'],['Mailing list','list staging-*'],['Identity provider','realm staging'],['Content service','separate database']].map(([n,s]) =>
+            `<div class="flex items-center gap-3 px-4 py-3"><span class="flex-1 text-[13px]">${n}</span><span class="text-[12px] text-sub">${s}</span></div>`).join('')}</div>`)}
+      </div>
+      ${card('Cleanup', `<div class="flex flex-wrap gap-2 p-4">
+        ${button('Run reminders now','data-action="cron"')}
+        ${button('Create a test edition','data-action="add_participant"')}
+        ${button('Delete test data','data-action="purge"','destructive')}</div>`)}
+    </div>`;
+}
+function historyPage() {
+  const H = [['16:41','Issued certificate CERT/2026/00318','Safety course for facility staff','ok'],
+             ['16:38','Marked order #4821 as paid','Example Corp','ok'],
+             ['16:31','Moved session dates by 2 weeks','Safety course for facility staff','ok'],
+             ['15:02','Failed to issue certificate','Course without hours — template error','stop'],
+             ['14:20','Created 3 test applications','Fire safety','ok']];
+  return pageHeader('Change history', 'What changed in this environment, and when. The log survives a panel restart.') +
+    `<div class="p-4 sm:p-6">${card('', `<div class="divide-y divide-border">
+      ${H.map(([g,c,where,t]) => `<div class="flex flex-wrap items-center gap-3 px-4 py-3">
+        <span class="font-mono text-[12px] text-sub">${g}</span>
+        <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-${t}"></span>
+        <span class="min-w-0 flex-1"><span class="block text-[13px]">${c}</span><span class="block text-[12px] text-sub">${where}</span></span>
+        <span class="text-[12px] text-sub">Test User</span></div>`).join('')}</div>`)}</div>`;
+}
+function startPage() {
+  const tile = (id, title, description, count, tone) => `<button data-go="${id}" class="rounded-lg border border-border bg-bg p-4 text-left hover:bg-soft">
+    <span class="flex items-center gap-2 text-[13px] font-medium">${icon(id)}${title}</span>
+    <span class="mt-1 block text-[12px] text-sub">${description}</span>
+    <span class="mt-2 block text-[13px] ${tone?'text-'+tone:''}">${count}</span></button>`;
+  return pageHeader('Start', 'Acme Training staging environment. Start with what needs attention.') +
+    `<div class="space-y-4 p-4 sm:p-6">
+      ${card('Needs attention in this environment', `<div class="divide-y divide-border">
+        ${[['Safety course for facility staff','3 things are blocking the certificate test','rc-118'],
+           ['Order #4821','2 invitations with a problem','order-4821'],
+           ['Alice Example','e-learning and certificate pending','person-alice']].map(([t,o,id]) =>
+          `<div class="flex items-center gap-3 px-4 py-3"><span class="min-w-0 flex-1">
+            <span class="block text-[13px] font-medium">${t}</span><span class="block text-[12px] text-sub">${o}</span></span>
+            ${button('Open', `data-open="${id}"`)}</div>`).join('')}</div>`)}
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        ${tile('trainings','Trainings','course editions','4 editions, 2 with problems','wait')}
+        ${tile('orders','Orders','seat purchases','4 orders, 1 unpaid','stop')}
+        ${tile('learners','Learners','people and certificates','4 people','')}
+        ${tile('environment','Queues and processes','environment status','7 items in queues','wait')}
+      </div></div>`;
+}
+
+/* ===================== ROUTER ===================== */
+function render() {
+  renderNav(); renderCrumbs();
+  const w = state.view;
+  el('page').innerHTML =
+    w === 'detail' ? detailPage(state.id)
+    : LISTS[w] ? listPage(w)
+    : w === 'environment' ? environmentPage()
+    : w === 'history' ? historyPage()
+    : startPage();
+  el('page').scrollTop = 0;
+}
+function go(w) { state.view = w; state.id = null; closeNav(); render(); }
+function openDetail(id) { if (!DETAILS[id]) return; state.view = 'detail'; state.id = id; closeNav(); render(); }
+
+/* ===================== OPERATION EFFECTS ===================== */
+const dropBlocker = (det, id) => { det.blockers = det.blockers.filter(b => b.id !== id); };
+const rowAt = (det, i) => det.table.rows[i];
+const EFFECTS = {
+  shift_dates(det){ dropBlocker(det,'b1'); det.status={text:'Finished 31.08.2026',tone:'ok'};
+            det.subtitle = det.subtitle.replace('12–14.09.2026','29–31.08.2026'); },
+  payment(det){ dropBlocker(det,'b2'); det.stats[0]=['9/12','seats taken','']; det.stats[2]=['0','unpaid order','ok'];
+            const w=rowAt(det,2); w.cells[1]='<ok>paid'; w.actions=[['login','Log in as her']]; },
+  queues(det){ if(!det) return; dropBlocker(det,'b3'); det.stats[3]=['0','waiting in queues','ok'];
+            const l=det.lists.find(x=>x.title.includes('Queues')); if(l) l.items=l.items.map(([t])=>[t,'empty',null,null]); },
+  complete(det){ const w=rowAt(det,1); w.cells[2]='3 of 3'; w.cells[3]='<wait>ready to issue'; w.actions=[['certificate','Issue certificate']]; },
+  certificate(det){ const w=rowAt(det,3); if(w){ w.cells[3]='<ok>issued'; w.actions=[['login','Log in as him']]; } },
+  add_participant(det){ if(det?.stats) det.stats[0]=['9/12','seats taken','']; },
+  waitlist(det){ det.stats[1]=['2','on the waiting list','wait'];
+            const l=det.lists.find(x=>x.title.includes('Waiting')); if(l) l.items[0]=['Carol Example','has an invitation, valid for 48 h',null,null]; },
+  order_paid(det){ dropBlocker(det,'b1'); det.status={text:'Paid',tone:'ok'};
+            const l=det.lists[0]; l.items[0]=['Payment provider','payment confirmed',null,null]; l.items[1]=['Invoice','INV/2026/0913 queued','invoice_now','Issue now']; },
+  change_address(det){ dropBlocker(det,'b2'); det.stats[2]=['1','invitations with a problem','wait'];
+            const w=rowAt(det,3); w.cells[1]='new.employee@corp.example.test'; w.cells[2]='<wait>sent, pending'; w.actions=[['expire_invite','Force expiry']]; },
+  assign_person(det){ const w=rowAt(det,2); w.cells[1]='spare.employee@corp.example.test'; w.cells[2]='<wait>sent, pending'; w.actions=[['expire_invite','Force expiry']]; },
+  expire_invite(det){ const w=rowAt(det,1); w.cells[2]='<sub>expired'; w.actions=[['change_address','Resend']]; },
+  invoice_now(det){ const l=det.lists[0]; l.items[1]=['Invoice','INV/2026/0913 issued',null,null]; },
+  membership(det){ det.lists[1].items[0]=['Example Corp','association member',null,null]; },
+  notify(det){ const w=rowAt(det,4); w.cells[2]='<info>buyer notified'; w.actions=[]; },
+  lessons(det){ dropBlocker(det,'b1'); det.stats[1]=['12/12','e-learning lessons','ok']; det.stats[2]=['2','valid certificates','ok'];
+            det.lists[0].items[0]=['Workplace safety — periodic online course','12 of 12 lessons · certificate issued automatically',null,null]; },
+  approve_cert(det){ dropBlocker(det,'b2'); det.status={text:'Association members',tone:'ok'}; det.stats[3]=['0','awaiting review','sub'];
+            const w=rowAt(det,1); w.cells[2]='<ok>valid'; w.actions=[['revoke_cert','Revoke']]; },
+  revoke_cert(det){ const w=rowAt(det,0); w.cells[2]='<sub>revoked'; w.actions=[]; },
+};
+
+/* ===================== OPERATION PANEL ===================== */
+function field(f) {
+  const c = f.k==='select' ? `<select class="mt-1.5 w-full rounded-md border-input py-2 text-[13px]">${f.o.map(x=>`<option>${x}</option>`).join('')}</select>`
+    : f.k==='search' ? `<div class="mt-1.5 rounded-md border border-input"><div class="flex items-center gap-2 px-3 py-2">
+        <span class="text-[13px]">${f.v}</span><span class="ml-auto text-sub">⌄</span></div>
+        <div class="border-t border-border px-3 py-1.5">${f.items.map(([a,b])=>
+          `<div class="py-1"><span class="block text-[13px]">${a}</span><span class="block text-[12px] text-sub">${b}</span></div>`).join('')}</div></div>`
+    : null;
+  if (f.k === 'check') return `<label class="flex items-start gap-2.5 rounded-md border border-border px-3 py-2.5">
+      <span class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${f.on?'border-brand bg-brand text-[10px] text-brand-fg':'border-input'}">${f.on?'✓':''}</span>
+      <span class="text-[13px]">${f.l}</span></label>`;
+  return `<div><label class="text-[13px] font-medium">${f.l}</label>${c}</div>`;
+}
+function openPanel(k) {
+  state.active = k; const a = OPERATIONS[k];
+  el('scrim').hidden = false; el('sheet').hidden = false;
+  el('sheet').innerHTML = `
+    <div class="flex items-start gap-3 border-b border-border px-5 py-4">
+      <div class="min-w-0 flex-1"><h2 class="text-[16px] font-semibold tracking-tight">${a.title}</h2>
+        <p class="mt-1 text-[13px] text-sub">${a.description}</p></div>
+      <button data-close="1" class="rounded-md px-2 py-1 text-sub hover:bg-soft">✕</button></div>
+    <div class="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+      <div><p class="text-[12px] font-semibold uppercase tracking-wide text-sub">What will happen</p>
+        <ul class="mt-2.5 space-y-2">${a.effects.map(([t,x])=>
+          `<li class="flex gap-2.5 text-[13px]"><span class="mt-px font-semibold ${MARKS[t][0]}">${MARKS[t][1]}</span>
+           <span${t==='no'?' class="text-sub"':''}>${x}</span></li>`).join('')}</ul></div>
+      ${a.fields.length?`<div class="space-y-3 border-t border-border pt-5">${a.fields.map(field).join('')}</div>`:''}
+      ${a.phrase?`<div class="border-t border-border pt-5"><label class="text-[13px] font-medium">Type “${a.phrase}” to confirm</label>
+        <input class="mt-1.5 w-full rounded-md border-input text-[13px]" placeholder="${a.phrase}"></div>`:''}
+      <details class="rounded-md border border-border"><summary class="cursor-pointer px-3 py-2 text-[12px] font-medium text-sub hover:text-fg">Technical details</summary>
+        <dl class="grid grid-cols-[110px_minmax(0,1fr)] gap-y-1.5 border-t border-border px-3 py-2.5 font-mono text-[11px]">
+          ${Object.entries(a.tech).map(([x,y])=>`<dt class="text-sub">${x}</dt><dd class="break-all">${y}</dd>`).join('')}</dl></details>
+    </div>
+    <div class="flex items-center gap-2 border-t border-border px-5 py-4">
+      ${button('Cancel','data-close="1"')}<span class="flex-1"></span>
+      ${button(a.cta,'data-run="1"', a.destructive?'destructive':'primary')}</div>`;
+}
+function showResult() {
+  const a = OPERATIONS[state.active], r = a.result;
+  if (EFFECTS[state.active]) { try { EFFECTS[state.active](DETAILS[state.id]); render(); } catch(e){ console.warn('effect', state.active, e); } }
+  el('sheet').innerHTML = `
+    <div class="flex items-start gap-3 border-b border-border px-5 py-4">
+      <div class="min-w-0 flex-1">${badge('ok','✓ Done')}
+        <h2 class="mt-2 text-[16px] font-semibold tracking-tight">${r.title}</h2></div>
+      <button data-close="1" class="rounded-md px-2 py-1 text-sub hover:bg-soft">✕</button></div>
+    <div class="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+      <ul class="space-y-1.5">${r.lines.map(l=>`<li class="text-[13px]">${l}</li>`).join('')}</ul>
+      ${r.file?`<div class="flex items-center gap-3 rounded-md border border-border px-3 py-2.5">
+        <span class="rounded bg-soft px-1.5 py-1 text-[10px] font-semibold text-sub">PDF</span>
+        <span class="flex-1 font-mono text-[12px]">${r.file}</span>
+        <button class="text-[12px] font-medium text-info hover:underline">Download</button></div>`:''}
+      ${r.launch?`<div class="rounded-md border border-dashed border-info-bd bg-info-bg p-4">
+        <p class="text-[13px] font-medium text-info">${r.launch}</p>
+        <div class="mt-2.5">${button('Open in a new tab ↗','','primary')}</div></div>`:''}
+      <div class="border-t border-border pt-5"><p class="text-[12px] font-semibold uppercase tracking-wide text-sub">What next</p>
+        <div class="mt-2.5 space-y-2">${r.next.map(n=>
+          `<button data-close="1" class="w-full rounded-md border border-border px-3 py-2 text-left text-[13px] hover:bg-soft">${n}</button>`).join('')}</div></div>
+    </div>
+    <div class="flex border-t border-border px-5 py-4"><span class="flex-1"></span>${button('Close','data-close="1"','primary')}</div>`;
+  el('toast').textContent = r.title; el('toast').hidden = false;
+  clearTimeout(window.__t); window.__t = setTimeout(()=>{ el('toast').hidden = true; }, 2600);
+}
+const closePanel = () => { el('sheet').hidden = true; el('scrim').hidden = true; state.active = null; };
+
+/* ===================== MOBILE NAVIGATION + EVENTS ===================== */
+const openNav = () => { el('sidebar').classList.remove('-translate-x-full'); el('navscrim').hidden = false; };
+const closeNav = () => { el('sidebar').classList.add('-translate-x-full'); el('navscrim').hidden = true; };
+
+document.addEventListener('click', e => {
+  if (e.target === el('scrim')) return closePanel();
+  if (e.target === el('navscrim')) return closeNav();
+  if (e.target.closest('#burger')) return openNav();
+  const t = e.target.closest('[data-go],[data-open],[data-action],[data-close],[data-run]');
+  if (!t) return;
+  if (t.dataset.close) return closePanel();
+  if (t.dataset.run) return showResult();
+  if (t.dataset.action)   return openPanel(t.dataset.action);
+  if (t.dataset.open)    return openDetail(t.dataset.open);
+  if (t.dataset.go)      return go(t.dataset.go);
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closePanel(); closeNav(); } });
+
+render();
+</script>
+</body>
+</html>

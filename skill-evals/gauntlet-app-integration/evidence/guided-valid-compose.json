@@ -1,0 +1,2298 @@
+{
+  "scope": "synthetic-ephemeral-loopback-http",
+  "customerDeploymentVerified": false,
+  "receiptMode": "observations-only",
+  "minimumProbeRuns": 2,
+  "selfHashMeaning": "integrity-only-not-trust-or-attestation",
+  "requiredReceiptDigests": [
+    "configurationSha256",
+    "runnerSha256",
+    "runtimeArtifactsSha256",
+    "runtimeDependencyTreesSha256",
+    "dashboardClientTreeSha256",
+    "protocolTreeSha256",
+    "ajvTreeSha256",
+    "ajvFormatsTreeSha256",
+    "canonicalizeTreeSha256",
+    "fastDeepEqualTreeSha256",
+    "fastUriTreeSha256",
+    "jsonSchemaTraverseTreeSha256",
+    "requireFromStringTreeSha256",
+    "yamlPackageSha256"
+  ],
+  "observations": {
+    "disabled": {
+      "passed": true,
+      "evidenceType": "http-loopback",
+      "scope": "synthetic-ephemeral-loopback-http",
+      "observedAt": "2026-09-28T10:03:43.709Z",
+      "httpExchanges": 88,
+      "checks": [
+        {
+          "matrix": "disabled-adapter-route-families",
+          "runtime": "built-packed-sdk-host",
+          "families": [
+            "health",
+            "manifest",
+            "operation-definition",
+            "operation-run",
+            "run",
+            "data-source-query",
+            "data-source-resolve",
+            "cancel",
+            "events",
+            "upload",
+            "session-launch"
+          ],
+          "methods": [
+            "GET",
+            "GET",
+            "GET",
+            "POST",
+            "GET",
+            "POST",
+            "POST",
+            "POST",
+            "GET",
+            "POST",
+            "POST"
+          ],
+          "problemType": "urn:gauntlet:problem:adapter-disabled",
+          "applications": [
+            {
+              "application": "billing",
+              "statuses": [
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503
+              ]
+            },
+            {
+              "application": "portal",
+              "statuses": [
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503
+              ]
+            }
+          ]
+        },
+        {
+          "matrix": "disabled-raw-target-variants",
+          "rawTargets": [
+            "http://public.invalid/_gauntlet/v1/health",
+            "/%5Fgauntlet/v1/health",
+            "//_gauntlet//v1//health",
+            "/ordinary/../_gauntlet/v1/health",
+            "/_gauntlet/v1/health/",
+            "/_gauntlet%2fv1/health",
+            "/_gauntlet\\v1\\health",
+            "/_g%61untlet/v1/health",
+            "/_gauntlet/v1/operations/unsafe%ZZid",
+            "/_gauntlet/v1/manifest?query=1",
+            "/_gauntlet/v1/manifest#fragment"
+          ],
+          "applications": [
+            {
+              "application": "billing",
+              "statuses": [
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503
+              ]
+            },
+            {
+              "application": "portal",
+              "statuses": [
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503
+              ]
+            }
+          ]
+        },
+        {
+          "matrix": "host-and-client-error-boundaries",
+          "malformedAdapterRequestLines": [
+            "GET /_gauntlet/v1/manifest",
+            "GET http://attacker.invalid/_gauntlet/v1/manifest",
+            "GET /%5Fgauntlet/v1/manifest",
+            "GET /_gauntlet\\v1\\manifest",
+            "GET /_g%61untlet/v1/manifest",
+            "GET //_gauntlet//v1//manifest",
+            "GET /ordinary/../_gauntlet/v1/manifest",
+            "get /_gauntlet/v1/manifest",
+            "CUSTOMMETHODEXTENSION /_gauntlet/v1/manifest",
+            "M-SEARCH /_gauntlet/v1/manifest"
+          ],
+          "exceptionalRequests": {
+            "channels": [
+              "trace",
+              "track",
+              "connect",
+              "upgrade",
+              "expectation"
+            ],
+            "enabledStatuses": [
+              405,
+              400,
+              405,
+              405,
+              417
+            ],
+            "unrelatedStatuses": [
+              405,
+              400,
+              400,
+              400,
+              417
+            ]
+          },
+          "adapterProblemType": "urn:gauntlet:problem:adapter-disabled",
+          "applications": [
+            {
+              "application": "billing",
+              "hostFallback": {
+                "request": "GET /__fixture/counters",
+                "status": 200,
+                "operationRuns": 0
+              },
+              "clientErrorBoundary": {
+                "adapterStatuses": [
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503
+                ],
+                "unrelatedRequest": {
+                  "status": 400,
+                  "mediaType": ""
+                }
+              },
+              "exceptionalBoundary": {
+                "adapterStatuses": [
+                  503,
+                  503,
+                  503,
+                  503,
+                  503
+                ],
+                "unrelatedStatuses": [
+                  405,
+                  400,
+                  400,
+                  400,
+                  417
+                ]
+              }
+            },
+            {
+              "application": "portal",
+              "hostFallback": {
+                "request": "GET /__fixture/counters",
+                "status": 200,
+                "operationRuns": 0
+              },
+              "clientErrorBoundary": {
+                "adapterStatuses": [
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503
+                ],
+                "unrelatedRequest": {
+                  "status": 400,
+                  "mediaType": ""
+                }
+              },
+              "exceptionalBoundary": {
+                "adapterStatuses": [
+                  503,
+                  503,
+                  503,
+                  503,
+                  503
+                ],
+                "unrelatedStatuses": [
+                  405,
+                  400,
+                  400,
+                  400,
+                  417
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "configurationSha256": "sha256:56ff30cf450ebb659117243c0bcc11c0352892c4a080db5469d211babbf39b5f",
+      "runnerSha256": "sha256:bba5cf3a4e57e55cb1bfc473c887d89824b062d1194955c660b749aa6e3eadf1",
+      "runtimeArtifactsSha256": "sha256:0a67ba0caae85c30baf30fba63a93b491ed06195146b54a3701e6e7657fabb77",
+      "runtimeDependencyTreesSha256": "sha256:c46a0b40c0abbf8371e9119027f432537fe37cf482f7233ea269270414d6734a",
+      "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+      "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+      "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+      "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+      "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+      "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+      "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+      "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+      "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+      "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+      "probeRun": 2,
+      "previousReceiptSha256": "sha256:1527f6340bf53be3d194d4a5171160a2f9c3af01f18e6815c8f378aa505ebc38",
+      "receiptSha256": "sha256:e2c1a76807abe3e14776d722300f79d97a37b74f66936a05820e8d04a3e85d73"
+    },
+    "mismatchDenied": {
+      "passed": true,
+      "evidenceType": "http-loopback",
+      "scope": "synthetic-ephemeral-loopback-http",
+      "observedAt": "2026-09-28T10:03:45.390Z",
+      "httpExchanges": 74,
+      "checks": [
+        {
+          "application": "billing",
+          "mismatchAxis": "name",
+          "routeFamilies": [
+            {
+              "proxyFamily": "operation-definition",
+              "status": 503
+            },
+            {
+              "proxyFamily": "operation-run",
+              "status": 503
+            },
+            {
+              "proxyFamily": "run",
+              "status": 503
+            },
+            {
+              "proxyFamily": "upload",
+              "status": 503
+            },
+            {
+              "proxyFamily": "cancel",
+              "status": 503
+            },
+            {
+              "proxyFamily": "events",
+              "status": 503
+            },
+            {
+              "proxyFamily": "data-source-query",
+              "status": 503
+            },
+            {
+              "proxyFamily": "data-source-resolve",
+              "status": 503
+            },
+            {
+              "proxyFamily": "session-launch",
+              "status": 503
+            }
+          ],
+          "status": 503,
+          "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+          "upstreamApplicationRequests": 0
+        },
+        {
+          "application": "billing",
+          "mismatchAxis": "kind",
+          "routeFamilies": [
+            {
+              "proxyFamily": "operation-definition",
+              "status": 503
+            },
+            {
+              "proxyFamily": "operation-run",
+              "status": 503
+            },
+            {
+              "proxyFamily": "run",
+              "status": 503
+            },
+            {
+              "proxyFamily": "upload",
+              "status": 503
+            },
+            {
+              "proxyFamily": "cancel",
+              "status": 503
+            },
+            {
+              "proxyFamily": "events",
+              "status": 503
+            },
+            {
+              "proxyFamily": "data-source-query",
+              "status": 503
+            },
+            {
+              "proxyFamily": "data-source-resolve",
+              "status": 503
+            },
+            {
+              "proxyFamily": "session-launch",
+              "status": 503
+            }
+          ],
+          "status": 503,
+          "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+          "upstreamApplicationRequests": 0
+        },
+        {
+          "application": "portal",
+          "mismatchAxis": "name",
+          "routeFamilies": [
+            {
+              "proxyFamily": "operation-definition",
+              "status": 503
+            },
+            {
+              "proxyFamily": "operation-run",
+              "status": 503
+            },
+            {
+              "proxyFamily": "run",
+              "status": 503
+            },
+            {
+              "proxyFamily": "upload",
+              "status": 503
+            },
+            {
+              "proxyFamily": "cancel",
+              "status": 503
+            },
+            {
+              "proxyFamily": "events",
+              "status": 503
+            },
+            {
+              "proxyFamily": "data-source-query",
+              "status": 503
+            },
+            {
+              "proxyFamily": "data-source-resolve",
+              "status": 503
+            },
+            {
+              "proxyFamily": "session-launch",
+              "status": 503
+            }
+          ],
+          "status": 503,
+          "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+          "upstreamApplicationRequests": 0
+        },
+        {
+          "application": "portal",
+          "mismatchAxis": "kind",
+          "routeFamilies": [
+            {
+              "proxyFamily": "operation-definition",
+              "status": 503
+            },
+            {
+              "proxyFamily": "operation-run",
+              "status": 503
+            },
+            {
+              "proxyFamily": "run",
+              "status": 503
+            },
+            {
+              "proxyFamily": "upload",
+              "status": 503
+            },
+            {
+              "proxyFamily": "cancel",
+              "status": 503
+            },
+            {
+              "proxyFamily": "events",
+              "status": 503
+            },
+            {
+              "proxyFamily": "data-source-query",
+              "status": 503
+            },
+            {
+              "proxyFamily": "data-source-resolve",
+              "status": 503
+            },
+            {
+              "proxyFamily": "session-launch",
+              "status": 503
+            }
+          ],
+          "status": 503,
+          "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+          "upstreamApplicationRequests": 0
+        }
+      ],
+      "configurationSha256": "sha256:56ff30cf450ebb659117243c0bcc11c0352892c4a080db5469d211babbf39b5f",
+      "runnerSha256": "sha256:bba5cf3a4e57e55cb1bfc473c887d89824b062d1194955c660b749aa6e3eadf1",
+      "runtimeArtifactsSha256": "sha256:0a67ba0caae85c30baf30fba63a93b491ed06195146b54a3701e6e7657fabb77",
+      "runtimeDependencyTreesSha256": "sha256:c46a0b40c0abbf8371e9119027f432537fe37cf482f7233ea269270414d6734a",
+      "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+      "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+      "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+      "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+      "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+      "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+      "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+      "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+      "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+      "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+      "probeRun": 2,
+      "previousReceiptSha256": "sha256:5134e78a90edc5f503928561f55873437dae957d9e55aa1b6bb1d025cc47de7c",
+      "receiptSha256": "sha256:7f58ac74397db49519eb33c64e679e8fee8a20dc59de7f87d1517fe58392c899"
+    },
+    "syntheticProtocolExercise": {
+      "passed": true,
+      "evidenceType": "http-loopback",
+      "scope": "synthetic-ephemeral-loopback-http",
+      "observedAt": "2026-09-28T10:03:47.092Z",
+      "httpExchanges": 130,
+      "checks": [
+        {
+          "application": "billing",
+          "runtime": "built-packed-sdk-host",
+          "healthStatus": 200,
+          "manifestStatus": 200,
+          "protocolVersion": "1.0",
+          "environment": {
+            "name": "staging",
+            "kind": "staging"
+          },
+          "operationDefinitionStatus": 200,
+          "staleRevisionStatus": 409,
+          "invalidInputStatus": 422,
+          "idempotentReplay": true,
+          "terminalState": "succeeded",
+          "dataSourceQueryStatus": 200,
+          "dataSourceResolveStatus": 200,
+          "applicationOperationRuns": 1,
+          "operationInputMatched": true,
+          "applicationDataSourceQueries": 1,
+          "applicationDataSourceResolves": 1,
+          "dataSourceInputsMatched": true,
+          "rawBoundary": {
+            "statuses": [
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400
+            ],
+            "malformedAdapter": {
+              "statuses": [
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400
+              ],
+              "problemType": "urn:gauntlet:problem:invalid-path"
+            },
+            "unrelatedMalformed": {
+              "status": 400,
+              "mediaType": ""
+            },
+            "exceptionalRequestsMatched": true
+          }
+        },
+        {
+          "application": "portal",
+          "runtime": "built-packed-sdk-host",
+          "healthStatus": 200,
+          "manifestStatus": 200,
+          "protocolVersion": "1.0",
+          "environment": {
+            "name": "staging",
+            "kind": "staging"
+          },
+          "operationDefinitionStatus": 200,
+          "staleRevisionStatus": 409,
+          "invalidInputStatus": 422,
+          "idempotentReplay": true,
+          "terminalState": "succeeded",
+          "dataSourceQueryStatus": 200,
+          "dataSourceResolveStatus": 200,
+          "applicationOperationRuns": 1,
+          "operationInputMatched": true,
+          "applicationDataSourceQueries": 1,
+          "applicationDataSourceResolves": 1,
+          "dataSourceInputsMatched": true,
+          "rawBoundary": {
+            "statuses": [
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400
+            ],
+            "malformedAdapter": {
+              "statuses": [
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400
+              ],
+              "problemType": "urn:gauntlet:problem:invalid-path"
+            },
+            "unrelatedMalformed": {
+              "status": 400,
+              "mediaType": ""
+            },
+            "exceptionalRequestsMatched": true
+          }
+        },
+        {
+          "matrix": "enabled-raw-and-client-error-targets",
+          "invalidRawTargets": [
+            "/_gauntlet/v1/operations/a/../b",
+            "/_gauntlet/v1/operations/a/./b",
+            "/_gauntlet/v1/manifest/..",
+            "/_gauntlet/v1/manifest/.",
+            "/_gauntlet/v1//manifest",
+            "/_gauntlet/v1/operations/a%2fb",
+            "/_gauntlet/v1/operations/a\\b",
+            "/_gauntlet/v1/manifest?query=1",
+            "/_gauntlet/v1/manifest#fragment",
+            "/_gauntlet/v1/manifest/",
+            "/_gauntlet/v1/manifest/extra",
+            "/_gauntlet/v1/operations/bad$id",
+            "/_gauntlet/v1/operations/unsafe%ZZid"
+          ],
+          "malformedAdapterRequestLines": [
+            "GET /_gauntlet/v1/manifest",
+            "GET http://attacker.invalid/_gauntlet/v1/manifest",
+            "GET /%5Fgauntlet/v1/manifest",
+            "GET /_gauntlet\\v1\\manifest",
+            "GET /_g%61untlet/v1/manifest",
+            "GET //_gauntlet//v1//manifest",
+            "GET /ordinary/../_gauntlet/v1/manifest",
+            "get /_gauntlet/v1/manifest",
+            "CUSTOMMETHODEXTENSION /_gauntlet/v1/manifest",
+            "M-SEARCH /_gauntlet/v1/manifest"
+          ],
+          "exceptionalRequests": {
+            "channels": [
+              "trace",
+              "track",
+              "connect",
+              "upgrade",
+              "expectation"
+            ],
+            "adapterStatuses": [
+              405,
+              400,
+              405,
+              405,
+              417
+            ],
+            "unrelatedStatuses": [
+              405,
+              400,
+              400,
+              400,
+              417
+            ]
+          }
+        }
+      ],
+      "configurationSha256": "sha256:56ff30cf450ebb659117243c0bcc11c0352892c4a080db5469d211babbf39b5f",
+      "runnerSha256": "sha256:bba5cf3a4e57e55cb1bfc473c887d89824b062d1194955c660b749aa6e3eadf1",
+      "runtimeArtifactsSha256": "sha256:0a67ba0caae85c30baf30fba63a93b491ed06195146b54a3701e6e7657fabb77",
+      "runtimeDependencyTreesSha256": "sha256:c46a0b40c0abbf8371e9119027f432537fe37cf482f7233ea269270414d6734a",
+      "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+      "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+      "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+      "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+      "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+      "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+      "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+      "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+      "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+      "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+      "probeRun": 2,
+      "previousReceiptSha256": "sha256:ad4005cb5a3c28378886b88520209278443d4a6f897b774b6141a6138ea849a2",
+      "receiptSha256": "sha256:d55a24f0e0f2629d485d75be7d35f05e1e7266c4961e8071293faf709fc2aa6c"
+    },
+    "adaptersUnpublished": {
+      "passed": true,
+      "evidenceType": "configuration-and-http-loopback",
+      "scope": "synthetic-ephemeral-loopback-http",
+      "observedAt": "2026-09-28T10:03:48.397Z",
+      "httpExchanges": 2,
+      "checks": [
+        {
+          "application": "billing",
+          "runtime": "built-packed-sdk-host",
+          "composeHostPorts": 0,
+          "stableExternalSecretReference": true,
+          "syntheticHarnessBind": "127.0.0.1",
+          "healthStatus": 200
+        },
+        {
+          "application": "portal",
+          "runtime": "built-packed-sdk-host",
+          "composeHostPorts": 0,
+          "stableExternalSecretReference": true,
+          "syntheticHarnessBind": "127.0.0.1",
+          "healthStatus": 200
+        }
+      ],
+      "configurationSha256": "sha256:56ff30cf450ebb659117243c0bcc11c0352892c4a080db5469d211babbf39b5f",
+      "runnerSha256": "sha256:bba5cf3a4e57e55cb1bfc473c887d89824b062d1194955c660b749aa6e3eadf1",
+      "runtimeArtifactsSha256": "sha256:0a67ba0caae85c30baf30fba63a93b491ed06195146b54a3701e6e7657fabb77",
+      "runtimeDependencyTreesSha256": "sha256:c46a0b40c0abbf8371e9119027f432537fe37cf482f7233ea269270414d6734a",
+      "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+      "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+      "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+      "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+      "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+      "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+      "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+      "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+      "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+      "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+      "probeRun": 2,
+      "previousReceiptSha256": "sha256:8f82f75c4341a34da75c7f3d9ef540ed4d93ee955dfbae0e89a67bc2530913e6",
+      "receiptSha256": "sha256:f0a3d98f36ee30b84a666a6d33e817acbf0f78bfc9bef0de41a07c45f2a5fa08"
+    },
+    "dashboardLoopbackOnly": {
+      "passed": true,
+      "evidenceType": "configuration-and-http-loopback",
+      "scope": "synthetic-ephemeral-loopback-http",
+      "observedAt": "2026-09-28T10:03:49.112Z",
+      "httpExchanges": 1,
+      "checks": [
+        {
+          "configuredHostAddress": "127.0.0.1",
+          "configuredLoopbackMappingPresent": true,
+          "syntheticHarnessBind": "127.0.0.1"
+        },
+        {
+          "request": "GET /health",
+          "status": 200,
+          "mediaType": "application/json"
+        }
+      ],
+      "configurationSha256": "sha256:56ff30cf450ebb659117243c0bcc11c0352892c4a080db5469d211babbf39b5f",
+      "runnerSha256": "sha256:bba5cf3a4e57e55cb1bfc473c887d89824b062d1194955c660b749aa6e3eadf1",
+      "runtimeArtifactsSha256": "sha256:0a67ba0caae85c30baf30fba63a93b491ed06195146b54a3701e6e7657fabb77",
+      "runtimeDependencyTreesSha256": "sha256:c46a0b40c0abbf8371e9119027f432537fe37cf482f7233ea269270414d6734a",
+      "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+      "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+      "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+      "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+      "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+      "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+      "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+      "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+      "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+      "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+      "probeRun": 2,
+      "previousReceiptSha256": "sha256:e09b8d6ece522285e1545b1b0a2bf490ee206782a3bb894acad6e43dbdf993f8",
+      "receiptSha256": "sha256:aa7b5027470c21bd38fbb05ee3ab02545159a71c08050d2fb0c033c218eeeb2a"
+    }
+  },
+  "observationHistory": {
+    "disabled": [
+      {
+        "passed": true,
+        "evidenceType": "http-loopback",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-28T10:03:42.947Z",
+        "httpExchanges": 88,
+        "checks": [
+          {
+            "matrix": "disabled-adapter-route-families",
+            "runtime": "built-packed-sdk-host",
+            "families": [
+              "health",
+              "manifest",
+              "operation-definition",
+              "operation-run",
+              "run",
+              "data-source-query",
+              "data-source-resolve",
+              "cancel",
+              "events",
+              "upload",
+              "session-launch"
+            ],
+            "methods": [
+              "GET",
+              "GET",
+              "GET",
+              "POST",
+              "GET",
+              "POST",
+              "POST",
+              "POST",
+              "GET",
+              "POST",
+              "POST"
+            ],
+            "problemType": "urn:gauntlet:problem:adapter-disabled",
+            "applications": [
+              {
+                "application": "billing",
+                "statuses": [
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503
+                ]
+              },
+              {
+                "application": "portal",
+                "statuses": [
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503
+                ]
+              }
+            ]
+          },
+          {
+            "matrix": "disabled-raw-target-variants",
+            "rawTargets": [
+              "http://public.invalid/_gauntlet/v1/health",
+              "/%5Fgauntlet/v1/health",
+              "//_gauntlet//v1//health",
+              "/ordinary/../_gauntlet/v1/health",
+              "/_gauntlet/v1/health/",
+              "/_gauntlet%2fv1/health",
+              "/_gauntlet\\v1\\health",
+              "/_g%61untlet/v1/health",
+              "/_gauntlet/v1/operations/unsafe%ZZid",
+              "/_gauntlet/v1/manifest?query=1",
+              "/_gauntlet/v1/manifest#fragment"
+            ],
+            "applications": [
+              {
+                "application": "billing",
+                "statuses": [
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503
+                ]
+              },
+              {
+                "application": "portal",
+                "statuses": [
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503
+                ]
+              }
+            ]
+          },
+          {
+            "matrix": "host-and-client-error-boundaries",
+            "malformedAdapterRequestLines": [
+              "GET /_gauntlet/v1/manifest",
+              "GET http://attacker.invalid/_gauntlet/v1/manifest",
+              "GET /%5Fgauntlet/v1/manifest",
+              "GET /_gauntlet\\v1\\manifest",
+              "GET /_g%61untlet/v1/manifest",
+              "GET //_gauntlet//v1//manifest",
+              "GET /ordinary/../_gauntlet/v1/manifest",
+              "get /_gauntlet/v1/manifest",
+              "CUSTOMMETHODEXTENSION /_gauntlet/v1/manifest",
+              "M-SEARCH /_gauntlet/v1/manifest"
+            ],
+            "exceptionalRequests": {
+              "channels": [
+                "trace",
+                "track",
+                "connect",
+                "upgrade",
+                "expectation"
+              ],
+              "enabledStatuses": [
+                405,
+                400,
+                405,
+                405,
+                417
+              ],
+              "unrelatedStatuses": [
+                405,
+                400,
+                400,
+                400,
+                417
+              ]
+            },
+            "adapterProblemType": "urn:gauntlet:problem:adapter-disabled",
+            "applications": [
+              {
+                "application": "billing",
+                "hostFallback": {
+                  "request": "GET /__fixture/counters",
+                  "status": 200,
+                  "operationRuns": 0
+                },
+                "clientErrorBoundary": {
+                  "adapterStatuses": [
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503
+                  ],
+                  "unrelatedRequest": {
+                    "status": 400,
+                    "mediaType": ""
+                  }
+                },
+                "exceptionalBoundary": {
+                  "adapterStatuses": [
+                    503,
+                    503,
+                    503,
+                    503,
+                    503
+                  ],
+                  "unrelatedStatuses": [
+                    405,
+                    400,
+                    400,
+                    400,
+                    417
+                  ]
+                }
+              },
+              {
+                "application": "portal",
+                "hostFallback": {
+                  "request": "GET /__fixture/counters",
+                  "status": 200,
+                  "operationRuns": 0
+                },
+                "clientErrorBoundary": {
+                  "adapterStatuses": [
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503
+                  ],
+                  "unrelatedRequest": {
+                    "status": 400,
+                    "mediaType": ""
+                  }
+                },
+                "exceptionalBoundary": {
+                  "adapterStatuses": [
+                    503,
+                    503,
+                    503,
+                    503,
+                    503
+                  ],
+                  "unrelatedStatuses": [
+                    405,
+                    400,
+                    400,
+                    400,
+                    417
+                  ]
+                }
+              }
+            ]
+          }
+        ],
+        "configurationSha256": "sha256:56ff30cf450ebb659117243c0bcc11c0352892c4a080db5469d211babbf39b5f",
+        "runnerSha256": "sha256:bba5cf3a4e57e55cb1bfc473c887d89824b062d1194955c660b749aa6e3eadf1",
+        "runtimeArtifactsSha256": "sha256:0a67ba0caae85c30baf30fba63a93b491ed06195146b54a3701e6e7657fabb77",
+        "runtimeDependencyTreesSha256": "sha256:c46a0b40c0abbf8371e9119027f432537fe37cf482f7233ea269270414d6734a",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 1,
+        "previousReceiptSha256": null,
+        "receiptSha256": "sha256:1527f6340bf53be3d194d4a5171160a2f9c3af01f18e6815c8f378aa505ebc38"
+      },
+      {
+        "passed": true,
+        "evidenceType": "http-loopback",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-28T10:03:43.709Z",
+        "httpExchanges": 88,
+        "checks": [
+          {
+            "matrix": "disabled-adapter-route-families",
+            "runtime": "built-packed-sdk-host",
+            "families": [
+              "health",
+              "manifest",
+              "operation-definition",
+              "operation-run",
+              "run",
+              "data-source-query",
+              "data-source-resolve",
+              "cancel",
+              "events",
+              "upload",
+              "session-launch"
+            ],
+            "methods": [
+              "GET",
+              "GET",
+              "GET",
+              "POST",
+              "GET",
+              "POST",
+              "POST",
+              "POST",
+              "GET",
+              "POST",
+              "POST"
+            ],
+            "problemType": "urn:gauntlet:problem:adapter-disabled",
+            "applications": [
+              {
+                "application": "billing",
+                "statuses": [
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503
+                ]
+              },
+              {
+                "application": "portal",
+                "statuses": [
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503
+                ]
+              }
+            ]
+          },
+          {
+            "matrix": "disabled-raw-target-variants",
+            "rawTargets": [
+              "http://public.invalid/_gauntlet/v1/health",
+              "/%5Fgauntlet/v1/health",
+              "//_gauntlet//v1//health",
+              "/ordinary/../_gauntlet/v1/health",
+              "/_gauntlet/v1/health/",
+              "/_gauntlet%2fv1/health",
+              "/_gauntlet\\v1\\health",
+              "/_g%61untlet/v1/health",
+              "/_gauntlet/v1/operations/unsafe%ZZid",
+              "/_gauntlet/v1/manifest?query=1",
+              "/_gauntlet/v1/manifest#fragment"
+            ],
+            "applications": [
+              {
+                "application": "billing",
+                "statuses": [
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503
+                ]
+              },
+              {
+                "application": "portal",
+                "statuses": [
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503
+                ]
+              }
+            ]
+          },
+          {
+            "matrix": "host-and-client-error-boundaries",
+            "malformedAdapterRequestLines": [
+              "GET /_gauntlet/v1/manifest",
+              "GET http://attacker.invalid/_gauntlet/v1/manifest",
+              "GET /%5Fgauntlet/v1/manifest",
+              "GET /_gauntlet\\v1\\manifest",
+              "GET /_g%61untlet/v1/manifest",
+              "GET //_gauntlet//v1//manifest",
+              "GET /ordinary/../_gauntlet/v1/manifest",
+              "get /_gauntlet/v1/manifest",
+              "CUSTOMMETHODEXTENSION /_gauntlet/v1/manifest",
+              "M-SEARCH /_gauntlet/v1/manifest"
+            ],
+            "exceptionalRequests": {
+              "channels": [
+                "trace",
+                "track",
+                "connect",
+                "upgrade",
+                "expectation"
+              ],
+              "enabledStatuses": [
+                405,
+                400,
+                405,
+                405,
+                417
+              ],
+              "unrelatedStatuses": [
+                405,
+                400,
+                400,
+                400,
+                417
+              ]
+            },
+            "adapterProblemType": "urn:gauntlet:problem:adapter-disabled",
+            "applications": [
+              {
+                "application": "billing",
+                "hostFallback": {
+                  "request": "GET /__fixture/counters",
+                  "status": 200,
+                  "operationRuns": 0
+                },
+                "clientErrorBoundary": {
+                  "adapterStatuses": [
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503
+                  ],
+                  "unrelatedRequest": {
+                    "status": 400,
+                    "mediaType": ""
+                  }
+                },
+                "exceptionalBoundary": {
+                  "adapterStatuses": [
+                    503,
+                    503,
+                    503,
+                    503,
+                    503
+                  ],
+                  "unrelatedStatuses": [
+                    405,
+                    400,
+                    400,
+                    400,
+                    417
+                  ]
+                }
+              },
+              {
+                "application": "portal",
+                "hostFallback": {
+                  "request": "GET /__fixture/counters",
+                  "status": 200,
+                  "operationRuns": 0
+                },
+                "clientErrorBoundary": {
+                  "adapterStatuses": [
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503,
+                    503
+                  ],
+                  "unrelatedRequest": {
+                    "status": 400,
+                    "mediaType": ""
+                  }
+                },
+                "exceptionalBoundary": {
+                  "adapterStatuses": [
+                    503,
+                    503,
+                    503,
+                    503,
+                    503
+                  ],
+                  "unrelatedStatuses": [
+                    405,
+                    400,
+                    400,
+                    400,
+                    417
+                  ]
+                }
+              }
+            ]
+          }
+        ],
+        "configurationSha256": "sha256:56ff30cf450ebb659117243c0bcc11c0352892c4a080db5469d211babbf39b5f",
+        "runnerSha256": "sha256:bba5cf3a4e57e55cb1bfc473c887d89824b062d1194955c660b749aa6e3eadf1",
+        "runtimeArtifactsSha256": "sha256:0a67ba0caae85c30baf30fba63a93b491ed06195146b54a3701e6e7657fabb77",
+        "runtimeDependencyTreesSha256": "sha256:c46a0b40c0abbf8371e9119027f432537fe37cf482f7233ea269270414d6734a",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 2,
+        "previousReceiptSha256": "sha256:1527f6340bf53be3d194d4a5171160a2f9c3af01f18e6815c8f378aa505ebc38",
+        "receiptSha256": "sha256:e2c1a76807abe3e14776d722300f79d97a37b74f66936a05820e8d04a3e85d73"
+      }
+    ],
+    "mismatchDenied": [
+      {
+        "passed": true,
+        "evidenceType": "http-loopback",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-28T10:03:44.586Z",
+        "httpExchanges": 74,
+        "checks": [
+          {
+            "application": "billing",
+            "mismatchAxis": "name",
+            "routeFamilies": [
+              {
+                "proxyFamily": "operation-definition",
+                "status": 503
+              },
+              {
+                "proxyFamily": "operation-run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "upload",
+                "status": 503
+              },
+              {
+                "proxyFamily": "cancel",
+                "status": 503
+              },
+              {
+                "proxyFamily": "events",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-query",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-resolve",
+                "status": 503
+              },
+              {
+                "proxyFamily": "session-launch",
+                "status": 503
+              }
+            ],
+            "status": 503,
+            "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+            "upstreamApplicationRequests": 0
+          },
+          {
+            "application": "billing",
+            "mismatchAxis": "kind",
+            "routeFamilies": [
+              {
+                "proxyFamily": "operation-definition",
+                "status": 503
+              },
+              {
+                "proxyFamily": "operation-run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "upload",
+                "status": 503
+              },
+              {
+                "proxyFamily": "cancel",
+                "status": 503
+              },
+              {
+                "proxyFamily": "events",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-query",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-resolve",
+                "status": 503
+              },
+              {
+                "proxyFamily": "session-launch",
+                "status": 503
+              }
+            ],
+            "status": 503,
+            "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+            "upstreamApplicationRequests": 0
+          },
+          {
+            "application": "portal",
+            "mismatchAxis": "name",
+            "routeFamilies": [
+              {
+                "proxyFamily": "operation-definition",
+                "status": 503
+              },
+              {
+                "proxyFamily": "operation-run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "upload",
+                "status": 503
+              },
+              {
+                "proxyFamily": "cancel",
+                "status": 503
+              },
+              {
+                "proxyFamily": "events",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-query",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-resolve",
+                "status": 503
+              },
+              {
+                "proxyFamily": "session-launch",
+                "status": 503
+              }
+            ],
+            "status": 503,
+            "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+            "upstreamApplicationRequests": 0
+          },
+          {
+            "application": "portal",
+            "mismatchAxis": "kind",
+            "routeFamilies": [
+              {
+                "proxyFamily": "operation-definition",
+                "status": 503
+              },
+              {
+                "proxyFamily": "operation-run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "upload",
+                "status": 503
+              },
+              {
+                "proxyFamily": "cancel",
+                "status": 503
+              },
+              {
+                "proxyFamily": "events",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-query",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-resolve",
+                "status": 503
+              },
+              {
+                "proxyFamily": "session-launch",
+                "status": 503
+              }
+            ],
+            "status": 503,
+            "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+            "upstreamApplicationRequests": 0
+          }
+        ],
+        "configurationSha256": "sha256:56ff30cf450ebb659117243c0bcc11c0352892c4a080db5469d211babbf39b5f",
+        "runnerSha256": "sha256:bba5cf3a4e57e55cb1bfc473c887d89824b062d1194955c660b749aa6e3eadf1",
+        "runtimeArtifactsSha256": "sha256:0a67ba0caae85c30baf30fba63a93b491ed06195146b54a3701e6e7657fabb77",
+        "runtimeDependencyTreesSha256": "sha256:c46a0b40c0abbf8371e9119027f432537fe37cf482f7233ea269270414d6734a",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 1,
+        "previousReceiptSha256": null,
+        "receiptSha256": "sha256:5134e78a90edc5f503928561f55873437dae957d9e55aa1b6bb1d025cc47de7c"
+      },
+      {
+        "passed": true,
+        "evidenceType": "http-loopback",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-28T10:03:45.390Z",
+        "httpExchanges": 74,
+        "checks": [
+          {
+            "application": "billing",
+            "mismatchAxis": "name",
+            "routeFamilies": [
+              {
+                "proxyFamily": "operation-definition",
+                "status": 503
+              },
+              {
+                "proxyFamily": "operation-run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "upload",
+                "status": 503
+              },
+              {
+                "proxyFamily": "cancel",
+                "status": 503
+              },
+              {
+                "proxyFamily": "events",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-query",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-resolve",
+                "status": 503
+              },
+              {
+                "proxyFamily": "session-launch",
+                "status": 503
+              }
+            ],
+            "status": 503,
+            "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+            "upstreamApplicationRequests": 0
+          },
+          {
+            "application": "billing",
+            "mismatchAxis": "kind",
+            "routeFamilies": [
+              {
+                "proxyFamily": "operation-definition",
+                "status": 503
+              },
+              {
+                "proxyFamily": "operation-run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "upload",
+                "status": 503
+              },
+              {
+                "proxyFamily": "cancel",
+                "status": 503
+              },
+              {
+                "proxyFamily": "events",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-query",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-resolve",
+                "status": 503
+              },
+              {
+                "proxyFamily": "session-launch",
+                "status": 503
+              }
+            ],
+            "status": 503,
+            "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+            "upstreamApplicationRequests": 0
+          },
+          {
+            "application": "portal",
+            "mismatchAxis": "name",
+            "routeFamilies": [
+              {
+                "proxyFamily": "operation-definition",
+                "status": 503
+              },
+              {
+                "proxyFamily": "operation-run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "upload",
+                "status": 503
+              },
+              {
+                "proxyFamily": "cancel",
+                "status": 503
+              },
+              {
+                "proxyFamily": "events",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-query",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-resolve",
+                "status": 503
+              },
+              {
+                "proxyFamily": "session-launch",
+                "status": 503
+              }
+            ],
+            "status": 503,
+            "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+            "upstreamApplicationRequests": 0
+          },
+          {
+            "application": "portal",
+            "mismatchAxis": "kind",
+            "routeFamilies": [
+              {
+                "proxyFamily": "operation-definition",
+                "status": 503
+              },
+              {
+                "proxyFamily": "operation-run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "upload",
+                "status": 503
+              },
+              {
+                "proxyFamily": "cancel",
+                "status": 503
+              },
+              {
+                "proxyFamily": "events",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-query",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-resolve",
+                "status": 503
+              },
+              {
+                "proxyFamily": "session-launch",
+                "status": 503
+              }
+            ],
+            "status": 503,
+            "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+            "upstreamApplicationRequests": 0
+          }
+        ],
+        "configurationSha256": "sha256:56ff30cf450ebb659117243c0bcc11c0352892c4a080db5469d211babbf39b5f",
+        "runnerSha256": "sha256:bba5cf3a4e57e55cb1bfc473c887d89824b062d1194955c660b749aa6e3eadf1",
+        "runtimeArtifactsSha256": "sha256:0a67ba0caae85c30baf30fba63a93b491ed06195146b54a3701e6e7657fabb77",
+        "runtimeDependencyTreesSha256": "sha256:c46a0b40c0abbf8371e9119027f432537fe37cf482f7233ea269270414d6734a",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 2,
+        "previousReceiptSha256": "sha256:5134e78a90edc5f503928561f55873437dae957d9e55aa1b6bb1d025cc47de7c",
+        "receiptSha256": "sha256:7f58ac74397db49519eb33c64e679e8fee8a20dc59de7f87d1517fe58392c899"
+      }
+    ],
+    "syntheticProtocolExercise": [
+      {
+        "passed": true,
+        "evidenceType": "http-loopback",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-28T10:03:46.237Z",
+        "httpExchanges": 130,
+        "checks": [
+          {
+            "application": "billing",
+            "runtime": "built-packed-sdk-host",
+            "healthStatus": 200,
+            "manifestStatus": 200,
+            "protocolVersion": "1.0",
+            "environment": {
+              "name": "staging",
+              "kind": "staging"
+            },
+            "operationDefinitionStatus": 200,
+            "staleRevisionStatus": 409,
+            "invalidInputStatus": 422,
+            "idempotentReplay": true,
+            "terminalState": "succeeded",
+            "dataSourceQueryStatus": 200,
+            "dataSourceResolveStatus": 200,
+            "applicationOperationRuns": 1,
+            "operationInputMatched": true,
+            "applicationDataSourceQueries": 1,
+            "applicationDataSourceResolves": 1,
+            "dataSourceInputsMatched": true,
+            "rawBoundary": {
+              "statuses": [
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400
+              ],
+              "malformedAdapter": {
+                "statuses": [
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400
+                ],
+                "problemType": "urn:gauntlet:problem:invalid-path"
+              },
+              "unrelatedMalformed": {
+                "status": 400,
+                "mediaType": ""
+              },
+              "exceptionalRequestsMatched": true
+            }
+          },
+          {
+            "application": "portal",
+            "runtime": "built-packed-sdk-host",
+            "healthStatus": 200,
+            "manifestStatus": 200,
+            "protocolVersion": "1.0",
+            "environment": {
+              "name": "staging",
+              "kind": "staging"
+            },
+            "operationDefinitionStatus": 200,
+            "staleRevisionStatus": 409,
+            "invalidInputStatus": 422,
+            "idempotentReplay": true,
+            "terminalState": "succeeded",
+            "dataSourceQueryStatus": 200,
+            "dataSourceResolveStatus": 200,
+            "applicationOperationRuns": 1,
+            "operationInputMatched": true,
+            "applicationDataSourceQueries": 1,
+            "applicationDataSourceResolves": 1,
+            "dataSourceInputsMatched": true,
+            "rawBoundary": {
+              "statuses": [
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400
+              ],
+              "malformedAdapter": {
+                "statuses": [
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400
+                ],
+                "problemType": "urn:gauntlet:problem:invalid-path"
+              },
+              "unrelatedMalformed": {
+                "status": 400,
+                "mediaType": ""
+              },
+              "exceptionalRequestsMatched": true
+            }
+          },
+          {
+            "matrix": "enabled-raw-and-client-error-targets",
+            "invalidRawTargets": [
+              "/_gauntlet/v1/operations/a/../b",
+              "/_gauntlet/v1/operations/a/./b",
+              "/_gauntlet/v1/manifest/..",
+              "/_gauntlet/v1/manifest/.",
+              "/_gauntlet/v1//manifest",
+              "/_gauntlet/v1/operations/a%2fb",
+              "/_gauntlet/v1/operations/a\\b",
+              "/_gauntlet/v1/manifest?query=1",
+              "/_gauntlet/v1/manifest#fragment",
+              "/_gauntlet/v1/manifest/",
+              "/_gauntlet/v1/manifest/extra",
+              "/_gauntlet/v1/operations/bad$id",
+              "/_gauntlet/v1/operations/unsafe%ZZid"
+            ],
+            "malformedAdapterRequestLines": [
+              "GET /_gauntlet/v1/manifest",
+              "GET http://attacker.invalid/_gauntlet/v1/manifest",
+              "GET /%5Fgauntlet/v1/manifest",
+              "GET /_gauntlet\\v1\\manifest",
+              "GET /_g%61untlet/v1/manifest",
+              "GET //_gauntlet//v1//manifest",
+              "GET /ordinary/../_gauntlet/v1/manifest",
+              "get /_gauntlet/v1/manifest",
+              "CUSTOMMETHODEXTENSION /_gauntlet/v1/manifest",
+              "M-SEARCH /_gauntlet/v1/manifest"
+            ],
+            "exceptionalRequests": {
+              "channels": [
+                "trace",
+                "track",
+                "connect",
+                "upgrade",
+                "expectation"
+              ],
+              "adapterStatuses": [
+                405,
+                400,
+                405,
+                405,
+                417
+              ],
+              "unrelatedStatuses": [
+                405,
+                400,
+                400,
+                400,
+                417
+              ]
+            }
+          }
+        ],
+        "configurationSha256": "sha256:56ff30cf450ebb659117243c0bcc11c0352892c4a080db5469d211babbf39b5f",
+        "runnerSha256": "sha256:bba5cf3a4e57e55cb1bfc473c887d89824b062d1194955c660b749aa6e3eadf1",
+        "runtimeArtifactsSha256": "sha256:0a67ba0caae85c30baf30fba63a93b491ed06195146b54a3701e6e7657fabb77",
+        "runtimeDependencyTreesSha256": "sha256:c46a0b40c0abbf8371e9119027f432537fe37cf482f7233ea269270414d6734a",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 1,
+        "previousReceiptSha256": null,
+        "receiptSha256": "sha256:ad4005cb5a3c28378886b88520209278443d4a6f897b774b6141a6138ea849a2"
+      },
+      {
+        "passed": true,
+        "evidenceType": "http-loopback",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-28T10:03:47.092Z",
+        "httpExchanges": 130,
+        "checks": [
+          {
+            "application": "billing",
+            "runtime": "built-packed-sdk-host",
+            "healthStatus": 200,
+            "manifestStatus": 200,
+            "protocolVersion": "1.0",
+            "environment": {
+              "name": "staging",
+              "kind": "staging"
+            },
+            "operationDefinitionStatus": 200,
+            "staleRevisionStatus": 409,
+            "invalidInputStatus": 422,
+            "idempotentReplay": true,
+            "terminalState": "succeeded",
+            "dataSourceQueryStatus": 200,
+            "dataSourceResolveStatus": 200,
+            "applicationOperationRuns": 1,
+            "operationInputMatched": true,
+            "applicationDataSourceQueries": 1,
+            "applicationDataSourceResolves": 1,
+            "dataSourceInputsMatched": true,
+            "rawBoundary": {
+              "statuses": [
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400
+              ],
+              "malformedAdapter": {
+                "statuses": [
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400
+                ],
+                "problemType": "urn:gauntlet:problem:invalid-path"
+              },
+              "unrelatedMalformed": {
+                "status": 400,
+                "mediaType": ""
+              },
+              "exceptionalRequestsMatched": true
+            }
+          },
+          {
+            "application": "portal",
+            "runtime": "built-packed-sdk-host",
+            "healthStatus": 200,
+            "manifestStatus": 200,
+            "protocolVersion": "1.0",
+            "environment": {
+              "name": "staging",
+              "kind": "staging"
+            },
+            "operationDefinitionStatus": 200,
+            "staleRevisionStatus": 409,
+            "invalidInputStatus": 422,
+            "idempotentReplay": true,
+            "terminalState": "succeeded",
+            "dataSourceQueryStatus": 200,
+            "dataSourceResolveStatus": 200,
+            "applicationOperationRuns": 1,
+            "operationInputMatched": true,
+            "applicationDataSourceQueries": 1,
+            "applicationDataSourceResolves": 1,
+            "dataSourceInputsMatched": true,
+            "rawBoundary": {
+              "statuses": [
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400
+              ],
+              "malformedAdapter": {
+                "statuses": [
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400
+                ],
+                "problemType": "urn:gauntlet:problem:invalid-path"
+              },
+              "unrelatedMalformed": {
+                "status": 400,
+                "mediaType": ""
+              },
+              "exceptionalRequestsMatched": true
+            }
+          },
+          {
+            "matrix": "enabled-raw-and-client-error-targets",
+            "invalidRawTargets": [
+              "/_gauntlet/v1/operations/a/../b",
+              "/_gauntlet/v1/operations/a/./b",
+              "/_gauntlet/v1/manifest/..",
+              "/_gauntlet/v1/manifest/.",
+              "/_gauntlet/v1//manifest",
+              "/_gauntlet/v1/operations/a%2fb",
+              "/_gauntlet/v1/operations/a\\b",
+              "/_gauntlet/v1/manifest?query=1",
+              "/_gauntlet/v1/manifest#fragment",
+              "/_gauntlet/v1/manifest/",
+              "/_gauntlet/v1/manifest/extra",
+              "/_gauntlet/v1/operations/bad$id",
+              "/_gauntlet/v1/operations/unsafe%ZZid"
+            ],
+            "malformedAdapterRequestLines": [
+              "GET /_gauntlet/v1/manifest",
+              "GET http://attacker.invalid/_gauntlet/v1/manifest",
+              "GET /%5Fgauntlet/v1/manifest",
+              "GET /_gauntlet\\v1\\manifest",
+              "GET /_g%61untlet/v1/manifest",
+              "GET //_gauntlet//v1//manifest",
+              "GET /ordinary/../_gauntlet/v1/manifest",
+              "get /_gauntlet/v1/manifest",
+              "CUSTOMMETHODEXTENSION /_gauntlet/v1/manifest",
+              "M-SEARCH /_gauntlet/v1/manifest"
+            ],
+            "exceptionalRequests": {
+              "channels": [
+                "trace",
+                "track",
+                "connect",
+                "upgrade",
+                "expectation"
+              ],
+              "adapterStatuses": [
+                405,
+                400,
+                405,
+                405,
+                417
+              ],
+              "unrelatedStatuses": [
+                405,
+                400,
+                400,
+                400,
+                417
+              ]
+            }
+          }
+        ],
+        "configurationSha256": "sha256:56ff30cf450ebb659117243c0bcc11c0352892c4a080db5469d211babbf39b5f",
+        "runnerSha256": "sha256:bba5cf3a4e57e55cb1bfc473c887d89824b062d1194955c660b749aa6e3eadf1",
+        "runtimeArtifactsSha256": "sha256:0a67ba0caae85c30baf30fba63a93b491ed06195146b54a3701e6e7657fabb77",
+        "runtimeDependencyTreesSha256": "sha256:c46a0b40c0abbf8371e9119027f432537fe37cf482f7233ea269270414d6734a",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 2,
+        "previousReceiptSha256": "sha256:ad4005cb5a3c28378886b88520209278443d4a6f897b774b6141a6138ea849a2",
+        "receiptSha256": "sha256:d55a24f0e0f2629d485d75be7d35f05e1e7266c4961e8071293faf709fc2aa6c"
+      }
+    ],
+    "adaptersUnpublished": [
+      {
+        "passed": true,
+        "evidenceType": "configuration-and-http-loopback",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-28T10:03:47.748Z",
+        "httpExchanges": 2,
+        "checks": [
+          {
+            "application": "billing",
+            "runtime": "built-packed-sdk-host",
+            "composeHostPorts": 0,
+            "stableExternalSecretReference": true,
+            "syntheticHarnessBind": "127.0.0.1",
+            "healthStatus": 200
+          },
+          {
+            "application": "portal",
+            "runtime": "built-packed-sdk-host",
+            "composeHostPorts": 0,
+            "stableExternalSecretReference": true,
+            "syntheticHarnessBind": "127.0.0.1",
+            "healthStatus": 200
+          }
+        ],
+        "configurationSha256": "sha256:56ff30cf450ebb659117243c0bcc11c0352892c4a080db5469d211babbf39b5f",
+        "runnerSha256": "sha256:bba5cf3a4e57e55cb1bfc473c887d89824b062d1194955c660b749aa6e3eadf1",
+        "runtimeArtifactsSha256": "sha256:0a67ba0caae85c30baf30fba63a93b491ed06195146b54a3701e6e7657fabb77",
+        "runtimeDependencyTreesSha256": "sha256:c46a0b40c0abbf8371e9119027f432537fe37cf482f7233ea269270414d6734a",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 1,
+        "previousReceiptSha256": null,
+        "receiptSha256": "sha256:8f82f75c4341a34da75c7f3d9ef540ed4d93ee955dfbae0e89a67bc2530913e6"
+      },
+      {
+        "passed": true,
+        "evidenceType": "configuration-and-http-loopback",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-28T10:03:48.397Z",
+        "httpExchanges": 2,
+        "checks": [
+          {
+            "application": "billing",
+            "runtime": "built-packed-sdk-host",
+            "composeHostPorts": 0,
+            "stableExternalSecretReference": true,
+            "syntheticHarnessBind": "127.0.0.1",
+            "healthStatus": 200
+          },
+          {
+            "application": "portal",
+            "runtime": "built-packed-sdk-host",
+            "composeHostPorts": 0,
+            "stableExternalSecretReference": true,
+            "syntheticHarnessBind": "127.0.0.1",
+            "healthStatus": 200
+          }
+        ],
+        "configurationSha256": "sha256:56ff30cf450ebb659117243c0bcc11c0352892c4a080db5469d211babbf39b5f",
+        "runnerSha256": "sha256:bba5cf3a4e57e55cb1bfc473c887d89824b062d1194955c660b749aa6e3eadf1",
+        "runtimeArtifactsSha256": "sha256:0a67ba0caae85c30baf30fba63a93b491ed06195146b54a3701e6e7657fabb77",
+        "runtimeDependencyTreesSha256": "sha256:c46a0b40c0abbf8371e9119027f432537fe37cf482f7233ea269270414d6734a",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 2,
+        "previousReceiptSha256": "sha256:8f82f75c4341a34da75c7f3d9ef540ed4d93ee955dfbae0e89a67bc2530913e6",
+        "receiptSha256": "sha256:f0a3d98f36ee30b84a666a6d33e817acbf0f78bfc9bef0de41a07c45f2a5fa08"
+      }
+    ],
+    "dashboardLoopbackOnly": [
+      {
+        "passed": true,
+        "evidenceType": "configuration-and-http-loopback",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-28T10:03:48.758Z",
+        "httpExchanges": 1,
+        "checks": [
+          {
+            "configuredHostAddress": "127.0.0.1",
+            "configuredLoopbackMappingPresent": true,
+            "syntheticHarnessBind": "127.0.0.1"
+          },
+          {
+            "request": "GET /health",
+            "status": 200,
+            "mediaType": "application/json"
+          }
+        ],
+        "configurationSha256": "sha256:56ff30cf450ebb659117243c0bcc11c0352892c4a080db5469d211babbf39b5f",
+        "runnerSha256": "sha256:bba5cf3a4e57e55cb1bfc473c887d89824b062d1194955c660b749aa6e3eadf1",
+        "runtimeArtifactsSha256": "sha256:0a67ba0caae85c30baf30fba63a93b491ed06195146b54a3701e6e7657fabb77",
+        "runtimeDependencyTreesSha256": "sha256:c46a0b40c0abbf8371e9119027f432537fe37cf482f7233ea269270414d6734a",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 1,
+        "previousReceiptSha256": null,
+        "receiptSha256": "sha256:e09b8d6ece522285e1545b1b0a2bf490ee206782a3bb894acad6e43dbdf993f8"
+      },
+      {
+        "passed": true,
+        "evidenceType": "configuration-and-http-loopback",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-28T10:03:49.112Z",
+        "httpExchanges": 1,
+        "checks": [
+          {
+            "configuredHostAddress": "127.0.0.1",
+            "configuredLoopbackMappingPresent": true,
+            "syntheticHarnessBind": "127.0.0.1"
+          },
+          {
+            "request": "GET /health",
+            "status": 200,
+            "mediaType": "application/json"
+          }
+        ],
+        "configurationSha256": "sha256:56ff30cf450ebb659117243c0bcc11c0352892c4a080db5469d211babbf39b5f",
+        "runnerSha256": "sha256:bba5cf3a4e57e55cb1bfc473c887d89824b062d1194955c660b749aa6e3eadf1",
+        "runtimeArtifactsSha256": "sha256:0a67ba0caae85c30baf30fba63a93b491ed06195146b54a3701e6e7657fabb77",
+        "runtimeDependencyTreesSha256": "sha256:c46a0b40c0abbf8371e9119027f432537fe37cf482f7233ea269270414d6734a",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 2,
+        "previousReceiptSha256": "sha256:e09b8d6ece522285e1545b1b0a2bf490ee206782a3bb894acad6e43dbdf993f8",
+        "receiptSha256": "sha256:aa7b5027470c21bd38fbb05ee3ab02545159a71c08050d2fb0c033c218eeeb2a"
+      }
+    ]
+  },
+  "probeRuns": {
+    "disabled": 2,
+    "mismatchDenied": 2,
+    "syntheticProtocolExercise": 2,
+    "adaptersUnpublished": 2,
+    "dashboardLoopbackOnly": 2
+  },
+  "commands": [
+    "node verify.mjs --probe disabled => PASS (synthetic-ephemeral-loopback-http)",
+    "node verify.mjs --probe mismatchDenied => PASS (synthetic-ephemeral-loopback-http)",
+    "node verify.mjs --probe syntheticProtocolExercise => PASS (synthetic-ephemeral-loopback-http)",
+    "node verify.mjs --probe adaptersUnpublished => PASS (synthetic-ephemeral-loopback-http)",
+    "node verify.mjs --probe dashboardLoopbackOnly => PASS (synthetic-ephemeral-loopback-http)"
+  ]
+}

@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="352" viewBox="0 0 1060 352" role="img" aria-labelledby="title description">
+  <title id="title">How Gauntlet works</title>
+  <desc id="description">The dashboard in your browser and an AI client connect to the Gauntlet server. Its HTTP API and optional MCP endpoint share one catalog of operations. The server calls an adapter inside each application. Registered actions execute there, using the application's own services and data, and return results to Gauntlet.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="m1 1 5 3-5 3" fill="none" stroke="#8793a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+      .label { fill: #64748b; font-size: 12px; font-weight: 700; letter-spacing: 1.4px; }
+      .heading { fill: #172238; font-size: 21px; font-weight: 650; }
+      .detail { fill: #536176; font-size: 15px; }
+      .line { fill: none; stroke: #8793a6; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <rect width="1060" height="352" rx="20" fill="#f8fafc"/>
+
+  <!-- Clients run outside the server. -->
+  <text class="label" x="36" y="43">ON YOUR COMPUTER</text>
+  <rect x="24" y="64" width="240" height="264" rx="16" fill="#ffffff" stroke="#e2e8f0"/>
+  <rect x="42" y="86" width="204" height="92" rx="12" fill="#f1f5f9"/>
+  <text class="heading" x="62" y="123">Dashboard</text>
+  <text class="detail" x="62" y="151">In your browser</text>
+  <rect x="42" y="214" width="204" height="92" rx="12" fill="#f1f5f9"/>
+  <text class="heading" x="62" y="251">AI client</text>
+  <text class="detail" x="62" y="279">Through MCP</text>
+
+  <!-- Both clients use the same control plane. -->
+  <path class="line" d="M246 132 H302 V196 H364" marker-end="url(#arrow)"/>
+  <path class="line" d="M246 260 H302 V196"/>
+  <circle cx="302" cy="196" r="3" fill="#8793a6"/>
+
+  <text class="label" x="380" y="43">GAUNTLET</text>
+  <rect x="368" y="64" width="292" height="264" rx="16" fill="#eef2ff" stroke="#c7d2fe"/>
+  <text class="heading" x="394" y="115">Server</text>
+  <text class="detail" x="394" y="145">One catalog for people and AI</text>
+  <rect x="394" y="174" width="240" height="42" rx="9" fill="#ffffff" stroke="#c7d2fe"/>
+  <text x="514" y="200" text-anchor="middle" fill="#4338ca" font-size="16" font-weight="600">HTTP API + MCP</text>
+  <text class="detail" x="394" y="253">Coordinates runs</text>
+  <text class="detail" x="394" y="279">Collects results and logs</text>
+  <text x="394" y="310" fill="#64748b" font-size="12">MCP is optional</text>
+
+  <path class="line" d="M660 196 H742" marker-end="url(#arrow)"/>
+
+  <!-- The adapter and operation handlers live in the application. -->
+  <text class="label" x="760" y="43">IN EACH APPLICATION</text>
+  <rect x="748" y="64" width="288" height="264" rx="16" fill="#ecfdf5" stroke="#a7dfcd"/>
+  <text class="detail" x="770" y="102">Your existing application</text>
+  <rect x="770" y="162" width="244" height="66" rx="10" fill="#ffffff" stroke="#a7dfcd"/>
+  <text class="heading" x="892" y="203" text-anchor="middle">Adapter</text>
+  <path class="line" d="M892 228 V252" marker-end="url(#arrow)"/>
+  <text x="892" y="277" text-anchor="middle" fill="#16624c" font-size="19" font-weight="650">Your registered actions</text>
+  <text class="detail" x="892" y="303" text-anchor="middle">Your services · your data</text>
+</svg>

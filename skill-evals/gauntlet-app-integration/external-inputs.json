@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "sourceFiles": [
+    {
+      "path": ".npmrc",
+      "sha256": "8dd62a9cebb4b99f2d3e186005e079b9f802ee50d0d590f353d3dd4b17cac195"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "VERSION",
+      "sha256": "e9dd8507f4bf0c6f42458e41aea833ad0bd3f6127272335eee9bf4d58541ed67"
+    },
+    {
+      "path": "examples/symfony/composer.json",
+      "sha256": "7dc0ef8753e8e9aebe2da78a3355d59e0bfa8dd24ecaa313c337db3fd65d63d7"
+    },
+    {
+      "path": "examples/symfony/composer.lock",
+      "sha256": "dd54d9930807d1640abf7c10365aef402e547a0521d68caab9944a6fa46994ef"
+    },
+    {
+      "path": "package.json",
+      "sha256": "d6e6569e2459b72760a7a07ae7d0b1a06eef41a106c31bfdefbc303c09d6a826"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "4ddef1982cc7c221ba04ede98a910c87885714f968a6d9aebe747a7127724f85"
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "sha256": "ae463f5879eb9fe9e201669c0d80474bdb36110108f114fcdc8fb96bd420df31"
+    },
+    {
+      "path": "scripts/release/release-model.mjs",
+      "sha256": "ffda054228bfc5e7bdffbc3e26211e2e48ae47ff44ba2342526b1475d55f464d"
+    },
+    {
+      "path": "scripts/release/stage-composer.mjs",
+      "sha256": "6222bc7bc51d8255ea948c860abab994a8c81d14ad5f64f82443801e072e3e8c"
+    },
+    {
+      "path": "tsconfig.base.json",
+      "sha256": "d8e28fad47efd46adeff2e1f97713af5a1cb49b4afa9779a9fef86c7bdb02d12"
+    }
+  ],
+  "sourceTrees": [
+    {
+      "path": "packages/dashboard-client",
+      "excludedTopLevel": [
+        "dist",
+        "node_modules"
+      ],
+      "sha256": "c13812e1eefee4ba61dacf4a129f7252d9852b07ae4bf73bf8980fe4b94ab3c9"
+    },
+    {
+      "path": "packages/php/core",
+      "excludedTopLevel": [
+        ".phpunit.result.cache",
+        "vendor"
+      ],
+      "sha256": "37af7e16b93cbc31981e6859751d6030efcd6de6fa304217e8c669af1f24f2fd"
+    },
+    {
+      "path": "packages/php/symfony-bundle",
+      "excludedTopLevel": [
+        ".phpunit.result.cache",
+        "vendor"
+      ],
+      "sha256": "e6c7b57e9907042075e384e80c5c8e93f97c32e64e3cb42fc87f820b0543ae06"
+    },
+    {
+      "path": "packages/protocol",
+      "excludedTopLevel": [
+        "dist",
+        "node_modules"
+      ],
+      "sha256": "1147f94232b942296c778b78fee4b963e8daa5657d49d5b7d17f063e7c94be23"
+    },
+    {
+      "path": "packages/typescript/core",
+      "excludedTopLevel": [
+        "dist",
+        "node_modules"
+      ],
+      "sha256": "86d090de61a56b39727019269f4d6cc25ad9ffa3f8c254819d4bba78cbf3e7d4"
+    },
+    {
+      "path": "packages/typescript/node",
+      "excludedTopLevel": [
+        "dist",
+        "node_modules"
+      ],
+      "sha256": "8a130c91b9939583009348a83ecd51a3ffaa4f1565b29f5b66c9a0be8709dbca"
+    }
+  ],
+  "linkedRuntimeTrees": [
+    {
+      "path": "node_modules/.pnpm/ajv-formats@3.0.1_ajv@8.20.0/node_modules/ajv-formats",
+      "sha256": "75db99c1ff923f4504b2043d05df6338542c79920a251c4ab52a1f7ea822765c"
+    },
+    {
+      "path": "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv",
+      "sha256": "4991e7efecf70005de10fd2e43cdf05479071bfc6f4a26b7ed30d1f05e87ad75"
+    },
+    {
+      "path": "node_modules/.pnpm/canonicalize@4.0.0/node_modules/canonicalize",
+      "sha256": "230d7eef242fe70ed5c8d45ad0d69921ca17798462dfbc7c57e6fef1c23adf6d"
+    },
+    {
+      "path": "node_modules/.pnpm/fast-deep-equal@3.1.3/node_modules/fast-deep-equal",
+      "sha256": "ea85657b7620ba191de22ee347f8a0eb2f1427761824ebfc7b200f7978a1ad6e"
+    },
+    {
+      "path": "node_modules/.pnpm/fast-uri@3.1.6/node_modules/fast-uri",
+      "sha256": "5066102c086157e7a5c4b04eefba5bf3099bda4f06e5734362c621208520e812"
+    },
+    {
+      "path": "node_modules/.pnpm/json-schema-traverse@1.0.0/node_modules/json-schema-traverse",
+      "sha256": "0f45932a7e410ed4f4aab15f37989cb7674bdd55448f5ff35a33a72d0c1016ed"
+    },
+    {
+      "path": "node_modules/.pnpm/require-from-string@2.0.2/node_modules/require-from-string",
+      "sha256": "099f0688f329bade2a3b1fc1e16dc99fa47f549e780d3a8eb4045954587be19b"
+    },
+    {
+      "path": "node_modules/.pnpm/yaml@2.8.3/node_modules/yaml",
+      "sha256": "5a83f18ef1bde51a48d6fca8ac39b1b9714978ff58d5a78e9a73b097f16009d9"
+    }
+  ]
+}

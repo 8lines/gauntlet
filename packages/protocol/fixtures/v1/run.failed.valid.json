@@ -1,0 +1,32 @@
+{
+  "id": "run-02",
+  "operationId": "application-access-review",
+  "operationRevision": "sha256:2e301a636fb48d2bec64fc7e91b62d8a45e47af3a28f665b6b809f6a4b19d9e8",
+  "sequence": 2,
+  "state": "failed",
+  "createdAt": "2026-08-29T12:10:00Z",
+  "updatedAt": "2026-08-29T12:10:02Z",
+  "startedAt": "2026-08-29T12:10:01Z",
+  "completedAt": "2026-08-29T12:10:02Z",
+  "summary": {
+    "title": "Access review failed",
+    "message": "The target application was unavailable.",
+    "tone": "error"
+  },
+  "artifacts": [
+    {
+      "id": "failure-notice",
+      "kind": "notice",
+      "level": "error",
+      "message": "The target application was unavailable."
+    }
+  ],
+  "actions": [],
+  "problem": {
+    "type": "urn:gauntlet:problem:handler-failed",
+    "title": "Operation handler failed",
+    "status": 502,
+    "detail": "The target application was unavailable.",
+    "correlationId": "correlation-02"
+  }
+}

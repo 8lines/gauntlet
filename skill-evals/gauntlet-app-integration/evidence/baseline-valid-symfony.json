@@ -1,0 +1,1478 @@
+{
+  "scope": "synthetic-ephemeral-loopback-http",
+  "customerDeploymentVerified": false,
+  "receiptMode": "observations-only",
+  "minimumProbeRuns": 2,
+  "selfHashMeaning": "integrity-only-not-trust-or-attestation",
+  "requiredReceiptDigests": [
+    "configurationSha256",
+    "runnerSha256",
+    "phpCoreArtifactSha256",
+    "symfonyBundleArtifactSha256",
+    "symfonyRuntimeSha256",
+    "symfonyVendorSha256",
+    "dashboardClientTreeSha256",
+    "protocolTreeSha256",
+    "ajvTreeSha256",
+    "ajvFormatsTreeSha256",
+    "canonicalizeTreeSha256",
+    "fastDeepEqualTreeSha256",
+    "fastUriTreeSha256",
+    "jsonSchemaTraverseTreeSha256",
+    "requireFromStringTreeSha256",
+    "yamlPackageSha256"
+  ],
+  "observations": {
+    "disabled": {
+      "passed": true,
+      "evidenceType": "http-loopback",
+      "scope": "synthetic-ephemeral-loopback-http",
+      "observedAt": "2026-09-27T21:24:10.542Z",
+      "httpExchanges": 22,
+      "checks": [
+        {
+          "matrix": "adapter-route-families",
+          "requests": [
+            "GET /_gauntlet/v1/health",
+            "GET /_gauntlet/v1/manifest",
+            "GET /_gauntlet/v1/operations/fixture.safe",
+            "POST /_gauntlet/v1/operations/fixture.safe/runs",
+            "GET /_gauntlet/v1/runs/synthetic-run",
+            "POST /_gauntlet/v1/data-sources/fixture.items/query",
+            "POST /_gauntlet/v1/data-sources/fixture.items/resolve",
+            "POST /_gauntlet/v1/runs/synthetic-run/cancel",
+            "GET /_gauntlet/v1/runs/synthetic-run/events",
+            "POST /_gauntlet/v1/uploads",
+            "POST /_gauntlet/v1/runs/synthetic-run/artifacts/synthetic-artifact/launch"
+          ],
+          "statuses": [
+            503,
+            503,
+            503,
+            503,
+            503,
+            503,
+            503,
+            503,
+            503,
+            503,
+            503
+          ],
+          "mediaType": "application/problem+json",
+          "problemType": "urn:gauntlet:problem:adapter-disabled"
+        },
+        {
+          "matrix": "raw-target-variants",
+          "requests": [
+            "GET /_gauntlet/v1/health",
+            "GET /_gauntlet/v1/health/",
+            "GET /_gauntlet//v1/health",
+            "GET //_gauntlet/v1/health",
+            "GET /_gauntlet%2fv1/health",
+            "GET /%5Fgauntlet/v1/health",
+            "GET /safe/../_gauntlet/v1/health",
+            "GET /_gauntlet\\v1\\health",
+            "GET http://public.invalid/_gauntlet/v1/health",
+            "GET /_gauntlet/v1/operations/unsafe%ZZid"
+          ],
+          "statuses": [
+            503,
+            503,
+            503,
+            503,
+            503,
+            503,
+            503,
+            503,
+            503,
+            503
+          ],
+          "forwarded": false
+        },
+        {
+          "request": "GET /host-health",
+          "status": 404,
+          "adapterGateCaptured": false
+        },
+        {
+          "runtime": "composer-installed-symfony-kernel",
+          "kernelRequest": true,
+          "disabledBoundary": true,
+          "healthStatus": 503,
+          "manifestStatus": 503
+        }
+      ],
+      "configurationSha256": "sha256:abe152e9c77a79a84930993b05d0c0dfae5986dc47af86d6bb1f3eedcd72e23d",
+      "runnerSha256": "sha256:666581087f9c635eab4643e7f30ed7129121ed4a0d585945c3ff0ab3386c7b62",
+      "phpCoreArtifactSha256": "sha256:942593462c43596b235cfae7e6420c7c42ae24c445bbcbb23fc3d2d490fc11ec",
+      "symfonyBundleArtifactSha256": "sha256:9c7dc7a1f30be53428827350a18ae651a640f0999d2ea8297f4c19551bddcba7",
+      "symfonyRuntimeSha256": "sha256:df9ada130784b9220502e21cd9e203ce952737f3d6a0ca735ccf0b22f4c61eea",
+      "symfonyVendorSha256": "sha256:575017b996824742f5f3f26605156e3cd1b4cc56a5377fa72df18ffc3ca12c27",
+      "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+      "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+      "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+      "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+      "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+      "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+      "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+      "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+      "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+      "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+      "probeRun": 2,
+      "previousReceiptSha256": "sha256:e26940b0dcf28be8ded8eb23e19bdd1bf61132f06f681cf477a57296a2bce317",
+      "receiptSha256": "sha256:4add4ef89573ba7ac1d67ca11fa1a8da070735889846e8fe8785f2d7e6388c70"
+    },
+    "startupDenied": {
+      "passed": true,
+      "evidenceType": "startup-guard",
+      "scope": "synthetic-ephemeral-loopback-http",
+      "observedAt": "2026-09-27T21:24:21.136Z",
+      "httpExchanges": 2,
+      "checks": [
+        {
+          "runtime": "synthetic-js-startup-guard",
+          "configurationCases": [
+            "missing-id",
+            "missing-label",
+            "missing-environment",
+            "missing-environment-name",
+            "missing-environment-kind",
+            "missing-secret",
+            "short-secret",
+            "production-name-colon-alias",
+            "production-kind"
+          ],
+          "denialCodes": [
+            "APPLICATION_ID_REQUIRED",
+            "APPLICATION_LABEL_REQUIRED",
+            "ENVIRONMENT_REQUIRED",
+            "ENVIRONMENT_NAME_REQUIRED",
+            "ENVIRONMENT_KIND_REQUIRED",
+            "IDEMPOTENCY_SECRET_REQUIRED",
+            "IDEMPOTENCY_SECRET_TOO_SHORT",
+            "NON_PRODUCTION_ENVIRONMENT_REQUIRED",
+            "NON_PRODUCTION_ENVIRONMENT_REQUIRED"
+          ],
+          "listenerStarts": 0
+        },
+        {
+          "request": "GET /_gauntlet/v1/health",
+          "status": 404,
+          "adapterMounted": false
+        },
+        {
+          "request": "GET /host-health",
+          "status": 200,
+          "hostApplicationAlive": true
+        },
+        {
+          "runtime": "composer-installed-symfony-kernel",
+          "configurationCases": [
+            "missing-id",
+            "missing-label",
+            "missing-environment",
+            "missing-environment-name",
+            "missing-environment-kind",
+            "missing-secret",
+            "short-secret",
+            "production-name",
+            "production-kind"
+          ],
+          "errorClasses": [
+            "Symfony\\Component\\Config\\Definition\\Exception\\InvalidConfigurationException"
+          ],
+          "startupDenials": 9,
+          "listenerStarts": 0
+        }
+      ],
+      "configurationSha256": "sha256:abe152e9c77a79a84930993b05d0c0dfae5986dc47af86d6bb1f3eedcd72e23d",
+      "runnerSha256": "sha256:666581087f9c635eab4643e7f30ed7129121ed4a0d585945c3ff0ab3386c7b62",
+      "phpCoreArtifactSha256": "sha256:942593462c43596b235cfae7e6420c7c42ae24c445bbcbb23fc3d2d490fc11ec",
+      "symfonyBundleArtifactSha256": "sha256:9c7dc7a1f30be53428827350a18ae651a640f0999d2ea8297f4c19551bddcba7",
+      "symfonyRuntimeSha256": "sha256:df9ada130784b9220502e21cd9e203ce952737f3d6a0ca735ccf0b22f4c61eea",
+      "symfonyVendorSha256": "sha256:575017b996824742f5f3f26605156e3cd1b4cc56a5377fa72df18ffc3ca12c27",
+      "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+      "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+      "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+      "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+      "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+      "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+      "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+      "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+      "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+      "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+      "probeRun": 2,
+      "previousReceiptSha256": "sha256:84aef4c6a3a34d867fd4e112180e3a80a722342c26e9f685dfbd428faedf2148",
+      "receiptSha256": "sha256:052ef487ffd3f8507e995cae8ec58c77ded598244e793e01fafc9d391a27ad7c"
+    },
+    "mismatchDenied": {
+      "passed": true,
+      "evidenceType": "http-loopback",
+      "scope": "synthetic-ephemeral-loopback-http",
+      "observedAt": "2026-09-27T21:24:23.987Z",
+      "httpExchanges": 36,
+      "checks": [
+        {
+          "mismatch": "name-only",
+          "routeFamilies": [
+            {
+              "proxyFamily": "operation-definition",
+              "status": 503
+            },
+            {
+              "proxyFamily": "operation-run",
+              "status": 503
+            },
+            {
+              "proxyFamily": "run",
+              "status": 503
+            },
+            {
+              "proxyFamily": "upload",
+              "status": 503
+            },
+            {
+              "proxyFamily": "cancel",
+              "status": 503
+            },
+            {
+              "proxyFamily": "events",
+              "status": 503
+            },
+            {
+              "proxyFamily": "data-source-query",
+              "status": 503
+            },
+            {
+              "proxyFamily": "data-source-resolve",
+              "status": 503
+            },
+            {
+              "proxyFamily": "session-launch",
+              "status": 503
+            }
+          ],
+          "status": 503,
+          "mediaType": "application/problem+json",
+          "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+          "manifestDiscoveryRequests": 9,
+          "upstreamApplicationRequests": 0
+        },
+        {
+          "mismatch": "kind-only",
+          "routeFamilies": [
+            {
+              "proxyFamily": "operation-definition",
+              "status": 503
+            },
+            {
+              "proxyFamily": "operation-run",
+              "status": 503
+            },
+            {
+              "proxyFamily": "run",
+              "status": 503
+            },
+            {
+              "proxyFamily": "upload",
+              "status": 503
+            },
+            {
+              "proxyFamily": "cancel",
+              "status": 503
+            },
+            {
+              "proxyFamily": "events",
+              "status": 503
+            },
+            {
+              "proxyFamily": "data-source-query",
+              "status": 503
+            },
+            {
+              "proxyFamily": "data-source-resolve",
+              "status": 503
+            },
+            {
+              "proxyFamily": "session-launch",
+              "status": 503
+            }
+          ],
+          "status": 503,
+          "mediaType": "application/problem+json",
+          "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+          "manifestDiscoveryRequests": 9,
+          "upstreamApplicationRequests": 0
+        }
+      ],
+      "configurationSha256": "sha256:abe152e9c77a79a84930993b05d0c0dfae5986dc47af86d6bb1f3eedcd72e23d",
+      "runnerSha256": "sha256:666581087f9c635eab4643e7f30ed7129121ed4a0d585945c3ff0ab3386c7b62",
+      "phpCoreArtifactSha256": "sha256:942593462c43596b235cfae7e6420c7c42ae24c445bbcbb23fc3d2d490fc11ec",
+      "symfonyBundleArtifactSha256": "sha256:9c7dc7a1f30be53428827350a18ae651a640f0999d2ea8297f4c19551bddcba7",
+      "symfonyRuntimeSha256": "sha256:df9ada130784b9220502e21cd9e203ce952737f3d6a0ca735ccf0b22f4c61eea",
+      "symfonyVendorSha256": "sha256:575017b996824742f5f3f26605156e3cd1b4cc56a5377fa72df18ffc3ca12c27",
+      "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+      "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+      "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+      "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+      "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+      "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+      "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+      "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+      "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+      "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+      "probeRun": 2,
+      "previousReceiptSha256": "sha256:cbb8861fc488856de5cdd659207b9941537a5737b54e1f5b945ec99823957e81",
+      "receiptSha256": "sha256:75d450784f5f7f8b22cb0cb230291d98d9e2b6c4d83e40261ccb9ba14e2692e2"
+    },
+    "syntheticProtocolExercise": {
+      "passed": true,
+      "evidenceType": "http-loopback",
+      "scope": "synthetic-ephemeral-loopback-http",
+      "observedAt": "2026-09-27T21:24:27.904Z",
+      "httpExchanges": 30,
+      "checks": [
+        {
+          "request": "GET /proxy/_gauntlet/v1/health",
+          "status": 200,
+          "protocolVersion": "1.0"
+        },
+        {
+          "request": "GET /proxy/_gauntlet/v1/manifest",
+          "status": 200,
+          "protocolVersion": "1.0",
+          "environment": {
+            "name": "staging",
+            "kind": "staging"
+          }
+        },
+        {
+          "operationDefinitionStatus": 200,
+          "staleRevisionStatus": 409,
+          "invalidInputStatus": 422,
+          "idempotentReplay": true,
+          "terminalState": "succeeded"
+        },
+        {
+          "dataSourceQueryStatus": 200,
+          "dataSourceResolveStatus": 200
+        },
+        {
+          "runtime": "composer-installed-symfony-kernel",
+          "kernelRequest": true,
+          "healthStatus": 200,
+          "manifestStatus": 200,
+          "environment": {
+            "name": "staging",
+            "kind": "staging"
+          },
+          "phpVersion": "8.3.33",
+          "phpCoreVersion": "0.1.0",
+          "symfonyBundleVersion": "0.1.0"
+        },
+        {
+          "runtimeScope": "genuinely-single-process-synthetic",
+          "replicas": 1,
+          "phpWorkers": 1,
+          "runStore": "in-memory",
+          "coordinator": "in-memory",
+          "dispatcher": "current-process",
+          "eventHistory": "in-memory"
+        }
+      ],
+      "configurationSha256": "sha256:abe152e9c77a79a84930993b05d0c0dfae5986dc47af86d6bb1f3eedcd72e23d",
+      "runnerSha256": "sha256:666581087f9c635eab4643e7f30ed7129121ed4a0d585945c3ff0ab3386c7b62",
+      "phpCoreArtifactSha256": "sha256:942593462c43596b235cfae7e6420c7c42ae24c445bbcbb23fc3d2d490fc11ec",
+      "symfonyBundleArtifactSha256": "sha256:9c7dc7a1f30be53428827350a18ae651a640f0999d2ea8297f4c19551bddcba7",
+      "symfonyRuntimeSha256": "sha256:df9ada130784b9220502e21cd9e203ce952737f3d6a0ca735ccf0b22f4c61eea",
+      "symfonyVendorSha256": "sha256:575017b996824742f5f3f26605156e3cd1b4cc56a5377fa72df18ffc3ca12c27",
+      "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+      "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+      "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+      "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+      "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+      "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+      "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+      "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+      "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+      "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+      "probeRun": 2,
+      "previousReceiptSha256": "sha256:ee08f46f72608f88205a88d3884d8fc79c0ad120fd756a2b1b74a73e613bd303",
+      "receiptSha256": "sha256:e41b88e7d825204b741aec6b2dac83a05727d4a9d7d1fdfadb04fdb73760c90b"
+    },
+    "publicRouteDenied": {
+      "passed": true,
+      "evidenceType": "configuration-and-http-loopback",
+      "scope": "synthetic-ephemeral-loopback-http",
+      "observedAt": "2026-09-27T21:24:30.661Z",
+      "httpExchanges": 23,
+      "checks": [
+        {
+          "matrix": "adapter-route-families",
+          "network": "synthetic-public-ingress",
+          "requests": [
+            "GET /_gauntlet/v1/health",
+            "GET /_gauntlet/v1/manifest",
+            "GET /_gauntlet/v1/operations/fixture.safe",
+            "POST /_gauntlet/v1/operations/fixture.safe/runs",
+            "GET /_gauntlet/v1/runs/synthetic-run",
+            "POST /_gauntlet/v1/data-sources/fixture.items/query",
+            "POST /_gauntlet/v1/data-sources/fixture.items/resolve",
+            "POST /_gauntlet/v1/runs/synthetic-run/cancel",
+            "GET /_gauntlet/v1/runs/synthetic-run/events",
+            "POST /_gauntlet/v1/uploads",
+            "POST /_gauntlet/v1/runs/synthetic-run/artifacts/synthetic-artifact/launch"
+          ],
+          "statuses": [
+            404,
+            404,
+            404,
+            404,
+            404,
+            404,
+            404,
+            404,
+            404,
+            404,
+            404
+          ],
+          "forwarded": false
+        },
+        {
+          "matrix": "raw-target-variants",
+          "requests": [
+            "GET /_gauntlet/v1/health",
+            "GET /_gauntlet/v1/health/",
+            "GET /_gauntlet//v1/health",
+            "GET //_gauntlet/v1/health",
+            "GET /_gauntlet%2fv1/health",
+            "GET /%5Fgauntlet/v1/health",
+            "GET /safe/../_gauntlet/v1/health",
+            "GET /_gauntlet\\v1\\health",
+            "GET http://public.invalid/_gauntlet/v1/health",
+            "GET /_gauntlet/v1/operations/unsafe%ZZid",
+            "GET /_GAUNTLET/v1/health"
+          ],
+          "statuses": [
+            404,
+            404,
+            404,
+            404,
+            404,
+            404,
+            404,
+            404,
+            404,
+            404,
+            404
+          ],
+          "forwarded": false
+        },
+        {
+          "network": "synthetic-private-adapter",
+          "request": "GET /_gauntlet/v1/health",
+          "status": 200
+        },
+        {
+          "configuredAdapterPrefixDenied": true,
+          "configuredPrivateTransport": "tailscale-internal-alb"
+        }
+      ],
+      "configurationSha256": "sha256:abe152e9c77a79a84930993b05d0c0dfae5986dc47af86d6bb1f3eedcd72e23d",
+      "runnerSha256": "sha256:666581087f9c635eab4643e7f30ed7129121ed4a0d585945c3ff0ab3386c7b62",
+      "phpCoreArtifactSha256": "sha256:942593462c43596b235cfae7e6420c7c42ae24c445bbcbb23fc3d2d490fc11ec",
+      "symfonyBundleArtifactSha256": "sha256:9c7dc7a1f30be53428827350a18ae651a640f0999d2ea8297f4c19551bddcba7",
+      "symfonyRuntimeSha256": "sha256:df9ada130784b9220502e21cd9e203ce952737f3d6a0ca735ccf0b22f4c61eea",
+      "symfonyVendorSha256": "sha256:575017b996824742f5f3f26605156e3cd1b4cc56a5377fa72df18ffc3ca12c27",
+      "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+      "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+      "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+      "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+      "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+      "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+      "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+      "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+      "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+      "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+      "probeRun": 2,
+      "previousReceiptSha256": "sha256:d733810812935f833bc72c826257c47f584aac27a09ba512017b61c197c2ec4b",
+      "receiptSha256": "sha256:c632d0ccd98c799f660107343cf3307adc04f0814408cea9f1a6b13ed4887b9a"
+    }
+  },
+  "observationHistory": {
+    "disabled": [
+      {
+        "passed": true,
+        "evidenceType": "http-loopback",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-27T21:24:06.616Z",
+        "httpExchanges": 22,
+        "checks": [
+          {
+            "matrix": "adapter-route-families",
+            "requests": [
+              "GET /_gauntlet/v1/health",
+              "GET /_gauntlet/v1/manifest",
+              "GET /_gauntlet/v1/operations/fixture.safe",
+              "POST /_gauntlet/v1/operations/fixture.safe/runs",
+              "GET /_gauntlet/v1/runs/synthetic-run",
+              "POST /_gauntlet/v1/data-sources/fixture.items/query",
+              "POST /_gauntlet/v1/data-sources/fixture.items/resolve",
+              "POST /_gauntlet/v1/runs/synthetic-run/cancel",
+              "GET /_gauntlet/v1/runs/synthetic-run/events",
+              "POST /_gauntlet/v1/uploads",
+              "POST /_gauntlet/v1/runs/synthetic-run/artifacts/synthetic-artifact/launch"
+            ],
+            "statuses": [
+              503,
+              503,
+              503,
+              503,
+              503,
+              503,
+              503,
+              503,
+              503,
+              503,
+              503
+            ],
+            "mediaType": "application/problem+json",
+            "problemType": "urn:gauntlet:problem:adapter-disabled"
+          },
+          {
+            "matrix": "raw-target-variants",
+            "requests": [
+              "GET /_gauntlet/v1/health",
+              "GET /_gauntlet/v1/health/",
+              "GET /_gauntlet//v1/health",
+              "GET //_gauntlet/v1/health",
+              "GET /_gauntlet%2fv1/health",
+              "GET /%5Fgauntlet/v1/health",
+              "GET /safe/../_gauntlet/v1/health",
+              "GET /_gauntlet\\v1\\health",
+              "GET http://public.invalid/_gauntlet/v1/health",
+              "GET /_gauntlet/v1/operations/unsafe%ZZid"
+            ],
+            "statuses": [
+              503,
+              503,
+              503,
+              503,
+              503,
+              503,
+              503,
+              503,
+              503,
+              503
+            ],
+            "forwarded": false
+          },
+          {
+            "request": "GET /host-health",
+            "status": 404,
+            "adapterGateCaptured": false
+          },
+          {
+            "runtime": "composer-installed-symfony-kernel",
+            "kernelRequest": true,
+            "disabledBoundary": true,
+            "healthStatus": 503,
+            "manifestStatus": 503
+          }
+        ],
+        "configurationSha256": "sha256:abe152e9c77a79a84930993b05d0c0dfae5986dc47af86d6bb1f3eedcd72e23d",
+        "runnerSha256": "sha256:666581087f9c635eab4643e7f30ed7129121ed4a0d585945c3ff0ab3386c7b62",
+        "phpCoreArtifactSha256": "sha256:942593462c43596b235cfae7e6420c7c42ae24c445bbcbb23fc3d2d490fc11ec",
+        "symfonyBundleArtifactSha256": "sha256:9c7dc7a1f30be53428827350a18ae651a640f0999d2ea8297f4c19551bddcba7",
+        "symfonyRuntimeSha256": "sha256:df9ada130784b9220502e21cd9e203ce952737f3d6a0ca735ccf0b22f4c61eea",
+        "symfonyVendorSha256": "sha256:575017b996824742f5f3f26605156e3cd1b4cc56a5377fa72df18ffc3ca12c27",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 1,
+        "previousReceiptSha256": null,
+        "receiptSha256": "sha256:e26940b0dcf28be8ded8eb23e19bdd1bf61132f06f681cf477a57296a2bce317"
+      },
+      {
+        "passed": true,
+        "evidenceType": "http-loopback",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-27T21:24:10.542Z",
+        "httpExchanges": 22,
+        "checks": [
+          {
+            "matrix": "adapter-route-families",
+            "requests": [
+              "GET /_gauntlet/v1/health",
+              "GET /_gauntlet/v1/manifest",
+              "GET /_gauntlet/v1/operations/fixture.safe",
+              "POST /_gauntlet/v1/operations/fixture.safe/runs",
+              "GET /_gauntlet/v1/runs/synthetic-run",
+              "POST /_gauntlet/v1/data-sources/fixture.items/query",
+              "POST /_gauntlet/v1/data-sources/fixture.items/resolve",
+              "POST /_gauntlet/v1/runs/synthetic-run/cancel",
+              "GET /_gauntlet/v1/runs/synthetic-run/events",
+              "POST /_gauntlet/v1/uploads",
+              "POST /_gauntlet/v1/runs/synthetic-run/artifacts/synthetic-artifact/launch"
+            ],
+            "statuses": [
+              503,
+              503,
+              503,
+              503,
+              503,
+              503,
+              503,
+              503,
+              503,
+              503,
+              503
+            ],
+            "mediaType": "application/problem+json",
+            "problemType": "urn:gauntlet:problem:adapter-disabled"
+          },
+          {
+            "matrix": "raw-target-variants",
+            "requests": [
+              "GET /_gauntlet/v1/health",
+              "GET /_gauntlet/v1/health/",
+              "GET /_gauntlet//v1/health",
+              "GET //_gauntlet/v1/health",
+              "GET /_gauntlet%2fv1/health",
+              "GET /%5Fgauntlet/v1/health",
+              "GET /safe/../_gauntlet/v1/health",
+              "GET /_gauntlet\\v1\\health",
+              "GET http://public.invalid/_gauntlet/v1/health",
+              "GET /_gauntlet/v1/operations/unsafe%ZZid"
+            ],
+            "statuses": [
+              503,
+              503,
+              503,
+              503,
+              503,
+              503,
+              503,
+              503,
+              503,
+              503
+            ],
+            "forwarded": false
+          },
+          {
+            "request": "GET /host-health",
+            "status": 404,
+            "adapterGateCaptured": false
+          },
+          {
+            "runtime": "composer-installed-symfony-kernel",
+            "kernelRequest": true,
+            "disabledBoundary": true,
+            "healthStatus": 503,
+            "manifestStatus": 503
+          }
+        ],
+        "configurationSha256": "sha256:abe152e9c77a79a84930993b05d0c0dfae5986dc47af86d6bb1f3eedcd72e23d",
+        "runnerSha256": "sha256:666581087f9c635eab4643e7f30ed7129121ed4a0d585945c3ff0ab3386c7b62",
+        "phpCoreArtifactSha256": "sha256:942593462c43596b235cfae7e6420c7c42ae24c445bbcbb23fc3d2d490fc11ec",
+        "symfonyBundleArtifactSha256": "sha256:9c7dc7a1f30be53428827350a18ae651a640f0999d2ea8297f4c19551bddcba7",
+        "symfonyRuntimeSha256": "sha256:df9ada130784b9220502e21cd9e203ce952737f3d6a0ca735ccf0b22f4c61eea",
+        "symfonyVendorSha256": "sha256:575017b996824742f5f3f26605156e3cd1b4cc56a5377fa72df18ffc3ca12c27",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 2,
+        "previousReceiptSha256": "sha256:e26940b0dcf28be8ded8eb23e19bdd1bf61132f06f681cf477a57296a2bce317",
+        "receiptSha256": "sha256:4add4ef89573ba7ac1d67ca11fa1a8da070735889846e8fe8785f2d7e6388c70"
+      }
+    ],
+    "startupDenied": [
+      {
+        "passed": true,
+        "evidenceType": "startup-guard",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-27T21:24:15.740Z",
+        "httpExchanges": 2,
+        "checks": [
+          {
+            "runtime": "synthetic-js-startup-guard",
+            "configurationCases": [
+              "missing-id",
+              "missing-label",
+              "missing-environment",
+              "missing-environment-name",
+              "missing-environment-kind",
+              "missing-secret",
+              "short-secret",
+              "production-name-colon-alias",
+              "production-kind"
+            ],
+            "denialCodes": [
+              "APPLICATION_ID_REQUIRED",
+              "APPLICATION_LABEL_REQUIRED",
+              "ENVIRONMENT_REQUIRED",
+              "ENVIRONMENT_NAME_REQUIRED",
+              "ENVIRONMENT_KIND_REQUIRED",
+              "IDEMPOTENCY_SECRET_REQUIRED",
+              "IDEMPOTENCY_SECRET_TOO_SHORT",
+              "NON_PRODUCTION_ENVIRONMENT_REQUIRED",
+              "NON_PRODUCTION_ENVIRONMENT_REQUIRED"
+            ],
+            "listenerStarts": 0
+          },
+          {
+            "request": "GET /_gauntlet/v1/health",
+            "status": 404,
+            "adapterMounted": false
+          },
+          {
+            "request": "GET /host-health",
+            "status": 200,
+            "hostApplicationAlive": true
+          },
+          {
+            "runtime": "composer-installed-symfony-kernel",
+            "configurationCases": [
+              "missing-id",
+              "missing-label",
+              "missing-environment",
+              "missing-environment-name",
+              "missing-environment-kind",
+              "missing-secret",
+              "short-secret",
+              "production-name",
+              "production-kind"
+            ],
+            "errorClasses": [
+              "Symfony\\Component\\Config\\Definition\\Exception\\InvalidConfigurationException"
+            ],
+            "startupDenials": 9,
+            "listenerStarts": 0
+          }
+        ],
+        "configurationSha256": "sha256:abe152e9c77a79a84930993b05d0c0dfae5986dc47af86d6bb1f3eedcd72e23d",
+        "runnerSha256": "sha256:666581087f9c635eab4643e7f30ed7129121ed4a0d585945c3ff0ab3386c7b62",
+        "phpCoreArtifactSha256": "sha256:942593462c43596b235cfae7e6420c7c42ae24c445bbcbb23fc3d2d490fc11ec",
+        "symfonyBundleArtifactSha256": "sha256:9c7dc7a1f30be53428827350a18ae651a640f0999d2ea8297f4c19551bddcba7",
+        "symfonyRuntimeSha256": "sha256:df9ada130784b9220502e21cd9e203ce952737f3d6a0ca735ccf0b22f4c61eea",
+        "symfonyVendorSha256": "sha256:575017b996824742f5f3f26605156e3cd1b4cc56a5377fa72df18ffc3ca12c27",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 1,
+        "previousReceiptSha256": null,
+        "receiptSha256": "sha256:84aef4c6a3a34d867fd4e112180e3a80a722342c26e9f685dfbd428faedf2148"
+      },
+      {
+        "passed": true,
+        "evidenceType": "startup-guard",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-27T21:24:21.136Z",
+        "httpExchanges": 2,
+        "checks": [
+          {
+            "runtime": "synthetic-js-startup-guard",
+            "configurationCases": [
+              "missing-id",
+              "missing-label",
+              "missing-environment",
+              "missing-environment-name",
+              "missing-environment-kind",
+              "missing-secret",
+              "short-secret",
+              "production-name-colon-alias",
+              "production-kind"
+            ],
+            "denialCodes": [
+              "APPLICATION_ID_REQUIRED",
+              "APPLICATION_LABEL_REQUIRED",
+              "ENVIRONMENT_REQUIRED",
+              "ENVIRONMENT_NAME_REQUIRED",
+              "ENVIRONMENT_KIND_REQUIRED",
+              "IDEMPOTENCY_SECRET_REQUIRED",
+              "IDEMPOTENCY_SECRET_TOO_SHORT",
+              "NON_PRODUCTION_ENVIRONMENT_REQUIRED",
+              "NON_PRODUCTION_ENVIRONMENT_REQUIRED"
+            ],
+            "listenerStarts": 0
+          },
+          {
+            "request": "GET /_gauntlet/v1/health",
+            "status": 404,
+            "adapterMounted": false
+          },
+          {
+            "request": "GET /host-health",
+            "status": 200,
+            "hostApplicationAlive": true
+          },
+          {
+            "runtime": "composer-installed-symfony-kernel",
+            "configurationCases": [
+              "missing-id",
+              "missing-label",
+              "missing-environment",
+              "missing-environment-name",
+              "missing-environment-kind",
+              "missing-secret",
+              "short-secret",
+              "production-name",
+              "production-kind"
+            ],
+            "errorClasses": [
+              "Symfony\\Component\\Config\\Definition\\Exception\\InvalidConfigurationException"
+            ],
+            "startupDenials": 9,
+            "listenerStarts": 0
+          }
+        ],
+        "configurationSha256": "sha256:abe152e9c77a79a84930993b05d0c0dfae5986dc47af86d6bb1f3eedcd72e23d",
+        "runnerSha256": "sha256:666581087f9c635eab4643e7f30ed7129121ed4a0d585945c3ff0ab3386c7b62",
+        "phpCoreArtifactSha256": "sha256:942593462c43596b235cfae7e6420c7c42ae24c445bbcbb23fc3d2d490fc11ec",
+        "symfonyBundleArtifactSha256": "sha256:9c7dc7a1f30be53428827350a18ae651a640f0999d2ea8297f4c19551bddcba7",
+        "symfonyRuntimeSha256": "sha256:df9ada130784b9220502e21cd9e203ce952737f3d6a0ca735ccf0b22f4c61eea",
+        "symfonyVendorSha256": "sha256:575017b996824742f5f3f26605156e3cd1b4cc56a5377fa72df18ffc3ca12c27",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 2,
+        "previousReceiptSha256": "sha256:84aef4c6a3a34d867fd4e112180e3a80a722342c26e9f685dfbd428faedf2148",
+        "receiptSha256": "sha256:052ef487ffd3f8507e995cae8ec58c77ded598244e793e01fafc9d391a27ad7c"
+      }
+    ],
+    "mismatchDenied": [
+      {
+        "passed": true,
+        "evidenceType": "http-loopback",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-27T21:24:23.529Z",
+        "httpExchanges": 36,
+        "checks": [
+          {
+            "mismatch": "name-only",
+            "routeFamilies": [
+              {
+                "proxyFamily": "operation-definition",
+                "status": 503
+              },
+              {
+                "proxyFamily": "operation-run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "upload",
+                "status": 503
+              },
+              {
+                "proxyFamily": "cancel",
+                "status": 503
+              },
+              {
+                "proxyFamily": "events",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-query",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-resolve",
+                "status": 503
+              },
+              {
+                "proxyFamily": "session-launch",
+                "status": 503
+              }
+            ],
+            "status": 503,
+            "mediaType": "application/problem+json",
+            "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+            "manifestDiscoveryRequests": 9,
+            "upstreamApplicationRequests": 0
+          },
+          {
+            "mismatch": "kind-only",
+            "routeFamilies": [
+              {
+                "proxyFamily": "operation-definition",
+                "status": 503
+              },
+              {
+                "proxyFamily": "operation-run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "upload",
+                "status": 503
+              },
+              {
+                "proxyFamily": "cancel",
+                "status": 503
+              },
+              {
+                "proxyFamily": "events",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-query",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-resolve",
+                "status": 503
+              },
+              {
+                "proxyFamily": "session-launch",
+                "status": 503
+              }
+            ],
+            "status": 503,
+            "mediaType": "application/problem+json",
+            "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+            "manifestDiscoveryRequests": 9,
+            "upstreamApplicationRequests": 0
+          }
+        ],
+        "configurationSha256": "sha256:abe152e9c77a79a84930993b05d0c0dfae5986dc47af86d6bb1f3eedcd72e23d",
+        "runnerSha256": "sha256:666581087f9c635eab4643e7f30ed7129121ed4a0d585945c3ff0ab3386c7b62",
+        "phpCoreArtifactSha256": "sha256:942593462c43596b235cfae7e6420c7c42ae24c445bbcbb23fc3d2d490fc11ec",
+        "symfonyBundleArtifactSha256": "sha256:9c7dc7a1f30be53428827350a18ae651a640f0999d2ea8297f4c19551bddcba7",
+        "symfonyRuntimeSha256": "sha256:df9ada130784b9220502e21cd9e203ce952737f3d6a0ca735ccf0b22f4c61eea",
+        "symfonyVendorSha256": "sha256:575017b996824742f5f3f26605156e3cd1b4cc56a5377fa72df18ffc3ca12c27",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 1,
+        "previousReceiptSha256": null,
+        "receiptSha256": "sha256:cbb8861fc488856de5cdd659207b9941537a5737b54e1f5b945ec99823957e81"
+      },
+      {
+        "passed": true,
+        "evidenceType": "http-loopback",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-27T21:24:23.987Z",
+        "httpExchanges": 36,
+        "checks": [
+          {
+            "mismatch": "name-only",
+            "routeFamilies": [
+              {
+                "proxyFamily": "operation-definition",
+                "status": 503
+              },
+              {
+                "proxyFamily": "operation-run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "upload",
+                "status": 503
+              },
+              {
+                "proxyFamily": "cancel",
+                "status": 503
+              },
+              {
+                "proxyFamily": "events",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-query",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-resolve",
+                "status": 503
+              },
+              {
+                "proxyFamily": "session-launch",
+                "status": 503
+              }
+            ],
+            "status": 503,
+            "mediaType": "application/problem+json",
+            "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+            "manifestDiscoveryRequests": 9,
+            "upstreamApplicationRequests": 0
+          },
+          {
+            "mismatch": "kind-only",
+            "routeFamilies": [
+              {
+                "proxyFamily": "operation-definition",
+                "status": 503
+              },
+              {
+                "proxyFamily": "operation-run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "upload",
+                "status": 503
+              },
+              {
+                "proxyFamily": "cancel",
+                "status": 503
+              },
+              {
+                "proxyFamily": "events",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-query",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-resolve",
+                "status": 503
+              },
+              {
+                "proxyFamily": "session-launch",
+                "status": 503
+              }
+            ],
+            "status": 503,
+            "mediaType": "application/problem+json",
+            "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+            "manifestDiscoveryRequests": 9,
+            "upstreamApplicationRequests": 0
+          }
+        ],
+        "configurationSha256": "sha256:abe152e9c77a79a84930993b05d0c0dfae5986dc47af86d6bb1f3eedcd72e23d",
+        "runnerSha256": "sha256:666581087f9c635eab4643e7f30ed7129121ed4a0d585945c3ff0ab3386c7b62",
+        "phpCoreArtifactSha256": "sha256:942593462c43596b235cfae7e6420c7c42ae24c445bbcbb23fc3d2d490fc11ec",
+        "symfonyBundleArtifactSha256": "sha256:9c7dc7a1f30be53428827350a18ae651a640f0999d2ea8297f4c19551bddcba7",
+        "symfonyRuntimeSha256": "sha256:df9ada130784b9220502e21cd9e203ce952737f3d6a0ca735ccf0b22f4c61eea",
+        "symfonyVendorSha256": "sha256:575017b996824742f5f3f26605156e3cd1b4cc56a5377fa72df18ffc3ca12c27",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 2,
+        "previousReceiptSha256": "sha256:cbb8861fc488856de5cdd659207b9941537a5737b54e1f5b945ec99823957e81",
+        "receiptSha256": "sha256:75d450784f5f7f8b22cb0cb230291d98d9e2b6c4d83e40261ccb9ba14e2692e2"
+      }
+    ],
+    "syntheticProtocolExercise": [
+      {
+        "passed": true,
+        "evidenceType": "http-loopback",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-27T21:24:27.015Z",
+        "httpExchanges": 30,
+        "checks": [
+          {
+            "request": "GET /proxy/_gauntlet/v1/health",
+            "status": 200,
+            "protocolVersion": "1.0"
+          },
+          {
+            "request": "GET /proxy/_gauntlet/v1/manifest",
+            "status": 200,
+            "protocolVersion": "1.0",
+            "environment": {
+              "name": "staging",
+              "kind": "staging"
+            }
+          },
+          {
+            "operationDefinitionStatus": 200,
+            "staleRevisionStatus": 409,
+            "invalidInputStatus": 422,
+            "idempotentReplay": true,
+            "terminalState": "succeeded"
+          },
+          {
+            "dataSourceQueryStatus": 200,
+            "dataSourceResolveStatus": 200
+          },
+          {
+            "runtime": "composer-installed-symfony-kernel",
+            "kernelRequest": true,
+            "healthStatus": 200,
+            "manifestStatus": 200,
+            "environment": {
+              "name": "staging",
+              "kind": "staging"
+            },
+            "phpVersion": "8.3.33",
+            "phpCoreVersion": "0.1.0",
+            "symfonyBundleVersion": "0.1.0"
+          },
+          {
+            "runtimeScope": "genuinely-single-process-synthetic",
+            "replicas": 1,
+            "phpWorkers": 1,
+            "runStore": "in-memory",
+            "coordinator": "in-memory",
+            "dispatcher": "current-process",
+            "eventHistory": "in-memory"
+          }
+        ],
+        "configurationSha256": "sha256:abe152e9c77a79a84930993b05d0c0dfae5986dc47af86d6bb1f3eedcd72e23d",
+        "runnerSha256": "sha256:666581087f9c635eab4643e7f30ed7129121ed4a0d585945c3ff0ab3386c7b62",
+        "phpCoreArtifactSha256": "sha256:942593462c43596b235cfae7e6420c7c42ae24c445bbcbb23fc3d2d490fc11ec",
+        "symfonyBundleArtifactSha256": "sha256:9c7dc7a1f30be53428827350a18ae651a640f0999d2ea8297f4c19551bddcba7",
+        "symfonyRuntimeSha256": "sha256:df9ada130784b9220502e21cd9e203ce952737f3d6a0ca735ccf0b22f4c61eea",
+        "symfonyVendorSha256": "sha256:575017b996824742f5f3f26605156e3cd1b4cc56a5377fa72df18ffc3ca12c27",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 1,
+        "previousReceiptSha256": null,
+        "receiptSha256": "sha256:ee08f46f72608f88205a88d3884d8fc79c0ad120fd756a2b1b74a73e613bd303"
+      },
+      {
+        "passed": true,
+        "evidenceType": "http-loopback",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-27T21:24:27.904Z",
+        "httpExchanges": 30,
+        "checks": [
+          {
+            "request": "GET /proxy/_gauntlet/v1/health",
+            "status": 200,
+            "protocolVersion": "1.0"
+          },
+          {
+            "request": "GET /proxy/_gauntlet/v1/manifest",
+            "status": 200,
+            "protocolVersion": "1.0",
+            "environment": {
+              "name": "staging",
+              "kind": "staging"
+            }
+          },
+          {
+            "operationDefinitionStatus": 200,
+            "staleRevisionStatus": 409,
+            "invalidInputStatus": 422,
+            "idempotentReplay": true,
+            "terminalState": "succeeded"
+          },
+          {
+            "dataSourceQueryStatus": 200,
+            "dataSourceResolveStatus": 200
+          },
+          {
+            "runtime": "composer-installed-symfony-kernel",
+            "kernelRequest": true,
+            "healthStatus": 200,
+            "manifestStatus": 200,
+            "environment": {
+              "name": "staging",
+              "kind": "staging"
+            },
+            "phpVersion": "8.3.33",
+            "phpCoreVersion": "0.1.0",
+            "symfonyBundleVersion": "0.1.0"
+          },
+          {
+            "runtimeScope": "genuinely-single-process-synthetic",
+            "replicas": 1,
+            "phpWorkers": 1,
+            "runStore": "in-memory",
+            "coordinator": "in-memory",
+            "dispatcher": "current-process",
+            "eventHistory": "in-memory"
+          }
+        ],
+        "configurationSha256": "sha256:abe152e9c77a79a84930993b05d0c0dfae5986dc47af86d6bb1f3eedcd72e23d",
+        "runnerSha256": "sha256:666581087f9c635eab4643e7f30ed7129121ed4a0d585945c3ff0ab3386c7b62",
+        "phpCoreArtifactSha256": "sha256:942593462c43596b235cfae7e6420c7c42ae24c445bbcbb23fc3d2d490fc11ec",
+        "symfonyBundleArtifactSha256": "sha256:9c7dc7a1f30be53428827350a18ae651a640f0999d2ea8297f4c19551bddcba7",
+        "symfonyRuntimeSha256": "sha256:df9ada130784b9220502e21cd9e203ce952737f3d6a0ca735ccf0b22f4c61eea",
+        "symfonyVendorSha256": "sha256:575017b996824742f5f3f26605156e3cd1b4cc56a5377fa72df18ffc3ca12c27",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 2,
+        "previousReceiptSha256": "sha256:ee08f46f72608f88205a88d3884d8fc79c0ad120fd756a2b1b74a73e613bd303",
+        "receiptSha256": "sha256:e41b88e7d825204b741aec6b2dac83a05727d4a9d7d1fdfadb04fdb73760c90b"
+      }
+    ],
+    "publicRouteDenied": [
+      {
+        "passed": true,
+        "evidenceType": "configuration-and-http-loopback",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-27T21:24:30.242Z",
+        "httpExchanges": 23,
+        "checks": [
+          {
+            "matrix": "adapter-route-families",
+            "network": "synthetic-public-ingress",
+            "requests": [
+              "GET /_gauntlet/v1/health",
+              "GET /_gauntlet/v1/manifest",
+              "GET /_gauntlet/v1/operations/fixture.safe",
+              "POST /_gauntlet/v1/operations/fixture.safe/runs",
+              "GET /_gauntlet/v1/runs/synthetic-run",
+              "POST /_gauntlet/v1/data-sources/fixture.items/query",
+              "POST /_gauntlet/v1/data-sources/fixture.items/resolve",
+              "POST /_gauntlet/v1/runs/synthetic-run/cancel",
+              "GET /_gauntlet/v1/runs/synthetic-run/events",
+              "POST /_gauntlet/v1/uploads",
+              "POST /_gauntlet/v1/runs/synthetic-run/artifacts/synthetic-artifact/launch"
+            ],
+            "statuses": [
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404
+            ],
+            "forwarded": false
+          },
+          {
+            "matrix": "raw-target-variants",
+            "requests": [
+              "GET /_gauntlet/v1/health",
+              "GET /_gauntlet/v1/health/",
+              "GET /_gauntlet//v1/health",
+              "GET //_gauntlet/v1/health",
+              "GET /_gauntlet%2fv1/health",
+              "GET /%5Fgauntlet/v1/health",
+              "GET /safe/../_gauntlet/v1/health",
+              "GET /_gauntlet\\v1\\health",
+              "GET http://public.invalid/_gauntlet/v1/health",
+              "GET /_gauntlet/v1/operations/unsafe%ZZid",
+              "GET /_GAUNTLET/v1/health"
+            ],
+            "statuses": [
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404
+            ],
+            "forwarded": false
+          },
+          {
+            "network": "synthetic-private-adapter",
+            "request": "GET /_gauntlet/v1/health",
+            "status": 200
+          },
+          {
+            "configuredAdapterPrefixDenied": true,
+            "configuredPrivateTransport": "tailscale-internal-alb"
+          }
+        ],
+        "configurationSha256": "sha256:abe152e9c77a79a84930993b05d0c0dfae5986dc47af86d6bb1f3eedcd72e23d",
+        "runnerSha256": "sha256:666581087f9c635eab4643e7f30ed7129121ed4a0d585945c3ff0ab3386c7b62",
+        "phpCoreArtifactSha256": "sha256:942593462c43596b235cfae7e6420c7c42ae24c445bbcbb23fc3d2d490fc11ec",
+        "symfonyBundleArtifactSha256": "sha256:9c7dc7a1f30be53428827350a18ae651a640f0999d2ea8297f4c19551bddcba7",
+        "symfonyRuntimeSha256": "sha256:df9ada130784b9220502e21cd9e203ce952737f3d6a0ca735ccf0b22f4c61eea",
+        "symfonyVendorSha256": "sha256:575017b996824742f5f3f26605156e3cd1b4cc56a5377fa72df18ffc3ca12c27",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 1,
+        "previousReceiptSha256": null,
+        "receiptSha256": "sha256:d733810812935f833bc72c826257c47f584aac27a09ba512017b61c197c2ec4b"
+      },
+      {
+        "passed": true,
+        "evidenceType": "configuration-and-http-loopback",
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-27T21:24:30.661Z",
+        "httpExchanges": 23,
+        "checks": [
+          {
+            "matrix": "adapter-route-families",
+            "network": "synthetic-public-ingress",
+            "requests": [
+              "GET /_gauntlet/v1/health",
+              "GET /_gauntlet/v1/manifest",
+              "GET /_gauntlet/v1/operations/fixture.safe",
+              "POST /_gauntlet/v1/operations/fixture.safe/runs",
+              "GET /_gauntlet/v1/runs/synthetic-run",
+              "POST /_gauntlet/v1/data-sources/fixture.items/query",
+              "POST /_gauntlet/v1/data-sources/fixture.items/resolve",
+              "POST /_gauntlet/v1/runs/synthetic-run/cancel",
+              "GET /_gauntlet/v1/runs/synthetic-run/events",
+              "POST /_gauntlet/v1/uploads",
+              "POST /_gauntlet/v1/runs/synthetic-run/artifacts/synthetic-artifact/launch"
+            ],
+            "statuses": [
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404
+            ],
+            "forwarded": false
+          },
+          {
+            "matrix": "raw-target-variants",
+            "requests": [
+              "GET /_gauntlet/v1/health",
+              "GET /_gauntlet/v1/health/",
+              "GET /_gauntlet//v1/health",
+              "GET //_gauntlet/v1/health",
+              "GET /_gauntlet%2fv1/health",
+              "GET /%5Fgauntlet/v1/health",
+              "GET /safe/../_gauntlet/v1/health",
+              "GET /_gauntlet\\v1\\health",
+              "GET http://public.invalid/_gauntlet/v1/health",
+              "GET /_gauntlet/v1/operations/unsafe%ZZid",
+              "GET /_GAUNTLET/v1/health"
+            ],
+            "statuses": [
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404,
+              404
+            ],
+            "forwarded": false
+          },
+          {
+            "network": "synthetic-private-adapter",
+            "request": "GET /_gauntlet/v1/health",
+            "status": 200
+          },
+          {
+            "configuredAdapterPrefixDenied": true,
+            "configuredPrivateTransport": "tailscale-internal-alb"
+          }
+        ],
+        "configurationSha256": "sha256:abe152e9c77a79a84930993b05d0c0dfae5986dc47af86d6bb1f3eedcd72e23d",
+        "runnerSha256": "sha256:666581087f9c635eab4643e7f30ed7129121ed4a0d585945c3ff0ab3386c7b62",
+        "phpCoreArtifactSha256": "sha256:942593462c43596b235cfae7e6420c7c42ae24c445bbcbb23fc3d2d490fc11ec",
+        "symfonyBundleArtifactSha256": "sha256:9c7dc7a1f30be53428827350a18ae651a640f0999d2ea8297f4c19551bddcba7",
+        "symfonyRuntimeSha256": "sha256:df9ada130784b9220502e21cd9e203ce952737f3d6a0ca735ccf0b22f4c61eea",
+        "symfonyVendorSha256": "sha256:575017b996824742f5f3f26605156e3cd1b4cc56a5377fa72df18ffc3ca12c27",
+        "dashboardClientTreeSha256": "sha256:1910e0936a6377f3372f3be542d6cacfaedd9fa62d75486578226858c2a9d715",
+        "protocolTreeSha256": "sha256:f133108d74382c1835aa2c22a608356ed325a88d643d1ef3cb5806e602612399",
+        "ajvTreeSha256": "sha256:eed64c49e1a91f83ddd5aded1f2e0f0dba791da2505616e25a25d32520f05b86",
+        "ajvFormatsTreeSha256": "sha256:8ba7e0232dbf1f1ad641b1c3e9a35af80df4f08a6c574ae6bc6391f7dab4674d",
+        "canonicalizeTreeSha256": "sha256:d1510ca180d90b4b8b9b762afccdde659d652340cd0befb358feca114e6140e5",
+        "fastDeepEqualTreeSha256": "sha256:bbd2b210c259f326dfd26639ebe49a170ca4165c561f69eb3a99e403c45ca17d",
+        "fastUriTreeSha256": "sha256:050194b806435d1e74a0f83149decf23b03ad65206bf8746537f51d5cb62f838",
+        "jsonSchemaTraverseTreeSha256": "sha256:65ae5707228dd3e5508be166d4ff9e2e07f805119b452aadf6eb55cd93eac497",
+        "requireFromStringTreeSha256": "sha256:f19ed67728437be9b8acbd3fb9149b46ab1ba54b98547f4fad038d5e2c5202f2",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "probeRun": 2,
+        "previousReceiptSha256": "sha256:d733810812935f833bc72c826257c47f584aac27a09ba512017b61c197c2ec4b",
+        "receiptSha256": "sha256:c632d0ccd98c799f660107343cf3307adc04f0814408cea9f1a6b13ed4887b9a"
+      }
+    ]
+  },
+  "probeRuns": {
+    "disabled": 2,
+    "startupDenied": 2,
+    "mismatchDenied": 2,
+    "syntheticProtocolExercise": 2,
+    "publicRouteDenied": 2
+  },
+  "commands": [
+    "node verify.mjs --probe disabled => PASS (synthetic-ephemeral-loopback-http)",
+    "node verify.mjs --probe startupDenied => PASS (synthetic-ephemeral-loopback-http)",
+    "node verify.mjs --probe mismatchDenied => PASS (synthetic-ephemeral-loopback-http)",
+    "node verify.mjs --probe syntheticProtocolExercise => PASS (synthetic-ephemeral-loopback-http)",
+    "node verify.mjs --probe publicRouteDenied => PASS (synthetic-ephemeral-loopback-http)"
+  ]
+}

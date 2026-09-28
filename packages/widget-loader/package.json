@@ -1,0 +1,22 @@
+{
+  "name": "@8lines/gauntlet-widget-loader",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "dependencies": {
+    "@8lines/gauntlet-widget-channel": "workspace:*"
+  },
+  "devDependencies": {
+    "@8lines/gauntlet-widget": "workspace:*",
+    "@playwright/test": "1.55.1",
+    "typescript": "7.0.2",
+    "vite": "8.2.2"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test test/**/*.test.ts",
+    "test:e2e": "playwright test"
+  }
+}

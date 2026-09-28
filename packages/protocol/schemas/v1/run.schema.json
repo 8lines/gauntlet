@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.8lines.dev/gauntlet/v1/run.schema.json",
+  "type": "object",
+  "required": [
+    "id",
+    "operationId",
+    "operationRevision",
+    "sequence",
+    "state",
+    "createdAt",
+    "updatedAt",
+    "artifacts",
+    "actions"
+  ],
+  "properties": {
+    "id": { "$ref": "./common.schema.json#/$defs/portableId" },
+    "operationId": { "$ref": "./common.schema.json#/$defs/portableId" },
+    "operationRevision": { "$ref": "./common.schema.json#/$defs/sha256Revision" },
+    "sequence": { "$ref": "./common.schema.json#/$defs/nonNegativeSafeInteger" },
+    "state": {
+      "enum": ["queued", "running", "succeeded", "failed", "partial", "cancelled", "timed_out", "expired"]
+    },
+    "createdAt": { "$ref": "./common.schema.json#/$defs/rfc3339Timestamp" },
+    "updatedAt": { "$ref": "./common.schema.json#/$defs/rfc3339Timestamp" },
+    "startedAt": { "$ref": "./common.schema.json#/$defs/rfc3339Timestamp" },
+    "completedAt": { "$ref": "./common.schema.json#/$defs/rfc3339Timestamp" },
+    "progress": { "$ref": "./common.schema.json#/$defs/runProgress" },
+    "summary": { "$ref": "./common.schema.json#/$defs/runSummary" },
+    "output": { "$ref": "./common.schema.json#/$defs/jsonValue" },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "./common.schema.json#/$defs/artifact" }
+    },
+    "actions": {
+      "type": "array",
+      "items": { "$ref": "./common.schema.json#/$defs/followUpAction" }
+    },
+    "problem": { "$ref": "./common.schema.json#/$defs/problem" },
+    "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+  },
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "state": { "enum": ["queued", "running"] },
+        "completedAt": false,
+        "problem": false
+      }
+    },
+    {
+      "required": ["completedAt"],
+      "properties": {
+        "state": { "const": "succeeded" },
+        "problem": false
+      }
+    },
+    {
+      "required": ["completedAt", "problem"],
+      "properties": {
+        "state": { "enum": ["failed", "partial", "expired"] }
+      }
+    },
+    {
+      "required": ["completedAt", "problem"],
+      "properties": {
+        "state": { "const": "cancelled" },
+        "problem": {
+          "type": "object",
+          "required": ["type", "title", "status"],
+          "properties": {
+            "type": { "const": "urn:gauntlet:problem:run-cancelled" },
+            "title": { "const": "Run cancelled" },
+            "status": { "const": 409 }
+          }
+        }
+      }
+    },
+    {
+      "required": ["completedAt", "problem"],
+      "properties": {
+        "state": { "const": "timed_out" },
+        "problem": {
+          "type": "object",
+          "required": ["type", "title", "status"],
+          "properties": {
+            "type": { "const": "urn:gauntlet:problem:run-timed-out" },
+            "title": { "const": "Run timed out" },
+            "status": { "const": 504 }
+          }
+        }
+      }
+    }
+  ]
+}

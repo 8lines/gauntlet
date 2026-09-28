@@ -1,0 +1,52 @@
+{
+  "format": "tc-adapter-v1-extended@1",
+  "secretSentinels": ["731904"],
+  "handlerFailure": {
+    "operationId": "agency-applications.fail",
+    "input": {
+      "applicationId": "11111111-1111-4111-8111-111111111111",
+      "confirmationCode": "731904"
+    },
+    "context": {
+      "requestId": "conformance-extended-failure",
+      "target": {
+        "id": "conformance-target",
+        "environment": "test"
+      }
+    },
+    "idempotencyKey": "conformance-extended-failure-key"
+  },
+  "pagination": {
+    "dataSourceId": "pending-applications",
+    "query": {
+      "limit": 1,
+      "dependencies": { "/workflowState": "pending" },
+      "context": {
+        "requestId": "conformance-extended-pagination",
+        "target": {
+          "id": "conformance-target",
+          "environment": "test"
+        }
+      }
+    },
+    "minimumDistinctItems": 2,
+    "maximumPages": 8
+  },
+  "customBinding": {
+    "operationId": "agency-applications.finalize",
+    "input": {
+      "applicationId": "11111111-1111-4111-8111-111111111111",
+      "confirmationCode": "731904"
+    },
+    "context": {
+      "requestId": "conformance-extended-custom",
+      "target": {
+        "id": "conformance-target",
+        "environment": "test"
+      }
+    },
+    "idempotencyKey": "conformance-extended-custom-key",
+    "expectedOutput": { "finalized": true },
+    "expectedArtifactId": "finalize-result"
+  }
+}

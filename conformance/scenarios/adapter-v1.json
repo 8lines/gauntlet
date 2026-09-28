@@ -1,0 +1,51 @@
+{
+  "operationId": "agency-applications.finalize",
+  "dataSourceId": "pending-applications",
+  "input": {
+    "applicationId": "11111111-1111-4111-8111-111111111111",
+    "confirmationCode": "731904"
+  },
+  "invalidInput": {
+    "applicationId": "not-a-uuid",
+    "confirmationCode": "731904"
+  },
+  "expectedValidationPointer": "/applicationId",
+  "dataSourceQuery": {
+    "search": "Brown",
+    "limit": 2,
+    "dependencies": { "/workflowState": "pending" },
+    "context": {
+      "requestId": "conformance-query-01",
+      "target": {
+        "id": "conformance-target",
+        "environment": "test"
+      }
+    }
+  },
+  "dataSourceResolveRequest": {
+    "values": [
+      "11111111-1111-4111-8111-111111111111",
+      "22222222-2222-4222-8222-222222222222"
+    ],
+    "dependencies": { "/workflowState": "pending" },
+    "context": {
+      "requestId": "conformance-resolve-01",
+      "target": {
+        "id": "conformance-target",
+        "environment": "test"
+      }
+    }
+  },
+  "idempotencyKey": "conformance-finalize-01",
+  "expectedTerminalState": "succeeded",
+  "requiredProfiles": [
+    "tc-schema-core@1",
+    "tc-rich-forms@1",
+    "tc-rich-results@1"
+  ],
+  "requiredCapabilities": [],
+  "browserLaunch": {
+    "artifactId": "conformance-browser-session",
+    "expectedPublicOrigin": "https://portal.example.test"
+  }
+}

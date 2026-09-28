@@ -1,0 +1,18 @@
+{
+  "protocolVersion": "2.0",
+  "manifestRevision": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "schemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "profiles": ["tc-schema-core@1"],
+  "capabilities": [],
+  "application": {
+    "id": "acme-portal",
+    "label": "Acme Portal",
+    "environment": {
+      "name": "development",
+      "kind": "development"
+    }
+  },
+  "features": [],
+  "operations": [],
+  "dataSources": []
+}

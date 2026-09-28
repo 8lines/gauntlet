@@ -1,0 +1,7 @@
+services:
+  gauntlet:
+    image: gauntlet:local
+    pull_policy: build
+    build:
+      context: ../..
+      target: runtime

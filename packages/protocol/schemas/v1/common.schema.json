@@ -1,0 +1,558 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.8lines.dev/gauntlet/v1/common.schema.json",
+  "$defs": {
+    "portableId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "environmentKind": {
+      "enum": ["development", "test", "qa", "staging", "uat", "preview", "sandbox"]
+    },
+    "environmentDescriptor": {
+      "type": "object",
+      "required": ["name", "kind"],
+      "properties": {
+        "name": { "$ref": "#/$defs/portableId" },
+        "kind": { "$ref": "#/$defs/environmentKind" }
+      },
+      "additionalProperties": false
+    },
+    "operationImpact": {
+      "enum": ["read", "write", "destructive"]
+    },
+    "protocolVersion": {
+      "type": "string",
+      "pattern": "^1\\.(0|[1-9][0-9]*)$"
+    },
+    "profileId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*@[1-9][0-9]*$"
+    },
+    "capabilityId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*@[1-9][0-9]*$"
+    },
+    "sha256Revision": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "rfc3339Timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "httpUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://"
+    },
+    "safeInteger": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "nonNegativeSafeInteger": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "positiveSafeInteger": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "jsonPointer": {
+      "type": "string",
+      "pattern": "^(?:/(?:[^~/]|~[01])*)*$"
+    },
+    "operationPlacement": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": { "kind": { "const": "global" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "subjectType"],
+          "properties": {
+            "kind": { "const": "subject" },
+            "subjectType": { "$ref": "#/$defs/portableId" },
+            "bindings": {
+              "type": "object",
+              "minProperties": 1,
+              "propertyNames": { "type": "string", "pattern": "^(?:/(?:[^~/]|~[01])*)+$" },
+              "additionalProperties": { "$ref": "#/$defs/portableId" }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "operationPlacements": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/operationPlacement" }
+    },
+    "jsonPrimitive": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "string" },
+        { "$ref": "#/$defs/safeInteger" },
+        { "type": "number", "not": { "type": "integer" } }
+      ]
+    },
+    "jsonValue": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonPrimitive" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValue" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValue" } }
+      ]
+    },
+    "jsonObject": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^urn:[A-Za-z0-9][A-Za-z0-9:._/-]*$"
+      },
+      "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+    },
+    "confirmationAcknowledgement": {
+      "type": "object",
+      "required": ["operationId", "operationRevision", "impact"],
+      "properties": {
+        "operationId": { "$ref": "#/$defs/portableId" },
+        "operationRevision": { "$ref": "#/$defs/sha256Revision" },
+        "impact": { "$ref": "#/$defs/operationImpact" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    },
+    "protocolRequirements": {
+      "type": "object",
+      "properties": {
+        "profiles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/profileId" },
+          "uniqueItems": true
+        },
+        "capabilities": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/capabilityId" },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "jsonSchema": {
+      "type": "object",
+      "required": ["$schema"],
+      "properties": {
+        "$schema": { "const": "https://json-schema.org/draft/2020-12/schema" }
+      },
+      "additionalProperties": true
+    },
+    "objectJsonSchema": {
+      "type": "object",
+      "required": ["$schema", "type"],
+      "properties": {
+        "$schema": { "const": "https://json-schema.org/draft/2020-12/schema" },
+        "type": { "const": "object" }
+      },
+      "additionalProperties": true
+    },
+    "validationError": {
+      "type": "object",
+      "required": ["instancePath", "schemaPath", "keyword", "message", "params"],
+      "properties": {
+        "instancePath": { "type": "string" },
+        "schemaPath": { "type": "string" },
+        "keyword": { "type": "string" },
+        "message": { "type": "string" },
+        "params": { "$ref": "#/$defs/jsonObject" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    },
+    "problem": {
+      "type": "object",
+      "required": ["type", "title", "status"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "pattern": "^urn:gauntlet:problem:[A-Za-z0-9][A-Za-z0-9._:-]*$"
+        },
+        "title": { "type": "string", "minLength": 1 },
+        "status": { "type": "integer", "minimum": 100, "maximum": 599 },
+        "detail": { "type": "string" },
+        "instance": { "type": "string" },
+        "correlationId": { "type": "string" },
+        "errors": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/validationError" }
+        },
+        "capability": { "$ref": "#/$defs/capabilityId" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    },
+    "actor": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/portableId" },
+        "displayName": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "target": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/portableId" },
+        "environment": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "invocationContext": {
+      "type": "object",
+      "required": ["requestId"],
+      "properties": {
+        "requestId": { "$ref": "#/$defs/portableId" },
+        "locale": { "type": "string" },
+        "timeZone": { "type": "string" },
+        "actor": { "$ref": "#/$defs/actor" },
+        "target": { "$ref": "#/$defs/target" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    },
+    "jsonPointerMap": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/jsonPointer" },
+      "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+    },
+    "fileReference": {
+      "type": "object",
+      "required": ["kind", "uploadId", "name", "mediaType", "sizeBytes", "expiresAt"],
+      "properties": {
+        "kind": { "const": "file" },
+        "uploadId": { "$ref": "#/$defs/portableId" },
+        "name": { "type": "string", "minLength": 1 },
+        "mediaType": { "type": "string", "minLength": 1 },
+        "sizeBytes": { "$ref": "#/$defs/nonNegativeSafeInteger" },
+        "sha256": { "$ref": "#/$defs/sha256Revision" },
+        "expiresAt": { "$ref": "#/$defs/rfc3339Timestamp" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    },
+    "dataSourceItem": {
+      "type": "object",
+      "required": ["value", "label"],
+      "properties": {
+        "value": { "type": "string" },
+        "label": { "type": "string" },
+        "description": { "type": "string" },
+        "group": { "type": "string" },
+        "disabled": { "type": "boolean" },
+        "metadata": { "$ref": "#/$defs/jsonObject" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    },
+    "runProgress": {
+      "type": "object",
+      "required": ["updatedAt"],
+      "properties": {
+        "current": { "type": "number" },
+        "total": { "type": "number" },
+        "phase": { "type": "string" },
+        "message": { "type": "string" },
+        "updatedAt": { "$ref": "#/$defs/rfc3339Timestamp" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    },
+    "runSummary": {
+      "type": "object",
+      "required": ["title", "tone"],
+      "properties": {
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "tone": { "enum": ["neutral", "success", "warning", "error"] },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    },
+    "followUpAction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "label", "operationId"],
+          "properties": {
+            "kind": { "const": "invoke-operation" },
+            "label": { "type": "string" },
+            "operationId": { "$ref": "#/$defs/portableId" },
+            "input": { "$ref": "#/$defs/jsonObject" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "label", "url"],
+          "properties": {
+            "kind": { "const": "open-link" },
+            "label": { "type": "string" },
+            "url": { "$ref": "#/$defs/httpUrl" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "label", "artifactId"],
+          "properties": {
+            "kind": { "const": "browser-launch" },
+            "label": { "type": "string" },
+            "artifactId": { "$ref": "#/$defs/portableId" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "artifact": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["id", "kind", "level", "message"],
+          "properties": {
+            "id": { "$ref": "#/$defs/portableId" },
+            "title": { "type": "string" },
+            "kind": { "const": "notice" },
+            "level": { "enum": ["info", "success", "warning", "error"] },
+            "message": { "type": "string" },
+            "extensions": { "$ref": "#/$defs/extensions" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "metrics"],
+          "properties": {
+            "id": { "$ref": "#/$defs/portableId" },
+            "title": { "type": "string" },
+            "kind": { "const": "metrics" },
+            "metrics": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "value"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "value": { "type": "number" },
+                  "unit": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            },
+            "extensions": { "$ref": "#/$defs/extensions" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "entries"],
+          "properties": {
+            "id": { "$ref": "#/$defs/portableId" },
+            "title": { "type": "string" },
+            "kind": { "const": "key-value" },
+            "entries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["key", "label", "value"],
+                "properties": {
+                  "key": { "type": "string" },
+                  "label": { "type": "string" },
+                  "value": { "$ref": "#/$defs/jsonValue" }
+                },
+                "additionalProperties": false
+              }
+            },
+            "extensions": { "$ref": "#/$defs/extensions" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "columns", "rows"],
+          "properties": {
+            "id": { "$ref": "#/$defs/portableId" },
+            "title": { "type": "string" },
+            "kind": { "const": "table" },
+            "columns": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["key", "label"],
+                "properties": {
+                  "key": { "type": "string" },
+                  "label": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            },
+            "rows": { "type": "array", "items": { "$ref": "#/$defs/jsonObject" } },
+            "extensions": { "$ref": "#/$defs/extensions" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "value"],
+          "properties": {
+            "id": { "$ref": "#/$defs/portableId" },
+            "title": { "type": "string" },
+            "kind": { "const": "json" },
+            "value": { "$ref": "#/$defs/jsonValue" },
+            "extensions": { "$ref": "#/$defs/extensions" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "markdown"],
+          "properties": {
+            "id": { "$ref": "#/$defs/portableId" },
+            "title": { "type": "string" },
+            "kind": { "const": "markdown" },
+            "markdown": { "type": "string" },
+            "extensions": { "$ref": "#/$defs/extensions" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "format", "content"],
+          "properties": {
+            "id": { "$ref": "#/$defs/portableId" },
+            "title": { "type": "string" },
+            "kind": { "const": "diff" },
+            "format": { "const": "unified" },
+            "content": { "type": "string" },
+            "extensions": { "$ref": "#/$defs/extensions" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "items"],
+          "properties": {
+            "id": { "$ref": "#/$defs/portableId" },
+            "title": { "type": "string" },
+            "kind": { "const": "timeline" },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["timestamp", "title"],
+                "properties": {
+                  "timestamp": { "$ref": "#/$defs/rfc3339Timestamp" },
+                  "title": { "type": "string" },
+                  "description": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            },
+            "extensions": { "$ref": "#/$defs/extensions" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "entries"],
+          "properties": {
+            "id": { "$ref": "#/$defs/portableId" },
+            "title": { "type": "string" },
+            "kind": { "const": "log" },
+            "entries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["level", "message"],
+                "properties": {
+                  "timestamp": { "$ref": "#/$defs/rfc3339Timestamp" },
+                  "level": { "enum": ["debug", "info", "warning", "error"] },
+                  "message": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            },
+            "extensions": { "$ref": "#/$defs/extensions" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "url", "name", "mediaType"],
+          "properties": {
+            "id": { "$ref": "#/$defs/portableId" },
+            "title": { "type": "string" },
+            "kind": { "const": "download" },
+            "url": { "$ref": "#/$defs/httpUrl" },
+            "name": { "type": "string" },
+            "mediaType": { "type": "string" },
+            "sizeBytes": { "$ref": "#/$defs/nonNegativeSafeInteger" },
+            "extensions": { "$ref": "#/$defs/extensions" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "label", "url"],
+          "properties": {
+            "id": { "$ref": "#/$defs/portableId" },
+            "title": { "type": "string" },
+            "kind": { "const": "link" },
+            "label": { "type": "string" },
+            "url": { "$ref": "#/$defs/httpUrl" },
+            "extensions": { "$ref": "#/$defs/extensions" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "label"],
+          "properties": {
+            "id": { "$ref": "#/$defs/portableId" },
+            "title": { "type": "string" },
+            "kind": { "const": "browser-launch" },
+            "label": { "type": "string" },
+            "extensions": { "$ref": "#/$defs/extensions" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "data"],
+          "properties": {
+            "id": { "$ref": "#/$defs/portableId" },
+            "title": { "type": "string" },
+            "kind": {
+              "type": "string",
+              "pattern": "^urn:[A-Za-z0-9][A-Za-z0-9:._/-]*$"
+            },
+            "data": { "$ref": "#/$defs/jsonValue" },
+            "extensions": { "$ref": "#/$defs/extensions" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

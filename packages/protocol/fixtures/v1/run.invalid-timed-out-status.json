@@ -1,0 +1,18 @@
+{
+  "id": "run-timed-out-invalid-01",
+  "operationId": "application-access-review",
+  "operationRevision": "sha256:2e301a636fb48d2bec64fc7e91b62d8a45e47af3a28f665b6b809f6a4b19d9e8",
+  "sequence": 2,
+  "state": "timed_out",
+  "createdAt": "2026-08-29T12:30:00Z",
+  "updatedAt": "2026-08-29T12:32:01Z",
+  "startedAt": "2026-08-29T12:30:01Z",
+  "completedAt": "2026-08-29T12:32:01Z",
+  "artifacts": [],
+  "actions": [],
+  "problem": {
+    "type": "urn:gauntlet:problem:run-timed-out",
+    "title": "Run timed out",
+    "status": 409
+  }
+}

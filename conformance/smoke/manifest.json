@@ -1,0 +1,18 @@
+{
+  "protocolVersion": "1.0",
+  "manifestRevision": "sha256:58e6b1e301c3b2bd3aae82b8ad112d50c19165950f123ee1bb3167a84aed777a",
+  "schemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "profiles": [],
+  "capabilities": [],
+  "application": {
+    "id": "compose-smoke-adapter",
+    "label": "Compose smoke adapter",
+    "environment": {
+      "name": "compose-smoke",
+      "kind": "test"
+    }
+  },
+  "features": [],
+  "operations": [],
+  "dataSources": []
+}

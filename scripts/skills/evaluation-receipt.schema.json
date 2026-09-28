@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://8lines.dev/gauntlet/evaluation-receipt.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "skill", "skillSha256", "evaluationSha256", "externalInputsSha256", "evaluatedAt", "baseline", "guided", "forward", "verdict"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "skill": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "skillSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "evaluationSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "externalInputsSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "evaluatedAt": { "type": "string", "format": "date-time" },
+    "baseline": { "$ref": "#/$defs/phase" },
+    "guided": { "$ref": "#/$defs/phase" },
+    "forward": { "$ref": "#/$defs/phase" },
+    "verdict": { "const": "pass" }
+  },
+  "$defs": {
+    "phase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["transcript", "transcriptSha256", "scenarioResults"],
+      "properties": {
+        "transcript": { "type": "string", "pattern": "^results/[a-z0-9][a-z0-9._-]*\\.jsonl$" },
+        "transcriptSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "scenarioResults": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/result" }
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scenario", "samples", "reviewedSamples", "verdict"],
+      "properties": {
+        "scenario": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "samples": { "type": "integer", "minimum": 1 },
+        "reviewedSamples": { "type": "integer", "minimum": 1 },
+        "verdict": { "enum": ["expected-failure-observed", "pass"] }
+      }
+    }
+  }
+}

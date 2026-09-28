@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="464" viewBox="0 0 1060 464" role="img" aria-labelledby="title description">
+  <title id="title">Your capabilities, ready to use in the dashboard</title>
+  <desc id="description">Applications register test actions, define their inputs and report results. Gauntlet turns these definitions into an action catalog, generated forms and a view of run status and results. Examples include preparing test data, replaying a known event, searchable input choices, file uploads, result tables, downloads and test-user session links. Features are available when defined and supported by the application.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="m1 1 5 3-5 3" fill="none" stroke="#8793a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+      .label { font-size: 12px; font-weight: 700; letter-spacing: 1.4px; }
+      .heading { fill: #172238; font-size: 21px; font-weight: 650; }
+      .detail { fill: #536176; font-size: 16px; }
+      .icon { fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .connector { fill: none; stroke: #8793a6; stroke-width: 1.7; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect width="1060" height="464" rx="20" fill="#f8fafc"/>
+
+  <text class="label" x="36" y="40" fill="#16624c">WHAT YOUR APPLICATION EXPOSES</text>
+  <text class="detail" x="36" y="69">You define the capabilities in code.</text>
+  <text class="label" x="608" y="40" fill="#4338ca">WHAT THE DASHBOARD GIVES YOU</text>
+  <text class="detail" x="608" y="69">Your team gets a shared interface.</text>
+
+  <!-- Registered operations become a navigable catalog. -->
+  <rect x="24" y="92" width="440" height="96" rx="14" fill="#ecfdf5" stroke="#a7dfcd"/>
+  <rect x="42" y="111" width="40" height="40" rx="11" fill="#ffffff"/>
+  <path class="icon" stroke="#16624c" d="m64 118-10 15h8l-2 11 11-16h-8z"/>
+  <text class="heading" x="98" y="125">Test actions</text>
+  <text class="detail" x="98" y="151">Prepare data, change a test date,</text>
+  <text class="detail" x="98" y="174">replay a known event</text>
+  <path class="connector" d="M480 140 H578"/>
+  <rect x="596" y="92" width="440" height="96" rx="14" fill="#eef2ff" stroke="#c7d2fe"/>
+  <rect x="614" y="111" width="40" height="40" rx="11" fill="#ffffff"/>
+  <g class="icon" stroke="#4338ca">
+    <rect x="623" y="120" width="8" height="8" rx="1.5"/>
+    <rect x="637" y="120" width="8" height="8" rx="1.5"/>
+    <rect x="623" y="134" width="8" height="8" rx="1.5"/>
+    <rect x="637" y="134" width="8" height="8" rx="1.5"/>
+  </g>
+  <text class="heading" x="670" y="125">A browsable action catalog</text>
+  <text class="detail" x="670" y="151">Choose an application and feature.</text>
+  <text class="detail" x="670" y="174">See what each action does.</text>
+
+  <!-- Input schemas and presentation metadata generate the form. -->
+  <rect x="24" y="202" width="440" height="96" rx="14" fill="#ecfdf5" stroke="#a7dfcd"/>
+  <rect x="42" y="221" width="40" height="40" rx="11" fill="#ffffff"/>
+  <g class="icon" stroke="#16624c">
+    <path d="M51 235h22M51 247h22"/>
+    <rect x="56" y="231" width="5" height="8" rx="2" fill="#ffffff"/>
+    <rect x="65" y="243" width="5" height="8" rx="2" fill="#ffffff"/>
+  </g>
+  <text class="heading" x="98" y="235">Inputs and choices</text>
+  <text class="detail" x="98" y="261">Fields, presets, searchable values</text>
+  <text class="detail" x="98" y="284">and file inputs</text>
+  <path class="connector" d="M480 250 H578"/>
+  <rect x="596" y="202" width="440" height="96" rx="14" fill="#eef2ff" stroke="#c7d2fe"/>
+  <rect x="614" y="221" width="40" height="40" rx="11" fill="#ffffff"/>
+  <g class="icon" stroke="#4338ca">
+    <path d="M624 231h12M624 242h8"/>
+    <rect x="624" y="235" width="20" height="5" rx="1.5"/>
+    <path d="m636 247 3 3 6-7"/>
+  </g>
+  <text class="heading" x="670" y="235">Ready-to-use forms</text>
+  <text class="detail" x="670" y="261">Fill in validated fields, pick values</text>
+  <text class="detail" x="670" y="284">and review before running.</text>
+
+  <!-- The run view presents what the application reports. -->
+  <rect x="24" y="312" width="440" height="96" rx="14" fill="#ecfdf5" stroke="#a7dfcd"/>
+  <rect x="42" y="331" width="40" height="40" rx="11" fill="#ffffff"/>
+  <g class="icon" stroke="#16624c">
+    <path d="M54 339h11l6 6v17H54zM65 339v7h6M59 352h7M59 357h7"/>
+  </g>
+  <text class="heading" x="98" y="345">Results and artifacts</text>
+  <text class="detail" x="98" y="371">Progress, logs, tables, downloads</text>
+  <text class="detail" x="98" y="394">and test-user session links</text>
+  <path class="connector" d="M480 360 H578"/>
+  <rect x="596" y="312" width="440" height="96" rx="14" fill="#eef2ff" stroke="#c7d2fe"/>
+  <rect x="614" y="331" width="40" height="40" rx="11" fill="#ffffff"/>
+  <g class="icon" stroke="#4338ca">
+    <circle cx="634" cy="351" r="11"/>
+    <path d="m628 351 4 4 8-8"/>
+  </g>
+  <text class="heading" x="670" y="345">Run tracking and results</text>
+  <text class="detail" x="670" y="371">Follow status, inspect output</text>
+  <text class="detail" x="670" y="394">and open the returned artifacts.</text>
+
+  <text x="530" y="443" text-anchor="middle" fill="#64748b" font-size="14">Available features depend on what your application defines and supports.</text>
+</svg>

@@ -1,0 +1,17 @@
+{
+  "results": [
+    {
+      "value": "app-42",
+      "item": {
+        "value": "app-42",
+        "label": "Customer Portal",
+        "description": "Primary customer-facing portal",
+        "group": "Production"
+      }
+    },
+    {
+      "value": "missing-app",
+      "item": null
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.8lines.dev/gauntlet/v1/data-source-resolve-request.schema.json",
+  "type": "object",
+  "required": ["values"],
+  "properties": {
+    "values": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "dependencies": { "$ref": "./common.schema.json#/$defs/jsonPointerMap" },
+    "context": { "$ref": "./common.schema.json#/$defs/invocationContext" },
+    "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+  },
+  "additionalProperties": false
+}

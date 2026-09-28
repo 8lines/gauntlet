@@ -1,0 +1,17 @@
+version: 1
+instance:
+  name: small-apps-dev
+  environment:
+    name: dev
+    kind: development
+widget:
+  enabled: true
+targets:
+  - id: billing
+    label: Billing
+    adapterUrl: http://billing:8080
+    expectedEnvironment:
+      name: dev
+      kind: development
+    widget:
+      origins: [https://dev.billing.example/]

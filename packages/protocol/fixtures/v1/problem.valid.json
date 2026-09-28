@@ -1,0 +1,8 @@
+{
+  "type": "urn:gauntlet:problem:run-not-found",
+  "title": "Run not found",
+  "status": 404,
+  "detail": "No run exists with ID run-missing.",
+  "instance": "/_gauntlet/v1/runs/run-missing",
+  "correlationId": "correlation-404"
+}

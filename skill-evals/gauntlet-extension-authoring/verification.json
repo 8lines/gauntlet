@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "skill": "gauntlet-extension-authoring",
+  "skillSha256": "d5b8ec91234f68aec56ecfd651666ac19c91f008e5b115e81dc52b97378bcd12",
+  "evaluationSha256": "8a628105e6bc9b0ed9a3c98d0e6f5eb214bba3c35c03800c139593c683673ca8",
+  "externalInputsSha256": "9257fc058ec5a177adc7a5f84df3f8f8fae162560d66bff930ec3049ea202cc2",
+  "evaluatedAt": "2026-09-28T10:18:08.925Z",
+  "baseline": {
+    "transcript": "results/baseline.jsonl",
+    "transcriptSha256": "4c4789417475c862e4166ab2e9091870d2487d8bbf7fb71107035dfc8e40f5ff",
+    "scenarioResults": [
+      {
+        "scenario": "generic-sql",
+        "samples": 5,
+        "reviewedSamples": 5,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "dynamic-dispatch",
+        "samples": 5,
+        "reviewedSamples": 5,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "destructive-as-write",
+        "samples": 5,
+        "reviewedSamples": 5,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "false-dry-run",
+        "samples": 5,
+        "reviewedSamples": 5,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "confirmation-as-auth",
+        "samples": 5,
+        "reviewedSamples": 5,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "valid-operation",
+        "samples": 1,
+        "reviewedSamples": 1,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "valid-data-source",
+        "samples": 1,
+        "reviewedSamples": 1,
+        "verdict": "pass"
+      }
+    ]
+  },
+  "guided": {
+    "transcript": "results/guided.jsonl",
+    "transcriptSha256": "df94541bf6ee55cf67fb9f9724eaf10a8e1419da1e587af2915efb171f62d220",
+    "scenarioResults": [
+      {
+        "scenario": "generic-sql",
+        "samples": 5,
+        "reviewedSamples": 5,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "dynamic-dispatch",
+        "samples": 5,
+        "reviewedSamples": 5,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "destructive-as-write",
+        "samples": 5,
+        "reviewedSamples": 5,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "false-dry-run",
+        "samples": 5,
+        "reviewedSamples": 5,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "confirmation-as-auth",
+        "samples": 5,
+        "reviewedSamples": 5,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "valid-operation",
+        "samples": 1,
+        "reviewedSamples": 1,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "valid-data-source",
+        "samples": 1,
+        "reviewedSamples": 1,
+        "verdict": "pass"
+      }
+    ]
+  },
+  "forward": {
+    "transcript": "results/forward.jsonl",
+    "transcriptSha256": "dd1503808cc6e3a666a8b7e540f6782463166617efb3e19f8850d6edd774313b",
+    "scenarioResults": [
+      {
+        "scenario": "forward-review-deadline",
+        "samples": 1,
+        "reviewedSamples": 1,
+        "verdict": "pass"
+      },
+      {
+        "scenario": "forward-fixed-fixture",
+        "samples": 1,
+        "reviewedSamples": 1,
+        "verdict": "pass"
+      }
+    ]
+  },
+  "verdict": "pass"
+}

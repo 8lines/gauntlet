@@ -1,0 +1,7 @@
+version: 1
+instance:
+  name: small-apps-dev
+  environment:
+    name: dev
+    kind: development
+targets: []

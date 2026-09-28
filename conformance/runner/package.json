@@ -1,0 +1,39 @@
+{
+  "name": "@8lines/gauntlet-conformance-runner",
+  "description": "Scenario-driven Adapter v1 conformance libraries, CLI runners, and fixture adapter for Gauntlet implementations.",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=24 <27" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/8lines/gauntlet.git",
+    "directory": "conformance/runner"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "provenance": true
+  },
+  "bin": {
+    "gauntlet-conformance": "./dist/cli.js",
+    "gauntlet-conformance-extended": "./dist/extended-cli.js",
+    "gauntlet-conformance-fixture": "./dist/fixture-adapter.js"
+  },
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/mark-bins-executable.mjs",
+    "prepack": "pnpm --filter @8lines/gauntlet-conformance-runner... build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test test/source/**/*.test.ts",
+    "test:dist": "tsx --test test/dist/**/*.test.ts"
+  },
+  "dependencies": {
+    "@8lines/gauntlet-protocol": "workspace:*",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1"
+  }
+}

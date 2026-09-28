@@ -1,0 +1,65 @@
+{
+  "id": "pending-applications",
+  "label": "Pending applications",
+  "description": "Applications awaiting agency finalization.",
+  "capabilities": {
+    "search": true,
+    "pagination": "cursor",
+    "resolve": true,
+    "defaultLimit": 2,
+    "maxLimit": 100
+  },
+  "dependencySchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["/workflowState"],
+    "properties": {
+      "/workflowState": {"type": "string", "enum": ["pending"]}
+    },
+    "additionalProperties": false
+  },
+  "contextSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["requestId", "target"],
+    "properties": {
+      "requestId": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+      },
+      "locale": {"type": "string"},
+      "timeZone": {"type": "string"},
+      "actor": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+          },
+          "displayName": {"type": "string"}
+        },
+        "additionalProperties": false
+      },
+      "target": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+          },
+          "environment": {"type": "string"}
+        },
+        "additionalProperties": false
+      },
+      "extensions": {
+        "type": "object",
+        "propertyNames": {
+          "pattern": "^urn:[A-Za-z0-9][A-Za-z0-9:._/-]*$"
+        }
+      }
+    },
+    "additionalProperties": false
+  }
+}

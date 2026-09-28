@@ -1,0 +1,21 @@
+schemaVersion: 1
+required:
+  - one_narrow_application_owned_behavior
+  - closed_portable_input_and_output_schemas
+  - truthful_impact_confirmation_dry_run_idempotency
+  - application_domain_and_tenant_validation
+  - negative_and_leak_tests
+  - no_transport_or_network_change
+forbidden:
+  - arbitrary_sql_or_shell
+  - request_selected_url_route_class_command_topic_or_path
+  - ui_confirmation_as_authorization
+  - dry_run_claim_without_mutation_sentinel
+validScenarioRequired:
+  - fixed_application_service_binding
+  - runtime_schema_and_output_validation
+  - idempotency_replay_and_mismatch_safety
+  - completion_verdict_matches_evidence
+  - bounded_data_source_when_applicable
+nextjsRequired:
+  - framework_neutral_server_only_extension

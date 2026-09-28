@@ -1,0 +1,15 @@
+server:
+  address: 0.0.0.0
+  port: 8080
+gauntlet:
+  enabled: true
+  idempotency-secret: ${GAUNTLET_IDEMPOTENCY_SECRET}
+  application:
+    id: spring-example
+    label: Spring example
+    environment:
+      name: spring-example-test
+      kind: test
+  profiles:
+    - tc-rich-forms@1
+    - tc-rich-results@1

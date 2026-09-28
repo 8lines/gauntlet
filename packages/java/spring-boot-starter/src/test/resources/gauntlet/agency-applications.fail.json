@@ -1,0 +1,79 @@
+{
+  "id": "agency-applications.fail",
+  "revision": "sha256:92e8fdfe138a5c9638ef88e42292d724bce7c3ac268784bafdd5cc4ed4876d07",
+  "label": "Fail agency application",
+  "featureId": "agency-applications",
+  "description": "Exercise canonical handler failure behavior.",
+  "order": 20,
+  "tags": ["agency", "failure"],
+  "requirements": {
+    "profiles": ["tc-rich-forms@1", "tc-rich-results@1", "tc-schema-core@1"]
+  },
+  "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["applicationId", "confirmationCode"],
+    "properties": {
+      "applicationId": {"type": "string", "format": "uuid"},
+      "confirmationCode": {"type": "string", "pattern": "^[0-9]{6}$"}
+    },
+    "additionalProperties": false
+  },
+  "inputHandling": {
+    "rules": [
+      {
+        "kind": "secret",
+        "schemaPointer": "/properties/confirmationCode",
+        "retention": "none"
+      }
+    ]
+  },
+  "contextSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["requestId", "target"],
+    "properties": {
+      "requestId": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+      },
+      "target": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+          },
+          "environment": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "additionalProperties": false
+  },
+  "dataSources": [],
+  "presets": [],
+  "execution": {
+    "impact": "write",
+    "confirmationRequired": true,
+    "dryRunSupported": false,
+    "idempotency": "required",
+    "cancellationSupported": false,
+    "timeoutSeconds": 30,
+    "concurrency": "forbid"
+  },
+  "output": {
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "required": ["finalized"],
+      "properties": {"finalized": {"type": "boolean"}},
+      "additionalProperties": false
+    },
+    "presentation": {
+      "profile": "tc-rich-results@1",
+      "defaultView": "summary"
+    }
+  }
+}

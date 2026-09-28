@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "scope": "local-synthetic-evaluation-environment",
+  "attested": false,
+  "sourceCommitLocator": "f6ab7209cfe054a39603e2a14b97685a81ed9df9",
+  "toolchains": [
+    {
+      "name": "docker-cli",
+      "version": "Docker version 29.4.0, build 9d7ad9f",
+      "sha256": "70d5a06adf388bd09b652f47ddc9ca31663a3e5353d24188bdb0054b3014ab3e"
+    },
+    {
+      "name": "git",
+      "version": "git version 2.50.1 (Apple Git-155)",
+      "sha256": "b8763cf250e607a778bb4603cecb5b90338814d0a3dfcba0d57b1de242f610e9"
+    },
+    {
+      "name": "node",
+      "version": "v26.8.1",
+      "sha256": "ebd2d552c7bebde593dd0390530963ad28de56bccde6ce387cdbe55fb0b6fb8e"
+    },
+    {
+      "name": "pnpm",
+      "version": "11.24.0",
+      "sha256": "790eedc2dc20a47e9901691692213e4b533e093c31d9e51fbe4ca64caa56ac8a"
+    },
+    {
+      "name": "tar",
+      "version": "bsdtar 3.5.3 / libarchive 3.7.4",
+      "sha256": "f96200d5be4a3f99cdbc88892a2e26f14d501d354c72b224472462cc67fa271d"
+    }
+  ],
+  "containerImages": [
+    "composer:2.10.3@sha256:4d045ea9f71d5d111a95e608400da61d187e487adf9eaf2dfe068998a8d4f584",
+    "php:8.3.33-cli-bookworm@sha256:177529735599a8244b2c903522f029839dce1c2ac4be122fdc00ada4b45a20e4"
+  ],
+  "limitations": [
+    "Integrity observations are not external attestation.",
+    "The source commit is a locator; source and runtime content hashes are authoritative.",
+    "No customer, Kubernetes, Docker Compose, registry publication, or production deployment was verified."
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "values": ["app-42", "missing-app"],
+  "dependencies": {
+    "/options/includeInactive": false
+  },
+  "context": {
+    "requestId": "request-04",
+    "target": { "id": "acme-portal" }
+  }
+}

@@ -1,0 +1,19 @@
+version: 1
+instance:
+  name: compose-smoke
+  environment:
+    name: compose-smoke
+    kind: test
+targets:
+  - id: fixture-a
+    label: Fixture A
+    adapterUrl: http://fake-adapter-a:8081
+    expectedEnvironment:
+      name: compose-smoke
+      kind: test
+  - id: fixture-b
+    label: Fixture B
+    adapterUrl: http://fake-adapter-b:8081
+    expectedEnvironment:
+      name: compose-smoke
+      kind: test

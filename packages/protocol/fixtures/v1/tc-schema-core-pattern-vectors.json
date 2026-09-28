@@ -1,0 +1,450 @@
+{
+  "profile": "tc-schema-core@1",
+  "semantics": "ecmascript-unicode-search",
+  "instanceDomain": "unicode-scalar-sequences",
+  "vectors": [
+    {
+      "name": "literal-search-is-case-sensitive",
+      "sourceJson": "\"needle\"",
+      "valid": true,
+      "matches": ["needle", "hayneedle-stack"],
+      "nonMatches": ["Needle", "haystack"]
+    },
+    {
+      "name": "anchored-portable-id",
+      "sourceJson": "\"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$\"",
+      "valid": true,
+      "matches": ["a", "operation:1"],
+      "nonMatches": ["", "unsafe/id"]
+    },
+    {
+      "name": "disjoint-alternation",
+      "sourceJson": "\"^(cat|dog)$\"",
+      "valid": true,
+      "matches": ["cat", "dog"],
+      "nonMatches": ["Cat", "catalog"]
+    },
+    {
+      "name": "capturing-group",
+      "sourceJson": "\"^(ab)+$\"",
+      "valid": true,
+      "matches": ["ab", "abab"],
+      "nonMatches": ["", "aba"]
+    },
+    {
+      "name": "noncapturing-group",
+      "sourceJson": "\"^(?:ab|cd)$\"",
+      "valid": true,
+      "matches": ["ab", "cd"],
+      "nonMatches": ["ad", "abcd"]
+    },
+    {
+      "name": "ordinary-class-ranges-and-negation",
+      "sourceJson": "\"^[A-Za-z0-9][^~/]*$\"",
+      "valid": true,
+      "matches": ["a", "A_9"],
+      "nonMatches": ["", "a/b", "a~b"]
+    },
+    {
+      "name": "external-escaped-backslash",
+      "sourceJson": "\"\\\\\\\\\"",
+      "valid": true,
+      "matches": ["\\"],
+      "nonMatches": ["/"]
+    },
+    {
+      "name": "external-escaped-caret",
+      "sourceJson": "\"\\\\^\"",
+      "valid": true,
+      "matches": ["^"],
+      "nonMatches": ["x"]
+    },
+    {
+      "name": "external-escaped-dollar",
+      "sourceJson": "\"\\\\$\"",
+      "valid": true,
+      "matches": ["$"],
+      "nonMatches": ["x"]
+    },
+    {
+      "name": "external-escaped-dot",
+      "sourceJson": "\"\\\\.\"",
+      "valid": true,
+      "matches": ["."],
+      "nonMatches": ["x"]
+    },
+    {
+      "name": "external-escaped-star",
+      "sourceJson": "\"\\\\*\"",
+      "valid": true,
+      "matches": ["*"],
+      "nonMatches": ["x"]
+    },
+    {
+      "name": "external-escaped-plus",
+      "sourceJson": "\"\\\\+\"",
+      "valid": true,
+      "matches": ["+"],
+      "nonMatches": ["x"]
+    },
+    {
+      "name": "external-escaped-question",
+      "sourceJson": "\"\\\\?\"",
+      "valid": true,
+      "matches": ["?"],
+      "nonMatches": ["x"]
+    },
+    {
+      "name": "external-escaped-open-paren",
+      "sourceJson": "\"\\\\(\"",
+      "valid": true,
+      "matches": ["("],
+      "nonMatches": ["x"]
+    },
+    {
+      "name": "external-escaped-close-paren",
+      "sourceJson": "\"\\\\)\"",
+      "valid": true,
+      "matches": [")"],
+      "nonMatches": ["x"]
+    },
+    {
+      "name": "external-escaped-open-class",
+      "sourceJson": "\"\\\\[\"",
+      "valid": true,
+      "matches": ["["],
+      "nonMatches": ["x"]
+    },
+    {
+      "name": "external-escaped-close-class",
+      "sourceJson": "\"\\\\]\"",
+      "valid": true,
+      "matches": ["]"],
+      "nonMatches": ["x"]
+    },
+    {
+      "name": "external-escaped-open-brace",
+      "sourceJson": "\"\\\\{\"",
+      "valid": true,
+      "matches": ["{"],
+      "nonMatches": ["x"]
+    },
+    {
+      "name": "external-escaped-close-brace",
+      "sourceJson": "\"\\\\}\"",
+      "valid": true,
+      "matches": ["}"],
+      "nonMatches": ["x"]
+    },
+    {
+      "name": "external-escaped-alternation",
+      "sourceJson": "\"\\\\|\"",
+      "valid": true,
+      "matches": ["|"],
+      "nonMatches": ["x"]
+    },
+    {
+      "name": "external-escaped-slash",
+      "sourceJson": "\"\\\\/\"",
+      "valid": true,
+      "matches": ["/"],
+      "nonMatches": ["x"]
+    },
+    {
+      "name": "class-escaped-backslash",
+      "sourceJson": "\"^[\\\\\\\\]$\"",
+      "valid": true,
+      "matches": ["\\"],
+      "nonMatches": ["/"]
+    },
+    {
+      "name": "class-escaped-close-bracket",
+      "sourceJson": "\"^[\\\\]]$\"",
+      "valid": true,
+      "matches": ["]"],
+      "nonMatches": ["["]
+    },
+    {
+      "name": "class-escaped-caret",
+      "sourceJson": "\"^[\\\\^]$\"",
+      "valid": true,
+      "matches": ["^"],
+      "nonMatches": ["x"]
+    },
+    {
+      "name": "class-escaped-hyphen",
+      "sourceJson": "\"^[\\\\-]$\"",
+      "valid": true,
+      "matches": ["-"],
+      "nonMatches": ["x"]
+    },
+    {
+      "name": "optional-quantifier",
+      "sourceJson": "\"^colou?r$\"",
+      "valid": true,
+      "matches": ["color", "colour"],
+      "nonMatches": ["colouur"]
+    },
+    {
+      "name": "star-quantifier",
+      "sourceJson": "\"^ab*$\"",
+      "valid": true,
+      "matches": ["a", "abbb"],
+      "nonMatches": ["b", "aba"]
+    },
+    {
+      "name": "plus-quantifier",
+      "sourceJson": "\"^ab+$\"",
+      "valid": true,
+      "matches": ["ab", "abbb"],
+      "nonMatches": ["a", "aba"]
+    },
+    {
+      "name": "exact-quantifier",
+      "sourceJson": "\"^a{2}$\"",
+      "valid": true,
+      "matches": ["aa"],
+      "nonMatches": ["a", "aaa"]
+    },
+    {
+      "name": "minimum-quantifier",
+      "sourceJson": "\"^a{2,}$\"",
+      "valid": true,
+      "matches": ["aa", "aaaa"],
+      "nonMatches": ["a"]
+    },
+    {
+      "name": "bounded-quantifier",
+      "sourceJson": "\"^a{2,4}$\"",
+      "valid": true,
+      "matches": ["aa", "aaaa"],
+      "nonMatches": ["a", "aaaaa"]
+    },
+    {
+      "name": "maximum-portable-bound",
+      "sourceJson": "\"^a{1000}$\"",
+      "valid": true,
+      "matches": [],
+      "nonMatches": ["a"]
+    },
+    {
+      "name": "zero-exact-bound",
+      "sourceJson": "\"^a{0}$\"",
+      "valid": true,
+      "matches": [""],
+      "nonMatches": ["a"]
+    },
+    {
+      "name": "anchored-unbounded-counterexample",
+      "sourceJson": "\"^a*b$\"",
+      "valid": true,
+      "matches": ["b", "aaab"],
+      "nonMatches": ["aaaa", "ba"]
+    },
+    {
+      "name": "shared-anchor-nested-alternation-counterexample",
+      "sourceJson": "\"^(?:a+|b{2,})c$\"",
+      "valid": true,
+      "matches": ["ac", "aaac", "bbc", "bbbbc"],
+      "nonMatches": ["c", "abc"]
+    },
+    {
+      "name": "unanchored-bounded-search-counterexample",
+      "sourceJson": "\"a{2,4}b\"",
+      "valid": true,
+      "matches": ["aab", "xxaaabyy"],
+      "nonMatches": ["ab", "aaaaa"]
+    },
+    {
+      "name": "zero-repeat-discards-nullable-body",
+      "sourceJson": "\"^(?:a*){0}$\"",
+      "valid": true,
+      "matches": [""],
+      "nonMatches": ["a"]
+    },
+    {
+      "name": "raw-bmp-scalar",
+      "sourceJson": "\"\\u03bb\"",
+      "valid": true,
+      "matches": ["\u03bb"],
+      "nonMatches": ["l"]
+    },
+    {
+      "name": "raw-supplementary-scalar",
+      "sourceJson": "\"\\ud83d\\ude00\"",
+      "valid": true,
+      "matches": ["\ud83d\ude00"],
+      "nonMatches": [":)"]
+    },
+    {
+      "name": "epsilon-suffix-failure-regression",
+      "sourceJson": "\"^(?:(?:|)a)+b$\"",
+      "valid": false
+    },
+    {
+      "name": "multiple-epsilon-paths-in-repeated-group",
+      "sourceJson": "\"^(?:(?:|)a)*$\"",
+      "valid": false
+    },
+    {
+      "name": "nested-nullable-optional",
+      "sourceJson": "\"^(?:a?)?$\"",
+      "valid": false
+    },
+    {
+      "name": "indirect-multiple-nullable-alternatives",
+      "sourceJson": "\"^(?:a?|b?)$\"",
+      "valid": false
+    },
+    {
+      "name": "unanchored-star-search",
+      "sourceJson": "\"a*b\"",
+      "valid": false
+    },
+    {
+      "name": "unanchored-plus-search",
+      "sourceJson": "\"a+b\"",
+      "valid": false
+    },
+    {
+      "name": "unanchored-open-bound-search",
+      "sourceJson": "\"a{2,}b\"",
+      "valid": false
+    },
+    {
+      "name": "top-level-alternation-bypasses-anchor",
+      "sourceJson": "\"^a|b*\"",
+      "valid": false
+    },
+    {
+      "name": "escaped-caret-is-not-root-anchor",
+      "sourceJson": "\"\\\\^a*\"",
+      "valid": false
+    },
+    {
+      "name": "surrogate-overlap-backtracking-regression",
+      "sourceJson": "\"^(?:[\\ud7ff-\\ue000]|[^\\ud7ff\\ue000]){24}$\"",
+      "valid": false
+    },
+    {
+      "name": "ordinary-range-across-surrogate-gap",
+      "sourceJson": "\"^[\\ud7ff-\\ue000]$\"",
+      "valid": false
+    },
+    {
+      "name": "repository-version-pattern",
+      "sourceJson": "\"^1\\\\.(0|[1-9][0-9]*)$\"",
+      "valid": true,
+      "matches": ["1.0", "1.12"],
+      "nonMatches": ["1.01", "2.0"]
+    },
+    {
+      "name": "repository-profile-pattern",
+      "sourceJson": "\"^[A-Za-z0-9][A-Za-z0-9._:-]*@[1-9][0-9]*$\"",
+      "valid": true,
+      "matches": ["tc-schema-core@1", "x@20"],
+      "nonMatches": ["@1", "x@0"]
+    },
+    {
+      "name": "repository-sha256-pattern",
+      "sourceJson": "\"^sha256:[0-9a-f]{64}$\"",
+      "valid": true,
+      "matches": ["sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"],
+      "nonMatches": ["sha256:ABCDEF", "sha256:00"]
+    },
+    {
+      "name": "repository-http-pattern",
+      "sourceJson": "\"^[Hh][Tt][Tt][Pp][Ss]?://\"",
+      "valid": true,
+      "matches": ["https://example.test", "HTTP://example.test"],
+      "nonMatches": ["ftp://example.test"]
+    },
+    {
+      "name": "repository-json-pointer-pattern",
+      "sourceJson": "\"^(?:/(?:[^~/]|~[01])*)*$\"",
+      "valid": true,
+      "matches": ["", "/a", "/a~1b/~0"],
+      "nonMatches": ["a", "/bad~2escape"]
+    },
+    {
+      "name": "repository-urn-pattern",
+      "sourceJson": "\"^urn:[A-Za-z0-9][A-Za-z0-9:._/-]*$\"",
+      "valid": true,
+      "matches": ["urn:x", "urn:gauntlet:problem:x-1"],
+      "nonMatches": ["URN:x", "urn:"]
+    },
+    {
+      "name": "repository-problem-urn-pattern",
+      "sourceJson": "\"^urn:gauntlet:problem:[A-Za-z0-9][A-Za-z0-9._:-]*$\"",
+      "valid": true,
+      "matches": ["urn:gauntlet:problem:x", "urn:gauntlet:problem:handler-failed"],
+      "nonMatches": ["urn:gauntlet:problem:", "urn:gauntlet:x"]
+    },
+    {
+      "name": "absolute-final-dollar",
+      "sourceJson": "\"end$\"",
+      "valid": true,
+      "matches": ["end", "the end"],
+      "nonMatches": ["end\n", "end\r", "end\u2028", "end\u2029"]
+    },
+    {
+      "name": "decoded-length-513",
+      "sourceJson": "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",
+      "valid": false
+    },
+    { "name": "lone-high-surrogate", "sourceJson": "\"\\ud800\"", "valid": false },
+    { "name": "lone-low-surrogate", "sourceJson": "\"\\udc00\"", "valid": false },
+    { "name": "decoded-c0-control", "sourceJson": "\"\\u0000\"", "valid": false },
+    { "name": "decoded-c1-control", "sourceJson": "\"\\u0085\"", "valid": false },
+    { "name": "escaped-c0-control", "sourceJson": "\"\\\\n\"", "valid": false },
+    { "name": "escaped-c1-control", "sourceJson": "\"\\\\x85\"", "valid": false },
+    { "name": "wildcard", "sourceJson": "\".\"", "valid": false },
+    { "name": "digit-shorthand", "sourceJson": "\"\\\\d\"", "valid": false },
+    { "name": "not-digit-shorthand", "sourceJson": "\"\\\\D\"", "valid": false },
+    { "name": "space-shorthand", "sourceJson": "\"\\\\s\"", "valid": false },
+    { "name": "not-space-shorthand", "sourceJson": "\"\\\\S\"", "valid": false },
+    { "name": "word-shorthand", "sourceJson": "\"\\\\w\"", "valid": false },
+    { "name": "not-word-shorthand", "sourceJson": "\"\\\\W\"", "valid": false },
+    { "name": "word-boundary", "sourceJson": "\"\\\\b\"", "valid": false },
+    { "name": "not-word-boundary", "sourceJson": "\"\\\\B\"", "valid": false },
+    { "name": "numeric-backreference", "sourceJson": "\"\\\\1\"", "valid": false },
+    { "name": "named-backreference", "sourceJson": "\"\\\\k<name>\"", "valid": false },
+    { "name": "positive-lookahead", "sourceJson": "\"(?=a)\"", "valid": false },
+    { "name": "negative-lookahead", "sourceJson": "\"(?!a)\"", "valid": false },
+    { "name": "positive-lookbehind", "sourceJson": "\"(?<=a)\"", "valid": false },
+    { "name": "negative-lookbehind", "sourceJson": "\"(?<!a)\"", "valid": false },
+    { "name": "named-group", "sourceJson": "\"(?<name>a)\"", "valid": false },
+    { "name": "inline-flags", "sourceJson": "\"(?i:a)\"", "valid": false },
+    { "name": "unicode-property", "sourceJson": "\"\\\\p{Letter}\"", "valid": false },
+    { "name": "negative-unicode-property", "sourceJson": "\"\\\\P{Letter}\"", "valid": false },
+    { "name": "unicode-escape", "sourceJson": "\"\\\\u0061\"", "valid": false },
+    { "name": "unicode-code-point-escape", "sourceJson": "\"\\\\u{61}\"", "valid": false },
+    { "name": "hex-escape", "sourceJson": "\"\\\\x61\"", "valid": false },
+    { "name": "control-escape", "sourceJson": "\"\\\\cA\"", "valid": false },
+    { "name": "external-hyphen-identity-escape", "sourceJson": "\"\\\\-\"", "valid": false },
+    { "name": "other-identity-escape", "sourceJson": "\"\\\\a\"", "valid": false },
+    { "name": "lazy-quantifier", "sourceJson": "\"a*?\"", "valid": false },
+    { "name": "possessive-quantifier", "sourceJson": "\"a*+\"", "valid": false },
+    { "name": "repeated-quantifier", "sourceJson": "\"a**\"", "valid": false },
+    { "name": "bound-over-1000", "sourceJson": "\"a{1001}\"", "valid": false },
+    { "name": "upper-bound-over-1000", "sourceJson": "\"a{0,1001}\"", "valid": false },
+    { "name": "reversed-bound", "sourceJson": "\"a{3,2}\"", "valid": false },
+    { "name": "leading-zero-bound", "sourceJson": "\"a{01}\"", "valid": false },
+    { "name": "missing-lower-bound", "sourceJson": "\"a{,2}\"", "valid": false },
+    { "name": "unterminated-bound", "sourceJson": "\"a{2\"", "valid": false },
+    { "name": "nested-class", "sourceJson": "\"[a[b]\"", "valid": false },
+    { "name": "empty-class", "sourceJson": "\"[]\"", "valid": false },
+    { "name": "wildcard-equivalent-class", "sourceJson": "\"[^]\"", "valid": false },
+    { "name": "descending-range", "sourceJson": "\"[z-a]\"", "valid": false },
+    { "name": "class-intersection-operator", "sourceJson": "\"[a&&b]\"", "valid": false },
+    { "name": "class-subtraction-operator", "sourceJson": "\"[a--b]\"", "valid": false },
+    { "name": "nullable-repeat", "sourceJson": "\"(a*)*\"", "valid": false },
+    { "name": "parallel-repeat-transitions", "sourceJson": "\"(a+)+\"", "valid": false },
+    { "name": "ambiguous-alternative-repeat", "sourceJson": "\"(a|aa)*\"", "valid": false },
+    { "name": "ambiguous-optional-prefix", "sourceJson": "\"a?a\"", "valid": false },
+    { "name": "unterminated-group", "sourceJson": "\"(a\"", "valid": false },
+    { "name": "unterminated-class", "sourceJson": "\"[a\"", "valid": false },
+    { "name": "unterminated-escape", "sourceJson": "\"\\\\\"", "valid": false },
+    { "name": "quantifier-without-atom", "sourceJson": "\"*a\"", "valid": false }
+  ]
+}

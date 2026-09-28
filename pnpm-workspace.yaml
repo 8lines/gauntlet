@@ -1,0 +1,13 @@
+packages:
+  - apps/*
+  - packages/protocol
+  - packages/dashboard-client
+  - packages/widget
+  - packages/widget-channel
+  - packages/widget-loader
+  - packages/typescript/*
+  - conformance/*
+  - examples/*
+
+allowBuilds:
+  esbuild: true

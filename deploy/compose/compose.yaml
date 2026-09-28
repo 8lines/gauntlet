@@ -1,0 +1,55 @@
+name: gauntlet
+
+services:
+  gauntlet:
+    image: ${GAUNTLET_IMAGE:?GAUNTLET_IMAGE is required}
+    restart: unless-stopped
+    init: true
+    environment:
+      GAUNTLET_CONFIG_FILE: /etc/gauntlet/config.yaml
+      GAUNTLET_HOST: "0.0.0.0"
+      GAUNTLET_PORT: "8080"
+      GAUNTLET_MCP_ENABLED: "${GAUNTLET_MCP_ENABLED:-false}"
+      GAUNTLET_MCP_ALLOWED_ORIGINS_JSON: "${GAUNTLET_MCP_ALLOWED_ORIGINS_JSON:-[]}"
+    ports:
+      - target: 8080
+        published: "${GAUNTLET_PORT:-8080}"
+        host_ip: "${GAUNTLET_BIND:-127.0.0.1}"
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: ${GAUNTLET_CONFIG_PATH:-./config.yaml}
+        target: /etc/gauntlet/config.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      - ingress
+      - adapters
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    stop_grace_period: 10s
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:8080/ready', { signal: AbortSignal.timeout(1500) }).then((response) => process.exit(response.status === 200 ? 0 : 1)).catch(() => process.exit(1))
+      interval: 10s
+      timeout: 2s
+      retries: 6
+      start_period: 5s
+
+networks:
+  ingress:
+    internal: true
+  adapters:
+    name: gauntlet
+    external: true

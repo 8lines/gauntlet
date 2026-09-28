@@ -1,0 +1,7 @@
+{
+  "type": "urn:gauntlet:problem:unsupported-capability",
+  "title": "Capability is not supported",
+  "status": 501,
+  "detail": "This adapter does not support run event streaming.",
+  "capability": "tc-run-sse@1"
+}

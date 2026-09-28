@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.8lines.dev/gauntlet/v1/data-source-query.schema.json",
+  "type": "object",
+  "properties": {
+    "search": { "type": "string" },
+    "cursor": { "type": "string" },
+    "limit": { "$ref": "./common.schema.json#/$defs/positiveSafeInteger" },
+    "dependencies": { "$ref": "./common.schema.json#/$defs/jsonPointerMap" },
+    "context": { "$ref": "./common.schema.json#/$defs/invocationContext" },
+    "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+  },
+  "additionalProperties": false
+}

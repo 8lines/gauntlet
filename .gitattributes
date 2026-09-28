@@ -1,0 +1,10 @@
+packages/protocol/fixtures/v1/*.json text eol=lf
+deploy/compose/gauntlet text eol=lf
+VERSION text eol=lf
+
+# Receipt-pinned upstream bytes: preserve exact line endings/spacing while
+# excluding intentional upstream formatting from Git whitespace diagnostics.
+packages/java/core/THIRD_PARTY_LICENSES/json-canonicalization-LICENSE -text whitespace=cr-at-eol
+packages/java/core/src/main/java/dev/eightlines/gauntlet/core/json/internal/jcs/DoubleCoreSerializer.java -whitespace
+packages/java/core/src/main/java/dev/eightlines/gauntlet/core/json/internal/jcs/NumberToJSON.java -whitespace
+packages/java/gradlew.bat -text whitespace=cr-at-eol

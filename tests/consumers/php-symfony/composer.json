@@ -1,0 +1,16 @@
+{
+  "name": "8lines/gauntlet-php-symfony-consumer",
+  "description": "Release verification consumer for the Gauntlet Symfony Bundle.",
+  "type": "project",
+  "license": "Apache-2.0",
+  "repositories": [],
+  "require": {
+    "php": ">=8.3",
+    "8lines/gauntlet-php-core": "0.1.0",
+    "8lines/gauntlet-symfony-bundle": "0.1.0",
+    "symfony/framework-bundle": "^7.4 || ^8.0"
+  },
+  "config": {
+    "allow-plugins": false
+  }
+}

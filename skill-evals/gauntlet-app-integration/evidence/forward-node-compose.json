@@ -1,0 +1,934 @@
+{
+  "scope": "synthetic-ephemeral-loopback-http",
+  "customerDeploymentVerified": false,
+  "receiptMode": "observations-only",
+  "minimumProbeRuns": 1,
+  "selfHashMeaning": "integrity-only-not-trust-or-attestation",
+  "requiredReceiptDigests": [
+    "configurationSha256",
+    "runnerSha256",
+    "runtimeArtifactsSha256",
+    "runtimeDependencyTreesSha256",
+    "yamlPackageSha256"
+  ],
+  "observations": {
+    "disabledBoundary": {
+      "evidenceType": "http-loopback",
+      "checks": [
+        {
+          "routeFamilies": [
+            {
+              "family": "health",
+              "method": "GET",
+              "status": 503,
+              "problemType": "urn:gauntlet:problem:adapter-disabled"
+            },
+            {
+              "family": "manifest",
+              "method": "GET",
+              "status": 503,
+              "problemType": "urn:gauntlet:problem:adapter-disabled"
+            },
+            {
+              "family": "operation-definition",
+              "method": "GET",
+              "status": 503,
+              "problemType": "urn:gauntlet:problem:adapter-disabled"
+            },
+            {
+              "family": "operation-run",
+              "method": "POST",
+              "status": 503,
+              "problemType": "urn:gauntlet:problem:adapter-disabled"
+            },
+            {
+              "family": "run",
+              "method": "GET",
+              "status": 503,
+              "problemType": "urn:gauntlet:problem:adapter-disabled"
+            },
+            {
+              "family": "data-source-query",
+              "method": "POST",
+              "status": 503,
+              "problemType": "urn:gauntlet:problem:adapter-disabled"
+            },
+            {
+              "family": "data-source-resolve",
+              "method": "POST",
+              "status": 503,
+              "problemType": "urn:gauntlet:problem:adapter-disabled"
+            },
+            {
+              "family": "cancel",
+              "method": "POST",
+              "status": 503,
+              "problemType": "urn:gauntlet:problem:adapter-disabled"
+            },
+            {
+              "family": "events",
+              "method": "GET",
+              "status": 503,
+              "problemType": "urn:gauntlet:problem:adapter-disabled"
+            },
+            {
+              "family": "upload",
+              "method": "POST",
+              "status": 503,
+              "problemType": "urn:gauntlet:problem:adapter-disabled"
+            },
+            {
+              "family": "session-launch",
+              "method": "POST",
+              "status": 503,
+              "problemType": "urn:gauntlet:problem:adapter-disabled"
+            }
+          ],
+          "rawTargetVariants": [
+            {
+              "rawTarget": "http://public.invalid/_gauntlet/v1/health",
+              "status": 503
+            },
+            {
+              "rawTarget": "/%5Fgauntlet/v1/health",
+              "status": 503
+            },
+            {
+              "rawTarget": "//_gauntlet//v1//health",
+              "status": 503
+            },
+            {
+              "rawTarget": "/ordinary/../_gauntlet/v1/health",
+              "status": 503
+            },
+            {
+              "rawTarget": "/_gauntlet/v1/health/",
+              "status": 503
+            },
+            {
+              "rawTarget": "/_gauntlet%2fv1/health",
+              "status": 503
+            },
+            {
+              "rawTarget": "/_gauntlet\\v1\\health",
+              "status": 503
+            },
+            {
+              "rawTarget": "/_g%61untlet/v1/health",
+              "status": 503
+            },
+            {
+              "rawTarget": "/_gauntlet/v1/operations/unsafe%ZZid",
+              "status": 503
+            },
+            {
+              "rawTarget": "/_gauntlet/v1/manifest?query=1",
+              "status": 503
+            },
+            {
+              "rawTarget": "/_gauntlet/v1/manifest#fragment",
+              "status": 503
+            }
+          ],
+          "hostFallback": {
+            "request": "GET /host-health",
+            "status": 200,
+            "hostApplicationAlive": true
+          },
+          "clientErrorBoundary": {
+            "adapterRequests": {
+              "requestLines": [
+                "GET /_gauntlet/v1/manifest",
+                "GET http://attacker.invalid/_gauntlet/v1/manifest",
+                "GET /%5Fgauntlet/v1/manifest",
+                "GET /_gauntlet\\v1\\manifest",
+                "GET /_g%61untlet/v1/manifest",
+                "GET //_gauntlet//v1//manifest",
+                "GET /ordinary/../_gauntlet/v1/manifest",
+                "get /_gauntlet/v1/manifest",
+                "CUSTOMMETHODEXTENSION /_gauntlet/v1/manifest",
+                "M-SEARCH /_gauntlet/v1/manifest"
+              ],
+              "statuses": [
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503,
+                503
+              ],
+              "problemType": "urn:gauntlet:problem:adapter-disabled"
+            },
+            "unrelatedRequest": {
+              "status": 400,
+              "mediaType": ""
+            }
+          },
+          "exceptionalBoundary": {
+            "channels": [
+              "trace",
+              "track",
+              "connect",
+              "upgrade",
+              "expectation"
+            ],
+            "adapterStatuses": [
+              503,
+              503,
+              503,
+              503,
+              503
+            ],
+            "unrelatedStatuses": [
+              405,
+              400,
+              400,
+              400,
+              417
+            ]
+          }
+        }
+      ],
+      "passed": true,
+      "scope": "synthetic-ephemeral-loopback-http",
+      "observedAt": "2026-09-28T10:08:06.792Z",
+      "httpExchanges": 44,
+      "probeRun": 1,
+      "previousReceiptSha256": null,
+      "configurationSha256": "sha256:5ac2b73a395a4cea73b4dcaaeb1cb169cd1cffd3dea01aef67876739b4866b0c",
+      "runnerSha256": "sha256:318d3f128bc5b33d36c26a2e25694f43052a279ac88808789e916fa726d29b5a",
+      "runtimeArtifactsSha256": "sha256:5f97e9b65cee05542e19eb3290e3c50d8b99ba26a8f5a24c64115663da0fc899",
+      "runtimeDependencyTreesSha256": "sha256:274f3879a28dcf6244e95b46bbcc9673a676cb105e53b33f1a00691ae8f755ba",
+      "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+      "receiptSha256": "sha256:39c5000ee46066082dd5aa6b1f7fba864fc194fad8ea1b42506de4ebe0bb6c17"
+    },
+    "mismatchDenied": {
+      "evidenceType": "http-loopback",
+      "checks": [
+        {
+          "mismatchAxis": "name",
+          "routeFamilies": [
+            {
+              "proxyFamily": "operation-definition",
+              "status": 503
+            },
+            {
+              "proxyFamily": "operation-run",
+              "status": 503
+            },
+            {
+              "proxyFamily": "run",
+              "status": 503
+            },
+            {
+              "proxyFamily": "upload",
+              "status": 503
+            },
+            {
+              "proxyFamily": "cancel",
+              "status": 503
+            },
+            {
+              "proxyFamily": "events",
+              "status": 503
+            },
+            {
+              "proxyFamily": "data-source-query",
+              "status": 503
+            },
+            {
+              "proxyFamily": "data-source-resolve",
+              "status": 503
+            },
+            {
+              "proxyFamily": "session-launch",
+              "status": 503
+            }
+          ],
+          "status": 503,
+          "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+          "manifestDiscoveryRequests": 9,
+          "upstreamApplicationRequests": 0
+        },
+        {
+          "mismatchAxis": "kind",
+          "routeFamilies": [
+            {
+              "proxyFamily": "operation-definition",
+              "status": 503
+            },
+            {
+              "proxyFamily": "operation-run",
+              "status": 503
+            },
+            {
+              "proxyFamily": "run",
+              "status": 503
+            },
+            {
+              "proxyFamily": "upload",
+              "status": 503
+            },
+            {
+              "proxyFamily": "cancel",
+              "status": 503
+            },
+            {
+              "proxyFamily": "events",
+              "status": 503
+            },
+            {
+              "proxyFamily": "data-source-query",
+              "status": 503
+            },
+            {
+              "proxyFamily": "data-source-resolve",
+              "status": 503
+            },
+            {
+              "proxyFamily": "session-launch",
+              "status": 503
+            }
+          ],
+          "status": 503,
+          "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+          "manifestDiscoveryRequests": 9,
+          "upstreamApplicationRequests": 0
+        }
+      ],
+      "passed": true,
+      "scope": "synthetic-ephemeral-loopback-http",
+      "observedAt": "2026-09-28T10:08:09.703Z",
+      "httpExchanges": 36,
+      "probeRun": 1,
+      "previousReceiptSha256": null,
+      "configurationSha256": "sha256:5ac2b73a395a4cea73b4dcaaeb1cb169cd1cffd3dea01aef67876739b4866b0c",
+      "runnerSha256": "sha256:318d3f128bc5b33d36c26a2e25694f43052a279ac88808789e916fa726d29b5a",
+      "runtimeArtifactsSha256": "sha256:5f97e9b65cee05542e19eb3290e3c50d8b99ba26a8f5a24c64115663da0fc899",
+      "runtimeDependencyTreesSha256": "sha256:274f3879a28dcf6244e95b46bbcc9673a676cb105e53b33f1a00691ae8f755ba",
+      "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+      "receiptSha256": "sha256:5408b9f4b51feb6cd7bde197fd1691cc01eb2819825d338b2e7e288c17cc7104"
+    },
+    "syntheticProtocolExercise": {
+      "evidenceType": "http-loopback",
+      "checks": [
+        {
+          "healthStatus": 200,
+          "manifestStatus": 200,
+          "operationStatus": 200,
+          "staleRevisionStatus": 409,
+          "invalidInputStatus": 422,
+          "createStatus": 202,
+          "terminalState": "succeeded",
+          "idempotentReplay": true,
+          "dataSourceQueryStatus": 200,
+          "dataSourceResolveStatus": 200,
+          "applicationOperationRuns": 1,
+          "operationInputMatched": true,
+          "applicationDataSourceQueries": 1,
+          "applicationDataSourceResolves": 1,
+          "dataSourceInputsMatched": true,
+          "rawBoundary": {
+            "invalidTargets": [
+              "/_gauntlet/v1/operations/a/../b",
+              "/_gauntlet/v1/operations/a/./b",
+              "/_gauntlet/v1/manifest/..",
+              "/_gauntlet/v1/manifest/.",
+              "/_gauntlet/v1//manifest",
+              "/_gauntlet/v1/operations/a%2fb",
+              "/_gauntlet/v1/operations/a\\b",
+              "/_gauntlet/v1/manifest?query=1",
+              "/_gauntlet/v1/manifest#fragment",
+              "/_gauntlet/v1/manifest/",
+              "/_gauntlet/v1/manifest/extra",
+              "/_gauntlet/v1/operations/bad$id",
+              "/_gauntlet/v1/operations/unsafe%ZZid"
+            ],
+            "statuses": [
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400,
+              400
+            ],
+            "malformedAdapter": {
+              "requestLines": [
+                "GET /_gauntlet/v1/manifest",
+                "GET http://attacker.invalid/_gauntlet/v1/manifest",
+                "GET /%5Fgauntlet/v1/manifest",
+                "GET /_gauntlet\\v1\\manifest",
+                "GET /_g%61untlet/v1/manifest",
+                "GET //_gauntlet//v1//manifest",
+                "GET /ordinary/../_gauntlet/v1/manifest",
+                "get /_gauntlet/v1/manifest",
+                "CUSTOMMETHODEXTENSION /_gauntlet/v1/manifest",
+                "M-SEARCH /_gauntlet/v1/manifest"
+              ],
+              "statuses": [
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400
+              ],
+              "problemType": "urn:gauntlet:problem:invalid-path"
+            },
+            "unrelatedMalformed": {
+              "status": 400,
+              "mediaType": ""
+            },
+            "exceptionalRequests": {
+              "channels": [
+                "trace",
+                "track",
+                "connect",
+                "upgrade",
+                "expectation"
+              ],
+              "adapterStatuses": [
+                405,
+                400,
+                405,
+                405,
+                417
+              ],
+              "unrelatedStatuses": [
+                405,
+                400,
+                400,
+                400,
+                417
+              ]
+            }
+          }
+        }
+      ],
+      "passed": true,
+      "scope": "synthetic-ephemeral-loopback-http",
+      "observedAt": "2026-09-28T10:08:12.950Z",
+      "httpExchanges": 45,
+      "probeRun": 1,
+      "previousReceiptSha256": null,
+      "configurationSha256": "sha256:5ac2b73a395a4cea73b4dcaaeb1cb169cd1cffd3dea01aef67876739b4866b0c",
+      "runnerSha256": "sha256:318d3f128bc5b33d36c26a2e25694f43052a279ac88808789e916fa726d29b5a",
+      "runtimeArtifactsSha256": "sha256:5f97e9b65cee05542e19eb3290e3c50d8b99ba26a8f5a24c64115663da0fc899",
+      "runtimeDependencyTreesSha256": "sha256:274f3879a28dcf6244e95b46bbcc9673a676cb105e53b33f1a00691ae8f755ba",
+      "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+      "receiptSha256": "sha256:be7b37881b9830888359468641aa1dcd1ee0109db1d15c8c6f7acd43426040f0"
+    },
+    "deploymentBoundary": {
+      "evidenceType": "configuration-and-http-loopback",
+      "checks": [
+        {
+          "applicationComposeHostPorts": 0,
+          "explicitTarget": "payments",
+          "externalNetwork": "gauntlet"
+        },
+        {
+          "dashboardConfiguredBind": "127.0.0.1",
+          "syntheticHarnessBind": "127.0.0.1",
+          "healthStatus": 200
+        }
+      ],
+      "passed": true,
+      "scope": "synthetic-ephemeral-loopback-http",
+      "observedAt": "2026-09-28T10:08:15.717Z",
+      "httpExchanges": 1,
+      "probeRun": 1,
+      "previousReceiptSha256": null,
+      "configurationSha256": "sha256:5ac2b73a395a4cea73b4dcaaeb1cb169cd1cffd3dea01aef67876739b4866b0c",
+      "runnerSha256": "sha256:318d3f128bc5b33d36c26a2e25694f43052a279ac88808789e916fa726d29b5a",
+      "runtimeArtifactsSha256": "sha256:5f97e9b65cee05542e19eb3290e3c50d8b99ba26a8f5a24c64115663da0fc899",
+      "runtimeDependencyTreesSha256": "sha256:274f3879a28dcf6244e95b46bbcc9673a676cb105e53b33f1a00691ae8f755ba",
+      "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+      "receiptSha256": "sha256:0d6a985431f89bd8145c942048034472734b0e6d505881647ec5881d5272ffe5"
+    }
+  },
+  "observationHistory": {
+    "disabledBoundary": [
+      {
+        "evidenceType": "http-loopback",
+        "checks": [
+          {
+            "routeFamilies": [
+              {
+                "family": "health",
+                "method": "GET",
+                "status": 503,
+                "problemType": "urn:gauntlet:problem:adapter-disabled"
+              },
+              {
+                "family": "manifest",
+                "method": "GET",
+                "status": 503,
+                "problemType": "urn:gauntlet:problem:adapter-disabled"
+              },
+              {
+                "family": "operation-definition",
+                "method": "GET",
+                "status": 503,
+                "problemType": "urn:gauntlet:problem:adapter-disabled"
+              },
+              {
+                "family": "operation-run",
+                "method": "POST",
+                "status": 503,
+                "problemType": "urn:gauntlet:problem:adapter-disabled"
+              },
+              {
+                "family": "run",
+                "method": "GET",
+                "status": 503,
+                "problemType": "urn:gauntlet:problem:adapter-disabled"
+              },
+              {
+                "family": "data-source-query",
+                "method": "POST",
+                "status": 503,
+                "problemType": "urn:gauntlet:problem:adapter-disabled"
+              },
+              {
+                "family": "data-source-resolve",
+                "method": "POST",
+                "status": 503,
+                "problemType": "urn:gauntlet:problem:adapter-disabled"
+              },
+              {
+                "family": "cancel",
+                "method": "POST",
+                "status": 503,
+                "problemType": "urn:gauntlet:problem:adapter-disabled"
+              },
+              {
+                "family": "events",
+                "method": "GET",
+                "status": 503,
+                "problemType": "urn:gauntlet:problem:adapter-disabled"
+              },
+              {
+                "family": "upload",
+                "method": "POST",
+                "status": 503,
+                "problemType": "urn:gauntlet:problem:adapter-disabled"
+              },
+              {
+                "family": "session-launch",
+                "method": "POST",
+                "status": 503,
+                "problemType": "urn:gauntlet:problem:adapter-disabled"
+              }
+            ],
+            "rawTargetVariants": [
+              {
+                "rawTarget": "http://public.invalid/_gauntlet/v1/health",
+                "status": 503
+              },
+              {
+                "rawTarget": "/%5Fgauntlet/v1/health",
+                "status": 503
+              },
+              {
+                "rawTarget": "//_gauntlet//v1//health",
+                "status": 503
+              },
+              {
+                "rawTarget": "/ordinary/../_gauntlet/v1/health",
+                "status": 503
+              },
+              {
+                "rawTarget": "/_gauntlet/v1/health/",
+                "status": 503
+              },
+              {
+                "rawTarget": "/_gauntlet%2fv1/health",
+                "status": 503
+              },
+              {
+                "rawTarget": "/_gauntlet\\v1\\health",
+                "status": 503
+              },
+              {
+                "rawTarget": "/_g%61untlet/v1/health",
+                "status": 503
+              },
+              {
+                "rawTarget": "/_gauntlet/v1/operations/unsafe%ZZid",
+                "status": 503
+              },
+              {
+                "rawTarget": "/_gauntlet/v1/manifest?query=1",
+                "status": 503
+              },
+              {
+                "rawTarget": "/_gauntlet/v1/manifest#fragment",
+                "status": 503
+              }
+            ],
+            "hostFallback": {
+              "request": "GET /host-health",
+              "status": 200,
+              "hostApplicationAlive": true
+            },
+            "clientErrorBoundary": {
+              "adapterRequests": {
+                "requestLines": [
+                  "GET /_gauntlet/v1/manifest",
+                  "GET http://attacker.invalid/_gauntlet/v1/manifest",
+                  "GET /%5Fgauntlet/v1/manifest",
+                  "GET /_gauntlet\\v1\\manifest",
+                  "GET /_g%61untlet/v1/manifest",
+                  "GET //_gauntlet//v1//manifest",
+                  "GET /ordinary/../_gauntlet/v1/manifest",
+                  "get /_gauntlet/v1/manifest",
+                  "CUSTOMMETHODEXTENSION /_gauntlet/v1/manifest",
+                  "M-SEARCH /_gauntlet/v1/manifest"
+                ],
+                "statuses": [
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503,
+                  503
+                ],
+                "problemType": "urn:gauntlet:problem:adapter-disabled"
+              },
+              "unrelatedRequest": {
+                "status": 400,
+                "mediaType": ""
+              }
+            },
+            "exceptionalBoundary": {
+              "channels": [
+                "trace",
+                "track",
+                "connect",
+                "upgrade",
+                "expectation"
+              ],
+              "adapterStatuses": [
+                503,
+                503,
+                503,
+                503,
+                503
+              ],
+              "unrelatedStatuses": [
+                405,
+                400,
+                400,
+                400,
+                417
+              ]
+            }
+          }
+        ],
+        "passed": true,
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-28T10:08:06.792Z",
+        "httpExchanges": 44,
+        "probeRun": 1,
+        "previousReceiptSha256": null,
+        "configurationSha256": "sha256:5ac2b73a395a4cea73b4dcaaeb1cb169cd1cffd3dea01aef67876739b4866b0c",
+        "runnerSha256": "sha256:318d3f128bc5b33d36c26a2e25694f43052a279ac88808789e916fa726d29b5a",
+        "runtimeArtifactsSha256": "sha256:5f97e9b65cee05542e19eb3290e3c50d8b99ba26a8f5a24c64115663da0fc899",
+        "runtimeDependencyTreesSha256": "sha256:274f3879a28dcf6244e95b46bbcc9673a676cb105e53b33f1a00691ae8f755ba",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "receiptSha256": "sha256:39c5000ee46066082dd5aa6b1f7fba864fc194fad8ea1b42506de4ebe0bb6c17"
+      }
+    ],
+    "mismatchDenied": [
+      {
+        "evidenceType": "http-loopback",
+        "checks": [
+          {
+            "mismatchAxis": "name",
+            "routeFamilies": [
+              {
+                "proxyFamily": "operation-definition",
+                "status": 503
+              },
+              {
+                "proxyFamily": "operation-run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "upload",
+                "status": 503
+              },
+              {
+                "proxyFamily": "cancel",
+                "status": 503
+              },
+              {
+                "proxyFamily": "events",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-query",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-resolve",
+                "status": 503
+              },
+              {
+                "proxyFamily": "session-launch",
+                "status": 503
+              }
+            ],
+            "status": 503,
+            "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+            "manifestDiscoveryRequests": 9,
+            "upstreamApplicationRequests": 0
+          },
+          {
+            "mismatchAxis": "kind",
+            "routeFamilies": [
+              {
+                "proxyFamily": "operation-definition",
+                "status": 503
+              },
+              {
+                "proxyFamily": "operation-run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "run",
+                "status": 503
+              },
+              {
+                "proxyFamily": "upload",
+                "status": 503
+              },
+              {
+                "proxyFamily": "cancel",
+                "status": 503
+              },
+              {
+                "proxyFamily": "events",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-query",
+                "status": 503
+              },
+              {
+                "proxyFamily": "data-source-resolve",
+                "status": 503
+              },
+              {
+                "proxyFamily": "session-launch",
+                "status": 503
+              }
+            ],
+            "status": 503,
+            "problemType": "urn:gauntlet:problem:target-environment-mismatch",
+            "manifestDiscoveryRequests": 9,
+            "upstreamApplicationRequests": 0
+          }
+        ],
+        "passed": true,
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-28T10:08:09.703Z",
+        "httpExchanges": 36,
+        "probeRun": 1,
+        "previousReceiptSha256": null,
+        "configurationSha256": "sha256:5ac2b73a395a4cea73b4dcaaeb1cb169cd1cffd3dea01aef67876739b4866b0c",
+        "runnerSha256": "sha256:318d3f128bc5b33d36c26a2e25694f43052a279ac88808789e916fa726d29b5a",
+        "runtimeArtifactsSha256": "sha256:5f97e9b65cee05542e19eb3290e3c50d8b99ba26a8f5a24c64115663da0fc899",
+        "runtimeDependencyTreesSha256": "sha256:274f3879a28dcf6244e95b46bbcc9673a676cb105e53b33f1a00691ae8f755ba",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "receiptSha256": "sha256:5408b9f4b51feb6cd7bde197fd1691cc01eb2819825d338b2e7e288c17cc7104"
+      }
+    ],
+    "syntheticProtocolExercise": [
+      {
+        "evidenceType": "http-loopback",
+        "checks": [
+          {
+            "healthStatus": 200,
+            "manifestStatus": 200,
+            "operationStatus": 200,
+            "staleRevisionStatus": 409,
+            "invalidInputStatus": 422,
+            "createStatus": 202,
+            "terminalState": "succeeded",
+            "idempotentReplay": true,
+            "dataSourceQueryStatus": 200,
+            "dataSourceResolveStatus": 200,
+            "applicationOperationRuns": 1,
+            "operationInputMatched": true,
+            "applicationDataSourceQueries": 1,
+            "applicationDataSourceResolves": 1,
+            "dataSourceInputsMatched": true,
+            "rawBoundary": {
+              "invalidTargets": [
+                "/_gauntlet/v1/operations/a/../b",
+                "/_gauntlet/v1/operations/a/./b",
+                "/_gauntlet/v1/manifest/..",
+                "/_gauntlet/v1/manifest/.",
+                "/_gauntlet/v1//manifest",
+                "/_gauntlet/v1/operations/a%2fb",
+                "/_gauntlet/v1/operations/a\\b",
+                "/_gauntlet/v1/manifest?query=1",
+                "/_gauntlet/v1/manifest#fragment",
+                "/_gauntlet/v1/manifest/",
+                "/_gauntlet/v1/manifest/extra",
+                "/_gauntlet/v1/operations/bad$id",
+                "/_gauntlet/v1/operations/unsafe%ZZid"
+              ],
+              "statuses": [
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400,
+                400
+              ],
+              "malformedAdapter": {
+                "requestLines": [
+                  "GET /_gauntlet/v1/manifest",
+                  "GET http://attacker.invalid/_gauntlet/v1/manifest",
+                  "GET /%5Fgauntlet/v1/manifest",
+                  "GET /_gauntlet\\v1\\manifest",
+                  "GET /_g%61untlet/v1/manifest",
+                  "GET //_gauntlet//v1//manifest",
+                  "GET /ordinary/../_gauntlet/v1/manifest",
+                  "get /_gauntlet/v1/manifest",
+                  "CUSTOMMETHODEXTENSION /_gauntlet/v1/manifest",
+                  "M-SEARCH /_gauntlet/v1/manifest"
+                ],
+                "statuses": [
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400,
+                  400
+                ],
+                "problemType": "urn:gauntlet:problem:invalid-path"
+              },
+              "unrelatedMalformed": {
+                "status": 400,
+                "mediaType": ""
+              },
+              "exceptionalRequests": {
+                "channels": [
+                  "trace",
+                  "track",
+                  "connect",
+                  "upgrade",
+                  "expectation"
+                ],
+                "adapterStatuses": [
+                  405,
+                  400,
+                  405,
+                  405,
+                  417
+                ],
+                "unrelatedStatuses": [
+                  405,
+                  400,
+                  400,
+                  400,
+                  417
+                ]
+              }
+            }
+          }
+        ],
+        "passed": true,
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-28T10:08:12.950Z",
+        "httpExchanges": 45,
+        "probeRun": 1,
+        "previousReceiptSha256": null,
+        "configurationSha256": "sha256:5ac2b73a395a4cea73b4dcaaeb1cb169cd1cffd3dea01aef67876739b4866b0c",
+        "runnerSha256": "sha256:318d3f128bc5b33d36c26a2e25694f43052a279ac88808789e916fa726d29b5a",
+        "runtimeArtifactsSha256": "sha256:5f97e9b65cee05542e19eb3290e3c50d8b99ba26a8f5a24c64115663da0fc899",
+        "runtimeDependencyTreesSha256": "sha256:274f3879a28dcf6244e95b46bbcc9673a676cb105e53b33f1a00691ae8f755ba",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "receiptSha256": "sha256:be7b37881b9830888359468641aa1dcd1ee0109db1d15c8c6f7acd43426040f0"
+      }
+    ],
+    "deploymentBoundary": [
+      {
+        "evidenceType": "configuration-and-http-loopback",
+        "checks": [
+          {
+            "applicationComposeHostPorts": 0,
+            "explicitTarget": "payments",
+            "externalNetwork": "gauntlet"
+          },
+          {
+            "dashboardConfiguredBind": "127.0.0.1",
+            "syntheticHarnessBind": "127.0.0.1",
+            "healthStatus": 200
+          }
+        ],
+        "passed": true,
+        "scope": "synthetic-ephemeral-loopback-http",
+        "observedAt": "2026-09-28T10:08:15.717Z",
+        "httpExchanges": 1,
+        "probeRun": 1,
+        "previousReceiptSha256": null,
+        "configurationSha256": "sha256:5ac2b73a395a4cea73b4dcaaeb1cb169cd1cffd3dea01aef67876739b4866b0c",
+        "runnerSha256": "sha256:318d3f128bc5b33d36c26a2e25694f43052a279ac88808789e916fa726d29b5a",
+        "runtimeArtifactsSha256": "sha256:5f97e9b65cee05542e19eb3290e3c50d8b99ba26a8f5a24c64115663da0fc899",
+        "runtimeDependencyTreesSha256": "sha256:274f3879a28dcf6244e95b46bbcc9673a676cb105e53b33f1a00691ae8f755ba",
+        "yamlPackageSha256": "sha256:192300b7482bf57d4b58168b3fcc0b8795f1779b6d9227a4b63efd1e7f11ccda",
+        "receiptSha256": "sha256:0d6a985431f89bd8145c942048034472734b0e6d505881647ec5881d5272ffe5"
+      }
+    ]
+  },
+  "probeRuns": {
+    "disabledBoundary": 1,
+    "mismatchDenied": 1,
+    "syntheticProtocolExercise": 1,
+    "deploymentBoundary": 1
+  },
+  "commands": [
+    "node verify.mjs --probe disabledBoundary => PASS (synthetic-ephemeral-loopback-http)",
+    "node verify.mjs --probe mismatchDenied => PASS (synthetic-ephemeral-loopback-http)",
+    "node verify.mjs --probe syntheticProtocolExercise => PASS (synthetic-ephemeral-loopback-http)",
+    "node verify.mjs --probe deploymentBoundary => PASS (synthetic-ephemeral-loopback-http)"
+  ]
+}

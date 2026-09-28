@@ -1,0 +1,7 @@
+/*
+ * CSS entry of the widget panel. The widget build's Vite root is `widget/`, so Tailwind's
+ * automatic source detection would only scan that directory; point it at the dashboard
+ * sources the panel reuses (including `src/widget/`).
+ */
+@import "../index.css";
+@source "..";

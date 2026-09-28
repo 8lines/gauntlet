@@ -1,0 +1,32 @@
+.superpowers/
+.worktrees/
+.DS_Store
+/.artifacts/
+
+# JavaScript / TypeScript
+node_modules/
+dist/
+apps/dashboard/dist-widget/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+# PHP
+vendor/
+.phpunit.cache/
+.phpunit.result.cache
+
+# Java
+.gradle/
+.gradle-user/
+build/
+target/
+
+# Local runtime state
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.env
+.env.local
+!deploy/compose/.env.example
+/deploy/compose/config.yaml

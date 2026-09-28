@@ -1,0 +1,68 @@
+{
+  "id": "run-01",
+  "operationId": "application-access-review",
+  "operationRevision": "sha256:2e301a636fb48d2bec64fc7e91b62d8a45e47af3a28f665b6b809f6a4b19d9e8",
+  "sequence": 2,
+  "state": "succeeded",
+  "createdAt": "2026-08-29T12:00:00Z",
+  "updatedAt": "2026-08-29T12:00:03Z",
+  "startedAt": "2026-08-29T12:00:01Z",
+  "completedAt": "2026-08-29T12:00:03Z",
+  "progress": {
+    "current": 12,
+    "total": 12,
+    "phase": "complete",
+    "message": "Review completed",
+    "updatedAt": "2026-08-29T12:00:03Z"
+  },
+  "summary": {
+    "title": "Access review complete",
+    "message": "12 access grants were reviewed.",
+    "tone": "success"
+  },
+  "output": {
+    "reviewed": 12,
+    "notified": true
+  },
+  "artifacts": [
+    {
+      "id": "review-counts",
+      "kind": "metrics",
+      "title": "Review counts",
+      "metrics": [
+        { "name": "reviewed", "value": 12, "unit": "grants" }
+      ]
+    },
+    {
+      "id": "review-summary",
+      "kind": "table",
+      "title": "Reviewed roles",
+      "columns": [
+        { "key": "role", "label": "Role" },
+        { "key": "count", "label": "Count" }
+      ],
+      "rows": [
+        { "role": "viewer", "count": 8 },
+        { "role": "auditor", "count": 4 }
+      ]
+    },
+    {
+      "id": "browser-session",
+      "kind": "browser-launch",
+      "label": "Open reviewed application"
+    }
+  ],
+  "actions": [
+    {
+      "kind": "invoke-operation",
+      "label": "Review another application",
+      "operationId": "application-access-review",
+      "input": { "notify": false }
+    },
+    {
+      "kind": "browser-launch",
+      "label": "Open reviewed application",
+      "artifactId": "browser-session"
+    }
+  ]
+}

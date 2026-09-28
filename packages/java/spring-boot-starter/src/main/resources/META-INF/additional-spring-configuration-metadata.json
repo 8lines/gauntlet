@@ -1,0 +1,29 @@
+{
+  "properties": [
+    {
+      "name": "gauntlet.application.id",
+      "type": "java.lang.String",
+      "description": "Canonical Adapter v1 application ID. Required when the adapter is enabled."
+    },
+    {
+      "name": "gauntlet.application.label",
+      "type": "java.lang.String",
+      "description": "Human-readable application label. Required when the adapter is enabled."
+    },
+    {
+      "name": "gauntlet.application.environment.name",
+      "type": "java.lang.String",
+      "description": "Explicit non-production environment name. Required when the adapter is enabled."
+    },
+    {
+      "name": "gauntlet.application.environment.kind",
+      "type": "java.lang.String",
+      "description": "Exact environment kind: development, test, qa, staging, uat, preview, or sandbox. Required when the adapter is enabled."
+    },
+    {
+      "name": "gauntlet.idempotency-secret",
+      "type": "java.lang.String",
+      "description": "Stable application secret used only for HMAC idempotency fingerprints. An enabled adapter requires at least 32 UTF-8 bytes; every replica sharing a RunStore must use the same value."
+    }
+  ]
+}

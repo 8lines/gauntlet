@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.8lines.dev/gauntlet/v1/data-source-page.schema.json",
+  "type": "object",
+  "required": ["items"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": { "$ref": "./common.schema.json#/$defs/dataSourceItem" }
+    },
+    "nextCursor": { "type": "string" },
+    "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+  },
+  "additionalProperties": false
+}

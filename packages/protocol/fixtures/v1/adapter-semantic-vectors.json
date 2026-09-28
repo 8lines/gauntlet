@@ -1,0 +1,3257 @@
+{
+  "$schema": "https://schemas.8lines.dev/gauntlet/fixtures/v1/adapter-semantic-vectors.schema.json",
+  "format": "tc-adapter-semantic-vectors@1",
+  "patchProfile": "rfc6902-test-subset@1",
+  "presetAssemblyProfile": "tc-preset-operation@1",
+  "workloadProfile": "tc-preset-workloads@1",
+  "sourceFixtures": [
+    {
+      "id": "manifest",
+      "file": "manifest.valid.json",
+      "sha256": "sha256:1bca35d1dcd17847fd5e97a74e6803adbc7dad62a5ea2681f65ffcaca56d0fb5",
+      "revisionField": "manifestRevision"
+    },
+    {
+      "id": "operation",
+      "file": "operation.valid.json",
+      "sha256": "sha256:8e0d52a085c4d5b2392ae03269a74f267806914648f735d34be89e20046e8cf0",
+      "revisionField": "revision"
+    },
+    {
+      "id": "resolve-request",
+      "file": "data-source-resolve-request.valid.json",
+      "sha256": "sha256:fb7afb06128bfc2e6edaa827e32dc6fa48484f624010ff5d40c16d8d0a7a5856"
+    },
+    {
+      "id": "resolve-response",
+      "file": "data-source-resolve-response.valid.json",
+      "sha256": "sha256:37c5ef68864df86e3083d395bb9fe6d506c9ec436f4aca146016668bbb2b03fb"
+    }
+  ],
+  "presetAnalysisLimits": {
+    "maxGraphNodes": 250000,
+    "maxGraphEdges": 500000,
+    "maxPresetVisits": 500000,
+    "minimumVisitBudget": 8192,
+    "graphNodeWeight": 4,
+    "graphEdgeWeight": 2,
+    "inputNodeWeight": 64,
+    "routeCountSaturation": 2
+  },
+  "documentVectors": [
+    {
+      "id": "manifest.valid",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [],
+        "revision": {
+          "mode": "preserve",
+          "expect": "match"
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "manifest.stale-revision",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/application/label",
+            "value": "Changed without a new revision"
+          }
+        ],
+        "revision": {
+          "mode": "preserve",
+          "expect": "mismatch"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "manifest.environment.production-name",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/application/environment/name",
+            "value": "acme-prod-eu"
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:0a7c63eb0f7401834b349fb9063087e372b681e1c5f735baa3d2c731e960a575",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "manifest.feature.duplicate-id",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "copy",
+            "from": "/features/0",
+            "path": "/features/-"
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:95ffd2eea592347adb49a319e52d00385a681bd63e7144905debb60e06dcec80",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "manifest.feature.missing-parent",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/features/-",
+            "value": {
+              "id": "missing-parent-child",
+              "label": "Missing parent child",
+              "parentId": "missing-parent"
+            }
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:552d9c85d660d38ca8562aaa6cc178b92bb800d779a739a3e0eeaf6845b8af5d",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "manifest.feature.cycle",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/features/-",
+            "value": {
+              "id": "cycle-a",
+              "label": "Cycle A",
+              "parentId": "cycle-b"
+            }
+          },
+          {
+            "op": "add",
+            "path": "/features/-",
+            "value": {
+              "id": "cycle-b",
+              "label": "Cycle B",
+              "parentId": "cycle-a"
+            }
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:7fd8a0523415c8c019a686a929703b6949f911f8c60dbde887947b351e410786",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "manifest.operation.duplicate-id",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "copy",
+            "from": "/operations/0",
+            "path": "/operations/-"
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:7f2e81f3416b4c6002fa782c19b0cf7d42ac6a61e7c6402117714a4adfe79f4b",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "manifest.data-source.duplicate-id",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "copy",
+            "from": "/dataSources/0",
+            "path": "/dataSources/-"
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:18e60b2391a0386010876a9e3ae52886d7beaacb9751a33872db48d19ffdc6b2",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "manifest.unavailable.missing-profile",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "remove",
+            "path": "/profiles/2"
+          },
+          {
+            "op": "replace",
+            "path": "/operations/0/availability",
+            "value": {
+              "state": "unavailable",
+              "problem": {
+                "type": "urn:gauntlet:problem:unsupported-capability",
+                "title": "Operation requirements are unavailable",
+                "status": 501
+              }
+            }
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:c99b6e365c6753251aad93461dfb55b2b0620c20eee38688bfe387716d9c7d3a",
+          "expect": "match"
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "manifest.unavailable.missing-capability",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "remove",
+            "path": "/capabilities/1"
+          },
+          {
+            "op": "replace",
+            "path": "/operations/0/availability",
+            "value": {
+              "state": "unavailable",
+              "problem": {
+                "type": "urn:gauntlet:problem:unsupported-capability",
+                "title": "Operation requirements are unavailable",
+                "status": 501
+              }
+            }
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:b090620310525819f3950d5289775ac2d03b1ee3f815f892bdd0c914a31d5a47",
+          "expect": "match"
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "manifest.unavailable.missing-mixed",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "remove",
+            "path": "/profiles/1"
+          },
+          {
+            "op": "remove",
+            "path": "/capabilities/0"
+          },
+          {
+            "op": "replace",
+            "path": "/operations/0/availability",
+            "value": {
+              "state": "unavailable",
+              "problem": {
+                "type": "urn:gauntlet:problem:unsupported-capability",
+                "title": "Operation requirements are unavailable",
+                "status": 501
+              }
+            }
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:5b90232addf85bb7734aa678d3e78e764982b4cd749bf0d187bc1f88c84909e8",
+          "expect": "match"
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "manifest.available.missing-profile",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "remove",
+            "path": "/profiles/2"
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:4c029f4d0ca6ed83603ce82d1f310a615bfc01f668ed4220f7b639ec9d3a3a17",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "manifest.available.missing-capability",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "remove",
+            "path": "/capabilities/1"
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:5c289ffa6123cc648792f731b086e58d9c419ef28e0276eb6693d9b9561c0b22",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "manifest.available.missing-mixed",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "remove",
+            "path": "/profiles/1"
+          },
+          {
+            "op": "remove",
+            "path": "/capabilities/0"
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:302170623f9ad09186eb36e69447d0bfd93446ce10a4891303bffdc12a6ebf77",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "manifest.diagnostic.omitted-operation-id",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/diagnostics",
+            "value": [
+              {
+                "severity": "error",
+                "code": "invalid-operation-binding",
+                "message": "The operation binding is invalid.",
+                "operationId": "omitted-operation"
+              }
+            ]
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:2b70e0c6bd8a66bdaad52e43bd5f97823b856af175fb638123b4d8e042daa6b7",
+          "expect": "match"
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "manifest.operation.unknown-feature",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/operations/0/featureId",
+            "value": "unknown-feature"
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:ac6397a253d57b56551ee4dd22d19391f50b440ddc7cca6b807347e96d56369f",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "manifest.data-source.invalid-limits",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/dataSources/0/capabilities/defaultLimit",
+            "value": 101
+          },
+          {
+            "op": "replace",
+            "path": "/dataSources/0/capabilities/maxLimit",
+            "value": 100
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:ec6be3a20f3a3b125b27b4c8d6145a1a3cb084e9a3f15ab098a0e3e83237df29",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "manifest.data-source.remote-dependency-schema",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/dataSources/0/dependencySchema",
+            "value": {
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "type": "object",
+              "$ref": "https://example.invalid/schema.json"
+            }
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:9d46087c9ed39e02905ba972c339caaf19b242b95fc0e19f4492bfd49c62cdf1",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "manifest.data-source.non-object-context-schema",
+      "predicate": "manifest",
+      "precondition": "owned-json-defensive",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/dataSources/0/contextSchema",
+            "value": {
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "type": "string"
+            }
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:20b5a36923330b2f49a598bb65466e32348e3dc63e95870320b4a1ddec3d77ae",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.valid",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [],
+        "revision": {
+          "mode": "preserve",
+          "expect": "match"
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "operation.stale-revision",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/label",
+            "value": "Changed without a new revision"
+          }
+        ],
+        "revision": {
+          "mode": "preserve",
+          "expect": "mismatch"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.destructive.valid",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/execution/impact",
+            "value": "destructive"
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:3778704efe86593ea446e03cea0b1d1da3537f5d1b9305a77dcb590acef5a6df",
+          "expect": "match"
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "operation.destructive.missing-confirmation",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/execution/impact",
+            "value": "destructive"
+          },
+          {
+            "op": "replace",
+            "path": "/execution/confirmationRequired",
+            "value": false
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:978cff358ea5a0868b3975189f3d34b497b8d5cf6d16e10fb58af3d30c2711d6",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.destructive.optional-idempotency",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/execution/impact",
+            "value": "destructive"
+          },
+          {
+            "op": "replace",
+            "path": "/execution/idempotency",
+            "value": "optional"
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:701c7e2036deeee178687969bead02dca1f16f32be87d8f414a028da4bb7e98c",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.schema.remote-input",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/inputSchema",
+            "value": {
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "type": "object",
+              "$ref": "https://example.invalid/schema.json"
+            }
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:800d86fef7cb942cfe90263030c5469e9bb6725af3d4f1f8619648b0c49c8026",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.schema.remote-context",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/contextSchema",
+            "value": {
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "type": "object",
+              "$ref": "https://example.invalid/schema.json"
+            }
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:d4980a90f88ea60c62ac308cad53f4682e873b45906660eaac8c9c17e86df0ce",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.schema.wildcard-output-pattern",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/output/schema",
+            "value": {
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "type": "string",
+              "pattern": ".*"
+            }
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:cc81355c54cd4fde0222427c2e82ff5b3a5b2fd403d1ec0a15d3b7870631f4da",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.data-source.duplicate-id",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "copy",
+            "from": "/dataSources/0",
+            "path": "/dataSources/-"
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:d9df74f4035638360d285a0d6af4255a2d75bd45750abcf01bfab259f62d3d23",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.preset.duplicate-id",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "copy",
+            "from": "/presets/0",
+            "path": "/presets/-"
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:5167cb0cf4ff43842a9de3d60ee71cdf0d6e92362ee6dbaf5c8a2fdfddc81b5f",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.preset.secret-populated",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/presets/0/input/apiToken",
+            "value": "adapter-supplied-secret"
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:8c9dd8da528ef91774b23fb6c197a94657d1c33453b7878b2fc25a7b916869f6",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.ui.deep-declared-data-source",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/uiSchema/root",
+            "value": {
+              "type": "tabs",
+              "tabs": [
+                {
+                  "id": "fixture-tab",
+                  "label": "Fixture tab",
+                  "children": [
+                    {
+                      "type": "columns",
+                      "children": [
+                        {
+                          "type": "group",
+                          "children": [
+                            {
+                              "type": "field",
+                              "pointer": "/applicationId",
+                              "dataSourceId": "application-catalog"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:fe1d48b1485d0b2dbceec41a25549809e8b654145c8f20d1ccc81a9f92a1135e",
+          "expect": "match"
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "operation.ui.deep-undeclared-data-source",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/uiSchema/root",
+            "value": {
+              "type": "tabs",
+              "tabs": [
+                {
+                  "id": "fixture-tab",
+                  "label": "Fixture tab",
+                  "children": [
+                    {
+                      "type": "columns",
+                      "children": [
+                        {
+                          "type": "group",
+                          "children": [
+                            {
+                              "type": "field",
+                              "pointer": "/applicationId",
+                              "dataSourceId": "undeclared-catalog"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:2acc46c7b16df54a939cc4a8f1cae4598e85ee40e18f2e1a9398393d70607c10",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "resolve.valid",
+      "predicate": "resolve",
+      "precondition": "envelope-valid",
+      "request": {
+        "source": "resolve-request",
+        "patches": []
+      },
+      "response": {
+        "source": "resolve-response",
+        "patches": []
+      },
+      "expected": true
+    },
+    {
+      "id": "resolve.all-null-items",
+      "predicate": "resolve",
+      "precondition": "envelope-valid",
+      "request": {
+        "source": "resolve-request",
+        "patches": []
+      },
+      "response": {
+        "source": "resolve-response",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/results/0/item",
+            "value": null
+          },
+          {
+            "op": "replace",
+            "path": "/results/1/item",
+            "value": null
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "id": "resolve.short-results",
+      "predicate": "resolve",
+      "precondition": "envelope-valid",
+      "request": {
+        "source": "resolve-request",
+        "patches": []
+      },
+      "response": {
+        "source": "resolve-response",
+        "patches": [
+          {
+            "op": "remove",
+            "path": "/results/1"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "id": "resolve.long-results",
+      "predicate": "resolve",
+      "precondition": "envelope-valid",
+      "request": {
+        "source": "resolve-request",
+        "patches": []
+      },
+      "response": {
+        "source": "resolve-response",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/results/-",
+            "value": {
+              "value": "extra",
+              "item": null
+            }
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "id": "resolve.reversed-results",
+      "predicate": "resolve",
+      "precondition": "envelope-valid",
+      "request": {
+        "source": "resolve-request",
+        "patches": []
+      },
+      "response": {
+        "source": "resolve-response",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/results",
+            "value": [
+              {
+                "value": "missing-app",
+                "item": null
+              },
+              {
+                "value": "app-42",
+                "item": {
+                  "value": "app-42",
+                  "label": "Customer Portal",
+                  "description": "Primary customer-facing portal",
+                  "group": "Production"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "id": "resolve.wrong-echo",
+      "predicate": "resolve",
+      "precondition": "envelope-valid",
+      "request": {
+        "source": "resolve-request",
+        "patches": []
+      },
+      "response": {
+        "source": "resolve-response",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/results/0/value",
+            "value": "wrong-echo"
+          },
+          {
+            "op": "replace",
+            "path": "/results/0/item/value",
+            "value": "wrong-echo"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "id": "resolve.wrong-item-value",
+      "predicate": "resolve",
+      "precondition": "envelope-valid",
+      "request": {
+        "source": "resolve-request",
+        "patches": []
+      },
+      "response": {
+        "source": "resolve-response",
+        "patches": [
+          {
+            "op": "replace",
+            "path": "/results/0/item/value",
+            "value": "wrong-item"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.placements.valid",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/placements",
+            "value": [
+              { "kind": "global" },
+              {
+                "kind": "subject",
+                "subjectType": "application",
+                "bindings": {
+                  "/applicationId": "applicationId",
+                  "/options/mode": "mode"
+                }
+              }
+            ]
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:9023ac19643ef9622e6a39dc21486ca755b1399d5c66668de7c95c4b609e01cf",
+          "expect": "match"
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "operation.placements.binding-secret",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/placements",
+            "value": [
+              {
+                "kind": "subject",
+                "subjectType": "application",
+                "bindings": { "/apiToken": "token" }
+              }
+            ]
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:917ad14c96cfd2148f84af83f33da604b94aa9d59a031ff95a9ad408055e90fe",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.placements.binding-file-child",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/placements",
+            "value": [
+              {
+                "kind": "subject",
+                "subjectType": "application",
+                "bindings": { "/attachment/name": "name" }
+              }
+            ]
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:03bc6623b23a8b609c0b6b84a9db20c762e77da72e6934fd3849f122fd24af45",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.placements.binding-array",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/placements",
+            "value": [
+              {
+                "kind": "subject",
+                "subjectType": "application",
+                "bindings": { "/roles": "roles" }
+              }
+            ]
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:74333e79ff1b85497c120c134bb49f4c414d178ee92d1bc0fe1bd16376165c7e",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.placements.binding-object",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/placements",
+            "value": [
+              {
+                "kind": "subject",
+                "subjectType": "application",
+                "bindings": { "/options": "options" }
+              }
+            ]
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:6072a0befb4db9070d8ce3204cbb645cc53e2a191d975427c317b5808dc57c42",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.placements.binding-missing",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/placements",
+            "value": [
+              {
+                "kind": "subject",
+                "subjectType": "application",
+                "bindings": { "/missing": "missing" }
+              }
+            ]
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:aab5cd7e10b681e4aa171a068373ef1dc137449c8b5042677e3e8b2a37879b2b",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.placements.duplicate-global",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/placements",
+            "value": [
+              { "kind": "global" },
+              { "kind": "global" }
+            ]
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:7828ec072acc5bce1c03e9d8d26bad285e8b524eea83b5417042a4b2b52af6fd",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.placements.duplicate-subject",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/placements",
+            "value": [
+              { "kind": "subject", "subjectType": "application" },
+              { "kind": "subject", "subjectType": "application" }
+            ]
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:0ab35461a87cbd671cf59e7dbfc3278e138acc0e770b90e1efe6d13b3d492012",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.placements.binding-combinator",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/inputSchema/properties/message/anyOf",
+            "value": [{ "type": "string" }]
+          },
+          {
+            "op": "add",
+            "path": "/placements",
+            "value": [
+              {
+                "kind": "subject",
+                "subjectType": "application",
+                "bindings": { "/message": "message" }
+              }
+            ]
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:f9be4000e88ff50e3dd80edd9b4a45e8e0fb6c31310dd801efc337573faabfbe",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "operation.placements.leaf-const",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/inputSchema/properties/channel",
+            "value": { "const": "email" }
+          },
+          {
+            "op": "add",
+            "path": "/placements",
+            "value": [
+              {
+                "kind": "subject",
+                "subjectType": "application",
+                "bindings": { "/channel": "channel" }
+              }
+            ]
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:9fa5fe7c02caa7ab9229b2e54608e6d9a6ba478661544f8986b71f0b7f1b4f40",
+          "expect": "match"
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "operation.placements.leaf-number",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/inputSchema/properties/score",
+            "value": { "type": "number" }
+          },
+          {
+            "op": "add",
+            "path": "/placements",
+            "value": [
+              {
+                "kind": "subject",
+                "subjectType": "application",
+                "bindings": { "/score": "score" }
+              }
+            ]
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:d52237df6695b40586747d44274d895d5e2dd3e9f646daa1831b1df5d36e74f1",
+          "expect": "match"
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "operation.placements.leaf-integer",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/inputSchema/properties/attempt",
+            "value": { "type": "integer" }
+          },
+          {
+            "op": "add",
+            "path": "/placements",
+            "value": [
+              {
+                "kind": "subject",
+                "subjectType": "application",
+                "bindings": { "/attempt": "attempt" }
+              }
+            ]
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:899d45ce059e5fdcb00e52705b93726b5ca3a4288435a83b44c4d5926bf6d893",
+          "expect": "match"
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "operation.placements.leaf-boolean",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/placements",
+            "value": [
+              {
+                "kind": "subject",
+                "subjectType": "application",
+                "bindings": { "/notify": "notify" }
+              }
+            ]
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:3e3041ac87d79302b1bc15ed89b30292f80811cc22df741f3bf0f65353896820",
+          "expect": "match"
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "operation.placements.escaped-pointer",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/inputSchema/properties/team~1id",
+            "value": { "type": "string" }
+          },
+          {
+            "op": "add",
+            "path": "/placements",
+            "value": [
+              {
+                "kind": "subject",
+                "subjectType": "application",
+                "bindings": { "/team~1id": "teamId" }
+              }
+            ]
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:7b308dd0c9ad9a13b7ef9f4d2fac5836af550dd64aa903d180e172a56acdffca",
+          "expect": "match"
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "operation.placements.binding-type-array",
+      "predicate": "operation",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "operation",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/inputSchema/properties/note",
+            "value": { "type": ["string", "null"] }
+          },
+          {
+            "op": "add",
+            "path": "/placements",
+            "value": [
+              {
+                "kind": "subject",
+                "subjectType": "application",
+                "bindings": { "/note": "note" }
+              }
+            ]
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:a0e290a8967ad8c7f73720609288f9bbbfec041a98fa63a80c2a37aec2c60546",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "manifest.placements.profile-declared",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/operations/0/placements",
+            "value": [{ "kind": "global" }]
+          },
+          {
+            "op": "add",
+            "path": "/profiles/-",
+            "value": "gauntlet-page-placements@1"
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:c7759317be7267a20c96105285e2edcd1bdbb1022034e0310b037fa61767b935",
+          "expect": "match"
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "manifest.placements.profile-missing",
+      "predicate": "manifest",
+      "precondition": "envelope-valid",
+      "document": {
+        "source": "manifest",
+        "patches": [
+          {
+            "op": "add",
+            "path": "/operations/0/placements",
+            "value": [{ "kind": "global" }]
+          }
+        ],
+        "revision": {
+          "mode": "set",
+          "value": "sha256:daed873fa0916a36aba05c900e41506ff5f787772ef8ad08937261ba26913c8d",
+          "expect": "match"
+        }
+      },
+      "expected": false
+    }
+  ],
+  "presetSuites": [
+    {
+      "id": "preset.escaped-array",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "credentials": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              }
+            ],
+            "items": {
+              "$ref": "#/%24defs/alias%20schema"
+            }
+          }
+        },
+        "$defs": {
+          "secret/target": {
+            "type": "string"
+          },
+          "alias schema": {
+            "$ref": "#/%24defs/secret~1target"
+          }
+        },
+        "additionalProperties": false
+      },
+      "secretPointers": [
+        "/$defs/secret~1target"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:8f76cea1ed73a0e58aaac98f7cd2abf8ddaf9965b8e5a1421234f5fd9af32a5a",
+          "expected": true
+        },
+        {
+          "id": "public-prefix",
+          "presetInputs": [
+            {
+              "credentials": [
+                "public-prefix"
+              ]
+            }
+          ],
+          "expectedRevision": "sha256:1e68e1d27292a430371927bf9ccf2dbe61f37c173d3fe3bc9ae1f0ab54fbc4b2",
+          "expected": true
+        },
+        {
+          "id": "secret-tail",
+          "presetInputs": [
+            {
+              "credentials": [
+                "public-prefix",
+                "seeded-secret-a",
+                "seeded-secret-b"
+              ]
+            }
+          ],
+          "expectedRevision": "sha256:9e8fbd68a1a569e2322d4835d899820a175227273c960a268ee5d83324ad9111",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.origin.direct-property",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "secret": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/properties/secret"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:da4307249f5bcfb06e97583c9ba7f173933bcd95e3c33b38abc37b8db15af18d",
+          "expected": true
+        }
+      ]
+    },
+    {
+      "id": "preset.origin.escaped-transitive",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "secret": {
+            "$ref": "#/%24defs/alias%20schema"
+          }
+        },
+        "$defs": {
+          "secret/target": {
+            "type": "string"
+          },
+          "alias schema": {
+            "$ref": "#/%24defs/secret~1target"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/secret~1target"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:50c21b5b106a10069e102afac1ac35a811a7a654b115b07f23d495e23fe57bb3",
+          "expected": true
+        }
+      ]
+    },
+    {
+      "id": "preset.origin.productive-recursive",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "chain": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "$defs": {
+          "target": {
+            "type": "string"
+          },
+          "node": {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "$ref": "#/$defs/target"
+              },
+              "next": {
+                "$ref": "#/$defs/node"
+              }
+            }
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {
+              "chain": {
+                "next": {}
+              }
+            }
+          ],
+          "expectedRevision": "sha256:053a9b6a093f32104201021f746ce456c02eea4ef10217c110f0c9d793a855ba",
+          "expected": true
+        },
+        {
+          "id": "populated",
+          "presetInputs": [
+            {
+              "chain": {
+                "next": {
+                  "secret": "seeded"
+                }
+              }
+            }
+          ],
+          "expectedRevision": "sha256:f74cc2e3e220b981d42b72fed05fd613bc7a43443bd7cb150ef793cf5be67367",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.origin.two-direct",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "first": {
+            "$ref": "#/$defs/target"
+          },
+          "second": {
+            "$ref": "#/$defs/target"
+          }
+        },
+        "$defs": {
+          "target": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:05afffefdcc0b27b6d18452c3b5007cd98d771155a0d687e633555cd5595772e",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.origin.two-wrapper",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "first": {
+            "$ref": "#/$defs/wrapper"
+          },
+          "second": {
+            "$ref": "#/$defs/wrapper"
+          }
+        },
+        "$defs": {
+          "wrapper": {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "$ref": "#/$defs/target"
+              }
+            }
+          },
+          "target": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:544eaccf7988ba63dca4df9769e6522bb67dc0a02d986e1ea85d0fd396f931a9",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.origin.one-wrapper",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "first": {
+            "$ref": "#/$defs/wrapper"
+          }
+        },
+        "$defs": {
+          "wrapper": {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "$ref": "#/$defs/target"
+              }
+            }
+          },
+          "target": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:2da482b7247139a2a0ae7c07a61eb91d4ae00a7b4dd339fb2560264a8a96a3d5",
+          "expected": true
+        },
+        {
+          "id": "populated",
+          "presetInputs": [
+            {
+              "first": {
+                "secret": "seeded"
+              }
+            }
+          ],
+          "expectedRevision": "sha256:feee3a8c38ca49717c0b4c0e215a259ba1809e26a7b32cad4cac236bed97e993",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.origin.dynamic-recursion",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "chain": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "$defs": {
+          "node": {
+            "type": "object",
+            "patternProperties": {
+              "^next": {
+                "$ref": "#/$defs/node"
+              }
+            }
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/node"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:3206265e46c37e0a997f1e687db8c1097e68248e95705e2a392a03d735458816",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.origin.pattern-properties",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "patternProperties": {
+          "^secret": {
+            "$ref": "#/$defs/target"
+          }
+        },
+        "$defs": {
+          "target": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:d5ea7b1e6689c0e9656c0ef0c2b6ea00fe082e94a74b6de6591f9db92b090d11",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.origin.additional-properties",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/$defs/target"
+        },
+        "$defs": {
+          "target": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:5ec7970bef537c37839bd42cc3f17e24bfd3fba2f3ddd24c2264bc629214cf74",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.origin.property-names",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "propertyNames": {
+          "$ref": "#/$defs/target"
+        },
+        "$defs": {
+          "target": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:945daae9e532e11b0c8d1a1e0812775300184475bae2d707f97f171ce8612159",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.origin.unevaluated-properties",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "unevaluatedProperties": {
+          "$ref": "#/$defs/target"
+        },
+        "$defs": {
+          "target": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:68a6561490cf9dd3d92f70e610e9c63b4e279ac5b5bdc1769c84bbc19b605451",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.origin.contains",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "values": {
+            "type": "array",
+            "contains": {
+              "$ref": "#/$defs/target"
+            }
+          }
+        },
+        "$defs": {
+          "target": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:be7e7c22042ca38545df95d81f0fae4135a47ccd369be2a87caad4b683bfbd6c",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.origin.unevaluated-items",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "values": {
+            "type": "array",
+            "unevaluatedItems": {
+              "$ref": "#/$defs/target"
+            }
+          }
+        },
+        "$defs": {
+          "target": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:f35570d8b33ea621e2dca5a37f05cc7057af27405347a25260e011afc6110d09",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.origin.content-schema",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "encoded": {
+            "type": "string",
+            "contentMediaType": "application/json",
+            "contentSchema": {
+              "$ref": "#/$defs/target"
+            }
+          }
+        },
+        "$defs": {
+          "target": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:0aba04c725241106a6c3be62537229ebd3f451e5f98ab0116985d5774ed337c9",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.origin.true-schema",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "secret": {
+            "$ref": "#/$defs/target"
+          }
+        },
+        "$defs": {
+          "target": true
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:6286eb1dc5566b0fb8c8c39b7ff537a281863294400c1768dfb988321d6d52d3",
+          "expected": true
+        },
+        {
+          "id": "populated",
+          "presetInputs": [
+            {
+              "secret": "seeded"
+            }
+          ],
+          "expectedRevision": "sha256:7140b2c14d9a0b34d6c6d6d7b691dd9dad5fe732e49f0965523690ad01b43414",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.origin.false-schema",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "secret": {
+            "$ref": "#/$defs/target"
+          }
+        },
+        "$defs": {
+          "target": false
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "populated",
+          "presetInputs": [
+            {
+              "secret": "unreachable"
+            }
+          ],
+          "expectedRevision": "sha256:79f35cec46a12284dd7d31030b044e3ceba1ff893d56cfd7defc0f0602c426f7",
+          "expected": true
+        }
+      ]
+    },
+    {
+      "id": "preset.origin.array-tail",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "values": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              }
+            ],
+            "items": {
+              "$ref": "#/$defs/target"
+            }
+          }
+        },
+        "$defs": {
+          "target": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "public-prefix",
+          "presetInputs": [
+            {
+              "values": [
+                "public-prefix"
+              ]
+            }
+          ],
+          "expectedRevision": "sha256:fe8b4fd9e3348bfb7c45396c2d8c65e044c474dbf74811517d6e9fb2cb8e25a8",
+          "expected": true
+        },
+        {
+          "id": "populated",
+          "presetInputs": [
+            {
+              "values": [
+                "public-prefix",
+                "seeded"
+              ]
+            }
+          ],
+          "expectedRevision": "sha256:edb4979a4c4b5a37f8cf3450013461cd61b57733ff0d44f12ecfae01802ee819",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.backedge.two-routes",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "first": {
+            "$ref": "#/$defs/w"
+          },
+          "second": {
+            "$ref": "#/$defs/w"
+          }
+        },
+        "$defs": {
+          "w": {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "$ref": "#/$defs/t"
+              },
+              "back": {
+                "$ref": "#"
+              }
+            }
+          },
+          "t": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/t"
+      ],
+      "cases": [
+        {
+          "id": "recursive",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:970b0c76f6d09734ed283bb013335232d4f15d59cd01b53362010b4be08b6643",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.backedge.two-routes",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "first": {
+            "$ref": "#/$defs/w"
+          },
+          "second": {
+            "$ref": "#/$defs/w"
+          }
+        },
+        "$defs": {
+          "w": {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "$ref": "#/$defs/t"
+              }
+            }
+          },
+          "t": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/t"
+      ],
+      "cases": [
+        {
+          "id": "nonrecursive",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:77074c767bc7a3902b7c9afd7af7fd02c0161fe7b16b1d3891fa9b55616f95c9",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.backedge.one-first",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "first": {
+            "$ref": "#/$defs/w"
+          }
+        },
+        "$defs": {
+          "w": {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "$ref": "#/$defs/t"
+              },
+              "back": {
+                "$ref": "#"
+              }
+            }
+          },
+          "t": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/t"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:c20ae647d4b6f68c8d9c8c11fcea1efb6b766a365ff818ad00f73c2354f6a782",
+          "expected": true
+        },
+        {
+          "id": "secret-depth-0",
+          "presetInputs": [
+            {
+              "first": {
+                "secret": "seeded"
+              }
+            }
+          ],
+          "expectedRevision": "sha256:6c7329ab688791ad155f45be9bc2803b03fdc3752d98d2e9b21d6e7e7da5648a",
+          "expected": false
+        },
+        {
+          "id": "secret-depth-1",
+          "presetInputs": [
+            {
+              "first": {
+                "back": {
+                  "first": {
+                    "secret": "seeded"
+                  }
+                }
+              }
+            }
+          ],
+          "expectedRevision": "sha256:f4c430d8cec0873bf0f325da759046ebc3d726e38ae8cf023f49a0e4a43b5b52",
+          "expected": false
+        },
+        {
+          "id": "secret-depth-3",
+          "presetInputs": [
+            {
+              "first": {
+                "back": {
+                  "first": {
+                    "back": {
+                      "first": {
+                        "back": {
+                          "first": {
+                            "secret": "seeded"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "expectedRevision": "sha256:e31548d38f409ad0d277a094b5f940cb7a56ff335b2d64b4acf1620216e1808c",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.backedge.one-second",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "second": {
+            "$ref": "#/$defs/w"
+          }
+        },
+        "$defs": {
+          "w": {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "$ref": "#/$defs/t"
+              },
+              "back": {
+                "$ref": "#"
+              }
+            }
+          },
+          "t": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/t"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:e0e8138bb26249191c856c5ba1c9f3adeed2e4be7b98ac0cde7a1ad6f03a082a",
+          "expected": true
+        },
+        {
+          "id": "secret-depth-0",
+          "presetInputs": [
+            {
+              "second": {
+                "secret": "seeded"
+              }
+            }
+          ],
+          "expectedRevision": "sha256:e8a59570ef0939c740176dd8be1eb9773906c17e3687aec81d479dce9dc33b6d",
+          "expected": false
+        },
+        {
+          "id": "secret-depth-1",
+          "presetInputs": [
+            {
+              "second": {
+                "back": {
+                  "second": {
+                    "secret": "seeded"
+                  }
+                }
+              }
+            }
+          ],
+          "expectedRevision": "sha256:6993f8a0f384170f94eb18c6e04900fed8e44b863e16307cc26db455547c1977",
+          "expected": false
+        },
+        {
+          "id": "secret-depth-3",
+          "presetInputs": [
+            {
+              "second": {
+                "back": {
+                  "second": {
+                    "back": {
+                      "second": {
+                        "back": {
+                          "second": {
+                            "secret": "seeded"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "expectedRevision": "sha256:71f4ae7fa0a3ff9efeaca3c6e1e384049616bebde0c96150d72c7bd0fc6674a2",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.dfs.a-b",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "a": {
+            "$ref": "#/$defs/A"
+          },
+          "b": {
+            "$ref": "#/$defs/B"
+          }
+        },
+        "$defs": {
+          "A": {
+            "$ref": "#/$defs/C"
+          },
+          "B": {
+            "$ref": "#/$defs/C"
+          },
+          "C": {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "$ref": "#/$defs/T"
+              },
+              "x": {
+                "$ref": "#/$defs/B"
+              }
+            }
+          },
+          "T": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/T"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:c773baf6624695958cd25965d0227af8951b1f7c0afafb124ef1718607218d0d",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.dfs.b-a",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "b": {
+            "$ref": "#/$defs/B"
+          },
+          "a": {
+            "$ref": "#/$defs/A"
+          }
+        },
+        "$defs": {
+          "A": {
+            "$ref": "#/$defs/C"
+          },
+          "B": {
+            "$ref": "#/$defs/C"
+          },
+          "C": {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "$ref": "#/$defs/T"
+              },
+              "x": {
+                "$ref": "#/$defs/B"
+              }
+            }
+          },
+          "T": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/T"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:c773baf6624695958cd25965d0227af8951b1f7c0afafb124ef1718607218d0d",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.dfs.only-a",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "a": {
+            "$ref": "#/$defs/A"
+          }
+        },
+        "$defs": {
+          "A": {
+            "$ref": "#/$defs/C"
+          },
+          "B": {
+            "$ref": "#/$defs/C"
+          },
+          "C": {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "$ref": "#/$defs/T"
+              },
+              "x": {
+                "$ref": "#/$defs/B"
+              }
+            }
+          },
+          "T": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/T"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:bb444b41eed04c624191fe7eb9cb3c6268f3c29e478d26413dfbb4e702c38a29",
+          "expected": true
+        },
+        {
+          "id": "direct-secret",
+          "presetInputs": [
+            {
+              "a": {
+                "secret": "seeded"
+              }
+            }
+          ],
+          "expectedRevision": "sha256:dcc0bfa72eb755615c2c4f84f2d39478c9316a2c412f1b212004105a243a4b24",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.dfs.only-b",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "b": {
+            "$ref": "#/$defs/B"
+          }
+        },
+        "$defs": {
+          "A": {
+            "$ref": "#/$defs/C"
+          },
+          "B": {
+            "$ref": "#/$defs/C"
+          },
+          "C": {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "$ref": "#/$defs/T"
+              },
+              "x": {
+                "$ref": "#/$defs/B"
+              }
+            }
+          },
+          "T": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/T"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:7c74b5ea8e573c806b0eb12a7fd214093ee54a6abe81ee22333e3c4cc2949bc9",
+          "expected": true
+        },
+        {
+          "id": "recursive-secret",
+          "presetInputs": [
+            {
+              "b": {
+                "x": {
+                  "x": {
+                    "secret": "seeded"
+                  }
+                }
+              }
+            }
+          ],
+          "expectedRevision": "sha256:3e0a193c1d7b4d6799d765ad761b4ddff261101bfda1310f00b13c88771a0dc8",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.natural-backedge",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "start": {
+            "$ref": "#/$defs/node/properties/next"
+          }
+        },
+        "$defs": {
+          "node": {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "$ref": "#/$defs/target"
+              },
+              "next": {
+                "$ref": "#/$defs/node"
+              }
+            }
+          },
+          "target": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:f41aeac2ab89e34318d842846ba08f288d8277a1d932b44a276ee7f8a3436536",
+          "expected": true
+        },
+        {
+          "id": "direct",
+          "presetInputs": [
+            {
+              "start": {
+                "secret": "seeded"
+              }
+            }
+          ],
+          "expectedRevision": "sha256:8282d5e9f86ef309400b7c95ff187716c08b49a0fd11cd8c37719d7b511700cb",
+          "expected": false
+        },
+        {
+          "id": "recursive",
+          "presetInputs": [
+            {
+              "start": {
+                "next": {
+                  "secret": "seeded"
+                }
+              }
+            }
+          ],
+          "expectedRevision": "sha256:6a4ea4de8699f187c635873c238e5c76389cca98c6c384e8d879a5f456fb4518",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.dynamic-taint",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "start": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "$defs": {
+          "node": {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "$ref": "#/$defs/target"
+              }
+            }
+          },
+          "target": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "static",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:2727c2f9de9033ddb17cfdc7110e751ecd5aa2c4847b846f08f6c29fe3b48c8a",
+          "expected": true
+        }
+      ]
+    },
+    {
+      "id": "preset.dynamic-taint",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "start": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "$defs": {
+          "node": {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "$ref": "#/$defs/target"
+              }
+            },
+            "patternProperties": {
+              "^loop$": {
+                "$ref": "#/$defs/node"
+              }
+            }
+          },
+          "target": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "dynamic",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:427ca8286569f7b86b9cdf0d74f8db5055a536e42b6f98249c1ddd2b6f8627e8",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.irreducible-false-target",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "a": {
+            "$ref": "#/$defs/A"
+          },
+          "b": {
+            "$ref": "#/$defs/B"
+          }
+        },
+        "$defs": {
+          "A": {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "$ref": "#/$defs/target"
+              },
+              "next": {
+                "$ref": "#/$defs/B"
+              }
+            }
+          },
+          "B": {
+            "type": "object",
+            "properties": {
+              "next": {
+                "$ref": "#/$defs/A"
+              }
+            }
+          },
+          "target": false
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "static",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:4a6b71f07ed39c5ea5f4ffa3f90c56a684459d572e33e6ec539614516783dad4",
+          "expected": true
+        }
+      ]
+    },
+    {
+      "id": "preset.irreducible-false-target",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "a": {
+            "$ref": "#/$defs/A"
+          },
+          "b": {
+            "$ref": "#/$defs/B"
+          }
+        },
+        "$defs": {
+          "A": {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "$ref": "#/$defs/target"
+              },
+              "next": {
+                "$ref": "#/$defs/B"
+              }
+            },
+            "patternProperties": {
+              "^dynamic": {
+                "$ref": "#/$defs/target"
+              }
+            }
+          },
+          "B": {
+            "type": "object",
+            "properties": {
+              "next": {
+                "$ref": "#/$defs/A"
+              }
+            }
+          },
+          "target": false
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "dynamic",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:2e8eea917ae5133e944f39fbbcf4585e4ebe849fcad3982f5ef1a8277964d0bd",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.side-cycle",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "sideA": {
+            "$ref": "#/$defs/A"
+          },
+          "sideB": {
+            "$ref": "#/$defs/B"
+          },
+          "secret": {
+            "$ref": "#/$defs/target"
+          }
+        },
+        "$defs": {
+          "A": {
+            "type": "object",
+            "properties": {
+              "next": {
+                "$ref": "#/$defs/B"
+              }
+            }
+          },
+          "B": {
+            "type": "object",
+            "properties": {
+              "next": {
+                "$ref": "#/$defs/A"
+              }
+            }
+          },
+          "target": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:3c5da5d35946329c70d4c31c2e95369cb7e4ca908f8ac60e80d73502c7c1093b",
+          "expected": true
+        },
+        {
+          "id": "populated",
+          "presetInputs": [
+            {
+              "secret": "seeded"
+            }
+          ],
+          "expectedRevision": "sha256:75408222dd3f48e3bc09851e3d0d783789b6510888269067799d5e09aa742a3b",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.scc-three",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "start": {
+            "$ref": "#/$defs/n0"
+          },
+          "secret": {
+            "type": "string"
+          }
+        },
+        "$defs": {
+          "n0": {
+            "type": "object",
+            "properties": {
+              "p0": {
+                "$ref": "#/$defs/n0"
+              },
+              "p1": {
+                "$ref": "#/$defs/n1"
+              },
+              "p2": {
+                "$ref": "#/$defs/n2"
+              }
+            }
+          },
+          "n1": {
+            "type": "object",
+            "properties": {
+              "p0": {
+                "$ref": "#/$defs/n0"
+              },
+              "p1": {
+                "$ref": "#/$defs/n1"
+              },
+              "p2": {
+                "$ref": "#/$defs/n2"
+              }
+            }
+          },
+          "n2": {
+            "type": "object",
+            "properties": {
+              "p0": {
+                "$ref": "#/$defs/n0"
+              },
+              "p1": {
+                "$ref": "#/$defs/n1"
+              },
+              "p2": {
+                "$ref": "#/$defs/n2"
+              }
+            }
+          }
+        }
+      },
+      "secretPointers": [
+        "/properties/secret"
+      ],
+      "cases": [
+        {
+          "id": "empty",
+          "presetInputs": [
+            {}
+          ],
+          "expectedRevision": "sha256:7eda17554aba65208864b068517c47c1dbb1b16620a093ec07172d5b0c189f24",
+          "expected": true
+        },
+        {
+          "id": "direct-secret",
+          "presetInputs": [
+            {
+              "secret": "seeded"
+            }
+          ],
+          "expectedRevision": "sha256:db36cd01713132886ac89d3ec4b193fdbe7a1839c0695ac8f193b11a2a881a78",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "preset.static-applicator-chain",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "dependentSchemas": {
+          "trigger": {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "oneOf": [
+                      {
+                        "not": {
+                          "if": {
+                            "then": {
+                              "else": {
+                                "properties": {
+                                  "secret": {
+                                    "$ref": "#/$defs/target"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "$defs": {
+          "target": {
+            "type": "string"
+          }
+        }
+      },
+      "secretPointers": [
+        "/$defs/target"
+      ],
+      "cases": [
+        {
+          "id": "secret-without-trigger",
+          "presetInputs": [
+            {
+              "secret": "seeded"
+            }
+          ],
+          "expectedRevision": "sha256:454502e6273f731cde4ffe5732d09684bba3898614f9004bdf8ebf95abf1d21a",
+          "expected": true
+        },
+        {
+          "id": "trigger-only",
+          "presetInputs": [
+            {
+              "trigger": true
+            }
+          ],
+          "expectedRevision": "sha256:55b5018c21410443714ed346e8ca63d22d1c91205acb6ec59089658f2021ae62",
+          "expected": true
+        },
+        {
+          "id": "later-preset-secret",
+          "presetInputs": [
+            {
+              "trigger": true
+            },
+            {
+              "trigger": true,
+              "secret": "seeded"
+            }
+          ],
+          "expectedRevision": "sha256:f04c72860ab8f2310f32dd15e89189c5072c99d10fce9996e841754e4a4fdb6b",
+          "expected": false
+        }
+      ]
+    }
+  ],
+  "workloads": [
+    {
+      "id": "preset.workload.deep.no-rule-empty",
+      "recipe": {
+        "kind": "deep-chain",
+        "depth": 1500,
+        "leaf": "empty",
+        "secretPointer": false
+      },
+      "expected": true,
+      "expectedRevision": "sha256:4961e386e3903a17c6d391336d8fd1124cc16b77dda818f03546688b22fbca20",
+      "canonicalBytes": 15631,
+      "nodeReferenceBudget": {
+        "timeoutMs": 2500,
+        "execArgv": []
+      }
+    },
+    {
+      "id": "preset.workload.deep.secret-rule-empty",
+      "recipe": {
+        "kind": "deep-chain",
+        "depth": 1500,
+        "leaf": "empty",
+        "secretPointer": true
+      },
+      "expected": true,
+      "expectedRevision": "sha256:5b883890d581ecfa44b19651b724b0b69dd860008fae15471a4fe32c9489311e",
+      "canonicalBytes": 15699,
+      "nodeReferenceBudget": {
+        "timeoutMs": 2500,
+        "execArgv": []
+      }
+    },
+    {
+      "id": "preset.workload.deep.secret-rule-populated",
+      "recipe": {
+        "kind": "deep-chain",
+        "depth": 1500,
+        "leaf": "secret",
+        "secretPointer": true
+      },
+      "expected": false,
+      "expectedRevision": "sha256:abbe71354683f67c35f16ab880b711c58a2992423b7cf7dd515658c26a93dcb3",
+      "canonicalBytes": 15716,
+      "nodeReferenceBudget": {
+        "timeoutMs": 2500,
+        "execArgv": []
+      }
+    },
+    {
+      "id": "preset.workload.cartesian.empty",
+      "recipe": {
+        "kind": "rules-presets-cartesian",
+        "propertyCount": 225,
+        "ruleCopies": 2,
+        "presetCount": 225
+      },
+      "expected": true,
+      "expectedRevision": "sha256:ba21b5a901ba1678e30583c5912b4675fe560cbce19ce6d95a05c13cce796156",
+      "canonicalBytes": 54026,
+      "nodeReferenceBudget": {
+        "timeoutMs": 2500,
+        "execArgv": []
+      }
+    },
+    {
+      "id": "preset.workload.dense.empty",
+      "recipe": {
+        "kind": "dense-mutual-reference",
+        "graphSize": 120
+      },
+      "expected": true,
+      "expectedRevision": "sha256:5b6b7c8957ec8357ef598d2b1f4ac264279671178ba8388de61e1a626f284724",
+      "canonicalBytes": 426770,
+      "nodeReferenceBudget": {
+        "timeoutMs": 2500,
+        "execArgv": []
+      }
+    },
+    {
+      "id": "preset.workload.wide.no-secret-control",
+      "recipe": {
+        "kind": "wide-array",
+        "itemCount": 900000,
+        "secretRule": false
+      },
+      "expected": true,
+      "expectedRevision": "sha256:24379ec4d68d3ea0e212e3c9d64f0a8ff343392646f67b0532d8cbe4be93cef0",
+      "canonicalBytes": 3602016,
+      "nodeReferenceBudget": {
+        "timeoutMs": 10000,
+        "execArgv": [
+          "--max-old-space-size=512",
+          "--max-semi-space-size=48"
+        ]
+      }
+    },
+    {
+      "id": "preset.workload.wide.secret",
+      "recipe": {
+        "kind": "wide-array",
+        "itemCount": 900000,
+        "secretRule": true
+      },
+      "expected": false,
+      "expectedRevision": "sha256:a2e47aeb49fb9fd8a3c7343bb76341cfc63ba3697f7c71e0b6910fc0fc36d4a2",
+      "canonicalBytes": 3602113,
+      "nodeReferenceBudget": {
+        "timeoutMs": 10000,
+        "execArgv": [
+          "--max-old-space-size=512",
+          "--max-semi-space-size=48"
+        ],
+        "maxRssKiBExclusive": 458752,
+        "maxRssDeltaKiBExclusive": 40960,
+        "controlId": "preset.workload.wide.no-secret-control"
+      }
+    }
+  ]
+}

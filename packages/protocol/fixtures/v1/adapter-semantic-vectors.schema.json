@@ -1,0 +1,519 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.8lines.dev/gauntlet/fixtures/v1/adapter-semantic-vectors.schema.json",
+  "type": "object",
+  "required": [
+    "$schema",
+    "format",
+    "patchProfile",
+    "presetAssemblyProfile",
+    "workloadProfile",
+    "sourceFixtures",
+    "presetAnalysisLimits",
+    "documentVectors",
+    "presetSuites",
+    "workloads"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://schemas.8lines.dev/gauntlet/fixtures/v1/adapter-semantic-vectors.schema.json"
+    },
+    "format": { "const": "tc-adapter-semantic-vectors@1" },
+    "patchProfile": { "const": "rfc6902-test-subset@1" },
+    "presetAssemblyProfile": { "const": "tc-preset-operation@1" },
+    "workloadProfile": { "const": "tc-preset-workloads@1" },
+    "sourceFixtures": {
+      "type": "array",
+      "prefixItems": [
+        { "$ref": "#/$defs/manifestSource" },
+        { "$ref": "#/$defs/operationSource" },
+        { "$ref": "#/$defs/resolveRequestSource" },
+        { "$ref": "#/$defs/resolveResponseSource" }
+      ],
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "presetAnalysisLimits": {
+      "type": "object",
+      "required": [
+        "maxGraphNodes",
+        "maxGraphEdges",
+        "maxPresetVisits",
+        "minimumVisitBudget",
+        "graphNodeWeight",
+        "graphEdgeWeight",
+        "inputNodeWeight",
+        "routeCountSaturation"
+      ],
+      "properties": {
+        "maxGraphNodes": { "const": 250000 },
+        "maxGraphEdges": { "const": 500000 },
+        "maxPresetVisits": { "const": 500000 },
+        "minimumVisitBudget": { "const": 8192 },
+        "graphNodeWeight": { "const": 4 },
+        "graphEdgeWeight": { "const": 2 },
+        "inputNodeWeight": { "const": 64 },
+        "routeCountSaturation": { "const": 2 }
+      },
+      "additionalProperties": false
+    },
+    "documentVectors": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/manifestVector" },
+          { "$ref": "#/$defs/operationVector" },
+          { "$ref": "#/$defs/resolveVector" }
+        ]
+      }
+    },
+    "presetSuites": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/presetSuite" }
+    },
+    "workloads": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/workload" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "jsonValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "string" },
+        { "type": "number" },
+        {
+          "type": "array",
+          "items": { "$ref": "#/$defs/jsonValue" }
+        },
+        { "$ref": "#/$defs/jsonObject" }
+      ]
+    },
+    "jsonObject": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+    },
+    "pointer": {
+      "type": "string",
+      "pattern": "^(?:/(?:[^~/]|~[01])*)+$"
+    },
+    "patches": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["op", "path", "value"],
+            "properties": {
+              "op": { "const": "add" },
+              "path": { "$ref": "#/$defs/pointer" },
+              "value": { "$ref": "#/$defs/jsonValue" }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["op", "path"],
+            "properties": {
+              "op": { "const": "remove" },
+              "path": { "$ref": "#/$defs/pointer" }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["op", "path", "value"],
+            "properties": {
+              "op": { "const": "replace" },
+              "path": { "$ref": "#/$defs/pointer" },
+              "value": { "$ref": "#/$defs/jsonValue" }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["op", "from", "path"],
+            "properties": {
+              "op": { "const": "copy" },
+              "from": { "$ref": "#/$defs/pointer" },
+              "path": { "$ref": "#/$defs/pointer" }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "revisionDirective": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["mode", "expect"],
+          "properties": {
+            "mode": { "const": "preserve" },
+            "expect": { "enum": ["match", "mismatch"] }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["mode", "value", "expect"],
+          "properties": {
+            "mode": { "const": "set" },
+            "value": { "$ref": "#/$defs/sha256" },
+            "expect": { "const": "match" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "manifestSource": {
+      "type": "object",
+      "required": ["id", "file", "sha256", "revisionField"],
+      "properties": {
+        "id": { "const": "manifest" },
+        "file": { "const": "manifest.valid.json" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "revisionField": { "const": "manifestRevision" }
+      },
+      "additionalProperties": false
+    },
+    "operationSource": {
+      "type": "object",
+      "required": ["id", "file", "sha256", "revisionField"],
+      "properties": {
+        "id": { "const": "operation" },
+        "file": { "const": "operation.valid.json" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "revisionField": { "const": "revision" }
+      },
+      "additionalProperties": false
+    },
+    "resolveRequestSource": {
+      "type": "object",
+      "required": ["id", "file", "sha256"],
+      "properties": {
+        "id": { "const": "resolve-request" },
+        "file": { "const": "data-source-resolve-request.valid.json" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "resolveResponseSource": {
+      "type": "object",
+      "required": ["id", "file", "sha256"],
+      "properties": {
+        "id": { "const": "resolve-response" },
+        "file": { "const": "data-source-resolve-response.valid.json" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "manifestDocument": {
+      "type": "object",
+      "required": ["source", "patches", "revision"],
+      "properties": {
+        "source": { "const": "manifest" },
+        "patches": { "$ref": "#/$defs/patches" },
+        "revision": { "$ref": "#/$defs/revisionDirective" }
+      },
+      "additionalProperties": false
+    },
+    "operationDocument": {
+      "type": "object",
+      "required": ["source", "patches", "revision"],
+      "properties": {
+        "source": { "const": "operation" },
+        "patches": { "$ref": "#/$defs/patches" },
+        "revision": { "$ref": "#/$defs/revisionDirective" }
+      },
+      "additionalProperties": false
+    },
+    "resolveRequestDocument": {
+      "type": "object",
+      "required": ["source", "patches"],
+      "properties": {
+        "source": { "const": "resolve-request" },
+        "patches": { "$ref": "#/$defs/patches" }
+      },
+      "additionalProperties": false
+    },
+    "resolveResponseDocument": {
+      "type": "object",
+      "required": ["source", "patches"],
+      "properties": {
+        "source": { "const": "resolve-response" },
+        "patches": { "$ref": "#/$defs/patches" }
+      },
+      "additionalProperties": false
+    },
+    "manifestVector": {
+      "type": "object",
+      "required": ["id", "predicate", "precondition", "document", "expected"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "predicate": { "const": "manifest" },
+        "precondition": { "enum": ["envelope-valid", "owned-json-defensive"] },
+        "document": { "$ref": "#/$defs/manifestDocument" },
+        "expected": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "operationVector": {
+      "type": "object",
+      "required": ["id", "predicate", "precondition", "document", "expected"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "predicate": { "const": "operation" },
+        "precondition": { "const": "envelope-valid" },
+        "document": { "$ref": "#/$defs/operationDocument" },
+        "expected": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "resolveVector": {
+      "type": "object",
+      "required": ["id", "predicate", "precondition", "request", "response", "expected"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "predicate": { "const": "resolve" },
+        "precondition": { "const": "envelope-valid" },
+        "request": { "$ref": "#/$defs/resolveRequestDocument" },
+        "response": { "$ref": "#/$defs/resolveResponseDocument" },
+        "expected": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "required": ["$schema", "type"],
+      "properties": {
+        "$schema": { "const": "https://json-schema.org/draft/2020-12/schema" },
+        "type": { "const": "object" }
+      },
+      "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+    },
+    "presetCase": {
+      "type": "object",
+      "required": ["id", "presetInputs", "expectedRevision", "expected"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "presetInputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/jsonObject" }
+        },
+        "expectedRevision": { "$ref": "#/$defs/sha256" },
+        "expected": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "presetSuite": {
+      "type": "object",
+      "required": ["id", "inputSchema", "secretPointers", "cases"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "inputSchema": { "$ref": "#/$defs/inputSchema" },
+        "secretPointers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pointer" }
+        },
+        "cases": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/presetCase" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "deepRecipe": {
+      "type": "object",
+      "required": ["kind", "depth", "leaf", "secretPointer"],
+      "properties": {
+        "kind": { "const": "deep-chain" },
+        "depth": { "const": 1500 },
+        "leaf": { "enum": ["empty", "secret"] },
+        "secretPointer": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "cartesianRecipe": {
+      "type": "object",
+      "required": ["kind", "propertyCount", "ruleCopies", "presetCount"],
+      "properties": {
+        "kind": { "const": "rules-presets-cartesian" },
+        "propertyCount": { "const": 225 },
+        "ruleCopies": { "const": 2 },
+        "presetCount": { "const": 225 }
+      },
+      "additionalProperties": false
+    },
+    "denseRecipe": {
+      "type": "object",
+      "required": ["kind", "graphSize"],
+      "properties": {
+        "kind": { "const": "dense-mutual-reference" },
+        "graphSize": { "const": 120 }
+      },
+      "additionalProperties": false
+    },
+    "wideRecipe": {
+      "type": "object",
+      "required": ["kind", "itemCount", "secretRule"],
+      "properties": {
+        "kind": { "const": "wide-array" },
+        "itemCount": { "const": 900000 },
+        "secretRule": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "standardNodeReferenceBudget": {
+      "type": "object",
+      "required": ["timeoutMs", "execArgv"],
+      "properties": {
+        "timeoutMs": { "const": 2500 },
+        "execArgv": { "type": "array", "maxItems": 0 }
+      },
+      "additionalProperties": false
+    },
+    "wideControlNodeReferenceBudget": {
+      "type": "object",
+      "required": ["timeoutMs", "execArgv"],
+      "properties": {
+        "timeoutMs": { "const": 10000 },
+        "execArgv": {
+          "const": ["--max-old-space-size=512", "--max-semi-space-size=48"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "wideSecretNodeReferenceBudget": {
+      "type": "object",
+      "required": [
+        "timeoutMs",
+        "execArgv",
+        "maxRssKiBExclusive",
+        "maxRssDeltaKiBExclusive",
+        "controlId"
+      ],
+      "properties": {
+        "timeoutMs": { "const": 10000 },
+        "execArgv": {
+          "const": ["--max-old-space-size=512", "--max-semi-space-size=48"]
+        },
+        "maxRssKiBExclusive": { "const": 458752 },
+        "maxRssDeltaKiBExclusive": { "const": 40960 },
+        "controlId": { "const": "preset.workload.wide.no-secret-control" }
+      },
+      "additionalProperties": false
+    },
+    "nodeReferenceBudget": {
+      "oneOf": [
+        { "$ref": "#/$defs/standardNodeReferenceBudget" },
+        { "$ref": "#/$defs/wideControlNodeReferenceBudget" },
+        { "$ref": "#/$defs/wideSecretNodeReferenceBudget" }
+      ]
+    },
+    "workload": {
+      "type": "object",
+      "required": [
+        "id",
+        "recipe",
+        "expected",
+        "expectedRevision",
+        "canonicalBytes",
+        "nodeReferenceBudget"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "recipe": {
+          "oneOf": [
+            { "$ref": "#/$defs/deepRecipe" },
+            { "$ref": "#/$defs/cartesianRecipe" },
+            { "$ref": "#/$defs/denseRecipe" },
+            { "$ref": "#/$defs/wideRecipe" }
+          ]
+        },
+        "expected": { "type": "boolean" },
+        "expectedRevision": { "$ref": "#/$defs/sha256" },
+        "canonicalBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "nodeReferenceBudget": { "$ref": "#/$defs/nodeReferenceBudget" }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": {
+                "enum": [
+                  "preset.workload.deep.no-rule-empty",
+                  "preset.workload.deep.secret-rule-empty",
+                  "preset.workload.deep.secret-rule-populated",
+                  "preset.workload.cartesian.empty",
+                  "preset.workload.dense.empty"
+                ]
+              }
+            }
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "nodeReferenceBudget": {
+                "$ref": "#/$defs/standardNodeReferenceBudget"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": { "const": "preset.workload.wide.no-secret-control" }
+            }
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "nodeReferenceBudget": {
+                "$ref": "#/$defs/wideControlNodeReferenceBudget"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": { "const": "preset.workload.wide.secret" }
+            }
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "nodeReferenceBudget": {
+                "$ref": "#/$defs/wideSecretNodeReferenceBudget"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

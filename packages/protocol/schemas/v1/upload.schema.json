@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.8lines.dev/gauntlet/v1/upload.schema.json",
+  "type": "object",
+  "required": ["file"],
+  "properties": {
+    "file": { "$ref": "./common.schema.json#/$defs/fileReference" },
+    "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+  },
+  "additionalProperties": false
+}

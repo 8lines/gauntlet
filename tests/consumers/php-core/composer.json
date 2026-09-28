@@ -1,0 +1,14 @@
+{
+  "name": "8lines/gauntlet-php-core-consumer",
+  "description": "Release verification consumer for Gauntlet PHP Core.",
+  "type": "project",
+  "license": "Apache-2.0",
+  "repositories": [],
+  "require": {
+    "php": ">=8.3",
+    "8lines/gauntlet-php-core": "0.1.0"
+  },
+  "config": {
+    "allow-plugins": false
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.8lines.dev/gauntlet/v1/session-launch.schema.json",
+  "type": "object",
+  "required": ["url", "expiresAt", "singleUse"],
+  "properties": {
+    "url": { "$ref": "./common.schema.json#/$defs/httpUrl" },
+    "expiresAt": { "$ref": "./common.schema.json#/$defs/rfc3339Timestamp" },
+    "singleUse": { "const": true },
+    "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+  },
+  "additionalProperties": false
+}

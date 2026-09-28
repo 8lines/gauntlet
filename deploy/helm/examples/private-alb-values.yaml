@@ -1,0 +1,13 @@
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/inbound-cidrs: 10.0.0.0/8
+  hosts:
+    - host: gauntlet.staging.internal
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []

@@ -1,0 +1,31 @@
+{
+  "name": "@8lines/gauntlet-dashboard-client",
+  "description": "Validated Adapter v1 HTTP client, protocol response validation, and run event streaming for the Gauntlet control plane.",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=24 <27" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/8lines/gauntlet.git",
+    "directory": "packages/dashboard-client"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "provenance": true
+  },
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepack": "pnpm --filter @8lines/gauntlet-dashboard-client... build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test test/**/*.test.ts"
+  },
+  "dependencies": {
+    "@8lines/gauntlet-protocol": "workspace:*",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1"
+  }
+}

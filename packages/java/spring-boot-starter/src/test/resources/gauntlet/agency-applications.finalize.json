@@ -1,0 +1,138 @@
+{
+  "id": "agency-applications.finalize",
+  "revision": "sha256:ef1bc695367770928c54f4cbf35ddcba25d7f47a4a95afb56ee39af1ff4cb9e6",
+  "label": "Finalize agency application",
+  "featureId": "agency-applications",
+  "description": "Finalize one pending agency application.",
+  "order": 10,
+  "tags": ["agency", "workflow"],
+  "requirements": {
+    "profiles": ["tc-rich-forms@1", "tc-rich-results@1", "tc-schema-core@1"]
+  },
+  "placements": [
+    {
+      "kind": "subject",
+      "subjectType": "agency-application",
+      "bindings": {"/applicationId": "applicationId"}
+    }
+  ],
+  "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["applicationId", "confirmationCode"],
+    "properties": {
+      "applicationId": {
+        "type": "string",
+        "format": "uuid",
+        "title": "Application"
+      },
+      "confirmationCode": {
+        "type": "string",
+        "pattern": "^[0-9]{6}$",
+        "title": "Confirmation code"
+      }
+    },
+    "additionalProperties": false
+  },
+  "inputHandling": {
+    "rules": [
+      {
+        "kind": "secret",
+        "schemaPointer": "/properties/confirmationCode",
+        "retention": "none"
+      }
+    ]
+  },
+  "contextSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["requestId", "target"],
+    "properties": {
+      "requestId": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+      },
+      "locale": {"type": "string"},
+      "timeZone": {"type": "string"},
+      "actor": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+          },
+          "displayName": {"type": "string"}
+        },
+        "additionalProperties": false
+      },
+      "target": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+          },
+          "environment": {"type": "string"}
+        },
+        "additionalProperties": false
+      },
+      "extensions": {
+        "type": "object",
+        "propertyNames": {
+          "pattern": "^urn:[A-Za-z0-9][A-Za-z0-9:._/-]*$"
+        }
+      }
+    },
+    "additionalProperties": false
+  },
+  "uiSchema": {
+    "profile": "tc-rich-forms@1",
+    "root": {
+      "type": "group",
+      "label": "Finalize application",
+      "children": [
+        {
+          "type": "field",
+          "pointer": "/applicationId",
+          "widget": "autocomplete",
+          "dataSourceId": "pending-applications"
+        },
+        {"type": "field", "pointer": "/confirmationCode", "widget": "secret"}
+      ]
+    }
+  },
+  "dataSources": [
+    {
+      "id": "pending-applications",
+      "inputPointer": "/applicationId",
+      "dependencyPointers": ["/workflowState"],
+      "contextPointers": ["/target/id"],
+      "required": true
+    }
+  ],
+  "presets": [],
+  "execution": {
+    "impact": "write",
+    "confirmationRequired": true,
+    "dryRunSupported": false,
+    "idempotency": "required",
+    "cancellationSupported": false,
+    "timeoutSeconds": 30,
+    "concurrency": "forbid"
+  },
+  "output": {
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "required": ["finalized"],
+      "properties": {"finalized": {"type": "boolean"}},
+      "additionalProperties": false
+    },
+    "presentation": {
+      "profile": "tc-rich-results@1",
+      "defaultView": "summary"
+    }
+  }
+}

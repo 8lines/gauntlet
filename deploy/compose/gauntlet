@@ -1,0 +1,187 @@
+#!/bin/sh
+set -eu
+
+EX_USAGE=64
+EX_NOINPUT=66
+EX_UNAVAILABLE=69
+EX_CANTCREAT=73
+
+distribution_dir=$(CDPATH= cd -P -- "$(dirname -- "$0")" && pwd -P)
+compose_file=$distribution_dir/compose.yaml
+environment_file=$distribution_dir/.env
+shared_network=gauntlet
+
+usage() {
+  cat <<'EOF'
+Usage: ./gauntlet init|help|COMPOSE_COMMAND [ARGUMENT...]
+
+Initialise operator files with `init`, then use a Docker Compose command such
+as `up -d --wait`, `ps`, `logs`, `restart`, `pull`, `stop`, or `down`.
+Caller-supplied Docker Compose global flags are not accepted.
+EOF
+}
+
+fail_init() {
+  printf '%s\n' 'Gauntlet initialization refused: operator files or initialization lock already exist.' >&2
+  exit "$EX_CANTCREAT"
+}
+
+assert_init_sources() {
+  for source_file in "$distribution_dir/.env.example" "$distribution_dir/config.example.yaml"; do
+    if [ ! -f "$source_file" ] || [ -L "$source_file" ] || [ ! -r "$source_file" ]; then
+      printf '%s\n' 'Gauntlet initialization refused: the distribution examples are unavailable.' >&2
+      exit "$EX_NOINPUT"
+    fi
+  done
+}
+
+destination_exists() {
+  [ -e "$1" ] || [ -L "$1" ]
+}
+
+initialize() {
+  assert_init_sources
+
+  env_destination=$distribution_dir/.env
+  config_destination=$distribution_dir/config.yaml
+  if destination_exists "$env_destination" || destination_exists "$config_destination"; then
+    fail_init
+  fi
+
+  lock_directory=$distribution_dir/.gauntlet-init.lock
+  if ! (umask 077 && mkdir "$lock_directory") 2>/dev/null; then
+    fail_init
+  fi
+
+  env_created=0
+  config_created=0
+  cleanup_init() {
+    status=$?
+    trap - 0 HUP INT TERM
+    if [ "$status" -ne 0 ]; then
+      if [ "$config_created" -eq 1 ]; then rm -f "$config_destination"; fi
+      if [ "$env_created" -eq 1 ]; then rm -f "$env_destination"; fi
+    fi
+    rm -f "$lock_directory/.env" "$lock_directory/config.yaml"
+    rmdir "$lock_directory" 2>/dev/null || true
+    exit "$status"
+  }
+  trap cleanup_init 0
+  trap 'exit 129' HUP
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+
+  if destination_exists "$env_destination" || destination_exists "$config_destination"; then
+    fail_init
+  fi
+  assert_init_sources
+
+  umask 077
+  cp "$distribution_dir/.env.example" "$lock_directory/.env"
+  cp "$distribution_dir/config.example.yaml" "$lock_directory/config.yaml"
+  chmod 0600 "$lock_directory/.env"
+  chmod 0644 "$lock_directory/config.yaml"
+  cmp -s "$distribution_dir/.env.example" "$lock_directory/.env"
+  cmp -s "$distribution_dir/config.example.yaml" "$lock_directory/config.yaml"
+
+  if ! ln "$lock_directory/.env" "$env_destination" 2>/dev/null; then
+    fail_init
+  fi
+  env_created=1
+  if ! ln "$lock_directory/config.yaml" "$config_destination" 2>/dev/null; then
+    fail_init
+  fi
+  config_created=1
+
+  env_created=0
+  config_created=0
+  rm -f "$lock_directory/.env" "$lock_directory/config.yaml"
+  rmdir "$lock_directory"
+  trap - 0 HUP INT TERM
+  printf '%s\n' 'Created .env and config.yaml; review them before running up.'
+}
+
+if [ "$#" -eq 0 ]; then
+  usage >&2
+  exit "$EX_USAGE"
+fi
+
+command_name=$1
+case "$command_name" in
+  help)
+    if [ "$#" -ne 1 ]; then
+      usage >&2
+      exit "$EX_USAGE"
+    fi
+    usage
+    exit 0
+    ;;
+  init)
+    if [ "$#" -ne 1 ]; then
+      usage >&2
+      exit "$EX_USAGE"
+    fi
+    initialize
+    exit 0
+    ;;
+  attach|bridge|build|commit|config|cp|create|down|events|exec|export|images|kill|logs|ls|pause|port|ps|publish|pull|push|restart|rm|run|scale|start|stats|stop|top|unpause|up|version|volumes|wait|watch)
+    ;;
+  *)
+    usage >&2
+    exit "$EX_USAGE"
+    ;;
+esac
+
+if [ ! -f "$compose_file" ] || [ -L "$compose_file" ] || [ ! -f "$environment_file" ] || [ -L "$environment_file" ]; then
+  printf '%s\n' 'Gauntlet distribution is incomplete: compose.yaml and .env must be regular files.' >&2
+  exit "$EX_NOINPUT"
+fi
+
+unset \
+  COMPOSE_ANSI \
+  COMPOSE_BAKE \
+  COMPOSE_CONVERT_WINDOWS_PATHS \
+  COMPOSE_DISABLE_ENV_FILE \
+  COMPOSE_ENV_FILES \
+  COMPOSE_EXPERIMENTAL \
+  COMPOSE_FILE \
+  COMPOSE_IGNORE_ORPHANS \
+  COMPOSE_MENU \
+  COMPOSE_PARALLEL_LIMIT \
+  COMPOSE_PATH_SEPARATOR \
+  COMPOSE_PROFILES \
+  COMPOSE_PROGRESS \
+  COMPOSE_PROJECT_NAME \
+  COMPOSE_REMOVE_ORPHANS \
+  COMPOSE_STATUS_STDOUT \
+  GAUNTLET_BIND \
+  GAUNTLET_CONFIG_FILE \
+  GAUNTLET_CONFIG_PATH \
+  GAUNTLET_ENVIRONMENT_KIND \
+  GAUNTLET_ENVIRONMENT_NAME \
+  GAUNTLET_HOST \
+  GAUNTLET_IMAGE \
+  GAUNTLET_INSTANCE_NAME \
+  GAUNTLET_MCP_ENABLED \
+  GAUNTLET_MCP_ALLOWED_ORIGINS_JSON \
+  GAUNTLET_PORT \
+  GAUNTLET_TARGETS_JSON
+
+case "$command_name" in
+  create|run|scale|up|watch)
+    if ! docker network inspect "$shared_network" >/dev/null 2>&1; then
+      if ! docker network create "$shared_network" >/dev/null 2>&1 \
+        && ! docker network inspect "$shared_network" >/dev/null 2>&1; then
+        printf '%s\n' 'Gauntlet could not ensure the shared adapter network.' >&2
+        exit "$EX_UNAVAILABLE"
+      fi
+    fi
+    ;;
+esac
+
+exec docker compose \
+  --project-name gauntlet \
+  --project-directory "$distribution_dir" \
+  --env-file "$environment_file" \
+  -f "$compose_file" \
+  "$@"

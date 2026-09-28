@@ -1,0 +1,45 @@
+schemaVersion: 1
+skill: gauntlet-app-integration
+syntheticOnly: true
+baselineGuidance: none
+scenarios:
+  - id: prod-alias
+    kind: pressure
+    samples: 5
+    expectedAction: A
+    prompt: prompts/prod-alias.md
+  - id: public-ingress
+    kind: pressure
+    samples: 5
+    expectedAction: B
+    prompt: prompts/public-ingress.md
+  - id: unstable-runtime
+    kind: pressure
+    samples: 5
+    expectedAction: C
+    prompt: prompts/unstable-runtime.md
+  - id: next-raw-path
+    kind: pressure
+    samples: 5
+    expectedAction: C
+    prompt: prompts/next-raw-path.md
+  - id: valid-symfony
+    kind: valid
+    samples: 1
+    expectedOverallVerdict: incomplete-without-customer-deployment
+    prompt: prompts/valid-symfony.md
+  - id: valid-compose
+    kind: valid
+    samples: 1
+    expectedOverallVerdict: incomplete-without-customer-deployment
+    prompt: prompts/valid-compose.md
+forwardScenarios:
+  - id: forward-spring-ingress
+    samples: 1
+    prompt: prompts/forward-spring-ingress.md
+  - id: forward-prod-alias
+    samples: 1
+    prompt: prompts/forward-prod-alias.md
+  - id: forward-node-compose
+    samples: 1
+    prompt: prompts/forward-node-compose.md

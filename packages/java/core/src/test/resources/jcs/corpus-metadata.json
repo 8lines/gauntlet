@@ -1,0 +1,9 @@
+{
+  "sourceCommit": "19d51d7fe467d4706a3ff08adf8a748f29fc21e0",
+  "url": "https://github.com/cyberphone/json-canonicalization/releases/download/es6testfile/es6testfile100m.txt.gz",
+  "compressedSize": 2081240993,
+  "compressedSha256": "545455ec9e74b68042c22a2607fb9d4a5f5fdb3c79f883ce864c75189a70705f",
+  "uncompressedSize": 4036326174,
+  "rows": 100000000,
+  "uncompressedSha256": "0f7dda6b0837dde083c5d6b896f7d62340c8a2415b0c7121d83145e08a755272"
+}

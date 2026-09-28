@@ -1,0 +1,326 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.8lines.dev/gauntlet/v1/operation-definition.schema.json",
+  "type": "object",
+  "required": [
+    "id",
+    "revision",
+    "label",
+    "featureId",
+    "order",
+    "tags",
+    "inputSchema",
+    "dataSources",
+    "presets",
+    "execution",
+    "output"
+  ],
+  "properties": {
+    "id": { "$ref": "./common.schema.json#/$defs/portableId" },
+    "revision": { "$ref": "./common.schema.json#/$defs/sha256Revision" },
+    "label": { "type": "string", "minLength": 1 },
+    "featureId": { "$ref": "./common.schema.json#/$defs/portableId" },
+    "description": { "type": "string" },
+    "icon": { "type": "string" },
+    "order": { "$ref": "./common.schema.json#/$defs/safeInteger" },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "requirements": { "$ref": "./common.schema.json#/$defs/protocolRequirements" },
+    "placements": { "$ref": "./common.schema.json#/$defs/operationPlacements" },
+    "inputSchema": { "$ref": "./common.schema.json#/$defs/objectJsonSchema" },
+    "inputHandling": { "$ref": "#/$defs/inputHandling" },
+    "contextSchema": { "$ref": "./common.schema.json#/$defs/objectJsonSchema" },
+    "uiSchema": { "$ref": "#/$defs/operationUiSchema" },
+    "dataSources": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/dataSourceReference" }
+    },
+    "presets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/operationPreset" }
+    },
+    "execution": { "$ref": "#/$defs/executionPolicy" },
+    "output": { "$ref": "#/$defs/operationOutput" },
+    "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "dataSourceReference": {
+      "type": "object",
+      "required": ["id", "inputPointer", "dependencyPointers"],
+      "properties": {
+        "id": { "$ref": "./common.schema.json#/$defs/portableId" },
+        "inputPointer": { "$ref": "./common.schema.json#/$defs/jsonPointer" },
+        "dependencyPointers": {
+          "type": "array",
+          "items": { "$ref": "./common.schema.json#/$defs/jsonPointer" },
+          "uniqueItems": true
+        },
+        "contextPointers": {
+          "type": "array",
+          "items": { "$ref": "./common.schema.json#/$defs/jsonPointer" },
+          "uniqueItems": true
+        },
+        "required": { "type": "boolean" },
+        "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    },
+    "uiCondition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["op", "pointer"],
+          "properties": {
+            "op": { "const": "present" },
+            "pointer": { "$ref": "./common.schema.json#/$defs/jsonPointer" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["op", "pointer", "value"],
+          "properties": {
+            "op": { "const": "equals" },
+            "pointer": { "$ref": "./common.schema.json#/$defs/jsonPointer" },
+            "value": { "$ref": "./common.schema.json#/$defs/jsonValue" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["op", "pointer", "values"],
+          "properties": {
+            "op": { "const": "in" },
+            "pointer": { "$ref": "./common.schema.json#/$defs/jsonPointer" },
+            "values": {
+              "type": "array",
+              "items": { "$ref": "./common.schema.json#/$defs/jsonValue" }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["op", "conditions"],
+          "properties": {
+            "op": { "enum": ["all", "any"] },
+            "conditions": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/uiCondition" },
+              "minItems": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["op", "condition"],
+          "properties": {
+            "op": { "const": "not" },
+            "condition": { "$ref": "#/$defs/uiCondition" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "widget": {
+      "anyOf": [
+        {
+          "enum": [
+            "text",
+            "textarea",
+            "integer",
+            "number",
+            "toggle",
+            "select",
+            "multi-select",
+            "autocomplete",
+            "date",
+            "date-time",
+            "duration",
+            "code",
+            "json",
+            "secret",
+            "file"
+          ]
+        },
+        {
+          "type": "string",
+          "pattern": "^urn:[A-Za-z0-9][A-Za-z0-9:._/-]*$"
+        }
+      ]
+    },
+    "uiNode": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "pointer"],
+          "properties": {
+            "type": { "const": "field" },
+            "pointer": { "$ref": "./common.schema.json#/$defs/jsonPointer" },
+            "widget": { "$ref": "#/$defs/widget" },
+            "dataSourceId": { "$ref": "./common.schema.json#/$defs/portableId" },
+            "label": { "type": "string" },
+            "help": { "type": "string" },
+            "options": { "$ref": "./common.schema.json#/$defs/jsonObject" },
+            "visibleWhen": { "$ref": "#/$defs/uiCondition" },
+            "enabledWhen": { "$ref": "#/$defs/uiCondition" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["type", "children"],
+          "properties": {
+            "type": { "enum": ["group", "columns"] },
+            "label": { "type": "string" },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/uiNode" }
+            },
+            "visibleWhen": { "$ref": "#/$defs/uiCondition" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["type", "tabs"],
+          "properties": {
+            "type": { "const": "tabs" },
+            "tabs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "label", "children"],
+                "properties": {
+                  "id": { "$ref": "./common.schema.json#/$defs/portableId" },
+                  "label": { "type": "string" },
+                  "children": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/uiNode" }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "operationUiSchema": {
+      "type": "object",
+      "required": ["profile", "root"],
+      "properties": {
+        "profile": { "const": "tc-rich-forms@1" },
+        "root": { "$ref": "#/$defs/uiNode" },
+        "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    },
+    "operationPreset": {
+      "type": "object",
+      "required": ["id", "label", "input"],
+      "properties": {
+        "id": { "$ref": "./common.schema.json#/$defs/portableId" },
+        "label": { "type": "string" },
+        "description": { "type": "string" },
+        "input": { "$ref": "./common.schema.json#/$defs/jsonObject" },
+        "lockedPointers": {
+          "type": "array",
+          "items": { "$ref": "./common.schema.json#/$defs/jsonPointer" },
+          "uniqueItems": true
+        },
+        "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    },
+    "secretRule": {
+      "type": "object",
+      "required": ["kind", "schemaPointer", "retention"],
+      "properties": {
+        "kind": { "const": "secret" },
+        "schemaPointer": { "$ref": "./common.schema.json#/$defs/jsonPointer" },
+        "retention": { "const": "none" }
+      },
+      "additionalProperties": false
+    },
+    "fileRule": {
+      "type": "object",
+      "required": ["kind", "schemaPointer", "multiple"],
+      "properties": {
+        "kind": { "const": "file" },
+        "schemaPointer": { "$ref": "./common.schema.json#/$defs/jsonPointer" },
+        "multiple": { "type": "boolean" },
+        "mediaTypes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "maxBytes": { "$ref": "./common.schema.json#/$defs/positiveSafeInteger" }
+      },
+      "additionalProperties": false
+    },
+    "inputHandling": {
+      "type": "object",
+      "required": ["rules"],
+      "properties": {
+        "rules": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/secretRule" },
+              { "$ref": "#/$defs/fileRule" }
+            ]
+          }
+        },
+        "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    },
+    "executionPolicy": {
+      "type": "object",
+      "required": [
+        "impact",
+        "confirmationRequired",
+        "dryRunSupported",
+        "idempotency",
+        "cancellationSupported"
+      ],
+      "properties": {
+        "impact": { "$ref": "./common.schema.json#/$defs/operationImpact" },
+        "confirmationRequired": { "type": "boolean" },
+        "dryRunSupported": { "type": "boolean" },
+        "idempotency": { "enum": ["none", "optional", "required"] },
+        "cancellationSupported": { "type": "boolean" },
+        "timeoutSeconds": { "$ref": "./common.schema.json#/$defs/positiveSafeInteger" },
+        "concurrency": { "enum": ["allow", "forbid", "queue"] },
+        "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    },
+    "resultPresentation": {
+      "type": "object",
+      "required": ["profile"],
+      "properties": {
+        "profile": { "const": "tc-rich-results@1" },
+        "defaultView": { "enum": ["summary", "details", "artifacts"] }
+      },
+      "additionalProperties": false
+    },
+    "operationOutput": {
+      "type": "object",
+      "required": ["schema"],
+      "properties": {
+        "schema": { "$ref": "./common.schema.json#/$defs/jsonSchema" },
+        "presentation": { "$ref": "#/$defs/resultPresentation" },
+        "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

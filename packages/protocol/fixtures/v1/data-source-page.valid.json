@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "value": "app-42",
+      "label": "Customer Portal",
+      "description": "Primary customer-facing portal",
+      "group": "Production",
+      "metadata": { "owner": "Platform" }
+    },
+    {
+      "value": "app-84",
+      "label": "Legacy Portal",
+      "group": "Archived",
+      "disabled": true
+    }
+  ],
+  "nextCursor": "page-3"
+}

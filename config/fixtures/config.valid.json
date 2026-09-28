@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "instance": {
+    "name": "small-apps-dev",
+    "environment": {
+      "name": "dev",
+      "kind": "development"
+    }
+  },
+  "widget": {
+    "enabled": true
+  },
+  "targets": [
+    {
+      "id": "billing",
+      "label": "Billing",
+      "adapterUrl": "http://billing:8080",
+      "publicUrl": "https://dev.billing.example",
+      "expectedEnvironment": {
+        "name": "dev",
+        "kind": "development"
+      },
+      "tags": ["node", "payments"],
+      "widget": {
+        "origins": ["https://dev.billing.example"]
+      }
+    },
+    {
+      "id": "portal",
+      "label": "Portal",
+      "adapterUrl": "http://portal:8080",
+      "expectedEnvironment": {
+        "name": "dev",
+        "kind": "development"
+      },
+      "tags": ["symfony"]
+    },
+    {
+      "id": "ipv6-worker",
+      "label": "IPv6 worker",
+      "adapterUrl": "http://[fd00::12]:8080",
+      "expectedEnvironment": {
+        "name": "dev",
+        "kind": "development"
+      },
+      "tags": ["java"]
+    }
+  ]
+}

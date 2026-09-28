@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="280" viewBox="0 0 1060 280" role="img" aria-labelledby="title description">
+  <title id="title">A control panel for your test environments</title>
+  <desc id="description">Gauntlet lets your team prepare test data, run application actions and see results in development and staging. Use the dashboard or connect AI through MCP. An illustration shows a Prepare test data action with a successful result.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#eef2ff"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#4338ca"/>
+    </linearGradient>
+    <style>
+      text { font-family: Arial, Helvetica, sans-serif; }
+      .line { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+  <rect width="1060" height="280" rx="20" fill="url(#background)"/>
+
+  <text x="40" y="45" fill="#4338ca" font-size="12" font-weight="700" letter-spacing="1.6">DEVELOPMENT &amp; STAGING</text>
+  <text x="40" y="96" fill="#172238" font-size="35" font-weight="700">A control panel for</text>
+  <text x="40" y="139" fill="#172238" font-size="35" font-weight="700">your test environments.</text>
+  <text x="40" y="181" fill="#536176" font-size="17">Prepare test data, run app actions and see results.</text>
+  <rect x="40" y="207" width="320" height="34" rx="17" fill="#ffffff" stroke="#d8def0"/>
+  <text x="200" y="224" text-anchor="middle" dominant-baseline="central" fill="#4338ca" font-size="14" font-weight="600">Dashboard for your team · MCP for AI</text>
+
+  <!-- One panel; all icons and labels stay inside their own rows. -->
+  <rect x="640" y="43" width="380" height="198" rx="16" fill="#ffffff" stroke="#c7d2fe"/>
+  <path d="M640 99h380" stroke="#e2e8f0"/>
+  <rect x="660" y="57" width="28" height="28" rx="8" fill="#eef2ff"/>
+  <path class="line" d="m670 66-5 5 5 5m8-10 5 5-5 5" stroke="#4338ca" stroke-width="1.8"/>
+  <text x="698" y="71" dominant-baseline="central" fill="#172238" font-size="15" font-weight="600">Gauntlet</text>
+  <rect x="924" y="59" width="76" height="24" rx="12" fill="#f1f5f9"/>
+  <text x="962" y="71" text-anchor="middle" dominant-baseline="central" fill="#536176" font-size="12">Staging</text>
+
+  <text x="660" y="127" fill="#64748b" font-size="10" font-weight="700" letter-spacing="1.1">APPLICATION ACTION</text>
+  <text x="660" y="153" fill="#172238" font-size="19" font-weight="600">Prepare test data</text>
+  <rect x="956" y="115" width="44" height="44" rx="12" fill="url(#accent)"/>
+  <path d="m973 128 13 9-13 9z" fill="#ffffff"/>
+
+  <rect x="660" y="179" width="340" height="42" rx="10" fill="#ecfdf5"/>
+  <circle cx="681" cy="200" r="9" fill="#21846a"/>
+  <path class="line" d="m677 200 3 3 5-6" stroke="#ffffff" stroke-width="1.8"/>
+  <text x="700" y="200" dominant-baseline="central" fill="#16624c" font-size="15" font-weight="600">Ready to test</text>
+</svg>

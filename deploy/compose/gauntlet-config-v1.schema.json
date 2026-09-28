@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.8lines.dev/gauntlet/config/v1.schema.json",
+  "type": "object",
+  "required": ["version", "instance", "targets"],
+  "properties": {
+    "version": { "const": 1 },
+    "instance": {
+      "type": "object",
+      "required": ["name", "environment"],
+      "properties": {
+        "name": { "$ref": "#/$defs/id" },
+        "environment": { "$ref": "#/$defs/environment" }
+      },
+      "additionalProperties": false
+    },
+    "widget": { "$ref": "#/$defs/widget" },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/target" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "environment": {
+      "type": "object",
+      "required": ["name", "kind"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "kind": {
+          "enum": ["development", "test", "qa", "staging", "uat", "preview", "sandbox"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "origin": {
+      "type": "string",
+      "pattern": "^https?://(?:\\[[0-9A-Fa-f:.]+\\]|[A-Za-z0-9.-]+)(?::[0-9]{1,5})?/?$"
+    },
+    "exactOrigin": {
+      "type": "string",
+      "pattern": "^https?://(?:\\[[0-9a-f:.]+\\]|[a-z0-9.-]+)(?::[0-9]{1,5})?$"
+    },
+    "widget": {
+      "type": "object",
+      "properties": { "enabled": { "type": "boolean" } },
+      "additionalProperties": false
+    },
+    "targetWidget": {
+      "type": "object",
+      "required": ["origins"],
+      "properties": {
+        "origins": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/exactOrigin" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "target": {
+      "type": "object",
+      "required": ["id", "label", "adapterUrl", "expectedEnvironment"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "adapterUrl": { "$ref": "#/$defs/origin" },
+        "publicUrl": { "$ref": "#/$defs/origin" },
+        "expectedEnvironment": { "$ref": "#/$defs/environment" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "uniqueItems": true
+        },
+        "widget": { "$ref": "#/$defs/targetWidget" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

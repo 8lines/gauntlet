@@ -1,0 +1,16 @@
+{
+  "id": "run-invalid-active",
+  "operationId": "fixture-operation",
+  "operationRevision": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "sequence": 1,
+  "state": "running",
+  "createdAt": "2026-08-29T12:00:00Z",
+  "updatedAt": "2026-08-29T12:00:01Z",
+  "artifacts": [],
+  "actions": [],
+  "problem": {
+    "type": "urn:gauntlet:problem:handler-failed",
+    "title": "Handler failed",
+    "status": 500
+  }
+}

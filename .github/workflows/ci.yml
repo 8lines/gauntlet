@@ -1,0 +1,404 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["24.20.0", "25.9.0", "26.8.1"]
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - name: Install the locked workspace
+        run: pnpm install --frozen-lockfile --package-import-method=copy
+      - name: Verify protocol and Node SDK
+        run: pnpm verify:protocol-sdk --node-only
+
+  php:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 90
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24.20.0"
+          cache: pnpm
+      - name: Pin pnpm's store and copy import method in its global config
+        # The skill-evaluation fixtures accept only regular files with one link, and
+        # release verification strips the environment (including the variables that
+        # locate the store), so both settings live in pnpm's global config.
+        run: |
+          store="$(pnpm store path)"
+          for directory in "$HOME/.config/pnpm" "${XDG_CONFIG_HOME:-$HOME/.config}/pnpm"; do
+            mkdir -p "$directory"
+            printf 'packageImportMethod: copy\nstoreDir: %s\n' "$store" > "$directory/config.yaml"
+          done
+      - run: pnpm install --frozen-lockfile --package-import-method=copy
+      - name: Verify PHP 8.3–8.5 with Symfony 7.4 and 8.1 compatibility matrix
+        run: pnpm test:php:compatibility
+
+  java:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 60
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24.20.0"
+          cache: pnpm
+      - name: Pin pnpm's store and copy import method in its global config
+        # The skill-evaluation fixtures accept only regular files with one link, and
+        # release verification strips the environment (including the variables that
+        # locate the store), so both settings live in pnpm's global config.
+        run: |
+          store="$(pnpm store path)"
+          for directory in "$HOME/.config/pnpm" "${XDG_CONFIG_HOME:-$HOME/.config}/pnpm"; do
+            mkdir -p "$directory"
+            printf 'packageImportMethod: copy\nstoreDir: %s\n' "$store" > "$directory/config.yaml"
+          done
+      - run: pnpm install --frozen-lockfile --package-import-method=copy
+      - name: Verify Java packages and staged Maven consumer
+        run: pnpm test:java:release
+
+  conformance:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 90
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24.20.0"
+          cache: pnpm
+      - name: Pin pnpm's store and copy import method in its global config
+        # The skill-evaluation fixtures accept only regular files with one link, and
+        # release verification strips the environment (including the variables that
+        # locate the store), so both settings live in pnpm's global config.
+        run: |
+          store="$(pnpm store path)"
+          for directory in "$HOME/.config/pnpm" "${XDG_CONFIG_HOME:-$HOME/.config}/pnpm"; do
+            mkdir -p "$directory"
+            printf 'packageImportMethod: copy\nstoreDir: %s\n' "$store" > "$directory/config.yaml"
+          done
+      - run: pnpm install --frozen-lockfile --package-import-method=copy
+      - name: Verify every official adapter against both scenarios
+        run: pnpm verify:official-adapters
+
+  dashboard:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 30
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24.20.0"
+          cache: pnpm
+      - name: Pin pnpm's store and copy import method in its global config
+        # The skill-evaluation fixtures accept only regular files with one link, and
+        # release verification strips the environment (including the variables that
+        # locate the store), so both settings live in pnpm's global config.
+        run: |
+          store="$(pnpm store path)"
+          for directory in "$HOME/.config/pnpm" "${XDG_CONFIG_HOME:-$HOME/.config}/pnpm"; do
+            mkdir -p "$directory"
+            printf 'packageImportMethod: copy\nstoreDir: %s\n' "$store" > "$directory/config.yaml"
+          done
+      - run: pnpm install --frozen-lockfile --package-import-method=copy
+      - run: pnpm --filter @8lines/gauntlet-dashboard exec playwright install --with-deps chromium
+      - run: pnpm --filter "@8lines/gauntlet-dashboard..." build
+      - name: Verify the responsive dashboard in a real browser
+        env:
+          PLAYWRIGHT_BROWSER_CHANNEL: chromium
+        run: pnpm dashboard:test:e2e
+
+  widget:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 30
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24.20.0"
+          cache: pnpm
+      - name: Pin pnpm's store and copy import method in its global config
+        # The skill-evaluation fixtures accept only regular files with one link, and
+        # release verification strips the environment (including the variables that
+        # locate the store), so both settings live in pnpm's global config.
+        run: |
+          store="$(pnpm store path)"
+          for directory in "$HOME/.config/pnpm" "${XDG_CONFIG_HOME:-$HOME/.config}/pnpm"; do
+            mkdir -p "$directory"
+            printf 'packageImportMethod: copy\nstoreDir: %s\n' "$store" > "$directory/config.yaml"
+          done
+      - run: pnpm install --frozen-lockfile --package-import-method=copy
+      - run: pnpm --filter @8lines/gauntlet-widget-loader exec playwright install --with-deps chromium
+      - run: pnpm --filter "@8lines/gauntlet-widget-loader..." build
+      - name: Verify the widget loader in a real browser
+        env:
+          PLAYWRIGHT_BROWSER_CHANNEL: chromium
+        run: pnpm widget:test:e2e
+
+  widget-panel:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 30
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24.20.0"
+          cache: pnpm
+      - name: Pin pnpm's store and copy import method in its global config
+        # The skill-evaluation fixtures accept only regular files with one link, and
+        # release verification strips the environment (including the variables that
+        # locate the store), so both settings live in pnpm's global config.
+        run: |
+          store="$(pnpm store path)"
+          for directory in "$HOME/.config/pnpm" "${XDG_CONFIG_HOME:-$HOME/.config}/pnpm"; do
+            mkdir -p "$directory"
+            printf 'packageImportMethod: copy\nstoreDir: %s\n' "$store" > "$directory/config.yaml"
+          done
+      - run: pnpm install --frozen-lockfile --package-import-method=copy
+      - run: pnpm --filter @8lines/gauntlet-dashboard exec playwright install --with-deps chromium
+      - run: pnpm --filter "@8lines/gauntlet-dashboard..." --filter "@8lines/gauntlet-server..." --filter "@8lines/gauntlet-node-example..." build
+      - name: Verify the widget end to end across two origins
+        env:
+          PLAYWRIGHT_BROWSER_CHANNEL: chromium
+        run: pnpm widget:test:e2e:panel
+
+  deployment:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24.20.0"
+          cache: pnpm
+      - name: Pin pnpm's store and copy import method in its global config
+        # The skill-evaluation fixtures accept only regular files with one link, and
+        # release verification strips the environment (including the variables that
+        # locate the store), so both settings live in pnpm's global config.
+        run: |
+          store="$(pnpm store path)"
+          for directory in "$HOME/.config/pnpm" "${XDG_CONFIG_HOME:-$HOME/.config}/pnpm"; do
+            mkdir -p "$directory"
+            printf 'packageImportMethod: copy\nstoreDir: %s\n' "$store" > "$directory/config.yaml"
+          done
+      - run: pnpm install --frozen-lockfile --package-import-method=copy
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - run: node scripts/prepare-ci-images.mjs
+      - name: Verify product image
+        run: pnpm test:image
+      - name: Verify Compose distribution
+        run: pnpm test:compose:distribution
+      - name: Smoke-test standalone Compose
+        run: pnpm smoke:compose
+      - name: Verify Helm distribution
+        run: pnpm test:helm
+
+  skills:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [blacksmith-4vcpu-ubuntu-2404, blacksmith-6vcpu-macos-15]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24.20.0"
+          cache: pnpm
+      - name: Install Linux ACL test utility
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends acl
+      - name: Pin pnpm's store and copy import method in its global config
+        # The skill-evaluation fixtures accept only regular files with one link, and
+        # release verification strips the environment (including the variables that
+        # locate the store), so both settings live in pnpm's global config.
+        run: |
+          store="$(pnpm store path)"
+          for directory in "$HOME/.config/pnpm" "${XDG_CONFIG_HOME:-$HOME/.config}/pnpm"; do
+            mkdir -p "$directory"
+            printf 'packageImportMethod: copy\nstoreDir: %s\n' "$store" > "$directory/config.yaml"
+          done
+      - run: pnpm install --frozen-lockfile --package-import-method=copy
+      - name: Verify portable skill receipts and safe installer
+        run: pnpm skills:test-install && pnpm skills:validate
+      - name: Verify Docker-backed skill evaluation fixtures
+        if: runner.os == 'Linux'
+        run: pnpm skills:test-evals && pnpm skills:validate
+      - name: Verify operator and release documentation
+        run: pnpm docs:check
+
+  security:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24.20.0"
+          cache: pnpm
+      - name: Mount binfmt_misc so QEMU registrations outlive the installer container
+        run: mountpoint -q /proc/sys/fs/binfmt_misc || sudo mount -t binfmt_misc binfmt_misc /proc/sys/fs/binfmt_misc
+      - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+        with:
+          image: tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
+          platforms: arm64
+          cache-image: false
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        with:
+          version: v0.33.0
+          driver-opts: image=moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
+          cache-binary: false
+      - name: Pin pnpm's store and copy import method in its global config
+        # The skill-evaluation fixtures accept only regular files with one link, and
+        # release verification strips the environment (including the variables that
+        # locate the store), so both settings live in pnpm's global config.
+        run: |
+          store="$(pnpm store path)"
+          for directory in "$HOME/.config/pnpm" "${XDG_CONFIG_HOME:-$HOME/.config}/pnpm"; do
+            mkdir -p "$directory"
+            printf 'packageImportMethod: copy\nstoreDir: %s\n' "$store" > "$directory/config.yaml"
+          done
+      - run: pnpm install --frozen-lockfile --package-import-method=copy
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - run: node scripts/prepare-ci-images.mjs
+      - name: Build release package inputs
+        run: pnpm build
+      - name: Stage and scan the exact release image
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '\n' < VERSION)"
+          pnpm release:stage --output "$PWD/.artifacts/release/$VERSION"
+          pnpm release:security --image-archive ".artifacts/release/$VERSION/image/gauntlet-$VERSION.docker.tar"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: security-reports
+          path: .artifacts/security
+          if-no-files-found: error
+          retention-days: 14
+
+  release-metadata:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24.20.0"
+          cache: pnpm
+      - name: Mount binfmt_misc so QEMU registrations outlive the installer container
+        run: mountpoint -q /proc/sys/fs/binfmt_misc || sudo mount -t binfmt_misc binfmt_misc /proc/sys/fs/binfmt_misc
+      - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+        with:
+          image: tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
+          platforms: arm64
+          cache-image: false
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        with:
+          version: v0.33.0
+          driver-opts: image=moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
+          cache-binary: false
+      - name: Pin pnpm's store and copy import method in its global config
+        # The skill-evaluation fixtures accept only regular files with one link, and
+        # release verification strips the environment (including the variables that
+        # locate the store), so both settings live in pnpm's global config.
+        run: |
+          store="$(pnpm store path)"
+          for directory in "$HOME/.config/pnpm" "${XDG_CONFIG_HOME:-$HOME/.config}/pnpm"; do
+            mkdir -p "$directory"
+            printf 'packageImportMethod: copy\nstoreDir: %s\n' "$store" > "$directory/config.yaml"
+          done
+      - run: pnpm install --frozen-lockfile --package-import-method=copy
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - run: node scripts/prepare-ci-images.mjs
+      - run: pnpm --filter @8lines/gauntlet-dashboard exec playwright install --with-deps chromium
+      - name: Build release package inputs
+        run: pnpm build
+      - name: Verify version and package policy
+        run: node scripts/release/version.mjs --check && pnpm release:test
+      - name: Reproduce the complete release without publishing
+        env:
+          PLAYWRIGHT_BROWSER_CHANNEL: chromium
+        run: pnpm release:dry-run
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-dry-run
+          path: .artifacts/release
+          if-no-files-found: error
+          retention-days: 7

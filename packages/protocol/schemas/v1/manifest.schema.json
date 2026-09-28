@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.8lines.dev/gauntlet/v1/manifest.schema.json",
+  "type": "object",
+  "required": [
+    "protocolVersion",
+    "manifestRevision",
+    "schemaDialect",
+    "profiles",
+    "capabilities",
+    "application",
+    "features",
+    "operations",
+    "dataSources"
+  ],
+  "properties": {
+    "protocolVersion": { "$ref": "./common.schema.json#/$defs/protocolVersion" },
+    "manifestRevision": { "$ref": "./common.schema.json#/$defs/sha256Revision" },
+    "schemaDialect": { "const": "https://json-schema.org/draft/2020-12/schema" },
+    "profiles": {
+      "type": "array",
+      "items": { "$ref": "./common.schema.json#/$defs/profileId" },
+      "uniqueItems": true
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "$ref": "./common.schema.json#/$defs/capabilityId" },
+      "uniqueItems": true
+    },
+    "application": { "$ref": "#/$defs/application" },
+    "features": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/feature" }
+    },
+    "operations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/operationSummary" }
+    },
+    "dataSources": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/dataSourceDefinition" }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "application": {
+      "type": "object",
+      "required": ["id", "label", "environment"],
+      "properties": {
+        "id": { "$ref": "./common.schema.json#/$defs/portableId" },
+        "label": { "type": "string", "minLength": 1 },
+        "environment": { "$ref": "./common.schema.json#/$defs/environmentDescriptor" },
+        "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    },
+    "feature": {
+      "type": "object",
+      "required": ["id", "label"],
+      "properties": {
+        "id": { "$ref": "./common.schema.json#/$defs/portableId" },
+        "label": { "type": "string", "minLength": 1 },
+        "parentId": { "$ref": "./common.schema.json#/$defs/portableId" },
+        "order": { "$ref": "./common.schema.json#/$defs/safeInteger" },
+        "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    },
+    "availability": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["state"],
+          "properties": { "state": { "const": "available" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["state", "problem"],
+          "properties": {
+            "state": { "const": "unavailable" },
+            "problem": { "$ref": "./common.schema.json#/$defs/problem" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "operationSummary": {
+      "type": "object",
+      "required": ["id", "revision", "label", "featureId", "availability"],
+      "properties": {
+        "id": { "$ref": "./common.schema.json#/$defs/portableId" },
+        "revision": { "$ref": "./common.schema.json#/$defs/sha256Revision" },
+        "label": { "type": "string", "minLength": 1 },
+        "featureId": { "$ref": "./common.schema.json#/$defs/portableId" },
+        "availability": { "$ref": "#/$defs/availability" },
+        "requirements": { "$ref": "./common.schema.json#/$defs/protocolRequirements" },
+        "placements": { "$ref": "./common.schema.json#/$defs/operationPlacements" },
+        "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    },
+    "dataSourceCapabilities": {
+      "type": "object",
+      "required": ["search", "pagination", "resolve", "defaultLimit", "maxLimit"],
+      "properties": {
+        "search": { "type": "boolean" },
+        "pagination": { "const": "cursor" },
+        "resolve": { "const": true },
+        "defaultLimit": { "$ref": "./common.schema.json#/$defs/positiveSafeInteger" },
+        "maxLimit": { "$ref": "./common.schema.json#/$defs/positiveSafeInteger" }
+      },
+      "additionalProperties": false
+    },
+    "dataSourceDefinition": {
+      "type": "object",
+      "required": ["id", "label", "capabilities"],
+      "properties": {
+        "id": { "$ref": "./common.schema.json#/$defs/portableId" },
+        "label": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "capabilities": { "$ref": "#/$defs/dataSourceCapabilities" },
+        "dependencySchema": { "$ref": "./common.schema.json#/$defs/objectJsonSchema" },
+        "contextSchema": { "$ref": "./common.schema.json#/$defs/objectJsonSchema" },
+        "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": ["severity", "code", "message"],
+      "properties": {
+        "severity": { "enum": ["warning", "error"] },
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "operationId": { "$ref": "./common.schema.json#/$defs/portableId" },
+        "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,15 @@
+version: 1
+instance:
+  name: small-apps-dev
+  environment:
+    name: production
+    kind: production
+targets:
+  - id: billing
+    label: Billing
+    adapterUrl: http://billing:8080
+    publicUrl: https://dev.billing.example
+    expectedEnvironment:
+      name: dev
+      kind: development
+    tags: [node, payments]

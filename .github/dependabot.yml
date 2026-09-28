@@ -1,0 +1,60 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    groups:
+      javascript:
+        patterns: ["*"]
+
+  - package-ecosystem: composer
+    directory: /packages/php/core
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    groups:
+      php-core:
+        patterns: ["*"]
+
+  - package-ecosystem: composer
+    directory: /packages/php/symfony-bundle
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    groups:
+      symfony-bundle:
+        patterns: ["*"]
+
+  - package-ecosystem: composer
+    directory: /examples/symfony
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    groups:
+      symfony-example:
+        patterns: ["*"]
+
+  - package-ecosystem: gradle
+    directory: /packages/java
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    groups:
+      java:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: docker
+    directory: /packages/php
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns: ["*"]

@@ -1,0 +1,137 @@
+{
+  "protocolVersion": "1.0",
+  "manifestRevision": "sha256:bd7df155fca5ce7504431416bdd0c7562255fcc238af5aade4eb0d557cf2a9cd",
+  "schemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "profiles": [
+    "tc-schema-core@1",
+    "tc-rich-forms@1",
+    "tc-rich-results@1"
+  ],
+  "capabilities": [
+    "tc-uploads@1",
+    "tc-session-launch@1"
+  ],
+  "application": {
+    "id": "acme-portal",
+    "label": "Acme Portal",
+    "environment": {
+      "name": "development",
+      "kind": "development"
+    }
+  },
+  "features": [
+    {
+      "id": "security",
+      "label": "Security",
+      "order": 10
+    }
+  ],
+  "operations": [
+    {
+      "id": "application-access-review",
+      "revision": "sha256:2e301a636fb48d2bec64fc7e91b62d8a45e47af3a28f665b6b809f6a4b19d9e8",
+      "label": "Review application access",
+      "featureId": "security",
+      "availability": {
+        "state": "available"
+      },
+      "requirements": {
+        "profiles": [
+          "tc-schema-core@1",
+          "tc-rich-forms@1",
+          "tc-rich-results@1"
+        ],
+        "capabilities": [
+          "tc-uploads@1",
+          "tc-session-launch@1"
+        ]
+      }
+    }
+  ],
+  "dataSources": [
+    {
+      "id": "application-catalog",
+      "label": "Application catalog",
+      "description": "Searchable applications available to the current target.",
+      "capabilities": {
+        "search": true,
+        "pagination": "cursor",
+        "resolve": true,
+        "defaultLimit": 20,
+        "maxLimit": 100
+      },
+      "dependencySchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "required": [
+          "/options/includeInactive"
+        ],
+        "properties": {
+          "/options/includeInactive": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "contextSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "required": [
+          "requestId",
+          "target"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "object",
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+              },
+              "displayName": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "target": {
+            "type": "object",
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+              },
+              "environment": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "extensions": {
+            "type": "object",
+            "propertyNames": {
+              "pattern": "^urn:[A-Za-z0-9][A-Za-z0-9:._/-]*$"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  ]
+}

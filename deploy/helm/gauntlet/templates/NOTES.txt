@@ -1,0 +1,7 @@
+Gauntlet is available only inside the cluster at:
+  http://{{ include "gauntlet.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
+
+SAFETY: this chart supports explicit non-production environments only.
+Keep both Gauntlet and every adapter route behind a trusted private network.
+Authentication is not included in Gauntlet v0.1.
+Public exposure is unsupported.

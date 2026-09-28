@@ -1,0 +1,3 @@
+upstream=https://github.com/yannh/kubernetes-json-schema
+commit=14355cdd490a43d21e05985668815a36a6f97da6
+schema_sets=v1.35.0-standalone-strict,v1.36.0-standalone-strict,v1.37.0-standalone-strict

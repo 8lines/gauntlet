@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.8lines.dev/gauntlet/v1/create-run-request.schema.json",
+  "type": "object",
+  "required": ["operationRevision", "input"],
+  "properties": {
+    "operationRevision": { "$ref": "./common.schema.json#/$defs/sha256Revision" },
+    "input": { "$ref": "./common.schema.json#/$defs/jsonObject" },
+    "context": { "$ref": "./common.schema.json#/$defs/invocationContext" },
+    "dryRun": { "type": "boolean" },
+    "idempotencyKey": { "type": "string", "minLength": 1 },
+    "confirmation": { "$ref": "./common.schema.json#/$defs/confirmationAcknowledgement" },
+    "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+  },
+  "additionalProperties": false
+}

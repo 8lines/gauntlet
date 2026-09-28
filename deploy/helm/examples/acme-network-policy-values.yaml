@@ -1,0 +1,48 @@
+# This overlay requires a CNI that enforces Kubernetes NetworkPolicy.
+# NetworkPolicies are additive; other policies can still allow more traffic.
+# Network isolation is not HTTP authentication or authorization.
+# Namespace peers rely on the immutable kubernetes.io/metadata.name label.
+# If cluster DNS labels differ, override both
+# networkPolicy.dns.namespaceSelector.matchLabels and
+# networkPolicy.dns.podSelector.matchLabels with exact nonempty selectors.
+# The selector-only v0.1 policy cannot safely admit ALB sources; keep it disabled
+# for ALB until a reviewed source-range design exists instead of broadening peers.
+# For Tailscale, select the data-plane proxy Pods, never the operator Pod itself.
+config:
+  targets:
+    - id: organizations
+      label: Organizations staging
+      adapterUrl: http://organizations.acme-adapters.svc.cluster.local:8080
+      expectedEnvironment:
+        name: staging
+        kind: staging
+      tags:
+        - symfony
+
+networkPolicy:
+  enabled: true
+  dns:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kube-system
+    podSelector:
+      matchLabels:
+        k8s-app: kube-dns
+  ingressPeers:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: tailscale
+      podSelector:
+        matchLabels:
+          gauntlet-access: allowed
+  egressRules:
+    - peers:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: acme-adapters
+          podSelector:
+            matchLabels:
+              gauntlet-adapter: enabled
+      ports:
+        - protocol: TCP
+          port: 8080

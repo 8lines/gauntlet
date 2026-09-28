@@ -1,0 +1,15 @@
+{
+  "id": "run-01",
+  "operationId": "application-access-review",
+  "operationRevision": "sha256:2e301a636fb48d2bec64fc7e91b62d8a45e47af3a28f665b6b809f6a4b19d9e8",
+  "sequence": 0,
+  "state": "queued",
+  "createdAt": "2026-08-29T12:00:00Z",
+  "updatedAt": "2026-08-29T12:00:00Z",
+  "summary": {
+    "title": "Access review queued",
+    "tone": "neutral"
+  },
+  "artifacts": [],
+  "actions": []
+}

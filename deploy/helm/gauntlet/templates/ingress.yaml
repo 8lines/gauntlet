@@ -1,0 +1,195 @@
+{{- $ingress := .Values.ingress -}}
+{{- $ruleHosts := dict -}}
+{{- $hostlessCount := 0 -}}
+{{- range $rule := $ingress.hosts -}}
+  {{- $paths := dict -}}
+  {{- range $path := $rule.paths -}}
+    {{- if hasKey $paths $path.path -}}
+      {{- fail "Ingress paths must be unique within each rule" -}}
+    {{- end -}}
+    {{- $_ := set $paths $path.path true -}}
+  {{- end -}}
+  {{- if hasKey $rule "host" -}}
+    {{- $host := get $rule "host" -}}
+    {{- if hasKey $ruleHosts $host -}}
+      {{- fail "Ingress rule hosts must be unique" -}}
+    {{- end -}}
+    {{- $_ := set $ruleHosts $host true -}}
+  {{- else -}}
+    {{- $hostlessCount = add1 $hostlessCount -}}
+  {{- end -}}
+{{- end -}}
+{{- if gt $hostlessCount 1 -}}
+  {{- fail "Ingress may contain at most one hostless rule" -}}
+{{- end -}}
+{{- if and (ne $ingress.className "tailscale") (gt $hostlessCount 0) -}}
+  {{- fail "Only Tailscale ingress may use a hostless rule" -}}
+{{- end -}}
+{{- $tlsHosts := dict -}}
+{{- range $tls := $ingress.tls -}}
+  {{- range $tlsHost := $tls.hosts -}}
+    {{- if hasKey $tlsHosts $tlsHost -}}
+      {{- fail "Ingress TLS hosts must be globally unique" -}}
+    {{- end -}}
+    {{- $_ := set $tlsHosts $tlsHost true -}}
+    {{- if and (ne $ingress.className "tailscale") (not (hasKey $ruleHosts $tlsHost)) -}}
+      {{- fail "Ingress TLS hosts must match declared rule hosts" -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if hasKey $ingress.annotations "tailscale.com/funnel" -}}
+  {{- fail "Tailscale Funnel is forbidden" -}}
+{{- end -}}
+{{- if eq $ingress.className "tailscale" -}}
+  {{- if ne (len $ingress.hosts) 1 -}}
+    {{- fail "Tailscale ingress requires exactly one rule" -}}
+  {{- end -}}
+  {{- if ne $hostlessCount 1 -}}
+    {{- fail "Tailscale ingress requires one hostless rule" -}}
+  {{- end -}}
+  {{- if ne (len $ingress.tls) 1 -}}
+    {{- fail "Tailscale ingress requires exactly one TLS block" -}}
+  {{- end -}}
+  {{- $tailscaleTls := index $ingress.tls 0 -}}
+  {{- if ne (len $tailscaleTls.hosts) 1 -}}
+    {{- fail "Tailscale ingress requires exactly one MagicDNS label" -}}
+  {{- end -}}
+  {{- $magicDnsLabel := index $tailscaleTls.hosts 0 -}}
+  {{- if or (eq (len $magicDnsLabel) 0) (gt (len $magicDnsLabel) 63) -}}
+    {{- fail "Tailscale ingress requires a bounded MagicDNS label" -}}
+  {{- end -}}
+  {{- if contains "." $magicDnsLabel -}}
+    {{- fail "Tailscale ingress requires a short MagicDNS label" -}}
+  {{- end -}}
+  {{- if hasKey $tailscaleTls "secretName" -}}
+    {{- fail "Tailscale ingress must not declare a TLS secret" -}}
+  {{- end -}}
+{{- end -}}
+{{- if eq $ingress.className "alb" -}}
+  {{- if ne (get $ingress.annotations "alb.ingress.kubernetes.io/scheme") "internal" -}}
+    {{- fail "ALB ingress requires the internal scheme" -}}
+  {{- end -}}
+  {{- if ne (get $ingress.annotations "alb.ingress.kubernetes.io/target-type") "ip" -}}
+    {{- fail "ALB ingress requires the ip target type" -}}
+  {{- end -}}
+  {{- $inboundCidrs := get $ingress.annotations "alb.ingress.kubernetes.io/inbound-cidrs" | trim -}}
+  {{- if eq $inboundCidrs "" -}}
+    {{- fail "ALB ingress requires bounded inbound CIDRs" -}}
+  {{- end -}}
+  {{- range $rawCidr := splitList "," $inboundCidrs -}}
+    {{- $cidr := trim $rawCidr -}}
+    {{- if eq $cidr "" -}}
+      {{- fail "ALB ingress requires nonempty inbound CIDRs" -}}
+    {{- end -}}
+    {{- $cidrParts := splitList "/" $cidr -}}
+    {{- if ne (len $cidrParts) 2 -}}
+      {{- fail "ALB ingress requires canonical RFC1918 IPv4 CIDRs" -}}
+    {{- end -}}
+    {{- $address := index $cidrParts 0 -}}
+    {{- $prefixText := index $cidrParts 1 -}}
+    {{- if not (regexMatch "^(0|[1-9]|[12][0-9]|3[0-2])$" $prefixText) -}}
+      {{- fail "ALB ingress requires canonical RFC1918 IPv4 CIDRs" -}}
+    {{- end -}}
+    {{- $addressParts := splitList "." $address -}}
+    {{- if ne (len $addressParts) 4 -}}
+      {{- fail "ALB ingress requires canonical RFC1918 IPv4 CIDRs" -}}
+    {{- end -}}
+    {{- $octets := list -}}
+    {{- range $addressPart := $addressParts -}}
+      {{- if not (regexMatch "^(0|[1-9][0-9]{0,2})$" $addressPart) -}}
+        {{- fail "ALB ingress requires canonical RFC1918 IPv4 CIDRs" -}}
+      {{- end -}}
+      {{- $octet := atoi $addressPart -}}
+      {{- if gt $octet 255 -}}
+        {{- fail "ALB ingress requires canonical RFC1918 IPv4 CIDRs" -}}
+      {{- end -}}
+      {{- $octets = append $octets $octet -}}
+    {{- end -}}
+    {{- $first := index $octets 0 | int -}}
+    {{- $second := index $octets 1 | int -}}
+    {{- $isTen := eq $first 10 -}}
+    {{- $isOneSeventyTwo := and (eq $first 172) (ge $second 16) (le $second 31) -}}
+    {{- $isOneNinetyTwo := and (eq $first 192) (eq $second 168) -}}
+    {{- if not (or $isTen $isOneSeventyTwo $isOneNinetyTwo) -}}
+      {{- fail "ALB ingress requires canonical RFC1918 IPv4 CIDRs" -}}
+    {{- end -}}
+    {{- $prefix := atoi $prefixText -}}
+    {{- $minimumPrefix := 16 -}}
+    {{- if $isTen -}}
+      {{- $minimumPrefix = 8 -}}
+    {{- else if $isOneSeventyTwo -}}
+      {{- $minimumPrefix = 12 -}}
+    {{- end -}}
+    {{- if lt $prefix $minimumPrefix -}}
+      {{- fail "ALB ingress requires canonical RFC1918 IPv4 CIDRs" -}}
+    {{- end -}}
+    {{- $fullOctets := div $prefix 8 | int -}}
+    {{- $remainingBits := mod $prefix 8 | int -}}
+    {{- $partialBlockSizes := dict "1" 128 "2" 64 "3" 32 "4" 16 "5" 8 "6" 4 "7" 2 -}}
+    {{- range $octetIndex, $octet := $octets -}}
+      {{- if ge $octetIndex $fullOctets -}}
+        {{- if and (eq $octetIndex $fullOctets) (gt $remainingBits 0) -}}
+          {{- $blockSize := index $partialBlockSizes (printf "%d" $remainingBits) | int -}}
+          {{- if ne (mod $octet $blockSize) 0 -}}
+            {{- fail "ALB ingress requires canonical RFC1918 IPv4 CIDRs" -}}
+          {{- end -}}
+        {{- else if ne (int $octet) 0 -}}
+          {{- fail "ALB ingress requires canonical RFC1918 IPv4 CIDRs" -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if and
+    (hasKey $ingress.annotations "alb.ingress.kubernetes.io/frontend-nlb-scheme")
+    (ne (get $ingress.annotations "alb.ingress.kubernetes.io/frontend-nlb-scheme") "internal") -}}
+    {{- fail "ALB ingress forbids a public frontend NLB" -}}
+  {{- end -}}
+  {{- if hasKey $ingress.annotations "alb.ingress.kubernetes.io/frontend-nlb-eip-allocations" -}}
+    {{- fail "ALB ingress forbids frontend NLB EIP allocations" -}}
+  {{- end -}}
+{{- end -}}
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "gauntlet.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "gauntlet.labels" . | nindent 4 }}
+  {{- with $ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ $ingress.className | quote }}
+  {{- with $ingress.tls }}
+  tls:
+    {{- range $tls := . }}
+    - hosts:
+        {{- range $tlsHost := $tls.hosts }}
+        - {{ $tlsHost | quote }}
+        {{- end }}
+      {{- with $tls.secretName }}
+      secretName: {{ . | quote }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range $rule := $ingress.hosts }}
+    -
+      {{- with $rule.host }}
+      host: {{ . | quote }}
+      {{- end }}
+      http:
+        paths:
+          {{- range $path := $rule.paths }}
+          - path: {{ $path.path | quote }}
+            pathType: {{ $path.pathType | quote }}
+            backend:
+              service:
+                name: {{ include "gauntlet.fullname" $ }}
+                port:
+                  number: {{ $.Values.service.port }}
+          {{- end }}
+    {{- end }}
+{{- end }}

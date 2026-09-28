@@ -1,0 +1,227 @@
+{
+  "id": "application-access-review",
+  "revision": "sha256:2e301a636fb48d2bec64fc7e91b62d8a45e47af3a28f665b6b809f6a4b19d9e8",
+  "label": "Review application access",
+  "featureId": "security",
+  "description": "Review application access and optionally notify its owners.",
+  "icon": "shield-check",
+  "order": 10,
+  "tags": ["access", "security"],
+  "requirements": {
+    "profiles": ["tc-schema-core@1", "tc-rich-forms@1", "tc-rich-results@1"],
+    "capabilities": ["tc-uploads@1", "tc-session-launch@1"]
+  },
+  "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["applicationId", "message", "notify", "options", "roles", "apiToken", "attachment"],
+    "properties": {
+      "applicationId": {
+        "type": "string",
+        "minLength": 1,
+        "title": "Application"
+      },
+      "message": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500,
+        "title": "Review message"
+      },
+      "notify": {
+        "type": "boolean",
+        "default": true,
+        "title": "Notify owners"
+      },
+      "options": {
+        "type": "object",
+        "required": ["includeInactive", "mode"],
+        "properties": {
+          "includeInactive": { "type": "boolean", "default": false },
+          "mode": { "type": "string", "enum": ["preview", "apply"] }
+        },
+        "additionalProperties": false
+      },
+      "roles": {
+        "type": "array",
+        "items": { "type": "string", "minLength": 1 },
+        "minItems": 1,
+        "uniqueItems": true
+      },
+      "apiToken": {
+        "type": "string",
+        "minLength": 1,
+        "title": "API token"
+      },
+      "attachment": {
+        "type": "object",
+        "required": ["kind", "uploadId", "name", "mediaType", "sizeBytes", "expiresAt"],
+        "properties": {
+          "kind": { "const": "file" },
+          "uploadId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+          "name": { "type": "string", "minLength": 1 },
+          "mediaType": { "type": "string", "minLength": 1 },
+          "sizeBytes": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "expiresAt": { "type": "string", "format": "date-time" },
+          "extensions": {
+            "type": "object",
+            "propertyNames": { "pattern": "^urn:[A-Za-z0-9][A-Za-z0-9:._/-]*$" }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "additionalProperties": false
+  },
+  "inputHandling": {
+    "rules": [
+      {
+        "kind": "secret",
+        "schemaPointer": "/properties/apiToken",
+        "retention": "none"
+      },
+      {
+        "kind": "file",
+        "schemaPointer": "/properties/attachment",
+        "multiple": false,
+        "mediaTypes": ["application/pdf", "text/plain"],
+        "maxBytes": 10485760
+      }
+    ]
+  },
+  "contextSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["requestId", "target"],
+    "properties": {
+      "requestId": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+      },
+      "locale": { "type": "string" },
+      "timeZone": { "type": "string" },
+      "actor": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+          },
+          "displayName": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "target": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+          },
+          "environment": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "extensions": {
+        "type": "object",
+        "propertyNames": {
+          "pattern": "^urn:[A-Za-z0-9][A-Za-z0-9:._/-]*$"
+        }
+      }
+    },
+    "additionalProperties": false
+  },
+  "uiSchema": {
+    "profile": "tc-rich-forms@1",
+    "root": {
+      "type": "group",
+      "label": "Access review",
+      "children": [
+        {
+          "type": "field",
+          "pointer": "/applicationId",
+          "widget": "autocomplete",
+          "dataSourceId": "application-catalog",
+          "label": "Application",
+          "help": "Search the target application catalog."
+        },
+        {
+          "type": "field",
+          "pointer": "/message",
+          "widget": "textarea"
+        },
+        {
+          "type": "field",
+          "pointer": "/notify",
+          "widget": "toggle"
+        },
+        {
+          "type": "group",
+          "label": "Notification options",
+          "visibleWhen": { "op": "equals", "pointer": "/notify", "value": true },
+          "children": [
+            { "type": "field", "pointer": "/options/includeInactive", "widget": "toggle" },
+            { "type": "field", "pointer": "/options/mode", "widget": "select" },
+            { "type": "field", "pointer": "/roles", "widget": "multi-select" }
+          ]
+        },
+        {
+          "type": "columns",
+          "children": [
+            { "type": "field", "pointer": "/apiToken", "widget": "secret" },
+            { "type": "field", "pointer": "/attachment", "widget": "file" }
+          ]
+        }
+      ]
+    }
+  },
+  "dataSources": [
+    {
+      "id": "application-catalog",
+      "inputPointer": "/applicationId",
+      "dependencyPointers": ["/options/includeInactive"],
+      "contextPointers": ["/target/id"],
+      "required": true
+    }
+  ],
+  "presets": [
+    {
+      "id": "preview-active",
+      "label": "Preview active applications",
+      "description": "Starts with a safe, secret-free preview configuration.",
+      "input": {
+        "notify": false,
+        "options": { "includeInactive": false, "mode": "preview" },
+        "roles": ["viewer"]
+      },
+      "lockedPointers": ["/options/mode"]
+    }
+  ],
+  "execution": {
+    "impact": "write",
+    "confirmationRequired": true,
+    "dryRunSupported": true,
+    "idempotency": "required",
+    "cancellationSupported": false,
+    "timeoutSeconds": 120,
+    "concurrency": "queue"
+  },
+  "output": {
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "required": ["reviewed", "notified"],
+      "properties": {
+        "reviewed": { "type": "integer", "minimum": 0 },
+        "notified": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "presentation": {
+      "profile": "tc-rich-results@1",
+      "defaultView": "summary"
+    }
+  }
+}

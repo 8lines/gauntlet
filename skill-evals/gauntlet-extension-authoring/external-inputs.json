@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "sourceFiles": [
+    {
+      "path": ".npmrc",
+      "sha256": "8dd62a9cebb4b99f2d3e186005e079b9f802ee50d0d590f353d3dd4b17cac195"
+    },
+    {
+      "path": "package.json",
+      "sha256": "d6e6569e2459b72760a7a07ae7d0b1a06eef41a106c31bfdefbc303c09d6a826"
+    },
+    {
+      "path": "packages/protocol/package.json",
+      "sha256": "2707546824a15261321dc1c27c9ffbcf247b5d90742dc499f8dd855ca8b75f63"
+    },
+    {
+      "path": "packages/typescript/core/package.json",
+      "sha256": "5dd3f7cc8f63fc3f1b687f670fe7b185c632dbfa475faceb88c0cd28aed306a8"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "4ddef1982cc7c221ba04ede98a910c87885714f968a6d9aebe747a7127724f85"
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "sha256": "ae463f5879eb9fe9e201669c0d80474bdb36110108f114fcdc8fb96bd420df31"
+    }
+  ],
+  "sourceTrees": [
+    {
+      "path": "packages/protocol/schemas/v1",
+      "excludedTopLevel": [],
+      "sha256": "bfb1c239d99551a1a00e8807a40a16a8acea63a8d418b9436cd57e87b0a1f772"
+    },
+    {
+      "path": "packages/protocol/src",
+      "excludedTopLevel": [],
+      "sha256": "0c0e75020253d5a6db596635069b766b9b7777b2756a91b7e30f05e446519375"
+    },
+    {
+      "path": "packages/typescript/core/src",
+      "excludedTopLevel": [],
+      "sha256": "02b71b5650c58bd5ff58bed5710423d96fbc4325ebe3ff6158ed874f513b6258"
+    }
+  ],
+  "linkedRuntimeTrees": [
+    {
+      "path": "node_modules/.pnpm/ajv-formats@3.0.1_ajv@8.20.0/node_modules/ajv-formats",
+      "sha256": "75db99c1ff923f4504b2043d05df6338542c79920a251c4ab52a1f7ea822765c"
+    },
+    {
+      "path": "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv",
+      "sha256": "4991e7efecf70005de10fd2e43cdf05479071bfc6f4a26b7ed30d1f05e87ad75"
+    },
+    {
+      "path": "node_modules/.pnpm/canonicalize@4.0.0/node_modules/canonicalize",
+      "sha256": "230d7eef242fe70ed5c8d45ad0d69921ca17798462dfbc7c57e6fef1c23adf6d"
+    },
+    {
+      "path": "node_modules/.pnpm/fast-deep-equal@3.1.3/node_modules/fast-deep-equal",
+      "sha256": "ea85657b7620ba191de22ee347f8a0eb2f1427761824ebfc7b200f7978a1ad6e"
+    },
+    {
+      "path": "node_modules/.pnpm/fast-uri@3.1.6/node_modules/fast-uri",
+      "sha256": "5066102c086157e7a5c4b04eefba5bf3099bda4f06e5734362c621208520e812"
+    },
+    {
+      "path": "node_modules/.pnpm/json-schema-traverse@1.0.0/node_modules/json-schema-traverse",
+      "sha256": "0f45932a7e410ed4f4aab15f37989cb7674bdd55448f5ff35a33a72d0c1016ed"
+    },
+    {
+      "path": "node_modules/.pnpm/require-from-string@2.0.2/node_modules/require-from-string",
+      "sha256": "099f0688f329bade2a3b1fc1e16dc99fa47f549e780d3a8eb4045954587be19b"
+    },
+    {
+      "path": "node_modules/.pnpm/yaml@2.8.3/node_modules/yaml",
+      "sha256": "5a83f18ef1bde51a48d6fca8ac39b1b9714978ff58d5a78e9a73b097f16009d9"
+    }
+  ]
+}

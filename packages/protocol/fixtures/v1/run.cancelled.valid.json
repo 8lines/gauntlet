@@ -1,0 +1,17 @@
+{
+  "id": "run-cancelled-01",
+  "operationId": "application-access-review",
+  "operationRevision": "sha256:2e301a636fb48d2bec64fc7e91b62d8a45e47af3a28f665b6b809f6a4b19d9e8",
+  "sequence": 1,
+  "state": "cancelled",
+  "createdAt": "2026-08-29T12:20:00Z",
+  "updatedAt": "2026-08-29T12:20:02Z",
+  "completedAt": "2026-08-29T12:20:02Z",
+  "artifacts": [],
+  "actions": [],
+  "problem": {
+    "type": "urn:gauntlet:problem:run-cancelled",
+    "title": "Run cancelled",
+    "status": 409
+  }
+}

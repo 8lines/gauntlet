@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=./gauntlet-config-v1.schema.json
+version: 1
+instance:
+  name: small-apps-dev
+  environment:
+    name: dev
+    kind: development
+targets:
+  - id: billing
+    label: Billing
+    adapterUrl: http://small-apps-dev-billing:8080
+    expectedEnvironment:
+      name: dev
+      kind: development
+    tags: [node, payments]
+  - id: portal
+    label: Portal
+    adapterUrl: http://small-apps-dev-portal:8080
+    expectedEnvironment:
+      name: dev
+      kind: development
+    tags: [symfony]

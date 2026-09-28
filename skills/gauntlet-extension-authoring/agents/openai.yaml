@@ -1,0 +1,6 @@
+interface:
+  display_name: "Author Gauntlet Extension"
+  short_description: "Add a safe application-owned test capability"
+  default_prompt: "Use $gauntlet-extension-authoring to add this application-owned Gauntlet capability."
+policy:
+  allow_implicit_invocation: true

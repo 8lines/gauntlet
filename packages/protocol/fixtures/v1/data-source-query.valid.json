@@ -1,0 +1,12 @@
+{
+  "search": "portal",
+  "cursor": "page-2",
+  "limit": 20,
+  "dependencies": {
+    "/options/includeInactive": false
+  },
+  "context": {
+    "requestId": "request-03",
+    "target": { "id": "acme-portal", "environment": "development" }
+  }
+}

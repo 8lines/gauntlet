@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.8lines.dev/gauntlet/v1/run-event.schema.json",
+  "type": "object",
+  "required": ["id", "sequence", "occurredAt", "type", "run"],
+  "properties": {
+    "id": { "$ref": "./common.schema.json#/$defs/portableId" },
+    "sequence": { "$ref": "./common.schema.json#/$defs/nonNegativeSafeInteger" },
+    "occurredAt": { "$ref": "./common.schema.json#/$defs/rfc3339Timestamp" },
+    "type": { "const": "run.updated" },
+    "run": { "$ref": "./run.schema.json" },
+    "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
+  },
+  "additionalProperties": false
+}

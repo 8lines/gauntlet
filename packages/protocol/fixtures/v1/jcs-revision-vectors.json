@@ -1,0 +1,114 @@
+{
+  "algorithm": "RFC8785+SHA-256",
+  "vectors": [
+    {
+      "name": "root-revision-only",
+      "revisionField": "revision",
+      "inputJson": "{\"z\":1,\"revision\":\"sha256:ignored\",\"nested\":{\"revision\":\"keep\",\"z\":0},\"a\":2}",
+      "expectedCanonicalJson": "{\"a\":2,\"nested\":{\"revision\":\"keep\",\"z\":0},\"z\":1}",
+      "expectedRevision": "sha256:7393117a04bd20b6270739bd9346b65dec0d56853425143a95773241b1d799c0"
+    },
+    {
+      "name": "root-manifest-revision-only",
+      "revisionField": "manifestRevision",
+      "inputJson": "{\"manifestRevision\":\"sha256:ignored\",\"nested\":{\"manifestRevision\":\"keep\"},\"application\":\"demo\"}",
+      "expectedCanonicalJson": "{\"application\":\"demo\",\"nested\":{\"manifestRevision\":\"keep\"}}",
+      "expectedRevision": "sha256:96e28df1d6f67fef640bfcbf6712ce2a42a463909743f477114f5ca5d24cb8bf"
+    },
+    {
+      "name": "own-proto-member",
+      "revisionField": "revision",
+      "inputJson": "{\"__proto__\":{\"polluted\":true},\"a\":1}",
+      "expectedCanonicalJson": "{\"__proto__\":{\"polluted\":true},\"a\":1}",
+      "expectedRevision": "sha256:acb9124c160bde29f1302ed9ea8d241871f4ee6f634b8368cc11c9d09afe837a"
+    },
+    {
+      "name": "utf16-property-order",
+      "revisionField": "revision",
+      "inputJson": "{\"\\ue000\":\"bmp\",\"\\ud83d\\ude00\":\"emoji\",\"\\ud800\\udc00\":\"supplementary-low-high-order\",\"a\":\"ascii\"}",
+      "expectedCanonicalJson": "{\"a\":\"ascii\",\"\ud800\udc00\":\"supplementary-low-high-order\",\"\ud83d\ude00\":\"emoji\",\"\ue000\":\"bmp\"}",
+      "expectedRevision": "sha256:da6b93772188739bc0ed79184307d57501c327150ce793a4432043f27ca587ed"
+    },
+    {
+      "name": "supplementary-unicode-data",
+      "revisionField": "revision",
+      "inputJson": "{\"value\":\"emoji \\ud83d\\ude00 and \\ud800\\udc00\"}",
+      "expectedCanonicalJson": "{\"value\":\"emoji \ud83d\ude00 and \ud800\udc00\"}",
+      "expectedRevision": "sha256:786a63990d91833b35dec681e9d790da895b0ce5dcef2565fdfae64d9c509c05"
+    },
+    {
+      "name": "negative-zero",
+      "revisionField": "revision",
+      "inputJson": "{\"value\":-0}",
+      "expectedCanonicalJson": "{\"value\":0}",
+      "expectedRevision": "sha256:23d7b286bd429460b92a2a1c21b6afc34110446c5034c17363fda363aa0a7c5d"
+    },
+    {
+      "name": "one-e-minus-seven",
+      "revisionField": "revision",
+      "inputJson": "{\"value\":1e-7}",
+      "expectedCanonicalJson": "{\"value\":1e-7}",
+      "expectedRevision": "sha256:910750038eb30a40d06da88009b6259aabaf3751b3cb212c616d51abb6b008a4"
+    },
+    {
+      "name": "one-e-minus-six",
+      "revisionField": "revision",
+      "inputJson": "{\"value\":1e-6}",
+      "expectedCanonicalJson": "{\"value\":0.000001}",
+      "expectedRevision": "sha256:bc1c982dd4e677d72ff5821cc67554e045e838a31ddc55fa0fdb1a32d5a1dce9"
+    },
+    {
+      "name": "one-e-plus-twenty-one",
+      "revisionField": "revision",
+      "inputJson": "{\"value\":1e21}",
+      "expectedCanonicalJson": "{\"value\":1e+21}",
+      "expectedRevision": "sha256:776bf0d292f3767fdfca3fdc9683d0ba51886b8e6e79cd228a41bafcfa9a1a6f"
+    },
+    {
+      "name": "one-e-minus-twenty-seven",
+      "revisionField": "revision",
+      "inputJson": "{\"value\":1e-27}",
+      "expectedCanonicalJson": "{\"value\":1e-27}",
+      "expectedRevision": "sha256:bd5a5754ed9010c20c8b758a59fe5ea219a626d973ce4ff6da9df70b946c5496"
+    },
+    {
+      "name": "smallest-subnormal",
+      "revisionField": "revision",
+      "inputJson": "{\"value\":5e-324}",
+      "expectedCanonicalJson": "{\"value\":5e-324}",
+      "expectedRevision": "sha256:8f275eb622ce665f3cf21739b40600308dcea7c36627451f1c210a4152343c85"
+    },
+    {
+      "name": "one-e-minus-320",
+      "revisionField": "revision",
+      "inputJson": "{\"value\":1e-320}",
+      "expectedCanonicalJson": "{\"value\":1e-320}",
+      "expectedRevision": "sha256:ad82b8f0ea9ea42e0ec023ef0d60266dbfd3bbfcdb6d1a7ea414adbef93694ab"
+    },
+    {
+      "name": "smallest-normal-binary64",
+      "revisionField": "revision",
+      "inputJson": "{\"value\":2.2250738585072014e-308}",
+      "expectedCanonicalJson": "{\"value\":2.2250738585072014e-308}",
+      "expectedRevision": "sha256:d4f55b1dc9e7cc034151fe75693c281a4cf27370127416c58c194ac0659e1110"
+    },
+    {
+      "name": "non-exponential-unsafe-integer",
+      "revisionField": "revision",
+      "inputJson": "{\"value\":9007199254740992}",
+      "expectedError": "unsafe-integer"
+    },
+    {
+      "name": "lone-surrogate-property-name",
+      "revisionField": "revision",
+      "inputJson": "{\"\\ud800\":\"value\"}",
+      "expectedError": "lone-surrogate"
+    },
+    {
+      "name": "lone-surrogate-string-value",
+      "revisionField": "revision",
+      "inputJson": "{\"value\":\"\\udc00\"}",
+      "expectedError": "lone-surrogate"
+    }
+  ]
+}

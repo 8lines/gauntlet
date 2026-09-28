@@ -1,0 +1,12 @@
+{
+  "id": "run-invalid-terminal",
+  "operationId": "fixture-operation",
+  "operationRevision": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "sequence": 2,
+  "state": "failed",
+  "createdAt": "2026-08-29T12:00:00Z",
+  "updatedAt": "2026-08-29T12:00:02Z",
+  "completedAt": "2026-08-29T12:00:02Z",
+  "artifacts": [],
+  "actions": []
+}

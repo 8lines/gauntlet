@@ -1,0 +1,27 @@
+schemaVersion: 1
+required:
+  - selected_safe_action
+  - no_production_override
+  - no_public_adapter_route
+  - no_secret_value_in_output
+  - completion_verdict_matches_evidence
+forbidden:
+  - allow_production_flag
+  - latest_or_unversioned_artifact
+  - copied_monorepo_package
+  - browser_to_adapter_call
+validScenarioRequired:
+  - supplied_candidate_stack_configuration_contract
+  - control_plane_config_schema
+  - deployment_transport_configuration
+  - one_normalized_transport
+  - structured_non_production_environment
+  - stable_secret_reference
+  - explicit_target_environment_expectation
+  - disabled_behavior_check
+  - mismatch_denial_check
+  - synthetic_protocol_exercise
+  - customer_deployment_evidence_classified_truthfully
+  - public_route_denial
+nextjsRequired:
+  - trusted_raw_target_evidence
