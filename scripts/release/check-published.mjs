@@ -1242,9 +1242,9 @@ async function probeMaven(check) {
   if (typeof actor !== "string" || !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(actor)) throw new Error(FAILURE);
   const artifactId = check.id.slice("maven:".length);
   const url = `${check.destination}/${artifactId}-${check.version}.jar`;
-  const response = await fetch(url, {
+  let response = await fetch(url, {
     method: "GET",
-    redirect: "error",
+    redirect: "manual",
     signal: AbortSignal.timeout(30_000),
     headers: {
       Authorization: `Basic ${Buffer.from(`${actor}:${token}`, "utf8").toString("base64")}`,
@@ -1252,6 +1252,21 @@ async function probeMaven(check) {
     },
   });
   if (response.status === 404) return { id: check.id, state: "absent" };
+  // GitHub Packages answers an existing file with one redirect to a pre-signed
+  // githubusercontent.com URL; follow exactly that hop, without the credential.
+  if ([301, 302, 303, 307, 308].includes(response.status)) {
+    const location = response.headers.get("location");
+    if (typeof location !== "string" || location === "") throw new Error(FAILURE);
+    const next = new URL(location, url);
+    if (next.protocol !== "https:" || next.username !== "" || next.password !== "" || next.port !== ""
+        || !next.hostname.endsWith(".githubusercontent.com")) throw new Error(FAILURE);
+    response = await fetch(next, {
+      method: "GET",
+      redirect: "error",
+      signal: AbortSignal.timeout(30_000),
+      headers: { "User-Agent": "8lines-gauntlet-release" },
+    });
+  }
   if (response.status !== 200) throw new Error(FAILURE);
   const bytes = Buffer.from(await response.arrayBuffer());
   if (bytes.length === 0 || bytes.length > 512 * 1024 * 1024) throw new Error(FAILURE);
