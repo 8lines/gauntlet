@@ -486,8 +486,14 @@ function githubReleaseFetch({
     }
     if (url.origin === "https://api.github.com"
         && url.pathname === `/repos/8lines/gauntlet/releases/tags/v${VERSION}`) {
-      if (releaseAbsent) return new Response(null, { status: 404 });
+      if (releaseAbsent || draft) return new Response(null, { status: 404 });
       return responseJson({ tag_name: `v${VERSION}`, draft, prerelease: false, immutable, assets });
+    }
+    if (url.origin === "https://api.github.com"
+        && url.pathname === "/repos/8lines/gauntlet/releases") {
+      return responseJson(draft
+        ? [{ tag_name: `v${VERSION}`, draft, prerelease: false, immutable, assets }]
+        : []);
     }
     if (url.origin === "https://api.github.com"
         && url.pathname === `/repos/8lines/gauntlet/git/ref/tags/v${VERSION}`) {

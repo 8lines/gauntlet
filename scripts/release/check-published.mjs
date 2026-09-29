@@ -1130,6 +1130,19 @@ async function githubJson(path, token) {
   }
 }
 
+async function githubDraftByTag(version, token) {
+  // GitHub's release-by-tag endpoint omits drafts and returns 404 for them.
+  // Authenticated list releases includes drafts, so use it for the pre-publication gate.
+  const listing = await githubJson("/repos/8lines/gauntlet/releases?per_page=100", token);
+  if (listing.state !== "present") return listing;
+  if (!Array.isArray(listing.value)) throw new Error(FAILURE);
+  const matches = listing.value.filter((release) => release?.tag_name === `v${version}`);
+  if (matches.length > 1) throw new Error(FAILURE);
+  return matches.length === 0
+    ? Object.freeze({ state: "absent" })
+    : Object.freeze({ state: "present", value: matches[0] });
+}
+
 function allowedGithubAssetUrl(url) {
   if (!(url instanceof URL) || url.protocol !== "https:" || url.username !== "" || url.password !== ""
       || url.port !== "" || url.hash !== "") return false;
@@ -1390,7 +1403,9 @@ async function probeGithubRelease(check, expectedDraft) {
   const token = validatedToken("GH_TOKEN");
   const repositoryAccess = await githubJson("/repos/8lines/gauntlet", token);
   if (repositoryAccess.state !== "present") throw new Error(FAILURE);
-  const release = await githubJson(`/repos/8lines/gauntlet/releases/tags/v${check.version}`, token);
+  const release = expectedDraft
+    ? await githubDraftByTag(check.version, token)
+    : await githubJson(`/repos/8lines/gauntlet/releases/tags/v${check.version}`, token);
   if (release.state === "absent") return { id: check.id, state: "absent" };
   if (release.value?.tag_name !== `v${check.version}` || release.value?.draft !== expectedDraft
       || release.value?.prerelease !== false || release.value?.immutable !== !expectedDraft) {
