@@ -393,6 +393,7 @@ jobs:
           DIGEST_FILE="$DIGEST_DIRECTORY/digest"
           # Run as the runner's user: the staged archives and the registry login are
           # 0600 files that root cannot read once every capability is dropped.
+          # Skopeo unpacks the OCI archive under /var/tmp, so it gets its own tmpfs.
           docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
             --user "$(id -u):$(id -g)" \
             --network bridge \
@@ -400,6 +401,7 @@ jobs:
             --mount "type=bind,src=$RELEASE_DIRECTORY/image,dst=/release,readonly" \
             --mount "type=bind,src=$DIGEST_DIRECTORY,dst=/output" \
             --tmpfs /tmp:rw,noexec,nosuid,nodev,size=67108864,mode=1777 \
+            --tmpfs /var/tmp:rw,noexec,nosuid,nodev,size=4294967296,mode=1777 \
             "$SKOPEO_IMAGE" copy --all --preserve-digests \
             --authfile /docker-config/config.json \
             --digestfile /output/digest \
