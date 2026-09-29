@@ -10,7 +10,6 @@ import {
   readFileSync,
   readdirSync,
   realpathSync,
-  renameSync,
   rmSync,
   statfsSync,
   writeFileSync,
@@ -162,7 +161,10 @@ export function createPackageCommands(kind, symfonyMinor) {
       ...(symfonyMinor === undefined ? [] : [`symfony/*:${symfonyMinor}.*`]),
       "--no-interaction", "--prefer-dist", "--with-all-dependencies",
     ]),
-    Object.freeze(["composer", "install", "--no-interaction", "--prefer-dist"]),
+    Object.freeze([
+      "sh", "-ec",
+      "test ! -e .gauntlet-vendor-after-update && test ! -L .gauntlet-vendor-after-update && mv vendor .gauntlet-vendor-after-update && test ! -e vendor && test ! -L vendor && exec composer install --no-interaction --prefer-dist",
+    ]),
     Object.freeze(["vendor/bin/phpunit", "--testsuite", suite, "--do-not-cache-result"]),
     Object.freeze(["composer", "check-platform-reqs"]),
     Object.freeze(["composer", "audit", "--locked", "--no-interaction"]),
@@ -354,14 +356,9 @@ function runPackage({ kind, minor, php, tag, cellRoot, cache, environment, uid, 
   for (const [index, command] of commands.entries()) {
     if (index === 2) {
       const vendor = resolve(hostDirectory, "vendor");
-      const retiredVendor = resolve(hostDirectory, ".gauntlet-vendor-after-update");
       const stat = lstatSync(vendor, { bigint: true });
       if (!stat.isDirectory() || stat.isSymbolicLink() || realpathSync(vendor) !== vendor) {
         throw new Error("PHP compatibility update did not produce a safe vendor directory");
-      }
-      renameSync(vendor, retiredVendor);
-      if (realpathSync(retiredVendor) !== retiredVendor) {
-        throw new Error("PHP compatibility vendor retirement failed safely");
       }
     }
     execute(createDockerRunInvocation({

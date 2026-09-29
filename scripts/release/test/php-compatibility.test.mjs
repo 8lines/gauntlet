@@ -140,11 +140,11 @@ test("rejects unbounded or non-canonical Docker invocation inputs", () => {
   }
 });
 
-test("runs strict update, clean install, correct PHPUnit suite, platform checks, and unsuppressed audit", () => {
+test("runs strict update, retires vendor inside the install container, then checks tests and platform", () => {
   assert.deepEqual(createPackageCommands("core"), [
     ["composer", "validate", "--strict", "--no-check-version", "--no-check-all", "--no-interaction"],
     ["composer", "update", "--no-interaction", "--prefer-dist", "--with-all-dependencies"],
-    ["composer", "install", "--no-interaction", "--prefer-dist"],
+    ["sh", "-ec", "test ! -e .gauntlet-vendor-after-update && test ! -L .gauntlet-vendor-after-update && mv vendor .gauntlet-vendor-after-update && test ! -e vendor && test ! -L vendor && exec composer install --no-interaction --prefer-dist"],
     ["vendor/bin/phpunit", "--testsuite", "unit", "--do-not-cache-result"],
     ["composer", "check-platform-reqs"],
     ["composer", "audit", "--locked", "--no-interaction"],
@@ -157,6 +157,9 @@ test("runs strict update, clean install, correct PHPUnit suite, platform checks,
       ]);
       assert.deepEqual(commands[1], [
         "composer", "update", `symfony/*:${minor}.*`, "--no-interaction", "--prefer-dist", "--with-all-dependencies",
+      ]);
+      assert.deepEqual(commands[2], [
+        "sh", "-ec", "test ! -e .gauntlet-vendor-after-update && test ! -L .gauntlet-vendor-after-update && mv vendor .gauntlet-vendor-after-update && test ! -e vendor && test ! -L vendor && exec composer install --no-interaction --prefer-dist",
       ]);
       assert.deepEqual(commands[3], ["vendor/bin/phpunit", "--testsuite", "all", "--do-not-cache-result"]);
       assert.doesNotMatch(JSON.stringify(commands), /(?:prefer-lowest|ignore-platform|no-audit|no-blocking)/i);
