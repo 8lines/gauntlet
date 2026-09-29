@@ -461,7 +461,8 @@ jobs:
           set -euo pipefail
           VERSION="$(tr -d '\n' < VERSION)"
           HELM_RESULT="$RUNNER_TEMP/gauntlet-helm-push.txt"
-          helm push ".artifacts/release/$VERSION/helm/gauntlet-$VERSION.tgz" oci://ghcr.io/8lines/charts | tee "$HELM_RESULT"
+          # Helm reports "Pushed:" and "Digest:" on stderr.
+          helm push ".artifacts/release/$VERSION/helm/gauntlet-$VERSION.tgz" oci://ghcr.io/8lines/charts 2>&1 | tee "$HELM_RESULT"
           DIGEST="$(sed -n 's/^Digest:[[:space:]]*//p' "$HELM_RESULT" | tail -n 1)"
           test "${DIGEST#sha256:}" != "$DIGEST"
           test "${#DIGEST}" -eq 71
