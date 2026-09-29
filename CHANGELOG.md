@@ -21,7 +21,7 @@ All notable changes to this project are recorded here. Released artifacts are im
 - Embeddable widget panel: a dashboard entry built into `dist-widget` and served from `GAUNTLET_WIDGET_DIR`, shown for a page's contextual and global placed operations, with search across the target's operations (label, description and tags), prefill from page context, recent runs, and closing through its own close button or Escape. The product image ships the built panel and loader alongside the dashboard.
 - A local widget demo (`apps/dashboard/scripts/local-stack.mjs`) that starts a sample adapter, a widget-enabled control plane, and a host page for interactive testing across two origins.
 - Gauntlet is open source under the Apache License 2.0. Every package, chart, Compose archive, and JAR ships the license text, and the repository carries a `NOTICE` file.
-- Public distribution: the npm packages are published to `registry.npmjs.org` with provenance, the PHP packages to Packagist from the public `8lines/gauntlet-php-core` and `8lines/gauntlet-symfony-bundle` split repositories, and the image and Helm chart to public `ghcr.io/8lines`. The Java packages are published to GitHub Packages Maven, which requires a GitHub token to read.
+- Public distribution: the npm packages are published to `registry.npmjs.org`, the PHP packages to Packagist from the public `8lines/gauntlet-php-core` and `8lines/gauntlet-symfony-bundle` split repositories, and the image and Helm chart to public `ghcr.io/8lines`. The Java packages are published to GitHub Packages Maven, which requires a GitHub token to read.
 
 ### Security
 

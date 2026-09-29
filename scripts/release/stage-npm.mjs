@@ -310,7 +310,7 @@ function validateManifest(manifest, artifact, version, contract) {
           url: "https://github.com/8lines/gauntlet.git",
           directory: artifact.directory,
         })
-        || !exactJson(manifest.publishConfig, { access: "public", registry: artifact.registry, provenance: true })
+        || !exactJson(manifest.publishConfig, { access: "public", registry: artifact.registry })
         || !exactJson(manifest.files, contract.files)
         || !exactJson(manifest.exports, contract.exports)
         || !exactJson(manifest.bin, contract.bin)

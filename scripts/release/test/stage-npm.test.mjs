@@ -368,7 +368,6 @@ test("stages the seven catalogued npm artifacts without mutating their built sou
       assert.deepEqual(manifest.publishConfig, {
         access: "public",
         registry: "https://registry.npmjs.org/",
-        provenance: true,
       });
       assert.equal(manifest.scripts, undefined);
       assert.equal(manifest.devDependencies, undefined);

@@ -37,7 +37,7 @@ test("publication runs only for version tags with bounded permissions", () => {
   const publish = workflow.jobs.publish;
   assert.deepEqual([...publish.needs].sort(), [...VERIFICATION_GATES].sort());
   assert.equal(publish.environment, "release");
-  assert.deepEqual(publish.permissions, { contents: "write", packages: "write", "id-token": "write" });
+  assert.deepEqual(publish.permissions, { contents: "write", packages: "write" });
   for (const [jobName, job] of Object.entries(workflow.jobs)) {
     if (jobName !== "publish") assert.equal(job.permissions?.["id-token"], undefined, `${jobName} OIDC token`);
   }
@@ -189,7 +189,7 @@ test("release security scans the staged image and dry-runs install Chromium", ()
   }
 });
 
-test("npm publishes publicly with provenance and only its step receives the npm token", () => {
+test("npm publishes publicly without provenance and only its step receives the npm token", () => {
   const { source, workflow } = releaseWorkflow();
   const steps = workflow.jobs.publish.steps;
   const setupNode = steps.find(({ uses }) => uses?.startsWith("actions/setup-node@"));
@@ -203,7 +203,7 @@ test("npm publishes publicly with provenance and only its step receives the npm 
   assert.deepEqual(consumers[0].env, { NODE_AUTH_TOKEN: npmToken });
   assert.match(
     consumers[0].run,
-    /npm publish "\$PACKAGE" --registry=https:\/\/registry\.npmjs\.org\/ --access public --provenance/u,
+    /npm publish "\$PACKAGE" --registry=https:\/\/registry\.npmjs\.org\/ --access public$/mu,
   );
   for (const step of steps.filter((candidate) => candidate !== consumers[0])) {
     assert.equal(step.env?.NODE_AUTH_TOKEN, undefined, `${step.name} npm token`);

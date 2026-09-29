@@ -36,8 +36,9 @@ single `publish` job that runs in the protected GitHub environment named
 
 The workflow's own `GITHUB_TOKEN` pushes the image and chart to
 `ghcr.io/8lines`, publishes the Maven artifacts to GitHub Packages, and creates
-the GitHub Release; the `publish` job also requests `id-token: write` so npm can
-attach provenance. No other job receives a secret.
+the GitHub Release. npm packages are published without provenance: npm accepts
+provenance attestations only from GitHub-hosted runners, and the `publish` job
+runs on a self-hosted Blacksmith runner. No other job receives a secret.
 
 Outside the repository:
 

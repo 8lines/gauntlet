@@ -293,7 +293,6 @@ jobs:
     permissions:
       contents: write
       packages: write
-      id-token: write
     steps:
       - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
         with:
@@ -476,7 +475,7 @@ jobs:
           set -euo pipefail
           VERSION="$(tr -d '\n' < VERSION)"
           for PACKAGE in ".artifacts/release/$VERSION/npm/"*.tgz; do
-            npm publish "$PACKAGE" --registry=https://registry.npmjs.org/ --access public --provenance
+            npm publish "$PACKAGE" --registry=https://registry.npmjs.org/ --access public
           done
       - name: Publish staged Maven packages
         if: steps.preflight.outputs.state == 'clean'

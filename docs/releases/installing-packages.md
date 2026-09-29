@@ -34,9 +34,10 @@ The published packages are `@8lines/gauntlet-protocol`,
 `@8lines/gauntlet-dashboard-client`, `@8lines/gauntlet-typescript-core`,
 `@8lines/gauntlet-typescript-node`, `@8lines/gauntlet-next-adapter`,
 `@8lines/gauntlet-widget`, and `@8lines/gauntlet-conformance-runner`. They are
-published from the tag-triggered release workflow with npm provenance; verify
-the registry signatures and provenance attestations in a consumer with
-`npm audit signatures`. Ensure the lockfile resolves Gauntlet packages from
+published from the tag-triggered release workflow; verify the registry
+signatures in a consumer with `npm audit signatures`. They carry no npm
+provenance attestation yet: npm accepts provenance only from GitHub-hosted
+runners, and the release job runs on a self-hosted runner. Ensure the lockfile resolves Gauntlet packages from
 `https://registry.npmjs.org` before committing it.
 
 ## Composer

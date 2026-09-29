@@ -231,7 +231,6 @@ test("seven npm artifacts expose exact Apache-2.0 public release metadata", () =
     assert.deepEqual(manifest.publishConfig, {
       access: "public",
       registry: NPM_REGISTRY,
-      provenance: true,
     });
   }
 });

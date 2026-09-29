@@ -12,8 +12,7 @@
   },
   "publishConfig": {
     "access": "public",
-    "registry": "https://registry.npmjs.org/",
-    "provenance": true
+    "registry": "https://registry.npmjs.org/"
   },
   "bin": {
     "gauntlet-conformance": "./dist/cli.js",
