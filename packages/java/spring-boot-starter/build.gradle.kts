@@ -8,6 +8,8 @@ plugins {
 dependencies {
     api(project(":core"))
     api(platform("org.springframework.boot:spring-boot-dependencies:4.1.1"))
+    // Spring Boot 4.1.1 manages Jackson 3.1.5; 3.1.6 is the first release fixed for CVE-2026-68497.
+    api(platform("tools.jackson:jackson-bom:3.1.6"))
     api("org.springframework.boot:spring-boot-starter-webmvc")
     api("org.springframework.boot:spring-boot-starter-validation")
     api("org.apache.tomcat.embed:tomcat-embed-core:11.0.25")
