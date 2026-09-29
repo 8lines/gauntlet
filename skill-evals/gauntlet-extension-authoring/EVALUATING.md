@@ -8,10 +8,12 @@ after a dependency security update in `pnpm-lock.yaml`) without re-running the
 model evaluation; the recorded samples were generated against
 the previous inputs. The 0.1.1 release on 2026-09-29 changed package manifests
 and the lockfile bound as external inputs, while this skill's content stayed
-unchanged. The hashes were re-bound again without generating new model samples
-or changing their responses, reviews, or timestamps. This confirms content
-integrity, not behaviour against the 0.1.1 inputs. A fresh evaluation and
-independent review are required before claiming current behavioural evidence.
+unchanged. The 0.1.2 release candidate prepared on 2026-09-29 changed those
+external package manifests and lockfiles again. Their hashes are re-bound to
+the current bytes without generating new model samples or changing recorded
+responses, reviews, or timestamps. This confirms content integrity, not
+behaviour against the 0.1.2 inputs. A fresh evaluation and independent review
+are required before claiming current behavioural evidence.
 
 Every sample in the matrix is a fresh generation by a new evaluator process
 run against the frozen skill and evaluation inputs. Every started sample

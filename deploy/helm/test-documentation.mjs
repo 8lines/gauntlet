@@ -185,7 +185,7 @@ test("the documented values and command blocks are complete and exact", () => {
     replicaCount: 1,
     image: {
       repository: "ghcr.io/8lines/gauntlet",
-      tag: "0.1.1",
+      tag: "0.1.2",
       digest: "",
       pullPolicy: "IfNotPresent",
     },
@@ -222,9 +222,9 @@ test("the documented values and command blocks are complete and exact", () => {
     tolerations: [],
     affinity: {},
   });
-  assert.match(blocks.get("pull-render-install").text, /helm pull oci:\/\/ghcr\.io\/8lines\/charts\/gauntlet --version 0\.1\.1/);
-  assert.match(blocks.get("pull-render-install").text, /helm template gauntlet \.\/gauntlet-0\.1\.1\.tgz/);
-  assert.match(blocks.get("pull-render-install").text, /helm upgrade --install gauntlet \.\/gauntlet-0\.1\.1\.tgz/);
+  assert.match(blocks.get("pull-render-install").text, /helm pull oci:\/\/ghcr\.io\/8lines\/charts\/gauntlet --version 0\.1\.2/);
+  assert.match(blocks.get("pull-render-install").text, /helm template gauntlet \.\/gauntlet-0\.1\.2\.tgz/);
+  assert.match(blocks.get("pull-render-install").text, /helm upgrade --install gauntlet \.\/gauntlet-0\.1\.2\.tgz/);
   assert.match(blocks.get("pull-render-install").text, /--reset-values/);
   assert.match(blocks.get("private-access").text, /--address 127\.0\.0\.1/);
   assert.match(blocks.get("rollback").text, /helm rollback gauntlet 3 /);
@@ -255,7 +255,7 @@ if [ "$tool" = helm ] && [ "\${1-}" = registry ] && [ "\${2-}" = login ]; then
   [ "$payload" = "$DOC_TOKEN" ] || exit 91
 fi
 if [ "$tool" = helm ] && [ "\${1-}" = pull ]; then
-  : > "$DOC_ROOT/gauntlet-0.1.1.tgz"
+  : > "$DOC_ROOT/gauntlet-0.1.2.tgz"
 fi
 if [ "$tool" = helm ] && [ "\${1-}" = template ]; then
   printf '%s\n' 'apiVersion: v1' 'kind: ConfigMap' 'metadata:' '  name: rendered-preview'
@@ -291,7 +291,7 @@ fi
       });
       assert.equal(result.status, 0, result.stderr);
     }
-    assert.equal(readFileSync(join(fixture, "gauntlet-0.1.1.tgz")).length, 0);
+    assert.equal(readFileSync(join(fixture, "gauntlet-0.1.2.tgz")).length, 0);
     assert.match(readFileSync(join(fixture, "rendered.yaml"), "utf8"), /rendered-preview/);
     assert.match(readFileSync(join(fixture, "rendered.upgrade.yaml"), "utf8"), /rendered-preview/);
     assert.equal(readFileSync(receipt, "utf8").includes("fake-registry-token-930412"), false);
@@ -302,9 +302,9 @@ fi
     const install = calls.findIndex((call) => call[0] === "helm" && call[1] === "upgrade" && call[2] === "--install");
     assert.ok(pull >= 0 && pull < render && render < install);
     assert.deepEqual(calls[pull].slice(1), [
-      "pull", "oci://ghcr.io/8lines/charts/gauntlet", "--version", "0.1.1", "--destination", ".",
+      "pull", "oci://ghcr.io/8lines/charts/gauntlet", "--version", "0.1.2", "--destination", ".",
     ]);
-    assert.equal(calls[install].includes("./gauntlet-0.1.1.tgz"), true);
+    assert.equal(calls[install].includes("./gauntlet-0.1.2.tgz"), true);
     assert.equal(calls[install].includes("--reset-values"), true);
     assert.equal(calls.some((call) => call.includes("--create-namespace")), false);
   } finally {

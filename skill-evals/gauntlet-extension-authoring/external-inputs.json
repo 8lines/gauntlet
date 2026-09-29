@@ -11,11 +11,11 @@
     },
     {
       "path": "packages/protocol/package.json",
-      "sha256": "b9171df4fd0f300bc72118293df72446f9a04436ae01d3771383556e77ca15a4"
+      "sha256": "9b51a43c83311860fa68bc43e823bcfdebdaa29acb65768c8cad6819267c0d60"
     },
     {
       "path": "packages/typescript/core/package.json",
-      "sha256": "cceccb499f9219f4100792cfb8c3f56b7a2dd471d47bfa8ea43fcf747f5ea505"
+      "sha256": "bcf526251a1868230a89bd71de37abf01f4e214c4b7243db6b543dadb9430bbc"
     },
     {
       "path": "pnpm-lock.yaml",

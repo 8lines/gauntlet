@@ -136,7 +136,7 @@ test("the staging render is exactly one hardened single-instance internal worklo
   assert.equal(pod.containers.length, 1);
   const container = pod.containers[0];
   assert.equal(container.name, "gauntlet");
-  assert.equal(container.image, "ghcr.io/8lines/gauntlet:0.1.1");
+  assert.equal(container.image, "ghcr.io/8lines/gauntlet:0.1.2");
   assert.equal(container.imagePullPolicy, "IfNotPresent");
   assert.deepEqual(container.ports, [{ name: "http", containerPort: 8080, protocol: "TCP" }]);
   assert.deepEqual(container.env, [
@@ -375,10 +375,10 @@ function assertExactKeys(value, expected) {
 function assertClosedHardenedSurface(resources) {
   assert.deepEqual(resources.map(({ kind }) => kind).sort(), ["ConfigMap", "Deployment", "Service"]);
   const labels = {
-    "helm.sh/chart": "gauntlet-0.1.1",
+    "helm.sh/chart": "gauntlet-0.1.2",
     "app.kubernetes.io/name": "gauntlet",
     "app.kubernetes.io/instance": "gauntlet",
-    "app.kubernetes.io/version": "0.1.1",
+    "app.kubernetes.io/version": "0.1.2",
     "app.kubernetes.io/component": "control-plane",
     "app.kubernetes.io/part-of": "gauntlet",
     "app.kubernetes.io/managed-by": "Helm",

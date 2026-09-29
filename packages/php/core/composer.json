@@ -1,7 +1,7 @@
 {
   "name": "8lines/gauntlet-php-core",
   "description": "Framework-neutral Gauntlet adapter definitions and runtime for PHP.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "library",
   "license": "Apache-2.0",
   "homepage": "https://github.com/8lines/gauntlet",

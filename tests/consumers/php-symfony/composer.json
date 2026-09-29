@@ -6,8 +6,8 @@
   "repositories": [],
   "require": {
     "php": ">=8.3",
-    "8lines/gauntlet-php-core": "0.1.1",
-    "8lines/gauntlet-symfony-bundle": "0.1.1",
+    "8lines/gauntlet-php-core": "0.1.2",
+    "8lines/gauntlet-symfony-bundle": "0.1.2",
     "symfony/framework-bundle": "^7.4 || ^8.0"
   },
   "config": {

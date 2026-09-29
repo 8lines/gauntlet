@@ -8,12 +8,12 @@ enabled on production ingress.
 
 ## Modules and requirements
 
-Release `0.1.1` publishes two Java 21 consumer artifacts:
+Release `0.1.2` publishes two Java 21 consumer artifacts:
 
-- `dev.eightlines.gauntlet:core:0.1.1` — Java 21 protocol models,
+- `dev.eightlines.gauntlet:core:0.1.2` — Java 21 protocol models,
   schema/semantics validation, canonical JSON, registries, run lifecycle,
   HMAC idempotency, and framework-neutral SPIs;
-- `dev.eightlines.gauntlet:spring-boot-starter:0.1.1` — Spring Boot
+- `dev.eightlines.gauntlet:spring-boot-starter:0.1.2` — Spring Boot
   4.1.1 auto-configuration, annotated bean catalog, typed bindings, and the
   complete Adapter v1 HTTP transport.
 
@@ -25,7 +25,7 @@ Gradle consumer can depend on the starter with the exact release coordinate:
 
 ```kotlin
 dependencies {
-    implementation("dev.eightlines.gauntlet:spring-boot-starter:0.1.1")
+    implementation("dev.eightlines.gauntlet:spring-boot-starter:0.1.2")
 }
 ```
 

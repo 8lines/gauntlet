@@ -120,16 +120,16 @@ function integrateNodeComposeFixture() {
   const runtimePins = JSON.parse(readFileSync(resolve(root, "artifacts/runtime-pins.json"), "utf8"));
   const manifest = JSON.parse(readFileSync(resolve(root, "app/package.json"), "utf8"));
   manifest.dependencies = {
-    "@8lines/gauntlet-protocol": "file:../artifacts/8lines-gauntlet-protocol-0.1.1.tgz",
-    "@8lines/gauntlet-typescript-core": "file:../artifacts/8lines-gauntlet-typescript-core-0.1.1.tgz",
-    "@8lines/gauntlet-typescript-node": "file:../artifacts/8lines-gauntlet-typescript-node-0.1.1.tgz",
+    "@8lines/gauntlet-protocol": "file:../artifacts/8lines-gauntlet-protocol-0.1.2.tgz",
+    "@8lines/gauntlet-typescript-core": "file:../artifacts/8lines-gauntlet-typescript-core-0.1.2.tgz",
+    "@8lines/gauntlet-typescript-node": "file:../artifacts/8lines-gauntlet-typescript-node-0.1.2.tgz",
   };
   write(root, "app/package.json", `${JSON.stringify(manifest, null, 2)}\n`);
   write(root, "app/pnpm-workspace.yaml", [
     "packages:", "  - .", "overrides:",
-    "  '@8lines/gauntlet-protocol': file:../artifacts/8lines-gauntlet-protocol-0.1.1.tgz",
-    "  '@8lines/gauntlet-typescript-core': file:../artifacts/8lines-gauntlet-typescript-core-0.1.1.tgz",
-    "  '@8lines/gauntlet-typescript-node': file:../artifacts/8lines-gauntlet-typescript-node-0.1.1.tgz",
+    "  '@8lines/gauntlet-protocol': file:../artifacts/8lines-gauntlet-protocol-0.1.2.tgz",
+    "  '@8lines/gauntlet-typescript-core': file:../artifacts/8lines-gauntlet-typescript-core-0.1.2.tgz",
+    "  '@8lines/gauntlet-typescript-node': file:../artifacts/8lines-gauntlet-typescript-node-0.1.2.tgz",
     ...Object.entries(runtimePins).map(([name, version]) => `  '${name}': ${version}`),
     "",
   ].join("\n"));
@@ -147,7 +147,7 @@ function integrateNodeComposeFixture() {
   write(root, "gauntlet/compose.yaml", [
     "services:",
     "  gauntlet:",
-    "    image: ghcr.io/8lines/gauntlet:0.1.1",
+    "    image: ghcr.io/8lines/gauntlet:0.1.2",
     "    environment:",
     "      GAUNTLET_CONFIG_FILE: /etc/gauntlet/config.yaml",
     "    ports:",
@@ -267,7 +267,7 @@ test("organization-specific production alias is denied before a listener starts"
   assert.notEqual(run(root).status, 0, "a mislabeled production alias must stay disabled");
 });
 
-test("Node Compose fixture uses exact runnable 0.1.1 archives and fails closed until integrated", () => {
+test("Node Compose fixture uses exact runnable 0.1.2 archives and fails closed until integrated", () => {
   const root = prepare("node-compose");
   assert.equal(root, `/tmp/tc-eval-forward-node-compose${FIXTURE_SUFFIX}`);
   assert.notEqual(run(root).status, 0);
@@ -280,9 +280,9 @@ test("Node Compose fixture uses exact runnable 0.1.1 archives and fails closed u
 
   const sums = JSON.parse(readFileSync(resolve(root, "artifacts/sha256.json"), "utf8"));
   const expected = new Map([
-    ["8lines-gauntlet-protocol-0.1.1.tgz", "@8lines/gauntlet-protocol"],
-    ["8lines-gauntlet-typescript-core-0.1.1.tgz", "@8lines/gauntlet-typescript-core"],
-    ["8lines-gauntlet-typescript-node-0.1.1.tgz", "@8lines/gauntlet-typescript-node"],
+    ["8lines-gauntlet-protocol-0.1.2.tgz", "@8lines/gauntlet-protocol"],
+    ["8lines-gauntlet-typescript-core-0.1.2.tgz", "@8lines/gauntlet-typescript-core"],
+    ["8lines-gauntlet-typescript-node-0.1.2.tgz", "@8lines/gauntlet-typescript-node"],
   ]);
   assert.deepEqual(Object.keys(sums).sort(), [...expected.keys()].sort());
   for (const [archive, packageName] of expected) {
@@ -293,13 +293,14 @@ test("Node Compose fixture uses exact runnable 0.1.1 archives and fails closed u
     assert.equal(metadata.status, 0, metadata.stderr);
     const manifest = JSON.parse(metadata.stdout);
     assert.equal(manifest.name, packageName);
-    assert.equal(manifest.version, "0.1.1");
+    assert.equal(manifest.version, "0.1.2");
   }
 });
 
 test("Node Compose forward case has a complete safe solution with observed Adapter v1 behavior", () => {
   const root = integrateNodeComposeFixture();
-  assert.equal(run(root, ["--help"]).status, 0, "the completed static contract must be valid before probes");
+  const staticCheck = run(root, ["--help"]);
+  assert.equal(staticCheck.status, 0, `the completed static contract must be valid before probes: ${staticCheck.stderr || staticCheck.stdout}`);
   const runtimePinsPath = "artifacts/runtime-pins.json";
   const runtimePinsSource = readFileSync(resolve(root, runtimePinsPath), "utf8");
   const runtimePins = JSON.parse(runtimePinsSource);

@@ -938,7 +938,47 @@ test("release preflight derives evidence before probing and can require an ident
   }, {
     collectEvidence: async () => proofs,
     probe: async ({ id }) => ({ id, state: "absent" }),
+    sleep: async () => {},
   }), /required every destination to be identical/u);
+});
+
+test("post-publication verification retries missing destinations and fails immediately on conflicting evidence", async () => {
+  const proofs = evidence();
+  let npmProbeCount = 0;
+  let sleepCount = 0;
+  assert.equal(await checkReleasePublication({
+    releaseDirectory: "/safe/staged-release",
+    version: VERSION,
+    sourceCommit: COMMIT,
+    requireIdentical: true,
+  }, {
+    collectEvidence: async () => proofs,
+    probe: async (check) => {
+      if (check.kind === "release") return { id: check.id, state: "absent" };
+      if (check.kind === "npm" && npmProbeCount++ === 0) return { id: check.id, state: "absent" };
+      return { id: check.id, state: "present", evidence: check.expectedEvidence };
+    },
+    sleep: async (milliseconds) => {
+      assert.equal(milliseconds, 15_000);
+      sleepCount += 1;
+    },
+  }), "published-artifacts-identical");
+  assert.equal(sleepCount, 1);
+
+  let slept = false;
+  await assert.rejects(checkReleasePublication({
+    releaseDirectory: "/safe/staged-release",
+    version: VERSION,
+    sourceCommit: COMMIT,
+    requireIdentical: true,
+  }, {
+    collectEvidence: async () => proofs,
+    probe: async (check) => check.kind === "release"
+      ? { id: check.id, state: "absent" }
+      : { id: check.id, state: "present", evidence: check.id === "npm:protocol" ? `sha512-${"A".repeat(86)}==` : check.expectedEvidence },
+    sleep: async () => { slept = true; },
+  }), /different evidence/u);
+  assert.equal(slept, false);
 });
 
 test("writes an atomic closed publication receipt without mutating deterministic inventory", (t) => {

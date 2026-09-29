@@ -39,6 +39,12 @@ const OCI_DIGEST = /^sha256:[0-9a-f]{64}$/;
 const NPM_INTEGRITY = /^sha512-[A-Za-z0-9+/]{86}==$/;
 const GITHUB_ASSET_REDIRECTS = 3;
 const GITHUB_API_VERSION = "2026-03-10";
+const PUBLICATION_POLL_INTERVAL_MS = 15_000;
+const PUBLICATION_MAX_POLLS = 40;
+
+function wait(milliseconds) {
+  return new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
+}
 
 function githubReleaseAssetCatalog(releaseVersion) {
   const version = stableVersion(releaseVersion);
@@ -427,17 +433,63 @@ function syntacticAbsolutePath(value, label) {
 
 function dependencySet(overrides) {
   const dependencies = overrides ?? DEFAULT_RELEASE_CHECK_DEPENDENCIES;
-  const values = ownData(dependencies, ["collectEvidence", "probe"], "Published check dependencies");
-  if (typeof values.collectEvidence !== "function" || typeof values.probe !== "function") {
+  if (dependencies === null || typeof dependencies !== "object" || Array.isArray(dependencies)
+      || utilTypes.isProxy(dependencies) || ![Object.prototype, null].includes(Object.getPrototypeOf(dependencies))) {
+    throw new TypeError("Published check dependencies must be a closed data object");
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(dependencies);
+  const keys = Reflect.ownKeys(descriptors);
+  if (keys.some((key) => !["collectEvidence", "probe", "sleep"].includes(key)
+      || typeof key !== "string" || descriptors[key].enumerable !== true || !("value" in descriptors[key]))
+      || !keys.includes("collectEvidence") || !keys.includes("probe")) {
+    throw new TypeError("Published check dependencies must be a closed data object");
+  }
+  const values = {
+    collectEvidence: descriptors.collectEvidence.value,
+    probe: descriptors.probe.value,
+    sleep: descriptors.sleep?.value ?? wait,
+  };
+  if (typeof values.collectEvidence !== "function" || typeof values.probe !== "function"
+      || typeof values.sleep !== "function") {
     throw new TypeError("Published check dependencies must be functions");
   }
-  return values;
+  return Object.freeze(values);
 }
 
 const DEFAULT_RELEASE_CHECK_DEPENDENCIES = Object.freeze({
   collectEvidence: collectReleaseEvidence,
   probe: probeRemoteDestination,
 });
+
+async function verifyPublishedArtifactsWithRetry(plan, probe, sleep) {
+  for (let attempt = 0; attempt <= PUBLICATION_MAX_POLLS; attempt += 1) {
+    const observations = await collectRemoteObservations(plan, probe);
+    try {
+      if (evaluatePublishedState(plan, observations) === "already-identical") return "already-identical";
+    } catch {
+      // A partial set is retried only when every visible item still matches.
+    }
+    if (observations.length !== plan.length) throw new Error("Remote probes did not return a complete observation set");
+    const byId = new Map(observations.map((observation) => [observation?.id, observation]));
+    const releaseCheck = plan.find(({ kind }) => kind === "release");
+    if (releaseCheck === undefined || byId.size !== plan.length) {
+      throw new Error("Remote probes did not return a complete observation set");
+    }
+    for (const check of plan) {
+      const observation = observationValue(byId.get(check.id), check);
+      if (check.id === releaseCheck.id) {
+        if (observation.state !== "absent") throw new Error("Post-publication verification found invalid GitHub Release state");
+      } else if (observation.state === "present" && observation.evidence !== check.expectedEvidence) {
+        throw new Error(`Remote destination ${check.id} has different evidence`);
+      }
+    }
+    const pending = plan.some(({ id, kind }) => kind !== "release" && byId.get(id)?.state === "absent");
+    if (!pending) return evaluatePublishedArtifactsBeforeRelease(plan, observations);
+    if (attempt === PUBLICATION_MAX_POLLS) break;
+    await sleep(PUBLICATION_POLL_INTERVAL_MS);
+  }
+  throw new Error("Post-publication verification required every destination to be identical");
+}
 
 export async function checkReleasePublication(options, dependencyOverrides) {
   const values = ownData(
@@ -456,19 +508,7 @@ export async function checkReleasePublication(options, dependencyOverrides) {
   const evidence = await dependencies.collectEvidence(collectorOptions);
   const plan = createPublishedCheckPlan({ version, sourceCommit: commit, evidence });
   if (!values.requireIdentical) return checkPublishedDestinations({ plan, probe: dependencies.probe });
-  const observations = await collectRemoteObservations(plan, dependencies.probe);
-  try {
-    const state = evaluatePublishedState(plan, observations);
-    if (state !== "already-identical") throw new Error();
-    return state;
-  } catch (error) {
-    try {
-      return evaluatePublishedArtifactsBeforeRelease(plan, observations);
-    } catch {
-      if (error instanceof Error && /required every destination/u.test(error.message)) throw error;
-      throw new Error("Post-publication verification required every destination to be identical");
-    }
-  }
+  return verifyPublishedArtifactsWithRetry(plan, dependencies.probe, dependencies.sleep);
 }
 
 export async function checkDraftReleasePublication(options) {

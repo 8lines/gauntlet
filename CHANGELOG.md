@@ -4,6 +4,12 @@ All notable changes to this project are recorded here. Released artifacts are im
 
 ## Unreleased
 
+## [0.1.2] - 2026-09-29
+
+### Fixed
+
+- Post-publication verification now retries temporarily missing registry artifacts for up to 10 minutes, while failing immediately when a visible artifact has conflicting evidence.
+
 ## [0.1.1] - 2026-09-29
 
 ### Added
@@ -55,4 +61,5 @@ All notable changes to this project are recorded here. Released artifacts are im
 - Gauntlet supports non-production use only; there is no production environment kind or bypass.
 
 [0.1.1]: https://github.com/8lines/gauntlet/releases/tag/v0.1.1
+[0.1.2]: https://github.com/8lines/gauntlet/releases/tag/v0.1.2
 [0.1.0]: https://github.com/8lines/gauntlet/releases/tag/v0.1.0
