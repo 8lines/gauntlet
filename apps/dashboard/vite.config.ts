@@ -1,6 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import dashboardPackage from "./package.json" with { type: "json" };
+
+const apiOrigin = process.env.GAUNTLET_API ?? "http://127.0.0.1:8080";
 
 /**
  * The dashboard talks only to the control plane API (`/api/v1/...`).
@@ -8,11 +11,15 @@ import tailwindcss from "@tailwindcss/vite";
  */
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  define: {
+    __GAUNTLET_VERSION__: JSON.stringify(dashboardPackage.version),
+    __GAUNTLET_DEV_MCP_URL__: JSON.stringify(new URL("/mcp", apiOrigin).href),
+  },
   server: {
     port: 5273,
     proxy: {
-      "/api": { target: process.env.GAUNTLET_API ?? "http://127.0.0.1:8080", changeOrigin: true },
-      "/health": { target: process.env.GAUNTLET_API ?? "http://127.0.0.1:8080", changeOrigin: true },
+      "/api": { target: apiOrigin, changeOrigin: true },
+      "/health": { target: apiOrigin, changeOrigin: true },
     },
   },
   build: { outDir: "dist", emptyOutDir: true },

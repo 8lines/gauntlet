@@ -19,7 +19,7 @@ adapter-owned run state remain the responsibility of each target application.
 5. Upgrade application SDKs first when the compatibility notes require it.
    Run their framework tests and live conformance before upgrading the control
    plane.
-6. Render or inspect the candidate deployment with exact `0.1.0` artifacts and
+6. Render or inspect the candidate deployment with exact `0.1.1` artifacts and
    review image, namespace/network, target origins, environment identity,
    ingress, and policy changes.
 

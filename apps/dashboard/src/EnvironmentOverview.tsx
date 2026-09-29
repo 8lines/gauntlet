@@ -37,18 +37,21 @@ export function EnvironmentOverview({ target }: { target: TargetSnapshot }) {
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
             <Stat
               icon="layers"
+              tone="info"
               value={manifest.operations.length}
               label="All operations"
               detail="In the environment catalog"
             />
             <Stat
               icon="check"
+              tone="ok"
               value={manifest.operations.length - unavailable.length}
               label="Ready to run"
               detail="Available in this environment"
             />
             <Stat
               icon="shield"
+              tone="wait"
               value={diagnostics.length + unavailable.length}
               label="Need attention"
               detail={
@@ -170,20 +173,22 @@ export function EnvironmentOverview({ target }: { target: TargetSnapshot }) {
 
 function Stat({
   icon,
+  tone,
   value,
   label,
   detail,
 }: {
   icon: IconName;
+  tone: "info" | "ok" | "wait";
   value: number;
   label: string;
   detail: string;
 }) {
   return (
-    <div className="surface-card p-3 sm:p-5">
+    <div className="surface-card overview-stat p-3 sm:p-5" data-tone={tone}>
       <div className="flex items-center justify-between gap-3">
         <p className="min-h-8 text-[11px] text-muted-foreground sm:min-h-0 sm:text-[13px]">{label}</p>
-        <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-control bg-accent/70 text-primary sm:flex">
+        <span className="stat-icon hidden h-8 w-8 shrink-0 items-center justify-center rounded-control sm:flex">
           <Icon name={icon} className="h-4 w-4" />
         </span>
       </div>
@@ -237,7 +242,7 @@ function OperationGroup({
               }}
               className={`surface-card operation-link flex min-w-0 items-center gap-4 p-4 ${available ? "" : "opacity-50"}`}
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-border bg-muted/50 text-primary">
+              <span className="operation-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-control border text-primary">
                 <Icon name="play" className="h-[18px] w-[18px]" />
               </span>
               <span className="min-w-0 flex-1">

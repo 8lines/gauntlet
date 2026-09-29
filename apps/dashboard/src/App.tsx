@@ -217,6 +217,9 @@ export function App() {
             />
           )}
         </main>
+        <footer className="app-footer" aria-label="Application information">
+          Gauntlet v{__GAUNTLET_VERSION__}
+        </footer>
       </div>
     </div>
   );

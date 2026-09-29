@@ -297,7 +297,7 @@ export function OperationScreen(
                 <Card title="Result" icon="activity">
                   <EmptyState
                     title="Nothing has run yet"
-                    description="The result will appear here, next to the form. Your input stays in place, so fixing it and running again takes one click."
+                    description="The result will appear here when the run finishes. Your input stays in place, so fixing it and running again takes one click."
                   />
                 </Card>
               )

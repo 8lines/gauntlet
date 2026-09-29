@@ -337,7 +337,7 @@ function FileInput(props: Parameters<typeof Control>[0]) {
         accept={rule?.mediaTypes?.join(",")}
         multiple={rule?.multiple ?? false}
         disabled={props.disabled || busy || rule === undefined}
-        className={`${FIELD_CLASS} ${props.invalid || props.fileState.problem !== undefined ? "border-stop" : "border-input"}`}
+        className={`file-control field-control w-full rounded-control border bg-background px-1.5 py-1 text-base shadow-control disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground sm:text-[13px] ${props.invalid || props.fileState.problem !== undefined ? "border-stop" : "border-input"}`}
         onChange={(event) => void selectFiles([...(event.currentTarget.files ?? [])])}
       />
       {busy && (

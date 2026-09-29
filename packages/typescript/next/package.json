@@ -1,7 +1,7 @@
 {
   "name": "@8lines/gauntlet-next-adapter",
   "description": "Next.js App Router bridge for exposing an explicitly registered Gauntlet adapter catalog through normalized Web Requests.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "license": "Apache-2.0",
   "engines": { "node": ">=24 <27" },

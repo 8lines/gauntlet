@@ -4,6 +4,21 @@ All notable changes to this project are recorded here. Released artifacts are im
 
 ## Unreleased
 
+## [0.1.1] - 2026-09-29
+
+### Added
+
+- Dashboard settings now include an MCP connection section with an editable server URL and a copyable Streamable HTTP client configuration.
+- The dashboard footer displays the application version.
+
+### Changed
+
+- Refined dashboard typography, spacing, surfaces, and controls, with subtle motion that respects reduced-motion preferences.
+
+### Fixed
+
+- Release verification follows GitHub Packages redirects when checking published Maven artifacts.
+
 ## [0.1.0] - 2026-09-28
 
 ### Added
@@ -39,4 +54,5 @@ All notable changes to this project are recorded here. Released artifacts are im
 - Durable application work, rollback data, authorization, audit trails, and shared execution state remain application responsibilities.
 - Gauntlet supports non-production use only; there is no production environment kind or bypass.
 
+[0.1.1]: https://github.com/8lines/gauntlet/releases/tag/v0.1.1
 [0.1.0]: https://github.com/8lines/gauntlet/releases/tag/v0.1.0

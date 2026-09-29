@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import dashboardPackage from "../package.json" with { type: "json" };
 import {
   desktopOperation,
   destructiveOperation,
@@ -6,6 +7,22 @@ import {
   recordedRuns,
   recordedState,
 } from "./api-fixture.ts";
+
+test("application footer shows the build version on desktop and mobile", async ({ page }, testInfo) => {
+  await installApiFixture(page, { operation: desktopOperation, scenario: testInfo.project.name === "mobile" ? "mobile" : "desktop" });
+  await page.goto("/");
+
+  const footer = page.getByRole("contentinfo", { name: "Application information" });
+  await expect(footer).toBeVisible();
+  await expect(footer).toHaveText(`Gauntlet v${dashboardPackage.version}`);
+
+  if (testInfo.project.name === "desktop") {
+    await page.getByRole("button", { name: "Collapse navigation" }).click();
+    await expect(page.locator("#gauntlet-navigation")).toBeHidden();
+    await expect(footer).toBeVisible();
+    await expect(footer).toHaveText(`Gauntlet v${dashboardPackage.version}`);
+  }
+});
 
 test("mobile execution stays inside the viewport and confirms both modes", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile", "mobile acceptance");
@@ -282,7 +299,7 @@ test("operation actions stay at the bottom while the content scrolls", async ({ 
   expect(before.y).toBeGreaterThan(450);
   expect(before.y + before.height).toBeLessThanOrEqual(560);
 
-  const lastContent = page.getByText("The result will appear here, next to the form.", { exact: false });
+  const lastContent = page.getByText("The result will appear here when the run finishes.", { exact: false });
   await lastContent.scrollIntoViewIfNeeded();
   await expect(lastContent).toBeInViewport();
   const after = (await execute.boundingBox())!;

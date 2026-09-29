@@ -43,7 +43,7 @@ test the unreleased source tree. A separate application consumes version 0.1
 from Packagist instead, without any custom `repositories` entry or credential:
 
 ```bash
-composer require 8lines/gauntlet-symfony-bundle:^0.1.0
+composer require 8lines/gauntlet-symfony-bundle:^0.1.1
 ```
 
 ## Disabled-by-default check

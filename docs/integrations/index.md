@@ -9,12 +9,12 @@ Gauntlet then adds one explicit target with a matching environment identity.
 
 | Application | Packages | Guide |
 | --- | --- | --- |
-| Native Node.js 24–26 | `@8lines/gauntlet-typescript-core@0.1.0` and `@8lines/gauntlet-typescript-node@0.1.0` | [Node transport](../../packages/typescript/node/README.md) |
-| Next.js App Router on Node.js 24–26 | `@8lines/gauntlet-typescript-core@0.1.0` and `@8lines/gauntlet-next-adapter@0.1.0` | [Next.js bridge](../../packages/typescript/next/README.md) |
-| PHP 8.3+ without a framework transport | `8lines/gauntlet-php-core` at `0.1.0` | [PHP Core](../../packages/php/core/README.md) |
-| Symfony 7.4 on PHP 8.3+, or Symfony 8.x on PHP 8.4+ | PHP Core and `8lines/gauntlet-symfony-bundle`, both `0.1.0` | [Symfony bundle](../../packages/php/symfony-bundle/README.md) |
-| Java 21 | `dev.eightlines.gauntlet:core:0.1.0` | [Java SDK](../../packages/java/README.md) |
-| Spring Boot on Java 21 | Core and `dev.eightlines.gauntlet:spring-boot-starter:0.1.0` | [Spring starter](../../packages/java/spring-boot-starter/README.md) |
+| Native Node.js 24–26 | `@8lines/gauntlet-typescript-core@0.1.1` and `@8lines/gauntlet-typescript-node@0.1.1` | [Node transport](../../packages/typescript/node/README.md) |
+| Next.js App Router on Node.js 24–26 | `@8lines/gauntlet-typescript-core@0.1.1` and `@8lines/gauntlet-next-adapter@0.1.1` | [Next.js bridge](../../packages/typescript/next/README.md) |
+| PHP 8.3+ without a framework transport | `8lines/gauntlet-php-core` at `0.1.1` | [PHP Core](../../packages/php/core/README.md) |
+| Symfony 7.4 on PHP 8.3+, or Symfony 8.x on PHP 8.4+ | PHP Core and `8lines/gauntlet-symfony-bundle`, both `0.1.1` | [Symfony bundle](../../packages/php/symfony-bundle/README.md) |
+| Java 21 | `dev.eightlines.gauntlet:core:0.1.1` | [Java SDK](../../packages/java/README.md) |
+| Spring Boot on Java 21 | Core and `dev.eightlines.gauntlet:spring-boot-starter:0.1.1` | [Spring starter](../../packages/java/spring-boot-starter/README.md) |
 
 npm and Composer packages are public on npmjs.org and Packagist; the Java
 packages come from GitHub Packages, which requires a GitHub token to read.
@@ -26,7 +26,7 @@ immutable released artifact.
 
 1. Prove the deployment is non-production from infrastructure evidence; do
    not infer this from a requested label.
-2. Install exact `0.1.0` packages for one supported stack.
+2. Install exact `0.1.1` packages for one supported stack.
 3. Configure adapter enablement, structured environment identity, and one
    stable secret reference. There is no production override.
 4. Register application-owned features, operations, and optional data sources.

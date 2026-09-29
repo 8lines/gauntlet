@@ -30,6 +30,7 @@ try {
 }
 
 const REPOSITORY_ROOT = realpathSync(resolve(import.meta.dirname, "../../.."));
+const RELEASE_VERSION = readFileSync(resolve(REPOSITORY_ROOT, "VERSION"), "utf8").trimEnd();
 const RELEASE_FILES = Object.freeze([
   ".env.example",
   "LICENSE",
@@ -178,13 +179,13 @@ test("packages only the seven standalone Compose files as a canonical archive", 
     assert.deepEqual(receipt, {
       kind: "compose",
       name: "gauntlet-compose",
-      version: "0.1.0",
-      path: resolve(outputDirectory, "gauntlet-compose-0.1.0.tar.gz"),
+      version: RELEASE_VERSION,
+      path: resolve(outputDirectory, `gauntlet-compose-${RELEASE_VERSION}.tar.gz`),
       sha256: receipt.sha256,
     });
     assert.equal(Object.isFrozen(receipt), true);
     assert.match(receipt.sha256, /^[a-f0-9]{64}$/);
-    assert.deepEqual(readdirSync(outputDirectory), ["gauntlet-compose-0.1.0.tar.gz"]);
+    assert.deepEqual(readdirSync(outputDirectory), [`gauntlet-compose-${RELEASE_VERSION}.tar.gz`]);
     assert.equal(statSync(receipt.path).mode & 0o777, 0o600);
     const archive = readFileSync(receipt.path);
     assert.equal(createHash("sha256").update(archive).digest("hex"), receipt.sha256);
@@ -339,14 +340,14 @@ test("rejects unsafe, shared, nested, and occupied outputs without removing fore
     });
 
     const occupied = fixture.output("occupied");
-    const foreignPath = resolve(occupied, "gauntlet-compose-0.1.0.tar.gz");
+    const foreignPath = resolve(occupied, `gauntlet-compose-${RELEASE_VERSION}.tar.gz`);
     const foreignBytes = Buffer.from("FOREIGN BYTES\n");
     writeFileSync(foreignPath, foreignBytes, { mode: 0o600 });
     await assert.rejects(invoke({ root: fixture.root, outputDirectory: occupied }), {
       message: "Compose bundle packaging failed closed",
     });
     assert.deepEqual(readFileSync(foreignPath), foreignBytes);
-    assert.deepEqual(readdirSync(occupied), ["gauntlet-compose-0.1.0.tar.gz"]);
+    assert.deepEqual(readdirSync(occupied), [`gauntlet-compose-${RELEASE_VERSION}.tar.gz`]);
 
     const nested = resolve(fixture.root, "release-output");
     mkdirSync(nested, { mode: 0o700 });

@@ -10,7 +10,7 @@ public `8lines/gauntlet-php-core` split repository, so no custom `repositories`
 entry or credential is needed:
 
 ```bash
-composer require 8lines/gauntlet-php-core:^0.1.0
+composer require 8lines/gauntlet-php-core:^0.1.1
 ```
 
 The split repository is a read-only release mirror of `packages/php/core` in

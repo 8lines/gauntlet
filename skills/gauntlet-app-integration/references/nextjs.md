@@ -3,9 +3,9 @@
 Support Next.js on Node.js 24–26. Install exact releases from the public npm registry; no scope mapping or registry token is needed:
 
 ```sh
-pnpm add @8lines/gauntlet-protocol@0.1.0 \
-  @8lines/gauntlet-typescript-core@0.1.0 \
-  @8lines/gauntlet-next-adapter@0.1.0
+pnpm add @8lines/gauntlet-protocol@0.1.1 \
+  @8lines/gauntlet-typescript-core@0.1.1 \
+  @8lines/gauntlet-next-adapter@0.1.1
 ```
 
 Build one explicit application-owned Core catalog with a stable secret and runtime components truthful for the process topology. Mount one catch-all route at `app/%5Fgauntlet/v1/[...gauntlet]/route.ts`; a leading `_` directory is private to Next, so keep the documented `%5Fgauntlet` filesystem escape. Export all supported methods from one `createGauntletRouteHandler`, with `runtime = "nodejs"`, `dynamic = "force-dynamic"`, and `revalidate = 0`.

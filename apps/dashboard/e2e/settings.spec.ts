@@ -1,6 +1,81 @@
 import { expect, test } from "@playwright/test";
 import { desktopOperation, destructiveOperation, installApiFixture } from "./api-fixture.ts";
 
+test("MCP settings prepare a client connection for the chosen server URL", async ({ page }) => {
+  await installApiFixture(page, { operation: desktopOperation, scenario: "desktop" });
+  await page.goto("/");
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
+    origin: new URL(page.url()).origin,
+  });
+
+  await page.getByRole("button", { name: "User settings", exact: true }).click();
+  const settings = page.getByRole("dialog", { name: "User settings", exact: true });
+  await settings.getByRole("button", { name: "MCP", exact: true }).click();
+  const connection = settings.getByRole("region", { name: "MCP connection" });
+  const url = connection.getByRole("textbox", { name: "MCP server URL" });
+
+  await expect(connection).toContainText("Streamable HTTP");
+  await url.fill("https://gauntlet.internal.example/mcp");
+  await connection.getByRole("button", { name: "Copy configuration" }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    '{\n  "mcpServers": {\n    "gauntlet": {\n      "url": "https://gauntlet.internal.example/mcp"\n    }\n  }\n}',
+  );
+});
+
+test("MCP settings reject an address that cannot be used as an HTTP endpoint", async ({ page }) => {
+  await installApiFixture(page, { operation: desktopOperation, scenario: "desktop" });
+  await page.goto("/");
+  await page.getByRole("button", { name: "User settings", exact: true }).click();
+  await page.getByRole("dialog", { name: "User settings", exact: true })
+    .getByRole("button", { name: "MCP", exact: true }).click();
+
+  const connection = page.getByRole("region", { name: "MCP connection" });
+  const url = connection.getByRole("textbox", { name: "MCP server URL" });
+  const copy = connection.getByRole("button", { name: "Copy configuration" });
+  await url.fill("ftp://example.internal/mcp");
+  await expect(copy).toBeDisabled();
+  await expect(connection).toContainText("Enter an HTTP or HTTPS URL ending in /mcp.");
+
+  await url.fill("https://example.internal/api");
+  await expect(copy).toBeDisabled();
+
+  await url.fill("https://example.internal/gauntlet/mcp");
+  await expect(copy).toBeEnabled();
+});
+
+test("MCP section opens directly while settings controls remain reachable on a short screen", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 360 });
+  await installApiFixture(page, { operation: desktopOperation, scenario: "mobile" });
+  await page.goto("/");
+  await page.getByRole("button", { name: "User settings", exact: true }).click();
+
+  const settings = page.getByRole("dialog", { name: "User settings", exact: true });
+  await settings.getByRole("button", { name: "MCP", exact: true }).click();
+  await expect(settings.getByRole("region", { name: "MCP connection" })).toBeVisible();
+  await expect(settings.getByRole("radio", { name: "Light" })).toBeHidden();
+  await expect(settings.getByRole("button", { name: "Done" })).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+
+  const content = settings.locator(".overflow-y-auto");
+  await content.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  expect(await content.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  await settings.getByRole("button", { name: "Appearance", exact: true }).click();
+  expect(await content.evaluate((element) => element.scrollTop)).toBe(0);
+});
+
+test("MCP address survives switching settings sections", async ({ page }) => {
+  await installApiFixture(page, { operation: desktopOperation, scenario: "desktop" });
+  await page.goto("/");
+  await page.getByRole("button", { name: "User settings", exact: true }).click();
+  const settings = page.getByRole("dialog", { name: "User settings", exact: true });
+  await settings.getByRole("button", { name: "MCP", exact: true }).click();
+  const url = settings.getByRole("textbox", { name: "MCP server URL" });
+  await url.fill("https://gauntlet.internal.example/mcp");
+  await settings.getByRole("button", { name: "Appearance", exact: true }).click();
+  await settings.getByRole("button", { name: "MCP", exact: true }).click();
+  await expect(url).toHaveValue("https://gauntlet.internal.example/mcp");
+});
+
 test("user settings apply and persist theme, motion and sidebar preferences", async ({ page }, testInfo) => {
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "no-preference" });
   await installApiFixture(page, { operation: desktopOperation, scenario: "desktop" });

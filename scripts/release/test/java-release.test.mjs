@@ -204,6 +204,7 @@ test("accepts an exact Git HEAD and rejects tracked or untracked release input c
 
 test("the committed consumer closes Gauntlet resolution to the staged repository and pins transitives", () => {
   const directory = resolve(ROOT, "tests/consumers/java");
+  const version = readFileSync(resolve(ROOT, "VERSION"), "utf8").trimEnd();
   const expectedFiles = [
     "build.gradle.kts",
     "gradle.lockfile",
@@ -226,7 +227,7 @@ test("the committed consumer closes Gauntlet resolution to the staged repository
   assert.match(settings, /excludeGroup\("dev\.eightlines\.gauntlet"\)/);
   assert.doesNotMatch(build, /repositories\s*\{/);
   assert.match(build, /lockMode\.set\(LockMode\.STRICT\)/);
-  assert.match(build, /dev\.eightlines\.gauntlet:spring-boot-starter:0\.1\.0/);
+  assert.equal(build.includes(`dev.eightlines.gauntlet:spring-boot-starter:${version}`), true);
   assert.doesNotMatch(executableInputs, /(?:SNAPSHOT|project\s*\(|includeBuild|mavenLocal)/u);
   assert.doesNotMatch(
     executableInputs,
@@ -254,24 +255,24 @@ test("the committed consumer closes Gauntlet resolution to the staged repository
     "testCompileClasspath",
     "testRuntimeClasspath",
   ]);
-  assert.equal(locked.some((line) => line.startsWith("dev.eightlines.gauntlet:core:0.1.0=")), true);
-  assert.equal(locked.some((line) => line.startsWith("dev.eightlines.gauntlet:spring-boot-starter:0.1.0=")), true);
+  assert.equal(locked.some((line) => line.startsWith(`dev.eightlines.gauntlet:core:${version}=`)), true);
+  assert.equal(locked.some((line) => line.startsWith(`dev.eightlines.gauntlet:spring-boot-starter:${version}=`)), true);
   assert.doesNotMatch(
     lock,
     /(?:https?:|file:|SNAPSHOT|\bLATEST\b|\bRELEASE\b|\[[^\]]*\]|\([^)]*\)|\+|GITHUB_|password|credentials?|authorization|bearer|private[_-]?key|secret|token|username)/iu,
   );
 
-  const validation = validateJavaConsumerFixture({ settings, build, lock, source, version: "0.1.0" });
+  const validation = validateJavaConsumerFixture({ settings, build, lock, source, version });
   assert.deepEqual(validation, { dependencies: 60, configurations: 6 });
   assert.equal(Object.isFrozen(validation), true);
   for (const change of [
     { settings: settings.replace(MAVEN_CENTRAL, "https://maven.pkg.github.com/8lines/gauntlet") },
     { settings: `${settings}\ncredentials { username = "leak" }\n` },
-    { build: build.replace(":0.1.0", ":0.1.+") },
-    { lock: lock.replace("dev.eightlines.gauntlet:core:0.1.0", "dev.eightlines.gauntlet:core:0.1.0-SNAPSHOT") },
+    { build: build.replace(`:${version}`, ":0.1.+") },
+    { lock: lock.replace(`dev.eightlines.gauntlet:core:${version}`, `dev.eightlines.gauntlet:core:${version}-SNAPSHOT`) },
   ]) {
     assert.throws(
-      () => validateJavaConsumerFixture({ settings, build, lock, source, version: "0.1.0", ...change }),
+      () => validateJavaConsumerFixture({ settings, build, lock, source, version, ...change }),
       { message: "Java consumer fixture is invalid" },
     );
   }
