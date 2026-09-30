@@ -10,16 +10,17 @@ after a dependency security update in `pnpm-lock.yaml`) without re-running the
 model evaluation; the recorded samples were generated against
 the previous inputs. The 0.1.2 release candidate prepared on 2026-09-29
 changed exact package coordinates in the integration skill and its bound
-repository inputs. The hashes are re-bound to those bytes without generating
-new model samples or changing the recorded responses, reviews, or timestamps.
-This confirms content integrity, not the skill's behaviour against 0.1.2
-packages. A fresh evaluation and independent review are required before
+repository inputs. The 0.1.3 candidate prepared on 2026-09-30 updates those
+fixtures and package guidance again. The hashes are re-bound to current bytes
+without generating new model samples or changing recorded responses, reviews,
+or timestamps. This confirms content integrity, not behaviour against the
+0.1.3 packages. A fresh evaluation and independent review are required before
 claiming current behavioural evidence.
 
 The preserved prompts, results, and evidence describe the original 0.1.0
 evaluation and have not been rewritten. The fixture preparers and verifier
-self-tests now exercise the current 0.1.2 candidate packages. These passing
-self-tests do not establish that the recorded model samples ran on 0.1.2. A
+self-tests now exercise the current 0.1.3 candidate packages. These passing
+self-tests do not establish that the recorded model samples ran on 0.1.3. A
 new model evaluation would need prompts and samples prepared for that version.
 
 Every sample in the matrix is a fresh generation by a new evaluator process

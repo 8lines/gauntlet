@@ -1,13 +1,13 @@
 # Gauntlet Spring Boot Starter
 
-`dev.eightlines.gauntlet:spring-boot-starter:0.1.2` is the Java 21 and Spring
+`dev.eightlines.gauntlet:spring-boot-starter:0.1.3` is the Java 21 and Spring
 Boot 4.1 integration for Gauntlet Adapter v1. It supplies typed
 configuration, explicit annotated-bean discovery, auto-configuration, and the
 fixed `/_gauntlet/v1` HTTP transport. Core is included transitively.
 
 ```kotlin
 dependencies {
-    implementation("dev.eightlines.gauntlet:spring-boot-starter:0.1.2")
+    implementation("dev.eightlines.gauntlet:spring-boot-starter:0.1.3")
 }
 ```
 

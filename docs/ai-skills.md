@@ -64,7 +64,7 @@ unknown directory merely to make installation succeed.
 
 ## Install from a release archive
 
-The GitHub release contains `gauntlet-skills-0.1.2.tgz` and records its
+The GitHub release contains `gauntlet-skills-0.1.3.tgz` and records its
 digest in `SHA256SUMS` and the release inventory. Verify those release files
 before extraction. Extract into a new private temporary directory, not directly
 into the skills destination:
@@ -72,8 +72,8 @@ into the skills destination:
 ```sh
 skills_unpack="$(mktemp -d)"
 chmod 700 "$skills_unpack"
-tar -xzf gauntlet-skills-0.1.2.tgz -C "$skills_unpack"
-skills_archive_root="$skills_unpack/gauntlet-skills-0.1.2"
+tar -xzf gauntlet-skills-0.1.3.tgz -C "$skills_unpack"
+skills_archive_root="$skills_unpack/gauntlet-skills-0.1.3"
 ```
 
 The archive contains a closed manifest, the two validated skill trees, and a

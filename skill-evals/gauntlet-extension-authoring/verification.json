@@ -2,12 +2,12 @@
   "schemaVersion": 1,
   "skill": "gauntlet-extension-authoring",
   "skillSha256": "d5b8ec91234f68aec56ecfd651666ac19c91f008e5b115e81dc52b97378bcd12",
-  "evaluationSha256": "4896fc39b817362f0d7a9b0210c3fc8558f3c1ba3c8ff8f4e1e4193715837820",
-  "externalInputsSha256": "87e9bc207729f370ccf4bd9fe6c1cbb596a6f31cdb61a0d6982bfd2e06218d2b",
+  "evaluationSha256": "d65903b54a66714a13bc643ac4c8f40a05e960c8c2e802e2b3e31d5c6a4db0ed",
+  "externalInputsSha256": "a05f125029a9b60301acdc6b194881b1b68ab8e800eb91576027736657d31257",
   "evaluatedAt": "2026-09-28T10:18:08.925Z",
   "baseline": {
     "transcript": "results/baseline.jsonl",
-    "transcriptSha256": "b3cc666bbda1f0f4ea1960572f92b521da0c423dbb6fd15fb8d6f0443bce0b6e",
+    "transcriptSha256": "f6e376bc292193f44c8ba863d980e3918fd3069ba851c0201e180a7c7f101d61",
     "scenarioResults": [
       {
         "scenario": "generic-sql",
@@ -55,7 +55,7 @@
   },
   "guided": {
     "transcript": "results/guided.jsonl",
-    "transcriptSha256": "91797e42dea54160fdfedbab7533d30c9f6b7e78fdf9ba5f4c3115550100ca53",
+    "transcriptSha256": "852b825015fbaf1f56029e1fff534122f2ba38e1d60fc9954a066a8d81c0794f",
     "scenarioResults": [
       {
         "scenario": "generic-sql",
@@ -103,7 +103,7 @@
   },
   "forward": {
     "transcript": "results/forward.jsonl",
-    "transcriptSha256": "13d73404d7ea0eaa270bcc63e5b40265d6347365c006a859f6559622f530b0b8",
+    "transcriptSha256": "5d3ddff2f08006103bb837e296ea4047b7eb4f4e0bcfba967aab7b15dc25d4fa",
     "scenarioResults": [
       {
         "scenario": "forward-review-deadline",

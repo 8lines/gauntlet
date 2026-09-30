@@ -121,7 +121,7 @@ which side the panel opens from: `"bottom-right"` (the default) or
 Install the typed package instead of hand-writing the queue stub:
 
 ```sh
-npm install @8lines/gauntlet-widget@0.1.2
+npm install @8lines/gauntlet-widget@0.1.3
 ```
 
 The package is published publicly on npmjs.org; see

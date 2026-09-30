@@ -1,7 +1,7 @@
 {
   "name": "@8lines/gauntlet-widget",
   "description": "Typed, SSR-safe commands and page-subject types for embedding the Gauntlet widget in a web application.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
   "license": "Apache-2.0",
   "engines": { "node": ">=24 <27" },
