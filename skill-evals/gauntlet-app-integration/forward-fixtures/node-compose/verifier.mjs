@@ -293,7 +293,7 @@ function assertStaticContract() {
   for (const [name, version] of Object.entries(runtimeDependencyPins)) {
     assert(overrides[name] === version, `runtime dependency override missing: ${name}`);
   }
-  assert(/8lines-gauntlet-typescript-node-0\.1\.2\.tgz/u.test(text("app/pnpm-lock.yaml")), "offline lockfile does not bind the Node SDK archive");
+  assert(/8lines-gauntlet-typescript-node-0\.1\.3\.tgz/u.test(text("app/pnpm-lock.yaml")), "offline lockfile does not bind the Node SDK archive");
 
 const source = text("app/src/server.mjs");
   assert(sha256(source) === "__GOLDEN_SERVER_SHA256__",
