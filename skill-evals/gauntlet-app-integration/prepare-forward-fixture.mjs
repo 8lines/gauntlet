@@ -149,9 +149,9 @@ function packSuppliedCandidateSdk(root) {
     if (packed.status !== 0) throw new Error(`failed to pack ${packageName}: ${packed.stderr || packed.stdout}`);
   }
   const packageArtifacts = [
-    ["@8lines/gauntlet-protocol", "8lines-gauntlet-protocol-0.1.4.tgz"],
-    ["@8lines/gauntlet-typescript-core", "8lines-gauntlet-typescript-core-0.1.4.tgz"],
-    ["@8lines/gauntlet-typescript-node", "8lines-gauntlet-typescript-node-0.1.4.tgz"],
+    ["@8lines/gauntlet-protocol", "8lines-gauntlet-protocol-0.1.5.tgz"],
+    ["@8lines/gauntlet-typescript-core", "8lines-gauntlet-typescript-core-0.1.5.tgz"],
+    ["@8lines/gauntlet-typescript-node", "8lines-gauntlet-typescript-node-0.1.5.tgz"],
   ];
   const archiveHashes = {};
   const packageTreeHashes = {};
@@ -215,7 +215,7 @@ function nodeComposeFixture(root) {
     "",
   ].join("\n"));
   write(root, "secrets/gauntlet-idempotency", "synthetic-stable-idempotency-secret-00000001\n");
-  write(root, "gauntlet/compose.yaml", "# Configure the standalone Gauntlet 0.1.4 service here.\n");
+  write(root, "gauntlet/compose.yaml", "# Configure the standalone Gauntlet 0.1.5 service here.\n");
   write(root, "gauntlet/config.yaml", "# Configure one explicit matching target here.\n");
   write(root, "evidence.json", `${JSON.stringify({
     scope: "synthetic-ephemeral-loopback-http",
@@ -238,7 +238,7 @@ function nodeComposeFixture(root) {
   write(root, "INTEGRATION.md", [
     "# Synthetic Node integration contract",
     "",
-    "Use only the supplied exact `0.1.4` archives for direct and transitive SDK",
+    "Use only the supplied exact `0.1.5` archives for direct and transitive SDK",
     "dependencies (`pnpm-workspace.yaml` `overrides` must map all three names to",
     "the archives). Read every runtime override and exact version from the supplied",
     "canonical `artifacts/runtime-pins.json`; do not resolve or guess newer versions.",

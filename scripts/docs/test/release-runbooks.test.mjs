@@ -11,7 +11,7 @@ test("package installation guide pins every official public destination and avoi
   assert.match(source, /https:\/\/registry\.npmjs\.org/u);
   assert.doesNotMatch(source, /npm\.pkg\.github\.com/u);
   assert.match(source, /Packagist/u);
-  assert.match(source, /composer require 8lines\/gauntlet-symfony-bundle:0\.1\.4/u);
+  assert.match(source, /composer require 8lines\/gauntlet-symfony-bundle:0\.1\.5/u);
   assert.doesNotMatch(source, /"type": "vcs"|COMPOSER_AUTH is required/u);
   assert.match(source, /https:\/\/maven\.pkg\.github\.com\/8lines\/gauntlet/u);
   assert.match(source, /read:packages/u);
@@ -43,7 +43,7 @@ test("release runbook requires a clean rehearsal and equality-checked retry", ()
   assert.match(source, /host-platform native\s+image/iu);
   assert.match(source, /multi-platform OCI archive/iu);
   assert.match(source, /Helm chart digest/iu);
-  assert.match(source, /git tag -a v0\.1\.4/u);
+  assert.match(source, /git tag -a v0\.1\.5/u);
   assert.match(source, /commit contained in `main`/u);
   assert.match(source, /all artifacts are already\s+byte\/commit-identical/isu);
   assert.match(source, /Do not manually fill a partially published release/u);
@@ -64,7 +64,7 @@ test("upgrade and rollback retain immutable identities and repeat safety checks"
 test("AI skill guide documents both safe installation paths and their boundaries", () => {
   const source = read("docs/ai-skills.md");
   assert.match(source, /scripts\/skills\/install\.mjs --destination/u);
-  assert.match(source, /gauntlet-skills-0\.1\.4\.tgz/u);
+  assert.match(source, /gauntlet-skills-0\.1\.5\.tgz/u);
   assert.match(source, /exactly one\s+skill per invocation/iu);
   assert.match(source, /\$gauntlet-app-integration/u);
   assert.match(source, /\$gauntlet-extension-authoring/u);

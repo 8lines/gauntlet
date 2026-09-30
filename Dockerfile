@@ -130,8 +130,8 @@ RUN chmod -R go-w /out /app/apps/dashboard/dist /app/apps/dashboard/dist-widget
 
 FROM ${NODE_IMAGE} AS runtime
 RUN apk add --no-cache --upgrade \
-      libcrypto3=3.5.8-r0 \
-      libssl3=3.5.8-r0 \
+      libcrypto3=3.5.9-r0 \
+      libssl3=3.5.9-r0 \
     && rm -rf /usr/local/lib/node_modules /opt/yarn-v1.22.22 \
     && rm -f \
       /usr/local/bin/corepack \

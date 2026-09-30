@@ -353,7 +353,7 @@ try {
     "--read-only",
     "--entrypoint", "/sbin/apk",
     imageTag,
-    "info", "--exists", "libcrypto3=3.5.8-r0", "libssl3=3.5.8-r0",
+    "info", "--exists", "libcrypto3=3.5.9-r0", "libssl3=3.5.9-r0",
   ]);
 
   const disabledConfigPath = resolve(repositoryRoot, "conformance/smoke/gauntlet.config.yaml");

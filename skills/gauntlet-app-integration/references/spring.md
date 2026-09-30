@@ -4,7 +4,7 @@ Support Java 21 and Spring Boot 4.1. The starter is on GitHub Packages Maven (`h
 
 ```kotlin
 dependencies {
-    implementation("dev.eightlines.gauntlet:spring-boot-starter:0.1.4")
+    implementation("dev.eightlines.gauntlet:spring-boot-starter:0.1.5")
 }
 ```
 
@@ -30,4 +30,4 @@ The default store and coordinator are process-local. A multi-threaded server may
 
 Tomcat may reject malformed targets before servlet filters. Require a trusted private ingress that rejects unsafe original targets before normalization and an explicit public denial for the adapter prefix. Do not claim uniform raw-target behavior from MVC tests alone.
 
-Configure one internal target with exact `expectedEnvironment`. Run locked Gradle verification on Java 21, context/startup denial, exact one-transport inspection, target mismatch on every proxy path, raw-ingress negative probes, application-specific live Adapter v1 checks, and public denial. Prefer released `0.1.4` metadata and `packages/java/spring-example` from the matching release; reject `0.1.4-SNAPSHOT` coordinates or scalar-environment examples.
+Configure one internal target with exact `expectedEnvironment`. Run locked Gradle verification on Java 21, context/startup denial, exact one-transport inspection, target mismatch on every proxy path, raw-ingress negative probes, application-specific live Adapter v1 checks, and public denial. Prefer released `0.1.5` metadata and `packages/java/spring-example` from the matching release; reject `0.1.5-SNAPSHOT` coordinates or scalar-environment examples.

@@ -16,8 +16,8 @@ Release consumers install matching exact versions from the public npm registry
 [installing packages](../../../docs/releases/installing-packages.md)):
 
 ```sh
-pnpm add @8lines/gauntlet-protocol@0.1.4 \
-  @8lines/gauntlet-typescript-core@0.1.4
+pnpm add @8lines/gauntlet-protocol@0.1.5 \
+  @8lines/gauntlet-typescript-core@0.1.5
 ```
 
 Inside this repository, workspace packages use `workspace:*` dependencies and
@@ -47,8 +47,8 @@ Reference both tarballs from the consumer's `package.json`:
 ```json
 {
   "dependencies": {
-    "@8lines/gauntlet-protocol": "file:/tmp/gauntlet-packages/8lines-gauntlet-protocol-0.1.4.tgz",
-    "@8lines/gauntlet-typescript-core": "file:/tmp/gauntlet-packages/8lines-gauntlet-typescript-core-0.1.4.tgz"
+    "@8lines/gauntlet-protocol": "file:/tmp/gauntlet-packages/8lines-gauntlet-protocol-0.1.5.tgz",
+    "@8lines/gauntlet-typescript-core": "file:/tmp/gauntlet-packages/8lines-gauntlet-typescript-core-0.1.5.tgz"
   }
 }
 ```
@@ -58,7 +58,7 @@ consumer's `pnpm-workspace.yaml`:
 
 ```yaml
 overrides:
-  '@8lines/gauntlet-protocol': 'file:/tmp/gauntlet-packages/8lines-gauntlet-protocol-0.1.4.tgz'
+  '@8lines/gauntlet-protocol': 'file:/tmp/gauntlet-packages/8lines-gauntlet-protocol-0.1.5.tgz'
 ```
 
 Then run:
