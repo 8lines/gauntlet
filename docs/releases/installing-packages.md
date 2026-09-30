@@ -25,9 +25,9 @@ Install exact versions from the public registry. No `.npmrc` scope mapping or
 token is needed:
 
 ```sh
-pnpm add @8lines/gauntlet-protocol@0.1.5 \
-  @8lines/gauntlet-typescript-core@0.1.5 \
-  @8lines/gauntlet-typescript-node@0.1.5
+pnpm add @8lines/gauntlet-protocol@0.1.6 \
+  @8lines/gauntlet-typescript-core@0.1.6 \
+  @8lines/gauntlet-typescript-node@0.1.6
 ```
 
 The published packages are `@8lines/gauntlet-protocol`,
@@ -44,16 +44,16 @@ runners, and the release job runs on a self-hosted runner. Ensure the lockfile r
 
 The PHP packages are published on Packagist from the public split repositories
 `8lines/gauntlet-php-core` and `8lines/gauntlet-symfony-bundle`, each tagged
-with an annotated `v0.1.5`. No custom `repositories` entry, `auth.json`, or
+with an annotated `v0.1.6`. No custom `repositories` entry, `auth.json`, or
 `COMPOSER_AUTH` is needed:
 
 ```sh
-composer require 8lines/gauntlet-symfony-bundle:0.1.5
+composer require 8lines/gauntlet-symfony-bundle:0.1.6
 ```
 
 The bundle requires the matching `8lines/gauntlet-php-core` release, which
 Composer installs automatically. For a framework-neutral integration, require
-`8lines/gauntlet-php-core:0.1.5` alone. Verify that `composer.lock` records the
+`8lines/gauntlet-php-core:0.1.6` alone. Verify that `composer.lock` records the
 expected package versions and source commits.
 
 The split repositories are read-only release mirrors of
@@ -88,8 +88,8 @@ repository ID used by the application and `settings.xml` must match.
 Consume immutable coordinates:
 
 ```text
-dev.eightlines.gauntlet:core:0.1.5
-dev.eightlines.gauntlet:spring-boot-starter:0.1.5
+dev.eightlines.gauntlet:core:0.1.6
+dev.eightlines.gauntlet:spring-boot-starter:0.1.6
 ```
 
 Keep Gradle dependency verification and lock metadata enabled in the consumer.
@@ -100,12 +100,12 @@ The image and the Helm chart are public, so pulling them needs no
 `docker login`, `helm registry login`, or Kubernetes imagePullSecret:
 
 ```sh
-docker pull ghcr.io/8lines/gauntlet:0.1.5
-helm pull oci://ghcr.io/8lines/charts/gauntlet --version 0.1.5
+docker pull ghcr.io/8lines/gauntlet:0.1.6
+helm pull oci://ghcr.io/8lines/charts/gauntlet --version 0.1.6
 ```
 
 Prefer an image digest in an operator-managed deployment. Pull the Helm chart
-at exact version `0.1.5`, render that local archive, and install the same bytes.
+at exact version `0.1.6`, render that local archive, and install the same bytes.
 A cluster that must pull through an authenticated mirror can still set the
 chart's optional `imagePullSecrets` value; the chart never creates that Secret.
 When a private mirror does need credentials, supply them without a token
