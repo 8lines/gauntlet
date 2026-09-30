@@ -602,9 +602,18 @@ test("invokes only pinned offline pnpm packing with a positive credential-free e
       "npm_config_userconfig",
     ];
     if (process.platform === "darwin") environmentKeys.push("__CF_USER_TEXT_ENCODING");
+    // Node on Linux propagates its libuv backend setting to spawned Node processes.
+    // It is added by the runtime even though packageEnvironment intentionally omits it.
+    if (process.platform === "linux" && process.env.UV_USE_IO_URING !== undefined) {
+      assert.equal(process.env.UV_USE_IO_URING, "0");
+      environmentKeys.push("UV_USE_IO_URING");
+    }
     environmentKeys.sort();
     for (const [index, record] of records.entries()) {
       assert.deepEqual(Object.keys(record.env).sort(), environmentKeys);
+      if (environmentKeys.includes("UV_USE_IO_URING")) {
+        assert.equal(record.env.UV_USE_IO_URING, process.env.UV_USE_IO_URING);
+      }
       assert.equal(record.env.npm_config_ignore_scripts, "true");
       assert.equal(record.env.npm_config_registry, "http://127.0.0.1:9");
       assert.doesNotMatch(JSON.stringify(record.env), /(?:auth|password|secret|token)/i);

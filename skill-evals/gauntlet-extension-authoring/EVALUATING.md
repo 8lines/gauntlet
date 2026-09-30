@@ -9,11 +9,11 @@ model evaluation; the recorded samples were generated against
 the previous inputs. The 0.1.1 release on 2026-09-29 changed package manifests
 and the lockfile bound as external inputs, while this skill's content stayed
 unchanged. The 0.1.2 release candidate prepared on 2026-09-29 changed those
-external package manifests and lockfiles again. The 0.1.3 candidate prepared
+external package manifests and lockfiles again. The 0.1.4 candidate prepared
 on 2026-09-30 updates the same versioned inputs. Their hashes are re-bound to
 current bytes without generating new model samples or changing recorded
 responses, reviews, or timestamps. This confirms content integrity, not
-behaviour against the 0.1.3 inputs. A fresh evaluation and independent review
+behaviour against the 0.1.4 inputs. A fresh evaluation and independent review
 are required before claiming current behavioural evidence.
 
 Every sample in the matrix is a fresh generation by a new evaluator process

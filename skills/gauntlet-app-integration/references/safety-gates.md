@@ -22,7 +22,7 @@ Collect evidence in this order. Stop on the first unresolved gate and leave the 
 - Reducing only Gauntlet control-plane replicas does not repair a replicated application adapter.
 - A currently single replica with planned autoscaling must be designed for its future maximum before enablement.
 - App Router or decoded-path tests cannot prove hardened Next.js raw-target handling after an upstream has normalized the request.
-- Confirmation is not authentication or authorization. Version `0.1.3` has no built-in Gauntlet authentication; expose it only to trusted testers inside an administered private boundary and retain application authorization checks.
+- Confirmation is not authentication or authorization. Version `0.1.4` has no built-in Gauntlet authentication; expose it only to trusted testers inside an administered private boundary and retain application authorization checks.
 
 ## Observed evidence trap
 
