@@ -417,7 +417,7 @@ function validateModuleMetadata(bytes, artifactId, version, captures) {
         || !serialized.includes('"group":"tools.jackson.core"')
         || !serialized.includes('"module":"jackson-core"')
         || !serialized.includes('"module":"jackson-databind"')
-        || !serialized.includes('"requires":"3.1.6"')) fixedFailure();
+        || !serialized.includes('"requires":"3.1.7"')) fixedFailure();
   } else if (!serialized.includes('"group":"dev.eightlines.gauntlet"')
       || !serialized.includes('"module":"core"') || !serialized.includes(`"requires":"${version}"`)
       || !serialized.includes('"group":"org.apache.tomcat.embed"')
@@ -427,7 +427,7 @@ function validateModuleMetadata(bytes, artifactId, version, captures) {
       || !serialized.includes('"requires":"11.0.25"')
       || !serialized.includes('"group":"tools.jackson"')
       || !serialized.includes('"module":"jackson-bom"')
-      || !serialized.includes('"requires":"3.1.6"')
+      || !serialized.includes('"requires":"3.1.7"')
       || !serialized.includes('"module":"spring-boot-starter-webmvc"')
       || !serialized.includes('"module":"spring-boot-starter-validation"')) fixedFailure();
 }

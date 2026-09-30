@@ -36,6 +36,10 @@ test("Java dependency constraints and locks use the first Trivy-patched releases
   }
   assert.match(starterBuild, /api\(platform\("tools\.jackson:jackson-bom:3\.1\.7"\)\)/u);
 
+  const mavenStager = readFileSync(resolve(ROOT, "scripts/release/stage-maven.mjs"), "utf8");
+  assert.equal((mavenStager.match(/"requires":"3\.1\.7"/gu) ?? []).length, 2);
+  assert.doesNotMatch(mavenStager, /"requires":"3\.1\.6"/u);
+
   for (const path of [
     "packages/java/core/gradle.lockfile",
     "packages/java/spring-boot-starter/gradle.lockfile",
