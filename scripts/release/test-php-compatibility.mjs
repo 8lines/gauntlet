@@ -395,7 +395,10 @@ export async function runPhpCompatibility({ root = ROOT } = {}) {
   try {
     inputs = captureInputs(root, environment);
     for (const build of plan.builds) {
-      execute(createDockerBuildInvocation({ build, composerImage: COMPOSER_IMAGE, root, environment }), { timeout: 600_000 });
+      execute(createDockerBuildInvocation({ build, composerImage: COMPOSER_IMAGE, root, environment }), {
+        timeout: 600_000,
+        phase: `build php-${build.php}`,
+      });
       builtTags.push(build.tag);
       if (availableBytes(root) < MINIMUM_RUNNING_BYTES) throw new Error("Insufficient disk space for PHP compatibility verification");
     }
@@ -437,8 +440,13 @@ if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.
     process.stderr.write("PHP compatibility verification failed safely\n");
     process.exitCode = 2;
   } else {
-    main().catch(() => {
-      process.stderr.write("PHP compatibility verification failed safely\n");
+    main().catch((error) => {
+      const phase = error instanceof Error
+        ? /^PHP compatibility ([a-z0-9 .:-]{1,96}) failed safely$/u.exec(error.message)?.[1]
+        : undefined;
+      process.stderr.write(phase === undefined
+        ? "PHP compatibility verification failed safely\n"
+        : `PHP compatibility ${phase} failed safely\n`);
       process.exitCode = 1;
     });
   }
