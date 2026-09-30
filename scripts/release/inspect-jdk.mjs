@@ -105,8 +105,8 @@ final class GauntletMavenInspector {
     if (module.artifact().equals("core")) {
       require(dependencies.equals(List.of(
           "com.networknt:json-schema-validator:3.0.4:runtime",
-          "tools.jackson.core:jackson-core:3.1.6:runtime",
-          "tools.jackson.core:jackson-databind:3.1.6:runtime")));
+          "tools.jackson.core:jackson-core:3.1.7:runtime",
+          "tools.jackson.core:jackson-databind:3.1.7:runtime")));
       require(child(project, "dependencyManagement", false) == null);
     } else {
       require(dependencies.equals(List.of(
@@ -120,7 +120,7 @@ final class GauntletMavenInspector {
       List<String> managed = dependencyRecords(child(management, "dependencies"));
       require(managed.equals(List.of(
           "org.springframework.boot:spring-boot-dependencies:4.1.1:import:pom",
-          "tools.jackson:jackson-bom:3.1.6:import:pom")));
+          "tools.jackson:jackson-bom:3.1.7:import:pom")));
     }
   }
 
