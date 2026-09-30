@@ -49,7 +49,7 @@ command argument, values file, rendered manifest, or source control.
 
 Create a reviewed `values.acme-staging.yaml`. This is a complete values file,
 not an overlay; keep one complete file per environment and protect changes with
-normal code review. The example uses the exact `0.1.4` application tag: stable tags are versioned; only digests are immutable. For digest pinning, set `tag` to
+normal code review. The example uses the exact `0.1.5` application tag: stable tags are versioned; only digests are immutable. For digest pinning, set `tag` to
 an empty string and set `digest` to the reviewed `sha256:...` value.
 
 <!-- gauntlet:environment-values -->
@@ -58,7 +58,7 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/8lines/gauntlet
-  tag: "0.1.4"
+  tag: "0.1.5"
   digest: ""
   pullPolicy: IfNotPresent
 imagePullSecrets: []
@@ -143,17 +143,17 @@ The chart is public, so `helm pull` needs no `helm registry login`. When you
 pull through an authenticated mirror, log in by standard input so the token is
 never an argument (`--password-stdin`).
 
-Pull the exact `0.1.4` chart to a local immutable input, render that same archive
+Pull the exact `0.1.5` chart to a local immutable input, render that same archive
 for review, and install that same archive. Do not install directly from an OCI
 URL after previewing a different input. The namespace must already exist.
 
 <!-- gauntlet:pull-render-install -->
 ```sh
-helm pull oci://ghcr.io/8lines/charts/gauntlet --version 0.1.4 --destination .
-helm template gauntlet ./gauntlet-0.1.4.tgz \
+helm pull oci://ghcr.io/8lines/charts/gauntlet --version 0.1.5 --destination .
+helm template gauntlet ./gauntlet-0.1.5.tgz \
   --namespace acme-staging \
   -f values.acme-staging.yaml > rendered.yaml
-helm upgrade --install gauntlet ./gauntlet-0.1.4.tgz \
+helm upgrade --install gauntlet ./gauntlet-0.1.5.tgz \
   --namespace acme-staging \
   -f values.acme-staging.yaml \
   --reset-values \
@@ -222,8 +222,8 @@ file:
 <!-- gauntlet:backup-preview -->
 ```sh
 helm get values gauntlet --namespace acme-staging --all > values.before-upgrade.yaml
-helm pull oci://ghcr.io/8lines/charts/gauntlet --version 0.1.4 --destination .
-helm template gauntlet ./gauntlet-0.1.4.tgz \
+helm pull oci://ghcr.io/8lines/charts/gauntlet --version 0.1.5 --destination .
+helm template gauntlet ./gauntlet-0.1.5.tgz \
   --namespace acme-staging \
   -f values.acme-staging.yaml > rendered.upgrade.yaml
 ```
@@ -236,7 +236,7 @@ Apply exactly the reviewed local archive:
 
 <!-- gauntlet:upgrade -->
 ```sh
-helm upgrade gauntlet ./gauntlet-0.1.4.tgz \
+helm upgrade gauntlet ./gauntlet-0.1.5.tgz \
   --namespace acme-staging \
   -f values.acme-staging.yaml \
   --reset-values \
