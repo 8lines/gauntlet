@@ -113,8 +113,8 @@ test("Symfony fixture rejects the observed legacy-shaped false positive", () => 
     require: {
       php: ">=8.3",
       "symfony/framework-bundle": "7.4.*",
-      "8lines/gauntlet-php-core": "0.1.5",
-      "8lines/gauntlet-symfony-bundle": "0.1.5",
+      "8lines/gauntlet-php-core": "0.1.6",
+      "8lines/gauntlet-symfony-bundle": "0.1.6",
     },
   }, null, 2)}\n`);
   write(root, "config/bundles.php", "<?php\nuse EightLines\\Gauntlet\\SymfonyBundle\\GauntletBundle;\nreturn [GauntletBundle::class => ['staging' => true]];\n");
@@ -343,16 +343,16 @@ function configureComposeApplication(root, application, label) {
   const runtimeDependencyPins = JSON.parse(readFileSync(resolve(root, "artifacts/runtime-pins.json"), "utf8"));
   const manifest = JSON.parse(readFileSync(resolve(root, `${application}/package.json`), "utf8"));
   manifest.dependencies = {
-    "@8lines/gauntlet-protocol": "file:../artifacts/8lines-gauntlet-protocol-0.1.5.tgz",
-    "@8lines/gauntlet-typescript-core": "file:../artifacts/8lines-gauntlet-typescript-core-0.1.5.tgz",
-    "@8lines/gauntlet-typescript-node": "file:../artifacts/8lines-gauntlet-typescript-node-0.1.5.tgz",
+    "@8lines/gauntlet-protocol": "file:../artifacts/8lines-gauntlet-protocol-0.1.6.tgz",
+    "@8lines/gauntlet-typescript-core": "file:../artifacts/8lines-gauntlet-typescript-core-0.1.6.tgz",
+    "@8lines/gauntlet-typescript-node": "file:../artifacts/8lines-gauntlet-typescript-node-0.1.6.tgz",
   };
   write(root, `${application}/package.json`, `${JSON.stringify(manifest, null, 2)}\n`);
   write(root, `${application}/pnpm-workspace.yaml`, [
     "packages:", "  - .", "overrides:",
-    "  '@8lines/gauntlet-protocol': 'file:../artifacts/8lines-gauntlet-protocol-0.1.5.tgz'",
-    "  '@8lines/gauntlet-typescript-core': 'file:../artifacts/8lines-gauntlet-typescript-core-0.1.5.tgz'",
-    "  '@8lines/gauntlet-typescript-node': 'file:../artifacts/8lines-gauntlet-typescript-node-0.1.5.tgz'",
+    "  '@8lines/gauntlet-protocol': 'file:../artifacts/8lines-gauntlet-protocol-0.1.6.tgz'",
+    "  '@8lines/gauntlet-typescript-core': 'file:../artifacts/8lines-gauntlet-typescript-core-0.1.6.tgz'",
+    "  '@8lines/gauntlet-typescript-node': 'file:../artifacts/8lines-gauntlet-typescript-node-0.1.6.tgz'",
     ...Object.entries(runtimeDependencyPins).map(([name, version]) => `  ${name}: '${version}'`),
     "",
   ].join("\n"));
@@ -391,7 +391,7 @@ test("Compose fixture rejects the observed incomplete standalone contract", () =
     assert.throws(() => readFileSync(resolve(root, `${application}/adapter.json`), "utf8"));
   }
   for (const artifact of ["protocol", "typescript-core", "typescript-node"]) {
-    const archive = resolve(root, `artifacts/8lines-gauntlet-${artifact}-0.1.5.tgz`);
+    const archive = resolve(root, `artifacts/8lines-gauntlet-${artifact}-0.1.6.tgz`);
     assert.deepEqual([...readFileSync(archive).subarray(0, 2)], [0x1f, 0x8b], `${artifact} must be a gzip archive`);
     const listed = spawnSync("tar", ["-tzf", archive], { encoding: "utf8" });
     assert.equal(listed.status, 0, listed.stderr);
@@ -400,7 +400,7 @@ test("Compose fixture rejects the observed incomplete standalone contract", () =
   configureComposeApplication(root, "billing", "Billing");
   configureComposeApplication(root, "portal", "Portal");
   write(root, "gauntlet/compose.yaml", [
-    "services:", "  gauntlet:", "    image: ghcr.io/8lines/gauntlet:0.1.5",
+    "services:", "  gauntlet:", "    image: ghcr.io/8lines/gauntlet:0.1.6",
     "    environment:", "      GAUNTLET_CONFIG_FILE: /etc/gauntlet/config.yaml",
     "    ports:", "      - 127.0.0.1:8080:8080", "    volumes:",
     "      - ./config.yaml:/etc/gauntlet/config.yaml:ro", "    networks:", "      - gauntlet",
@@ -564,7 +564,7 @@ test("Compose fixture rejects the observed incomplete standalone contract", () =
     { path: "portal/node_modules/@8lines/gauntlet-typescript-node/dist/adapter-handler.js", change: (source) => `${source}\n// stale loaded SDK module\n` },
     { path: "billing/node_modules/@8lines/gauntlet-typescript-core/package.json", change: (source) => `${source} ` },
     { path: "verify.mjs", change: (source) => `${source}\n// stale verifier revision\n` },
-    { path: "artifacts/8lines-gauntlet-typescript-node-0.1.5.tgz", change: (source) => Buffer.concat([source, Buffer.from("stale")]) },
+    { path: "artifacts/8lines-gauntlet-typescript-node-0.1.6.tgz", change: (source) => Buffer.concat([source, Buffer.from("stale")]) },
   ]) {
     const path = resolve(root, mutation.path);
     const original = readFileSync(path);

@@ -232,9 +232,9 @@ const currentReceiptDigests = () => ({
   runtimeArtifactsSha256: digestFiles([
     "app/src/server.mjs",
     "app/src/catalog.mjs",
-    "artifacts/8lines-gauntlet-protocol-0.1.5.tgz",
-    "artifacts/8lines-gauntlet-typescript-core-0.1.5.tgz",
-    "artifacts/8lines-gauntlet-typescript-node-0.1.5.tgz",
+    "artifacts/8lines-gauntlet-protocol-0.1.6.tgz",
+    "artifacts/8lines-gauntlet-typescript-core-0.1.6.tgz",
+    "artifacts/8lines-gauntlet-typescript-node-0.1.6.tgz",
     ...installedPackageNames.flatMap((name) => filesBelow(`app/node_modules/${name}`)),
   ]),
   runtimeDependencyTreesSha256: digest(canonicalJson(installedRuntimeDependencyHashes())),
@@ -264,21 +264,21 @@ function assertStaticContract() {
     const metadata = spawnSync("tar", ["-xOf", path, "package/package.json"], { encoding: "utf8" });
     assert(metadata.status === 0, `supplied candidate archive is unreadable: ${archive}`);
     const packageMetadata = JSON.parse(metadata.stdout);
-    assert(packageMetadata.version === "0.1.5", `supplied candidate archive version changed: ${archive}`);
+    assert(packageMetadata.version === "0.1.6", `supplied candidate archive version changed: ${archive}`);
   }
   assert(canonicalJson(installedRuntimeDependencyHashes()) === canonicalJson(expectedRuntimeDependencyEdgeHashes),
     "installed runtime import-edge bytes differ from the trusted fixture dependency graph");
   const manifest = json("app/package.json");
   const dependencies = {
-    "@8lines/gauntlet-protocol": "file:../artifacts/8lines-gauntlet-protocol-0.1.5.tgz",
-    "@8lines/gauntlet-typescript-core": "file:../artifacts/8lines-gauntlet-typescript-core-0.1.5.tgz",
-    "@8lines/gauntlet-typescript-node": "file:../artifacts/8lines-gauntlet-typescript-node-0.1.5.tgz",
+    "@8lines/gauntlet-protocol": "file:../artifacts/8lines-gauntlet-protocol-0.1.6.tgz",
+    "@8lines/gauntlet-typescript-core": "file:../artifacts/8lines-gauntlet-typescript-core-0.1.6.tgz",
+    "@8lines/gauntlet-typescript-node": "file:../artifacts/8lines-gauntlet-typescript-node-0.1.6.tgz",
   };
   assert(Object.keys(manifest.dependencies ?? {}).length === Object.keys(dependencies).length, "unexpected SDK dependency set");
   for (const [name, specifier] of Object.entries(dependencies)) {
-    assert(manifest.dependencies?.[name] === specifier, `exact 0.1.5 SDK archive missing: ${name}`);
+    assert(manifest.dependencies?.[name] === specifier, `exact 0.1.6 SDK archive missing: ${name}`);
     const installed = json(`app/node_modules/${name}/package.json`);
-    assert(installed.name === name && installed.version === "0.1.5", `installed SDK is not exact 0.1.5: ${name}`);
+    assert(installed.name === name && installed.version === "0.1.6", `installed SDK is not exact 0.1.6: ${name}`);
     assert(regularTreeSha256(resolve(root, `app/node_modules/${name}`), { excludeTopLevel: ["node_modules"] }) === packageTreeHashes[name],
       `installed SDK bytes differ from the packed archive: ${name}`);
   }
@@ -293,7 +293,7 @@ function assertStaticContract() {
   for (const [name, version] of Object.entries(runtimeDependencyPins)) {
     assert(overrides[name] === version, `runtime dependency override missing: ${name}`);
   }
-  assert(/8lines-gauntlet-typescript-node-0\.1\.5\.tgz/u.test(text("app/pnpm-lock.yaml")), "offline lockfile does not bind the Node SDK archive");
+  assert(/8lines-gauntlet-typescript-node-0\.1\.6\.tgz/u.test(text("app/pnpm-lock.yaml")), "offline lockfile does not bind the Node SDK archive");
 
 const source = text("app/src/server.mjs");
   assert(sha256(source) === "__GOLDEN_SERVER_SHA256__",
@@ -357,7 +357,7 @@ const source = text("app/src/server.mjs");
   const controlServices = mapping(controlCompose.services, "dashboard Compose services", ["gauntlet"]);
   const controlService = mapping(controlServices["gauntlet"], "dashboard service",
     ["image", "environment", "ports", "volumes", "networks"]);
-  assert(controlService.image === "ghcr.io/8lines/gauntlet:0.1.5", "exact standalone image missing");
+  assert(controlService.image === "ghcr.io/8lines/gauntlet:0.1.6", "exact standalone image missing");
   const controlEnvironment = mapping(controlService.environment, "dashboard environment", ["GAUNTLET_CONFIG_FILE"]);
   assert(controlEnvironment.GAUNTLET_CONFIG_FILE === "/etc/gauntlet/config.yaml", "control config selector missing");
   assert(JSON.stringify(sequence(controlService.ports, "dashboard ports", 1)) === JSON.stringify(["127.0.0.1:8080:8080"]),
