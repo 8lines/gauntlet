@@ -4,6 +4,12 @@ All notable changes to this project are recorded here. Released artifacts are im
 
 ## Unreleased
 
+## [0.1.7] - 2026-10-01
+
+### Fixed
+
+- Removed redundant borders around the dashboard sidebar, active navigation item, and overview cards.
+
 ## [0.1.6] - 2026-09-30
 
 ### Fixed
@@ -69,4 +75,5 @@ All notable changes to this project are recorded here. Released artifacts are im
 [0.1.1]: https://github.com/8lines/gauntlet/releases/tag/v0.1.1
 [0.1.2]: https://github.com/8lines/gauntlet/releases/tag/v0.1.2
 [0.1.6]: https://github.com/8lines/gauntlet/releases/tag/v0.1.6
+[0.1.7]: https://github.com/8lines/gauntlet/releases/tag/v0.1.7
 [0.1.0]: https://github.com/8lines/gauntlet/releases/tag/v0.1.0

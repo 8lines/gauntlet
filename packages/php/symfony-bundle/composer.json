@@ -1,7 +1,7 @@
 {
   "name": "8lines/gauntlet-symfony-bundle",
   "description": "Symfony integration bundle for the framework-neutral Gauntlet adapter protocol.",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "type": "symfony-bundle",
   "license": "Apache-2.0",
   "homepage": "https://github.com/8lines/gauntlet",
@@ -20,7 +20,7 @@
   ],
   "require": {
     "php": ">=8.3",
-    "8lines/gauntlet-php-core": "^0.1.6",
+    "8lines/gauntlet-php-core": "^0.1.7",
     "symfony/config": "^7.4 || ^8.0",
     "symfony/dependency-injection": "^7.4 || ^8.0",
     "symfony/framework-bundle": "^7.4 || ^8.0",
