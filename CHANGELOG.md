@@ -8,7 +8,7 @@ All notable changes to this project are recorded here. Released artifacts are im
 
 ### Fixed
 
-- Updated the Next.js example to the patched 16.3.6 release and pinned the workspace's transitive `brace-expansion` dependency to 5.0.12 so the production image passes the vulnerability gate.
+- Updated the Next.js example to 16.3.6, pinned the workspace's transitive `brace-expansion` dependency to 5.0.12, and upgraded the Java Jackson BOM to 3.1.7 to clear current dependency advisories.
 
 ## [0.1.2] - 2026-09-29
 

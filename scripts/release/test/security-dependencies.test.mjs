@@ -27,14 +27,14 @@ test("the pnpm lock contains no vulnerable Playwright or YAML versions", () => {
 
 test("Java dependency constraints and locks use the first Trivy-patched releases", () => {
   const coreBuild = readFileSync(resolve(ROOT, "packages/java/core/build.gradle.kts"), "utf8");
-  assert.match(coreBuild, /implementation\("tools\.jackson\.core:jackson-core:3\.1\.6"\)/u);
-  assert.match(coreBuild, /implementation\("tools\.jackson\.core:jackson-databind:3\.1\.6"\)/u);
+  assert.match(coreBuild, /implementation\("tools\.jackson\.core:jackson-core:3\.1\.7"\)/u);
+  assert.match(coreBuild, /implementation\("tools\.jackson\.core:jackson-databind:3\.1\.7"\)/u);
 
   const starterBuild = readFileSync(resolve(ROOT, "packages/java/spring-boot-starter/build.gradle.kts"), "utf8");
   for (const module of ["core", "el", "websocket"]) {
     assert.match(starterBuild, new RegExp(`api\\("org\\.apache\\.tomcat\\.embed:tomcat-embed-${module}:11\\.0\\.25"\\)`, "u"));
   }
-  assert.match(starterBuild, /api\(platform\("tools\.jackson:jackson-bom:3\.1\.6"\)\)/u);
+  assert.match(starterBuild, /api\(platform\("tools\.jackson:jackson-bom:3\.1\.7"\)\)/u);
 
   for (const path of [
     "packages/java/core/gradle.lockfile",
@@ -45,9 +45,9 @@ test("Java dependency constraints and locks use the first Trivy-patched releases
   ]) {
     const lock = readFileSync(resolve(ROOT, path), "utf8");
     for (const module of ["core:jackson-core", "core:jackson-databind"]) {
-      assert.match(lock, new RegExp(`^tools\\.jackson\\.${module}:3\\.1\\.6=`, "mu"), path);
+      assert.match(lock, new RegExp(`^tools\\.jackson\\.${module}:3\\.1\\.7=`, "mu"), path);
     }
-    assert.doesNotMatch(lock, /^tools\.jackson(?:\.[a-z]+)?:jackson-[a-z-]+:3\.1\.[0-5]=/mu, path);
+    assert.doesNotMatch(lock, /^tools\.jackson(?:\.[a-z]+)?:jackson-[a-z-]+:3\.1\.[0-6]=/mu, path);
     if (path === "packages/java/core/gradle.lockfile") continue;
     for (const module of ["core", "el", "websocket"]) {
       assert.match(lock, new RegExp(`^org\\.apache\\.tomcat\\.embed:tomcat-embed-${module}:11\\.0\\.25=`, "mu"), path);
