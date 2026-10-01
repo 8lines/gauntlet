@@ -69,7 +69,7 @@
         ".phpunit.result.cache",
         "vendor"
       ],
-      "sha256": "63e6b1cc83d40e743f847caf0badb521bdefb14ef93153d526f45d929296efba"
+      "sha256": "c2a3949ec75605068aa1e60d3561c465bc0fed93ecff6e52d24e60db794a607c"
     },
     {
       "path": "packages/protocol",
@@ -85,7 +85,7 @@
         "dist",
         "node_modules"
       ],
-      "sha256": "e5f3304110311d3f7c3c775b01c32bacd3718f0b2d039582fedbf9c8cb488cd7"
+      "sha256": "13386a0282e222757399e237d676154b28ee1cf4d4fb561966149b19185a95f3"
     },
     {
       "path": "packages/typescript/node",
