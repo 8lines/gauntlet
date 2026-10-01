@@ -43,7 +43,7 @@ test("release runbook requires a clean rehearsal and equality-checked retry", ()
   assert.match(source, /host-platform native\s+image/iu);
   assert.match(source, /multi-platform OCI archive/iu);
   assert.match(source, /Helm chart digest/iu);
-  assert.match(source, /git tag -a v0\.1\.6/u);
+  assert.match(source, /git tag -a v0\.1\.7/u);
   assert.match(source, /commit contained in `main`/u);
   assert.match(source, /all artifacts are already\s+byte\/commit-identical/isu);
   assert.match(source, /Do not manually fill a partially published release/u);

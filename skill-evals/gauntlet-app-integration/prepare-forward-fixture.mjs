@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { chmodSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
 
 const scenarios = new Set(["spring-ingress", "prod-alias", "node-compose"]);
@@ -136,17 +136,33 @@ function pressureFixture(root, scenario) {
 function packSuppliedCandidateSdk(root) {
   const artifactRoot = resolve(root, "artifacts");
   mkdirSync(artifactRoot, { recursive: true, mode: 0o700 });
-  for (const packageName of [
-    "@8lines/gauntlet-protocol",
-    "@8lines/gauntlet-typescript-core",
-    "@8lines/gauntlet-typescript-node",
-  ]) {
-    const packed = spawnSync("pnpm", ["--filter", packageName, "pack", "--pack-destination", artifactRoot], {
-      cwd: repositoryRoot,
-      encoding: "utf8",
-      timeout: 120_000,
+  const historicalRoot = resolve(root, ".historical-v0.1.6");
+  const added = spawnSync("git", ["worktree", "add", "--detach", historicalRoot, "v0.1.6"], {
+    cwd: repositoryRoot, encoding: "utf8", timeout: 30_000,
+  });
+  if (added.status !== 0) throw new Error(`failed to prepare exact v0.1.6 source: ${added.stderr || added.stdout}`);
+  try {
+    symlinkSync(resolve(repositoryRoot, "node_modules"), resolve(historicalRoot, "node_modules"), "dir");
+    for (const packagePath of ["packages/protocol", "packages/typescript/core", "packages/typescript/node"]) {
+      symlinkSync(resolve(repositoryRoot, packagePath, "node_modules"), resolve(historicalRoot, packagePath, "node_modules"), "dir");
+    }
+    for (const packageName of [
+      "@8lines/gauntlet-protocol",
+      "@8lines/gauntlet-typescript-core",
+      "@8lines/gauntlet-typescript-node",
+    ]) {
+      const packed = spawnSync("pnpm", ["--filter", packageName, "pack", "--pack-destination", artifactRoot], {
+        cwd: historicalRoot,
+        encoding: "utf8",
+        timeout: 120_000,
+      });
+      if (packed.status !== 0) throw new Error(`failed to pack exact v0.1.6 ${packageName}: ${packed.stderr || packed.stdout}`);
+    }
+  } finally {
+    const removed = spawnSync("git", ["worktree", "remove", "--force", historicalRoot], {
+      cwd: repositoryRoot, encoding: "utf8", timeout: 30_000,
     });
-    if (packed.status !== 0) throw new Error(`failed to pack ${packageName}: ${packed.stderr || packed.stdout}`);
+    if (removed.status !== 0) throw new Error(`failed to clean exact v0.1.6 source: ${removed.stderr || removed.stdout}`);
   }
   const packageArtifacts = [
     ["@8lines/gauntlet-protocol", "8lines-gauntlet-protocol-0.1.6.tgz"],
