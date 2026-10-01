@@ -17,10 +17,17 @@ timestamps. This confirms content integrity, not behaviour against the 0.1.5
 packages. A fresh evaluation and independent review are required before claiming
 current behavioural evidence.
 
+The 0.1.7 release candidate updates the exact candidate coordinates again. The
+external-input, skill, evaluation, and transcript hashes are re-bound to the
+current bytes without generating new model samples or changing recorded
+responses, reviews, or timestamps. This confirms content integrity, not
+behaviour against the 0.1.7 packages. A fresh evaluation and independent review
+are required before claiming current behavioural evidence.
+
 The preserved prompts, results, and evidence describe the original 0.1.0
 evaluation and have not been rewritten. The fixture preparers and verifier
-self-tests now exercise the current 0.1.5 candidate packages. These passing
-self-tests do not establish that the recorded model samples ran on 0.1.5. A
+self-tests now exercise the current 0.1.7 candidate packages. These passing
+self-tests do not establish that the recorded model samples ran on 0.1.7. A
 new model evaluation would need prompts and samples prepared for that version.
 
 Every sample in the matrix is a fresh generation by a new evaluator process
