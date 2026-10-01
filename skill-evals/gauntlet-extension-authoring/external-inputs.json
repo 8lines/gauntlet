@@ -11,15 +11,15 @@
     },
     {
       "path": "packages/protocol/package.json",
-      "sha256": "2953dce0ebdb826d4350b7e74c205f8f68c9a5c7506f9254576a1cfce8a449f6"
+      "sha256": "8b672ee34a5004a747bfc30277cd0bed39d93c74f446a8fe974ff2d6e04ed56e"
     },
     {
       "path": "packages/typescript/core/package.json",
-      "sha256": "ef85f5b14bd413db07f227b64ff9eb70f70d59efe26ece56b988f70bc541a61d"
+      "sha256": "9e71e2bfcb8f62d4c02117c2eafbab708421c9872f2bfd15437cd1058e5c882e"
     },
     {
       "path": "pnpm-lock.yaml",
-      "sha256": "67a625aa768d223ed156f2452d1762d420c6e20be7b1461e4a8bbfe4cd7c64fc"
+      "sha256": "205a15cf683846f31dcff4f2af01e0ae8a6e87722798fcf45b43750f560aa4dc"
     },
     {
       "path": "pnpm-workspace.yaml",

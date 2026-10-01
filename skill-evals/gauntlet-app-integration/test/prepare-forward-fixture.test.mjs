@@ -179,6 +179,10 @@ function integrateNodeComposeFixture() {
     "",
   ].join("\n"));
 
+  const cached = spawnSync("pnpm", ["store", "add", "fast-uri@3.1.8"], {
+    cwd: resolve(root, "app"), encoding: "utf8", timeout: 60_000,
+  });
+  assert.equal(cached.status, 0, cached.stderr || cached.stdout);
   const installed = spawnSync("pnpm", ["install", "--offline", "--ignore-scripts", "--frozen-lockfile=false"], {
     cwd: resolve(root, "app"), encoding: "utf8", timeout: 120_000,
   });

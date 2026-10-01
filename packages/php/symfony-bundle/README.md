@@ -20,8 +20,8 @@ no custom `repositories` entry or credential is needed. Require the bundle
 together with the matching PHP Core release:
 
 ```bash
-composer require 8lines/gauntlet-php-core:0.1.6 \
-  8lines/gauntlet-symfony-bundle:0.1.6
+composer require 8lines/gauntlet-php-core:0.1.7 \
+  8lines/gauntlet-symfony-bundle:0.1.7
 ```
 
 The public split repositories `8lines/gauntlet-php-core` and
