@@ -79,7 +79,9 @@
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: var(--radius);
+  --shadow-xs: 0 0 #0000;
+  --shadow-sm: 0 0 #0000;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
