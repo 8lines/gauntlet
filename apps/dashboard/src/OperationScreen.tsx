@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JsonObject, JsonPointer, OperationDefinition, Problem, Run, ValidationError } from "@8lines/gauntlet-protocol";
 import { api, isRunFinished } from "./api.ts";
 import { buildCreateRunRequest } from "./create-run-request.ts";
-import { OperationForm } from "./OperationForm.tsx";
+import { OperationForm } from "./components/gauntlet/operation-form/OperationForm.tsx";
 import type { FileFieldState } from "./form-upload.ts";
 import { RunDetails } from "./RunDetails.tsx";
 import { Card, EffectList, Badge, ConfirmDialog, Button, EmptyState } from "./ui.tsx";
