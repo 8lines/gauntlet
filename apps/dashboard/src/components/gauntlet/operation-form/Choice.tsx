@@ -14,6 +14,11 @@ function allowedValues(schema: unknown, pointer: JsonPointer): readonly string[]
   return Array.isArray(allowed) ? allowed.filter((v): v is string => typeof v === "string") : [];
 }
 
+/* Radix SelectItem rejects an empty value, so "no value" and an enum value of "" use sentinels. */
+const NO_VALUE = "__gauntlet_no_value__";
+const EMPTY_VALUE = "__gauntlet_empty__";
+const EMPTY_LABEL = "Empty value";
+
 export function Choice(props: ControlProps & { readonly multiple: boolean }) {
   const options = allowedValues(props.schema, props.node.pointer);
   const selected = Array.isArray(props.value) ? (props.value as string[]) : [];
@@ -21,8 +26,9 @@ export function Choice(props: ControlProps & { readonly multiple: boolean }) {
   if (!props.multiple) {
     return (
       <Select
-        value={typeof props.value === "string" ? props.value : ""}
-        onValueChange={props.setValue} disabled={props.disabled}
+        value={typeof props.value === "string" ? (props.value === "" ? EMPTY_VALUE : props.value) : ""}
+        onValueChange={(next) => props.setValue(next === NO_VALUE ? undefined : next === EMPTY_VALUE ? "" : next)}
+        disabled={props.disabled}
       >
         <SelectTrigger
           id={props.fieldId} className="w-full" aria-invalid={props.invalid || undefined}
@@ -31,7 +37,8 @@ export function Choice(props: ControlProps & { readonly multiple: boolean }) {
           <SelectValue placeholder="Select a value" />
         </SelectTrigger>
         <SelectContent>
-          {options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+          {!props.required && <SelectItem value={NO_VALUE}>No value</SelectItem>}
+          {options.map((o) => <SelectItem key={o} value={o === "" ? EMPTY_VALUE : o}>{o === "" ? EMPTY_LABEL : o}</SelectItem>)}
         </SelectContent>
       </Select>
     );
@@ -55,7 +62,7 @@ export function Choice(props: ControlProps & { readonly multiple: boolean }) {
               id={optionId} disabled={props.disabled} checked={isSelected}
               onCheckedChange={() => props.setValue(isSelected ? selected.filter((x) => x !== o) : [...selected, o])}
             />
-            <Label htmlFor={optionId} className="text-sm/5 font-normal">{o}</Label>
+            <Label htmlFor={optionId} className="text-sm/5 font-normal">{o === "" ? EMPTY_LABEL : o}</Label>
           </div>
         );
       })}

@@ -64,8 +64,13 @@ export function Field({ node, context }: { node: Extract<UiNode, { type: "field"
   const fileRule = fileRuleForPointer(context.definition, node.pointer);
   const fieldId = `field-${node.pointer.replaceAll("/", "-")}`;
   const helpId = `${fieldId}-help`;
+  const lockedId = `${fieldId}-locked`;
   const errorId = `${fieldId}-error`;
-  const describedBy = [node.help !== undefined ? helpId : undefined, error !== undefined ? errorId : undefined]
+  const describedBy = [
+    node.help !== undefined ? helpId : undefined,
+    locked ? lockedId : undefined,
+    error !== undefined ? errorId : undefined,
+  ]
     .filter((id) => id !== undefined)
     .join(" ") || undefined;
   const label = fieldLabel(node, context.definition);
@@ -79,7 +84,7 @@ export function Field({ node, context }: { node: Extract<UiNode, { type: "field"
           {required && <span className="text-err" aria-hidden="true">*</span>}
         </Label>
         {locked && (
-          <span className="inline-flex items-center gap-1 text-xs/4 text-muted-foreground">
+          <span id={lockedId} className="inline-flex items-center gap-1 text-xs/4 text-muted-foreground">
             <Lock className="size-3" aria-hidden="true" />
             Locked by preset
           </span>

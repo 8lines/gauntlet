@@ -49,10 +49,14 @@ export function Autocomplete(props: ControlProps & { readonly dataSource: DataSo
 
   const selectedItem = items.find((item) => item.value === props.value)
     ?? (picked?.value === props.value ? picked : undefined);
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) setSearch("");
+  };
   const triggerText = selectedItem?.label ?? (waiting ? "Waiting for a selection above" : "Start typing to search");
 
   return (
-    <Popover open={open && !waiting} onOpenChange={setOpen}>
+    <Popover open={open && !waiting} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           id={props.fieldId} type="button" variant="outline" role="combobox" aria-expanded={open && !waiting}
@@ -67,14 +71,14 @@ export function Autocomplete(props: ControlProps & { readonly dataSource: DataSo
       </PopoverTrigger>
       <PopoverContent align="start" className="w-(--radix-popover-trigger-width) p-0">
         <Command shouldFilter={false}>
-          <CommandInput value={search} onValueChange={setSearch} placeholder="Start typing to search" />
+          <CommandInput value={search} onValueChange={setSearch} placeholder="Start typing to search" aria-label={`Search ${props.label}`} />
           <CommandList>
             {loading && <p className="px-3 py-2 text-sm/5 text-muted-foreground" role="status">Searching</p>}
             {!loading && <CommandEmpty>No matching items.</CommandEmpty>}
             {items.map((item) => (
               <CommandItem
                 key={item.value} value={item.value} disabled={item.disabled === true || props.disabled}
-                onSelect={() => { props.setValue(item.value); setPicked(item); setSearch(""); setOpen(false); }}
+                onSelect={() => { props.setValue(item.value); setPicked(item); handleOpenChange(false); }}
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm/5">{item.label}</span>
