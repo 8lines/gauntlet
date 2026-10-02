@@ -9,7 +9,8 @@ export function ProblemAlert({ problem, title, correlationId }: { problem: Probl
   return (
     <Alert className="border-err [&>svg]:text-err" role="alert">
       <CircleX className="text-err" />
-      <AlertTitle>{title ?? described.title}</AlertTitle>
+      {/* Stock AlertTitle clamps to one line; adapter-provided titles must wrap in full. */}
+      <AlertTitle className="line-clamp-none">{title ?? described.title}</AlertTitle>
       <AlertDescription>
         <p>{title === undefined ? described.advice : `${described.title}. ${described.advice}`}</p>
         {correlationId !== undefined && <p className="font-mono text-xs/4">Correlation ID {correlationId}</p>}

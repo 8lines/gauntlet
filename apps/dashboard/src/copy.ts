@@ -91,11 +91,39 @@ export function describeProblem(problem: Problem): { readonly title: string; rea
   };
 }
 
+const UNKNOWN_TIME = "at an unknown time";
+
+/** "just now", "12 s ago", "5 min ago", "3 h ago", "2 d ago"; a timestamp that does not parse reads "at an unknown time". */
 export function formatRelativeTime(timestamp: string, now: Date = new Date()): string {
-  const seconds = Math.round((now.getTime() - new Date(timestamp).getTime()) / 1000);
+  const time = new Date(timestamp).getTime();
+  if (Number.isNaN(time) || Number.isNaN(now.getTime())) return UNKNOWN_TIME;
+  const seconds = Math.round((now.getTime() - time) / 1000);
   if (seconds < 5) return "just now";
   if (seconds < 60) return `${seconds} s ago`;
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) return `${minutes} min ago`;
-  return `${Math.round(minutes / 60)} h ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  return `${Math.round(hours / 24)} d ago`;
+}
+
+/** Milliseconds from `startedAt` to `completedAt`, or `undefined` when either is missing, unparsable or out of order. */
+export function elapsedMilliseconds(startedAt: string | undefined, completedAt: string | undefined): number | undefined {
+  if (startedAt === undefined || completedAt === undefined) return undefined;
+  const elapsed = new Date(completedAt).getTime() - new Date(startedAt).getTime();
+  return Number.isNaN(elapsed) || elapsed < 0 ? undefined : elapsed;
+}
+
+/** How long something took: "850 ms", "3.4 s", "42 s", "2 min 5 s", "1 h 5 min". */
+export function formatElapsed(milliseconds: number): string {
+  if (!Number.isFinite(milliseconds) || milliseconds < 0) return "an unknown time";
+  if (Math.round(milliseconds) < 1000) return `${Math.round(milliseconds)} ms`;
+  const tenths = Math.round(milliseconds / 100);
+  if (tenths < 100) return `${(tenths / 10).toFixed(1).replace(/\.0$/, "")} s`;
+  const seconds = Math.round(milliseconds / 1000);
+  if (seconds < 60) return `${seconds} s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return seconds % 60 === 0 ? `${minutes} min` : `${minutes} min ${seconds % 60} s`;
+  const hours = Math.floor(minutes / 60);
+  return minutes % 60 === 0 ? `${hours} h` : `${hours} h ${minutes % 60} min`;
 }

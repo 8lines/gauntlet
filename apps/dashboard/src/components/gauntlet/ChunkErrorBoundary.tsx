@@ -34,7 +34,7 @@ export class ChunkErrorBoundary extends Component<Props, { failed: boolean }> {
       <div className="mx-auto w-full max-w-[1240px] px-4 py-6 sm:px-8 sm:py-8">
         <Alert className="border-err [&>svg]:text-err" role="alert">
           <CircleX className="text-err" />
-          <AlertTitle>Could not load this screen</AlertTitle>
+          <AlertTitle className="line-clamp-none">Could not load this screen</AlertTitle>
           <AlertDescription>
             <p>Check your connection, then try again.</p>
             <Button variant="outline" className="mt-2" onClick={() => globalThis.location.reload()}>Try again</Button>

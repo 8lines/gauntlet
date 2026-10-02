@@ -1,7 +1,7 @@
 import type { Run } from "@8lines/gauntlet-protocol";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { formatRelativeTime } from "../../copy.ts";
+import { elapsedMilliseconds, formatElapsed, formatRelativeTime } from "../../copy.ts";
 import { ArtifactView } from "./ArtifactView.tsx";
 import { FollowUpList } from "./FollowUpList.tsx";
 import { ProblemAlert } from "./ProblemAlert.tsx";
@@ -15,6 +15,8 @@ export function RunView(
   const progress = run.progress;
   const determinate = progress?.total !== undefined && progress.current !== undefined && progress.total > 0;
   const startedAt = run.startedAt ?? run.createdAt;
+  /* A finished run also says how long it took: "Started 12 s ago, took 3.4 s". */
+  const elapsed = active ? undefined : elapsedMilliseconds(run.startedAt, run.completedAt);
 
   return (
     <div className="min-w-0 space-y-6">
@@ -22,9 +24,10 @@ export function RunView(
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <RunStateBadge state={run.state} />
           <span className="font-mono text-xs/4 text-muted-foreground">{run.id}</span>
-          <time dateTime={startedAt} title={startedAt} className="text-xs/4 text-muted-foreground">
-            {formatRelativeTime(startedAt)}
-          </time>
+          <span className="text-xs/4 text-muted-foreground">
+            Started <time dateTime={startedAt} title={startedAt}>{formatRelativeTime(startedAt)}</time>
+            {elapsed !== undefined && `, took ${formatElapsed(elapsed)}`}
+          </span>
         </div>
         {run.summary !== undefined && (
           <div>
