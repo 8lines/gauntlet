@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { OperationSummary, Run } from "@8lines/gauntlet-protocol";
 import type { PageSubject } from "@8lines/gauntlet-widget-channel";
+import { TriangleAlert } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { describeProblem } from "../copy.ts";
 import { OperationScreen } from "../screens/OperationScreen.tsx";
 import { BackBar } from "./BackBar.tsx";
@@ -50,7 +53,7 @@ export function Panel() {
   if (channel.state.kind !== "connected") {
     const notice = NOT_CONNECTED[channel.state.kind];
     return (
-      <div className="flex h-full flex-col bg-canvas">
+      <div className="flex h-full flex-col bg-background">
         <PanelHeader snapshot={undefined} onClose={close} />
         <PanelNotice title={notice.title} detail={notice.detail} />
       </div>
@@ -106,7 +109,7 @@ function ConnectedPanel({ channel, targetId }: { channel: PanelChannel; targetId
   const snapshot = target.kind === "found" ? target.snapshot : undefined;
 
   return (
-    <div className="flex h-full flex-col bg-canvas">
+    <div className="flex h-full flex-col bg-background">
       <PanelHeader
         snapshot={snapshot}
         search={snapshot === undefined
@@ -117,21 +120,26 @@ function ConnectedPanel({ channel, targetId }: { channel: PanelChannel; targetId
       />
       <main className="@container/workspace flex min-h-0 flex-1 flex-col">
         {refreshProblem !== undefined && snapshot !== undefined && (
-          <p role="status" className="shrink-0 border-b border-wait-bd bg-wait-bg px-4 py-2 text-[12px] text-wait">
-            Could not refresh the catalog: {describeProblem(refreshProblem).title}. Showing the last known state.
-          </p>
+          <div className="shrink-0 px-4 pt-4">
+            <Alert role="status" className="border-warn [&>svg]:text-warn">
+              <TriangleAlert aria-hidden="true" />
+              <AlertDescription>
+                {`Could not refresh the catalog: ${describeProblem(refreshProblem).title}. Showing the last known state.`}
+              </AlertDescription>
+            </Alert>
+          </div>
         )}
-        {target.kind === "loading" && <p className="p-6 text-[13px] text-muted-foreground">Loading catalog…</p>}
+        {target.kind === "loading" && <p className="p-6 text-sm/5 text-muted-foreground">Loading catalog…</p>}
         {target.kind === "unknown" && (
           <PanelNotice
-            tone="stop" icon="warning"
+            tone="stop"
             title={`Unknown target ${targetId}`}
             detail="Check the target ID in the widget boot call and in the Gauntlet configuration."
           />
         )}
         {target.kind === "error" && (
           <PanelNotice
-            tone="stop" icon="warning"
+            tone="stop"
             title={describeProblem(target.problem).title}
             detail={describeProblem(target.problem).advice}
           />
@@ -210,20 +218,21 @@ function PageSubjectDrift({ view, current, currentBindings, onUseCurrent }: {
     return null;
   }
   return (
-    <div role="status" className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-wait-bd bg-wait-bg px-4 py-2 text-[12px] text-wait">
-      <p className="min-w-0 flex-1">
-        The page now shows <span className="font-medium">{subjectChip(current)}</span>.{" "}
-        {view.subject === undefined
-          ? "The form has no values from the page."
-          : <>The form has values for <span className="font-medium">{subjectChip(view.subject)}</span>.</>}
-      </p>
-      <button
-        type="button"
-        onClick={() => onUseCurrent(current, currentBindings)}
-        className="shrink-0 rounded-control border border-wait-bd bg-background px-2 py-1 font-medium text-foreground hover:bg-accent"
-      >
-        Use values from the page
-      </button>
+    <div className="shrink-0 px-4 pt-4">
+      <Alert role="status" className="border-warn [&>svg]:text-warn">
+        <TriangleAlert aria-hidden="true" />
+        <AlertDescription>
+          <p>
+            The page now shows <span className="font-medium text-foreground">{subjectChip(current)}</span>.{" "}
+            {view.subject === undefined
+              ? "The form has no values from the page."
+              : <>The form has values for <span className="font-medium text-foreground">{subjectChip(view.subject)}</span>.</>}
+          </p>
+          <Button type="button" variant="outline" size="sm" onClick={() => onUseCurrent(current, currentBindings)}>
+            Use values from the page
+          </Button>
+        </AlertDescription>
+      </Alert>
     </div>
   );
 }

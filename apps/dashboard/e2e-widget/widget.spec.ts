@@ -30,7 +30,7 @@ function section(page: Page, title: string): Locator {
  */
 async function contextualListSettled(page: Page, applicationId: string): Promise<void> {
   const contextual = section(page, "On this page");
-  await expect(contextual.getByText(`agency-application ${applicationId}`, { exact: true })).toHaveCount(2);
+  await expect(contextual.getByText(`for agency-application ${applicationId}`, { exact: true })).toHaveCount(2);
   await expect(contextual.getByText(DESCRIPTION, { exact: true })).toHaveCount(2);
 }
 
@@ -101,7 +101,7 @@ test.describe.serial("the widget on a listed host origin", () => {
 
     const finalize = section(page, "On this page").getByRole("button").filter({ hasText: FINALIZE });
     await expect(finalize).toBeVisible();
-    await expect(finalize.getByText(`agency-application ${FIRST}`, { exact: true })).toBeVisible();
+    await expect(finalize.getByText(`for agency-application ${FIRST}`, { exact: true })).toBeVisible();
     await contextualListSettled(page, FIRST);
   });
 
@@ -110,19 +110,19 @@ test.describe.serial("the widget on a listed host origin", () => {
     await section(page, "On this page").getByRole("button").filter({ hasText: FINALIZE }).click();
 
     await expect(frame.getByRole("heading", { name: FINALIZE, level: 1 })).toBeVisible();
-    await expect(frame.getByLabel("applicationId", { exact: true })).toHaveValue(FIRST);
+    await expect(frame.getByRole("textbox", { name: "applicationId", exact: true })).toHaveValue(FIRST);
     // Searching would discard the open form, so search waits until the user goes back.
     await expect(frame.getByRole("searchbox", { name: "Search operations" })).toBeDisabled();
     expect(await panelWidth(page)).toBeLessThanOrEqual(400);
 
-    await frame.getByLabel("confirmationCode", { exact: true }).fill("123456");
+    await frame.getByRole("textbox", { name: "confirmationCode", exact: true }).fill("123456");
     await frame.getByRole("region", { name: "Operation actions" }).getByRole("button", { name: FINALIZE }).click();
-    const dialog = frame.getByRole("dialog");
+    const dialog = frame.getByRole("alertdialog");
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: FINALIZE }).click();
     await expect(dialog).toBeHidden();
 
-    await expect(frame.getByText("done", { exact: true })).toBeVisible();
+    await expect(frame.getByText(/Done/)).toBeVisible();
     await expect(frame.getByText("Application finalized", { exact: true })).toBeVisible();
     await expect(frame.getByText("Application finalized.", { exact: true })).toBeVisible();
     // While a run result shows, the drawer widens.
@@ -153,8 +153,8 @@ test.describe.serial("the widget on a listed host origin", () => {
     await page.evaluate((path) => history.pushState({}, "", path), `/applications/${SECOND}`);
 
     const finalize = section(page, "On this page").getByRole("button").filter({ hasText: FINALIZE });
-    await expect(finalize.getByText(`agency-application ${SECOND}`, { exact: true })).toBeVisible();
-    await expect(finalize.getByText(`agency-application ${FIRST}`, { exact: true })).toHaveCount(0);
+    await expect(finalize.getByText(`for agency-application ${SECOND}`, { exact: true })).toBeVisible();
+    await expect(finalize.getByText(`for agency-application ${FIRST}`, { exact: true })).toHaveCount(0);
     expect(await frame.evaluate(() => (window as unknown as { e2eMarker?: string }).e2eMarker)).toBe("same document");
   });
 
@@ -170,7 +170,7 @@ test.describe.serial("the widget on a listed host origin", () => {
     await contextualListSettled(page, SECOND);
     await section(page, "On this page").getByRole("button").filter({ hasText: FINALIZE }).click();
     await expect(frame.getByRole("heading", { name: FINALIZE, level: 1 })).toBeVisible();
-    const applicationId = frame.getByLabel("applicationId", { exact: true });
+    const applicationId = frame.getByRole("textbox", { name: "applicationId", exact: true });
     await expect(applicationId).toHaveValue(SECOND);
     const useCurrent = frame.getByRole("button", { name: "Use values from the page", exact: true });
     await expect(useCurrent).toHaveCount(0);
@@ -202,11 +202,47 @@ test.describe.serial("the widget on a listed host origin", () => {
 
     const frame = panel(page);
     await expect(frame.getByRole("heading", { name: FINALIZE, level: 1 })).toBeVisible();
-    await expect(frame.getByText("done", { exact: true })).toBeVisible();
+    await expect(frame.getByText(/Done/)).toBeVisible();
     await expect(frame.getByText("Application finalized", { exact: true })).toBeVisible();
     await expect(frame.getByText("Application finalized.", { exact: true })).toBeVisible();
     await expect(frame.getByText("Unavailable after a Gauntlet restart")).toHaveCount(0);
   });
+});
+
+test("a panel on the system theme paints the system colour scheme from its first render and follows changes", async ({ browser }) => {
+  const context = await browser.newContext({ colorScheme: "dark" });
+  try {
+    // Runs in every frame; only the panel's own origin gets the preference and the observer.
+    await context.addInitScript((panelOrigin) => {
+      if (location.origin !== panelOrigin) return;
+      localStorage.setItem("gauntlet.preferences.v1", JSON.stringify({ theme: "system" }));
+      const probe = window as unknown as { e2eDarkAtFirstRender?: boolean };
+      const observer = new MutationObserver(() => {
+        const root = document.getElementById("root");
+        if (root === null || root.firstChild === null) return;
+        probe.e2eDarkAtFirstRender = document.documentElement.classList.contains("dark");
+        observer.disconnect();
+      });
+      observer.observe(document, { childList: true, subtree: true });
+    }, GAUNTLET);
+    const page = await context.newPage();
+    await page.goto(`${HOST}/applications/${FIRST}`);
+    await expect(page.locator("[data-gauntlet-widget]")).toHaveAttribute("data-gauntlet-state", "ready");
+
+    const frame = panelFrame(page);
+    if (frame === undefined) throw new Error("the panel frame is missing");
+    // One read, no retries: the class has to be there when #root first gets a child, not just eventually.
+    expect(await frame.evaluate(() => (window as unknown as { e2eDarkAtFirstRender?: boolean }).e2eDarkAtFirstRender)).toBe(true);
+
+    const isDark = () => frame.evaluate(() => document.documentElement.classList.contains("dark"));
+    expect(await isDark()).toBe(true);
+    // A hidden frame does not run media query change listeners, so follow the scheme change with the panel open.
+    await openPanel(page);
+    await page.emulateMedia({ colorScheme: "light" });
+    await expect.poll(isDark).toBe(false);
+  } finally {
+    await context.close();
+  }
 });
 
 test("an origin no target lists ends unavailable and never lists operations", async ({ page }) => {

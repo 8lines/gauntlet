@@ -20,10 +20,10 @@ export function RecentRunView({ entry, onRunAgain, onResultShown }: {
   useEffect(() => { onResultShown(shown); }, [shown, onResultShown]);
 
   return (
-    <div className="space-y-4 p-4">
-      <div>
-        <p className="page-eyebrow">Run</p>
-        <h1 className="mt-1 wrap-anywhere text-xl/7 font-semibold">{entry.label}</h1>
+    <div className="flex flex-col gap-4 p-4">
+      <div className="flex flex-col gap-1">
+        <p className="text-xs/4 text-muted-foreground">Run</p>
+        <h1 className="text-xl/7 font-semibold break-words">{entry.label}</h1>
       </div>
       {run === undefined && !missing && problem === undefined && (
         <p className="text-sm/5 text-muted-foreground">Loading run…</p>

@@ -1,6 +1,6 @@
 import type { OperationSummary } from "@8lines/gauntlet-protocol";
 import type { PageSubject } from "@8lines/gauntlet-widget-channel";
-import { Badge } from "../ui.tsx";
+import { Skeleton } from "@/components/ui/skeleton";
 import { describeProblem } from "../copy.ts";
 import { routePath } from "../route.ts";
 import { subjectChip } from "./placements.ts";
@@ -13,9 +13,9 @@ export function DashboardLink({ targetId, operationId }: { targetId: string; ope
       href={routePath({ targetId, operationId })}
       target="_blank"
       rel="noopener"
-      className="shrink-0 rounded-badge text-[12px] font-medium text-primary hover:underline"
+      className="shrink-0 rounded-sm py-3 text-[13px]/[18px] font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
-      Open in Gauntlet
+      Open in Gauntlet ↗
     </a>
   );
 }
@@ -33,34 +33,34 @@ export function OperationRow({ targetId, operation, description, subject, onOpen
 }) {
   const available = operation.availability.state === "available";
   return (
-    <div className="flex items-start gap-3 px-4 py-3">
+    <li className="flex items-start gap-3">
       <button
         type="button"
         disabled={!available}
         onClick={onOpen}
-        className="min-w-0 flex-1 rounded-control text-left enabled:hover:text-primary disabled:opacity-45"
+        className="flex min-w-0 flex-1 flex-col gap-1 rounded-sm py-3 text-left outline-none enabled:hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed"
       >
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="wrap-anywhere text-[13px] font-medium">{operation.label}</span>
-          {subject !== undefined && <Badge tone="info">{subjectChip(subject)}</Badge>}
+        <span className="flex flex-wrap items-baseline gap-x-2">
+          <span className="text-sm/5 font-medium break-words">{operation.label}</span>
+          {subject !== undefined && (
+            <span className="text-[13px]/[18px] text-muted-foreground">{`for ${subjectChip(subject)}`}</span>
+          )}
         </span>
         {description.loading
           ? (
             // Reserves the description's line while the definition loads, so rows below do not shift under the pointer.
-            <span aria-hidden="true" className="mt-0.5 block text-[12px] leading-relaxed">
-              <span className="inline-block h-2.5 w-2/3 rounded-badge bg-muted align-middle" />
-            </span>
+            <Skeleton aria-hidden="true" className="h-[18px] w-2/3" />
           )
           : description.text !== undefined && (
-            <span className="mt-0.5 block text-[12px] leading-relaxed text-muted-foreground">{description.text}</span>
+            <span className="text-[13px]/[18px] text-muted-foreground">{description.text}</span>
           )}
         {operation.availability.state === "unavailable" && (
-          <span className="mt-0.5 block text-[12px] text-wait">
-            Unavailable · {describeProblem(operation.availability.problem).title}
+          <span className="text-[13px]/[18px] text-muted-foreground">
+            {`Unavailable. ${describeProblem(operation.availability.problem).title}`}
           </span>
         )}
       </button>
       <DashboardLink targetId={targetId} operationId={operation.id} />
-    </div>
+    </li>
   );
 }

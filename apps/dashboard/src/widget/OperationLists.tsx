@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 import type { OperationSummary } from "@8lines/gauntlet-protocol";
 import type { PageSubject } from "@8lines/gauntlet-widget-channel";
-import { Card, Rows } from "../ui.tsx";
-import type { IconName } from "../Icon.tsx";
+import { RecentRunRow } from "@/components/gauntlet/RecentRunsList";
 import { DashboardLink, OperationRow } from "./OperationRow.tsx";
 import type { PanelLists } from "./placements.ts";
 import type { RecentRun } from "../recent-runs.ts";
+import { useRecentRunStates } from "../useRecentRunStates.ts";
 import type { OperationDescription } from "./usePanelCatalog.ts";
 
 /**
@@ -25,6 +25,7 @@ export function OperationLists({
   onOpenOperation: (operation: OperationSummary) => void;
   onOpenRun: (run: RecentRun) => void;
 }) {
+  const states = useRecentRunStates(recent);
   const row = (operation: OperationSummary, subject: PageSubject | undefined) => (
     <OperationRow
       key={operation.id}
@@ -38,8 +39,8 @@ export function OperationLists({
 
   if (query.trim() !== "") {
     return (
-      <div className="space-y-4 p-4">
-        <Section title="Search results" icon="search" count={results.length} empty="No matching operations.">
+      <div className="flex flex-col gap-6 p-4">
+        <Section title="Search results" count={results.length} empty="No matching operations.">
           {results.map((operation) => row(operation, subjectOf(operation.id)))}
         </Section>
       </div>
@@ -47,51 +48,43 @@ export function OperationLists({
   }
 
   return (
-    <div className="space-y-4 p-4">
-      <Section title="On this page" icon="eye" count={lists.contextual.length} empty="No operations for this place in the application.">
+    <div className="flex flex-col gap-6 p-4">
+      <Section title="On this page" count={lists.contextual.length} empty="No operations for this place in the application.">
         {lists.contextual.map(({ operation, subject }) => row(operation, subject))}
       </Section>
-      <Section title="Global" icon="grid" count={lists.global.length} empty="No operations available from everywhere.">
+      <Section title="Global" count={lists.global.length} empty="No operations available from everywhere.">
         {lists.global.map((operation) => row(operation, undefined))}
       </Section>
-      <Section title="Recent runs" icon="clock" count={recent.length} empty="Runs started from this widget will appear here.">
+      <Section title="Recent runs" count={recent.length} empty="Runs started from this widget will appear here.">
         {recent.map((run) => (
-          <div key={run.runId} className="flex items-start gap-3 px-4 py-3">
-            <button
-              type="button"
-              onClick={() => onOpenRun(run)}
-              className="min-w-0 flex-1 rounded-control text-left hover:text-primary"
-            >
-              <span className="block wrap-anywhere text-[13px] font-medium">{run.label}</span>
-              <span className="mt-0.5 block text-[12px] text-muted-foreground">{startedAt(run.startedAt)}</span>
-            </button>
-            <DashboardLink targetId={run.targetId} operationId={run.operationId} />
-          </div>
+          <RecentRunRow
+            key={run.runId}
+            entry={run}
+            state={states.get(run.runId)}
+            action={{ onOpen: () => onOpenRun(run) }}
+            trailing={<DashboardLink targetId={run.targetId} operationId={run.operationId} />}
+          />
         ))}
       </Section>
     </div>
   );
 }
 
-function Section({ title, icon, count, empty, children }: {
+function Section({ title, count, empty, children }: {
   title: string;
-  icon: IconName;
   count: number;
   empty: string;
   children: ReactNode;
 }) {
   return (
-    <Card title={title} icon={icon} action={<span className="text-[12px] tabular-nums text-muted-foreground">{count}</span>}>
+    <section className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-base/6 font-semibold">{title}</h2>
+        <span className="text-xs/4 text-muted-foreground tabular-nums">{count}</span>
+      </div>
       {count === 0
-        ? <p className="px-4 py-3 text-[12px] text-muted-foreground">{empty}</p>
-        : <Rows>{children}</Rows>}
-    </Card>
+        ? <p className="text-[13px]/[18px] text-muted-foreground">{empty}</p>
+        : <ul className="flex flex-col divide-y border-y">{children}</ul>}
+    </section>
   );
-}
-
-function startedAt(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime())
-    ? iso
-    : date.toLocaleString("en", { dateStyle: "short", timeStyle: "short" });
 }
