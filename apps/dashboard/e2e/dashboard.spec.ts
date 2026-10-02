@@ -3,6 +3,8 @@ import dashboardPackage from "../package.json" with { type: "json" };
 import {
   desktopOperation,
   destructiveOperation,
+  followUpInput,
+  followUpOperation,
   installApiFixture,
   recordedRuns,
   recordedState,
@@ -34,13 +36,14 @@ test("mobile execution stays inside the viewport and confirms both modes", async
 
   const roleGroup = page.getByRole("group", { name: "Role" });
   await expect(roleGroup).toBeVisible();
-  const viewer = roleGroup.getByRole("button", { name: "viewer" });
-  await expect(viewer).toHaveAttribute("aria-pressed", "false");
+  const viewer = roleGroup.getByRole("checkbox", { name: "viewer" });
+  await expect(viewer).not.toBeChecked();
   await viewer.click();
-  await expect(viewer).toHaveAttribute("aria-pressed", "true");
+  await expect(viewer).toBeChecked();
 
-  const dryRun = page.getByRole("button", { name: "Dry run" });
-  const liveRun = page.getByRole("button", { name: /delete$/ });
+  const actions = page.getByRole("region", { name: "Operation actions" });
+  const dryRun = actions.getByRole("button", { name: "Dry run" });
+  const liveRun = actions.getByRole("button", { name: destructiveOperation.label, exact: true });
   for (const control of [dryRun, liveRun]) {
     const box = await control.boundingBox();
     expect(box?.height).toBeGreaterThanOrEqual(44);
@@ -59,18 +62,18 @@ test("mobile execution stays inside the viewport and confirms both modes", async
   await page.getByRole("button", { name: "Run again" }).click();
 
   await liveRun.click();
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("alertdialog");
   await expect(dialog).toBeVisible();
   const dialogBox = await dialog.boundingBox();
   expect(dialogBox).not.toBeNull();
   expect(dialogBox!.y).toBeGreaterThanOrEqual(16);
   expect(Math.round(dialogBox!.y + dialogBox!.height)).toBeLessThanOrEqual(828);
-  expect(await dialog.locator("[data-dialog-content]").evaluate((node) => getComputedStyle(node).overflowY)).toBe("auto");
+  expect(await dialog.evaluate((node) => getComputedStyle(node).overflowY)).toBe("auto");
 
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await liveRun.click();
-  await dialog.getByRole("button", { name: /delete$/ }).click();
+  await dialog.getByRole("button", { name: destructiveOperation.label, exact: true }).click();
   await expect.poll(() => recordedRuns(page)).toMatchObject([
     { dryRun: true },
     {
@@ -134,20 +137,23 @@ test("confirmation dialog contains focus and restores its exact trigger", async 
   await page.getByRole("button", { name: "Open navigation" }).click();
   await page.getByRole("button", { name: destructiveOperation.label }).click();
 
-  const trigger = page.getByRole("main").getByRole("button", { name: /delete$/ });
+  const trigger = page.getByRole("region", { name: "Operation actions" })
+    .getByRole("button", { name: destructiveOperation.label, exact: true });
   await trigger.click();
 
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("alertdialog");
   const cancel = dialog.getByRole("button", { name: "Cancel" });
-  const confirm = dialog.getByRole("button", { name: /delete$/ });
+  const confirm = dialog.getByRole("button", { name: destructiveOperation.label, exact: true });
   const appRoot = page.locator("#root");
 
+  // The AlertDialog starts on the least destructive action and keeps focus inside (Radix focus scope).
   await expect(dialog).toBeVisible();
-  await expect(confirm).toBeFocused();
+  await expect(cancel).toBeFocused();
   expect(await dialog.evaluate((element) => !document.querySelector("#root")!.contains(element))).toBe(true);
   await expect(appRoot).toHaveAttribute("aria-hidden", "true");
-  expect(await appRoot.evaluate((element) => (element as HTMLElement).inert)).toBe(true);
 
+  await page.keyboard.press("Tab");
+  await expect(confirm).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(cancel).toBeFocused();
   await page.keyboard.press("Shift+Tab");
@@ -156,7 +162,6 @@ test("confirmation dialog contains focus and restores its exact trigger", async 
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(appRoot).not.toHaveAttribute("aria-hidden", "true");
-  expect(await appRoot.evaluate((element) => (element as HTMLElement).inert)).toBe(false);
   await expect(trigger).toBeFocused();
 });
 
@@ -178,17 +183,19 @@ test("desktop handles upload, polling, cancellation, rich results and follow-ups
     { method: "POST", fileNames: ["desktop-fixture.txt"] },
   ]);
 
-  const execute = page.getByRole("main").getByRole("button", { name: desktopOperation.label, exact: true });
+  const execute = page.getByRole("region", { name: "Operation actions" })
+    .getByRole("button", { name: desktopOperation.label, exact: true });
   await execute.click();
-  await page.getByRole("dialog").getByRole("button", { name: desktopOperation.label, exact: true }).click();
-  await expect(page.getByRole("button", { name: "Cancel run" })).toBeVisible();
-  await page.getByRole("button", { name: "Cancel run" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: desktopOperation.label, exact: true }).click();
+  const cancelRun = page.getByRole("main").getByRole("button", { name: "Cancel", exact: true });
+  await expect(cancelRun).toBeVisible();
+  await cancelRun.click();
   await expect.poll(async () => (await recordedState(page)).requests.filter(({ path }) => path.endsWith("/cancel"))).toHaveLength(1);
-  await expect(page.getByText("cancelled", { exact: true })).toBeVisible();
+  await expect(page.getByText(/^\W+Cancelled$/)).toBeVisible();
 
   await page.getByRole("button", { name: "Run again" }).click();
   await execute.click();
-  await page.getByRole("dialog").getByRole("button", { name: desktopOperation.label, exact: true }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: desktopOperation.label, exact: true }).click();
   await expect(page.getByText("Processing finished")).toBeVisible({ timeout: 5_000 });
   await expect.poll(async () => (await recordedState(page)).requests.filter(({ method, path }) => method === "GET" && path.endsWith("/runs/browser-run-01"))).not.toHaveLength(0);
 
@@ -293,7 +300,8 @@ test("operation actions stay at the bottom while the content scrolls", async ({ 
   await installApiFixture(page, { operation: destructiveOperation, scenario: "mobile" });
   await page.goto(`/t/browser-target/o/${destructiveOperation.id}`);
 
-  const execute = page.getByRole("main").getByRole("button", { name: /delete$/ });
+  const execute = page.getByRole("region", { name: "Operation actions" })
+    .getByRole("button", { name: destructiveOperation.label, exact: true });
   await expect(execute).toBeVisible();
   const before = (await execute.boundingBox())!;
   expect(before.y).toBeGreaterThan(450);
@@ -310,4 +318,45 @@ test("operation actions stay at the bottom while the content scrolls", async ({ 
   // Scroll offsets snap to whole pixels, so the text can end a subpixel past the bar's edge.
   expect(contentBox.y + contentBox.height).toBeLessThanOrEqual(actionsBox.y + 1);
   expect(await actions.evaluate((node) => getComputedStyle(node).backgroundColor)).toBe("rgb(255, 255, 255)");
+});
+
+test("a run URL survives reload and keeps polling", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "desktop acceptance");
+  await installApiFixture(page, { operation: followUpOperation, scenario: "run-url" });
+  await page.goto(`/t/browser-target/o/${followUpOperation.id}`);
+  await page.getByRole("region", { name: "Operation actions" })
+    .getByRole("button", { name: followUpOperation.label, exact: true }).click();
+
+  await expect(page).toHaveURL(`/t/browser-target/o/${followUpOperation.id}/r/browser-run-01`);
+  await page.reload();
+  await expect(page.getByText(/^\W+Running$/)).toBeVisible();
+  await expect(page.getByText(/^\W+Done$/)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Invitation sent", { exact: true })).toBeVisible();
+  const polls = (await recordedState(page)).requests
+    .filter(({ method, path }) => method === "GET" && path.endsWith("/runs/browser-run-01"));
+  expect(polls.length).toBeGreaterThanOrEqual(2);
+});
+
+test("an unknown run shows that it is no longer available", async ({ page }, testInfo) => {
+  await installApiFixture(page, { operation: followUpOperation, scenario: testInfo.project.name === "mobile" ? "mobile" : "desktop" });
+  await page.goto(`/t/browser-target/o/${encodeURIComponent(followUpOperation.id)}/r/run_missing`);
+  await expect(page.getByText("This run is no longer available")).toBeVisible();
+  await page.getByRole("button", { name: "Back to the form" }).click();
+  await expect(page).toHaveURL(`/t/browser-target/o/${followUpOperation.id}`);
+  await expect(page.getByText("Nothing has run yet")).toBeVisible();
+});
+
+test("a follow-up into the same operation reopens the form with its input", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "desktop acceptance");
+  await installApiFixture(page, { operation: followUpOperation, scenario: "run-url" });
+  await page.goto(`/t/browser-target/o/${followUpOperation.id}`);
+  await page.getByRole("region", { name: "Operation actions" })
+    .getByRole("button", { name: followUpOperation.label, exact: true }).click();
+  await expect(page).toHaveURL(/\/r\/browser-run-01$/);
+  await expect(page.getByText(/^\W+Done$/)).toBeVisible({ timeout: 10_000 });
+
+  await page.getByRole("button", { name: "Open", exact: true }).first().click();
+  await expect(page).not.toHaveURL(/\/r\//);
+  await expect(page.getByLabel("Email")).toHaveValue(followUpInput.email);
+  await expect(page.getByText("Nothing has run yet")).toBeVisible();
 });

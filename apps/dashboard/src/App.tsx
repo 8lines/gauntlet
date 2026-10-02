@@ -22,7 +22,9 @@ import { useOperationDetails } from "./useOperationDetails.ts";
 import { EnvironmentOverview } from "./EnvironmentOverview.tsx";
 import { UserSettings } from "./UserSettings.tsx";
 import { usePreferences } from "./preferences.ts";
-import { OperationScreen } from "./OperationScreen.tsx";
+import { OperationScreen } from "./screens/OperationScreen.tsx";
+import { rememberRun } from "./recent-runs.ts";
+import { browserStorage } from "./browser-storage.ts";
 
 export function App() {
   const route = useRoute();
@@ -42,10 +44,12 @@ export function App() {
 
   useEffect(() => {
     const handleNavigation = (event: PopStateEvent) => {
-      setNavigationInput((current) => ({
-        key: current.key + 1,
-        input: gauntletInput(event.state),
-      }));
+      // Only navigation that carries new input remounts the operation screen; a run URL
+      // replacing the operation URL (or back to it) keeps the form as it is.
+      const input = gauntletInput(event.state);
+      setNavigationInput((current) =>
+        input === undefined ? { ...current, input } : { key: current.key + 1, input },
+      );
     };
     globalThis.addEventListener("popstate", handleNavigation);
     return () => globalThis.removeEventListener("popstate", handleNavigation);
@@ -210,10 +214,24 @@ export function App() {
               key={`${selected.id}:${route.operationId}:${navigationInput.key}`}
               targetId={selected.id}
               operationId={route.operationId}
+              runId={route.runId}
+              environment={selected.label}
               {...(navigationInput.input === undefined
                 ? {}
                 : { initialInput: navigationInput.input })}
               onInitialInputConsumed={consumeInitialInput}
+              onRunCreated={(run) => {
+                const operationId = route.operationId!;
+                rememberRun(browserStorage, {
+                  targetId: selected.id,
+                  operationId,
+                  label: selected.manifest?.operations.find((o) => o.id === operationId)?.label ?? operationId,
+                  runId: run.id,
+                  startedAt: run.startedAt ?? run.createdAt,
+                });
+                navigate({ targetId: selected.id, operationId, runId: run.id }, { replace: true });
+              }}
+              onRunCleared={() => navigate({ targetId: selected.id, operationId: route.operationId! }, { replace: true })}
             />
           )}
         </main>

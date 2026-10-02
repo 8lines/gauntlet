@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { OperationSummary, Run } from "@8lines/gauntlet-protocol";
 import type { PageSubject } from "@8lines/gauntlet-widget-channel";
 import { describeProblem } from "../copy.ts";
-import { OperationScreen } from "../OperationScreen.tsx";
+import { OperationScreen } from "../screens/OperationScreen.tsx";
 import { BackBar } from "./BackBar.tsx";
 import { OperationLists } from "./OperationLists.tsx";
 import { PanelHeader } from "./PanelHeader.tsx";
