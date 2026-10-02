@@ -4,6 +4,20 @@ All notable changes to this project are recorded here. Released artifacts are im
 
 ## Unreleased
 
+## [0.1.8] - 2026-10-02
+
+### Added
+
+- Run URLs: every run has its own address, so a result can be reloaded, shared and reopened.
+- The dashboard lists your recent runs from this browser on the environment overview and in search.
+- The operation catalog is a filterable table showing each operation's impact and what to expect before running it.
+
+### Changed
+
+- Rebuilt the dashboard and widget panel on shadcn/ui with Geist type, a monochrome palette and colour reserved for state.
+- Recent runs are stored under `gauntlet.recent-runs.v1` and shared by the dashboard and widget; runs recorded by earlier widget versions are not carried over.
+- Run buttons are named after their operation for every impact; destructive operations are marked by colour and a confirmation instead of a suffix.
+
 ## [0.1.7] - 2026-10-01
 
 ### Fixed

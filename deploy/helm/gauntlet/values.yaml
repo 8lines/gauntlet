@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/8lines/gauntlet
-  tag: "0.1.7"
+  tag: "0.1.8"
   digest: ""
   pullPolicy: IfNotPresent
 imagePullSecrets: []

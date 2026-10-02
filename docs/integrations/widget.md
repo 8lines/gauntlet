@@ -121,7 +121,7 @@ which side the panel opens from: `"bottom-right"` (the default) or
 Install the typed package instead of hand-writing the queue stub:
 
 ```sh
-npm install @8lines/gauntlet-widget@0.1.7
+npm install @8lines/gauntlet-widget@0.1.8
 ```
 
 The package is published publicly on npmjs.org; see
@@ -163,6 +163,16 @@ export function OrderPage({ orderId }: { orderId: string }) {
 
 See the [package README](../../packages/widget/README.md) for the complete
 API reference.
+
+## Recent runs
+
+The panel remembers the runs started from it in the browser's `localStorage`
+under `gauntlet.recent-runs.v1`. The dashboard reads and writes the same key,
+so on one origin (for example when the dashboard and the panel are served by
+the same Gauntlet server) both show the same recent runs. The key used by
+earlier widget versions, `gauntlet.widget.recent.v1`, is ignored; runs recorded
+there are not carried over. The panel's recent list shows no live run state;
+open a run to see its current state.
 
 ## Declaring placements
 

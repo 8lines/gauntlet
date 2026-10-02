@@ -4,11 +4,11 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e186d80bc81d25a2a228b9d4e9e7a862",
+    "content-hash": "6c39bdbf3ccabf80d5dfb0c2d7bc1335",
     "packages": [
         {
             "name": "8lines/gauntlet-php-core",
-            "version": "0.1.7",
+            "version": "0.1.8",
             "dist": {
                 "type": "path",
                 "url": "../core",
