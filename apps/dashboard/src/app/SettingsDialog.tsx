@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import { DEFAULT_PREFERENCES, type Preferences, type Theme } from "../preferences.ts";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,15 +16,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { McpConnection } from "./McpConnection.tsx";
 import { useReturnFocus } from "./useReturnFocus.ts";
 
-export function SettingsDialog({ open, onOpenChange, preferences, onChange, saved }: {
+export function SettingsDialog({ open, onOpenChange, opener, preferences, onChange, saved }: {
   open: boolean;
+  /** The element that gets focus back when the dialog closes; empty means the one focused when it opened. */
+  opener: RefObject<HTMLElement | null>;
   onOpenChange: (open: boolean) => void;
   preferences: Preferences;
   onChange: (changes: Partial<Preferences>) => void;
   saved: boolean;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
-  const returnFocus = useReturnFocus();
+  const returnFocus = useReturnFocus(opener);
   const motionId = useId();
   const navigationId = useId();
   const [tab, setTab] = useState("appearance");
@@ -35,7 +37,7 @@ export function SettingsDialog({ open, onOpenChange, preferences, onChange, save
         className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-0 sm:max-w-[600px]"
         {...returnFocus}
       >
-        <DialogHeader className="p-4 pr-12 sm:p-6 sm:pr-12">
+        <DialogHeader className="p-4 pr-12 text-left sm:p-6 sm:pr-12">
           <DialogTitle className="text-xl/7 font-semibold">Settings</DialogTitle>
           <DialogDescription className="text-sm/5">Appearance and connection settings for Gauntlet.</DialogDescription>
         </DialogHeader>

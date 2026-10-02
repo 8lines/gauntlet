@@ -124,7 +124,7 @@ export function OverviewScreen({ target, refreshing, refreshProblem, onRefresh }
         <div className="grid items-start gap-12 xl:grid-cols-[minmax(0,1fr)_320px]">
           <section aria-labelledby="catalog-heading" className="flex min-w-0 flex-col gap-4">
             <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-              <div className="flex flex-col gap-1">
+              <div className="flex min-w-64 flex-1 flex-col gap-1">
                 <h2 id="catalog-heading" className="text-xl/7 font-semibold">Operation catalog</h2>
                 <p className="max-w-[68ch] text-[13px]/[18px] text-muted-foreground">
                   Grouped by feature. Open an operation to see what it does before you run it.

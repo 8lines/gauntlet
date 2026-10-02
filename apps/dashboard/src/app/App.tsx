@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { JsonObject } from "@8lines/gauntlet-protocol";
 import { navigate, useRoute } from "../route.ts";
 import { usePreferences } from "../preferences.ts";
@@ -23,6 +23,8 @@ export function App() {
   const { preferences, updatePreferences, saved } = usePreferences();
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const navigationToggle = useRef<HTMLButtonElement>(null);
+  const settingsOpener = useRef<HTMLElement | null>(null);
   const [navigationInput, setNavigationInput] = useState(() => ({
     key: 0,
     input: gauntletInput(globalThis.history.state),
@@ -58,6 +60,7 @@ export function App() {
   const breadcrumb: BreadcrumbEntry[] = selected === undefined
     ? [{ label: "Gauntlet" }]
     : [{ label: selected.label, ...(route.operationId === undefined ? {} : { route: { targetId: selected.id } }) }];
+  if (selected !== undefined && route.operationId === undefined) breadcrumb.push({ label: "Overview" });
   if (selected !== undefined && route.operationId !== undefined) {
     if (operation !== undefined) {
       const feature = manifest?.features.find((f) => f.id === operation.featureId);
@@ -76,11 +79,15 @@ export function App() {
         targets={targets}
         selected={selected}
         route={route}
-        onOpenSettings={() => setSettingsOpen(true)}
+        navigationToggle={navigationToggle}
+        onOpenSettings={(opener) => {
+          settingsOpener.current = opener;
+          setSettingsOpen(true);
+        }}
       />
       {/* Not `SidebarInset`: that renders a `main`, and the header belongs outside the main landmark. */}
       <div className="flex h-full min-w-0 flex-1 flex-col bg-background">
-        <AppHeader breadcrumb={breadcrumb} onSearch={() => setSearchOpen(true)} />
+        <AppHeader breadcrumb={breadcrumb} onSearch={() => setSearchOpen(true)} triggerRef={navigationToggle} />
         <main
           id="workspace"
           className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden ${route.operationId === undefined ? "overflow-y-auto" : "overflow-y-hidden"}`}
@@ -132,6 +139,7 @@ export function App() {
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
+        opener={settingsOpener}
         preferences={preferences}
         onChange={updatePreferences}
         saved={saved}

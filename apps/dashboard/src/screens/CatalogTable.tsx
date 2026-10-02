@@ -39,19 +39,20 @@ export function CatalogTable({ targetId, targetLabel, groups, details }: {
   details: CatalogDetails;
 }) {
   return (
+    <div className="overflow-hidden rounded-lg border">
     <Table>
       <caption className="sr-only">Operations in {targetLabel}, grouped by feature</caption>
-      <TableHeader>
+      <TableHeader className="bg-muted/40">
         <TableRow>
           <TableHead scope="col" className="w-[40%] px-2 text-sm/5 font-medium text-muted-foreground">Operation</TableHead>
           <TableHead scope="col" className="w-[18%] px-2 text-sm/5 font-medium text-muted-foreground">Impact</TableHead>
-          <TableHead scope="col" className="px-2 text-sm/5 font-medium text-muted-foreground">Before you run</TableHead>
+          <TableHead scope="col" className="px-2 text-sm/5 font-medium text-muted-foreground max-sm:hidden">Before you run</TableHead>
         </TableRow>
       </TableHeader>
       {groups.map((group) => (
         <TableBody key={group.id}>
           <TableRow className="hover:bg-transparent">
-            <th scope="rowgroup" colSpan={3} className="bg-muted/40 px-2 py-2 text-left align-baseline text-sm/5 font-medium">
+            <th scope="rowgroup" colSpan={3} className="px-2 py-2 text-left align-baseline text-sm/5 font-medium">
               {group.label} <span className="font-normal text-muted-foreground">{group.operations.length}</span>
             </th>
           </TableRow>
@@ -61,6 +62,7 @@ export function CatalogTable({ targetId, targetLabel, groups, details }: {
         </TableBody>
       ))}
     </Table>
+    </div>
   );
 }
 
@@ -77,9 +79,14 @@ function OperationRow({ targetId, operation, details }: {
         <th scope="row" className={ROW_LABEL}>
           <span className="break-words text-muted-foreground">{operation.label}</span>
           {id}
+          {operation.availability.state === "unavailable" && (
+            <span className="mt-1 block text-[13px]/[18px] font-normal text-muted-foreground sm:hidden">
+              {describeProblem(operation.availability.problem).advice}
+            </span>
+          )}
         </th>
         <TableCell className={CELL}><Badge variant="outline" className="font-normal">Unavailable</Badge></TableCell>
-        <TableCell className={`${CELL} text-muted-foreground`}>
+        <TableCell className={`${CELL} text-muted-foreground max-sm:hidden`}>
           {operation.availability.state === "unavailable" ? describeProblem(operation.availability.problem).advice : ""}
         </TableCell>
       </TableRow>
@@ -93,13 +100,16 @@ function OperationRow({ targetId, operation, details }: {
       <th scope="row" className={ROW_LABEL}>
         <a href={routePath(route)} onClick={(event) => followRoute(event, route)} className={LINK}>{operation.label}</a>
         {id}
+        {definition !== undefined && (
+          <span className="mt-1 block text-[13px]/[18px] font-normal text-muted-foreground sm:hidden">{policySummary(definition)}</span>
+        )}
       </th>
       <TableCell className={CELL}>
         {definition !== undefined
           ? <ImpactBadge impact={definition.execution.impact} />
           : <span className="text-muted-foreground">{details === undefined ? "Loading" : "Details unavailable"}</span>}
       </TableCell>
-      <TableCell className={`${CELL} text-muted-foreground`}>
+      <TableCell className={`${CELL} text-muted-foreground max-sm:hidden`}>
         {definition === undefined ? "" : policySummary(definition)}
       </TableCell>
     </TableRow>

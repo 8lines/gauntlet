@@ -45,8 +45,8 @@ export function RunView(
             )}
           </div>
           {determinate
-            ? <Progress aria-label="Run progress" value={Math.round((progress.current! / progress.total!) * 100)} />
-            : <Progress aria-label="Run progress" value={40} className="animate-pulse motion-reduce:animate-none" />}
+            ? <Progress aria-label="Run progress" value={Math.min(100, Math.round((progress.current! / progress.total!) * 100))} />
+            : <Progress aria-label="Run progress" />}
           {progress.message !== undefined && (
             <p className="text-[13px]/[18px] text-muted-foreground">{progress.message}</p>
           )}

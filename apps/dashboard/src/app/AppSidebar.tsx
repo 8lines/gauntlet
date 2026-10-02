@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type RefObject } from "react";
 import { Settings } from "lucide-react";
 import type { OperationSummary } from "@8lines/gauntlet-protocol";
 import type { TargetSnapshot } from "../api.ts";
@@ -20,11 +20,13 @@ import {
 } from "@/components/ui/sidebar";
 import { EnvironmentSwitcher } from "./EnvironmentSwitcher.tsx";
 
-export function AppSidebar({ targets, selected, route, onOpenSettings }: {
+export function AppSidebar({ targets, selected, route, onOpenSettings, navigationToggle }: {
   targets: readonly TargetSnapshot[] | undefined;
   selected: TargetSnapshot | undefined;
   route: Route;
-  onOpenSettings: () => void;
+  /** `opener` is the element that should get focus back when Settings closes. */
+  onOpenSettings: (opener: HTMLElement | null) => void;
+  navigationToggle: RefObject<HTMLElement | null>;
 }) {
   const { isMobile, open, setOpenMobile } = useSidebar();
   const closeOnMobile = () => {
@@ -104,9 +106,10 @@ export function AppSidebar({ targets, selected, route, onOpenSettings }: {
           <SidebarMenuItem>
             <SidebarMenuButton
               className="text-sm/5"
-              onClick={() => {
+              onClick={(event) => {
+                // The sheet is about to close with this button in it, so the toggle is what gets focus back.
+                onOpenSettings(isMobile ? navigationToggle.current : event.currentTarget);
                 closeOnMobile();
-                onOpenSettings();
               }}
             >
               <Settings aria-hidden="true" className="text-muted-foreground" />

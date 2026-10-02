@@ -87,16 +87,18 @@ export function OperationScreen(
     <div className="flex min-h-0 flex-1 flex-col">
       <AlertDialog open={state.awaitingConfirmation} onOpenChange={(open) => { if (!open) state.cancelConfirmation(); }}>
         <AlertDialogContent
-          className="max-h-[calc(100dvh-2rem)] overflow-y-auto"
+          className="max-h-[calc(100dvh-2rem)] gap-6 overflow-y-auto"
           onCloseAutoFocus={(event) => { event.preventDefault(); confirmationTriggerRef.current?.focus(); }}
         >
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base/6 font-semibold">Run {definition.label}?</AlertDialogTitle>
+          <AlertDialogHeader className="place-items-start text-left">
+            <AlertDialogTitle className="text-xl/7 font-semibold">Run {definition.label}?</AlertDialogTitle>
             <AlertDialogDescription className="text-sm/5">
               The application marked this operation as requiring confirmation. Before it starts:
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <PolicyList effects={effects} />
+          <div className="border-y py-4">
+            <PolicyList effects={effects} />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction variant={destructive ? "destructive" : "default"} onClick={state.confirm}>

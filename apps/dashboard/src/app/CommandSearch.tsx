@@ -12,7 +12,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from "@/components/ui/command";
 
 const MAX_RECENT_RUNS_SHOWN = 5;
@@ -79,7 +78,8 @@ export function CommandSearch({ targets, open, onOpenChange }: {
         className="text-sm/5"
       />
       {/* The dialog is centred at 38% of the viewport, so it has to stay under 76% of its height. */}
-      <CommandList className="max-h-[min(400px,calc(76dvh-6rem))]">
+      {/* Groups are told apart by a rule above each visible one: a separator is not an allowed child of a listbox. */}
+      <CommandList className="max-h-[min(400px,calc(76dvh-6rem))] [&_[cmdk-group]:not([hidden])~[cmdk-group]:not([hidden])]:mt-1 [&_[cmdk-group]:not([hidden])~[cmdk-group]:not([hidden])]:border-t">
         <CommandEmpty className="py-6 text-center text-sm/5">No matching results</CommandEmpty>
         {targets !== undefined && targets.length > 0 && (
           <CommandGroup heading="Environments">
@@ -98,7 +98,6 @@ export function CommandSearch({ targets, open, onOpenChange }: {
         )}
         {operations.length > 0 && (
           <>
-            <CommandSeparator />
             <CommandGroup heading="Operations">
               {operations.map(({ target, operation }) => {
                 const unavailable = operation.availability.state !== "available";
@@ -123,7 +122,6 @@ export function CommandSearch({ targets, open, onOpenChange }: {
         )}
         {recentRuns.length > 0 && (
           <>
-            <CommandSeparator />
             <CommandGroup heading="Recent runs">
               {recentRuns.map((run) => (
                 <CommandItem

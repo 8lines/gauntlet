@@ -47,6 +47,8 @@ export function ArtifactView(
 }
 
 function renderBody(artifact: Artifact, targetId: string, runId: string): ReactNode {
+  // A region that scrolls has to be reachable with the keyboard, and needs a name for that stop.
+  const scrollable = { role: "region", "aria-label": artifact.title ?? kindLabel(artifact.kind), tabIndex: 0 } as const;
   switch (artifact.kind) {
     case "notice":
       return <PolicyList effects={[{ tone: NOTICE_TONES[artifact.level], text: artifact.message }]} />;
@@ -88,7 +90,7 @@ function renderBody(artifact: Artifact, targetId: string, runId: string): ReactN
           .map((c) => c.key),
       );
       return (
-        <div className="max-w-full overflow-x-auto">
+        <div {...scrollable} className="max-w-full overflow-x-auto [&>[data-slot=table-container]]:overflow-visible">
           <Table className="min-w-max text-sm/5">
             <TableHeader>
               <TableRow>
@@ -118,7 +120,7 @@ function renderBody(artifact: Artifact, targetId: string, runId: string): ReactN
 
     case "diff":
       return (
-        <pre className="overflow-x-auto rounded-lg bg-muted p-4 font-mono text-xs/4">
+        <pre {...scrollable} className="overflow-x-auto rounded-lg bg-muted p-4 font-mono text-xs/4">
           {artifact.content.split("\n").map((line, i) => (
             <span
               key={i}
@@ -147,7 +149,7 @@ function renderBody(artifact: Artifact, targetId: string, runId: string): ReactN
 
     case "log":
       return (
-        <div className="max-h-72 min-w-0 overflow-y-auto overflow-x-hidden rounded-lg bg-muted p-4 font-mono text-xs/4">
+        <div {...scrollable} className="max-h-72 min-w-0 overflow-y-auto overflow-x-hidden rounded-lg bg-muted p-4 font-mono text-xs/4">
           {artifact.entries.map((entry, i) => (
             <div key={i} className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-x-3 py-0.5 sm:grid-cols-[minmax(0,auto)_64px_minmax(0,1fr)]">
               <span className="break-all text-muted-foreground">{entry.timestamp ?? ""}</span>
@@ -194,7 +196,7 @@ function renderBody(artifact: Artifact, targetId: string, runId: string): ReactN
       );
 
     case "json":
-      return <pre className="overflow-x-auto rounded-lg bg-muted p-4 font-mono text-xs/4">{JSON.stringify(artifact.value, null, 2)}</pre>;
+      return <pre {...scrollable} className="overflow-x-auto rounded-lg bg-muted p-4 font-mono text-xs/4">{JSON.stringify(artifact.value, null, 2)}</pre>;
 
     default:
       /* Unknown kind from the `urn:` namespace: show it raw instead of skipping it. */
@@ -203,7 +205,7 @@ function renderBody(artifact: Artifact, targetId: string, runId: string): ReactN
           <p className="max-w-[68ch] text-sm/5 text-muted-foreground">
             This adapter sent an artifact outside the profile (<span className="font-mono text-xs/4">{artifact.kind}</span>).
           </p>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-4 font-mono text-xs/4">
+          <pre {...scrollable} className="overflow-x-auto rounded-lg bg-muted p-4 font-mono text-xs/4">
             {JSON.stringify((artifact as { data?: unknown }).data, null, 2)}
           </pre>
         </div>

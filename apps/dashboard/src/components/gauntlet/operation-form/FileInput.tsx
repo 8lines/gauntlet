@@ -3,7 +3,6 @@ import { api } from "../../../api.ts";
 import { UploadProblem, uploadFiles } from "../../../form-upload.ts";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { cn } from "@/lib/utils";
 import { ProblemAlert } from "../ProblemAlert.tsx";
 import type { ControlProps } from "./Field.tsx";
 
@@ -58,10 +57,7 @@ export function FileInput(props: ControlProps) {
       {busy && (
         <div className="space-y-1.5" aria-live="polite">
           <p className="text-xs/4 text-muted-foreground">{uploading}</p>
-          <Progress
-            value={undefined} aria-label={uploading}
-            className={cn("h-1", "[&_[data-slot=progress-indicator]]:transform-none! [&_[data-slot=progress-indicator]]:animate-pulse")}
-          />
+          <Progress aria-label={uploading} className="h-1" />
         </div>
       )}
       {references.length > 0 && !busy && (

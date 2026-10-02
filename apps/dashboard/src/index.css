@@ -125,3 +125,8 @@
     *, *::before, *::after { animation-duration: 0s !important; transition-duration: 0s !important; }
   }
 }
+
+@keyframes gauntlet-indeterminate {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}
