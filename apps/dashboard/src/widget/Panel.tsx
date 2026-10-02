@@ -16,6 +16,7 @@ import { browserStorage } from "../browser-storage.ts";
 import { usePanelCatalog } from "./usePanelCatalog.ts";
 import { usePanelChannel, type PanelChannel, type PanelChannelState } from "./usePanelChannel.ts";
 import { usePanelTarget } from "./usePanelTarget.ts";
+import { ChunkErrorBoundary } from "@/components/gauntlet/ChunkErrorBoundary";
 import { OperationLoading } from "@/components/gauntlet/OperationLoading";
 import { openOperationView, pageSubjectDrifted, reseedOperationView, runCreatedIn, type OperationView, type View } from "./view.ts";
 
@@ -175,33 +176,37 @@ function ConnectedPanel({ channel, targetId }: { channel: PanelChannel; targetId
                   : current
               ))}
             />
-            <Suspense fallback={<OperationLoading />}>
-            <OperationScreen
-              key={view.operation.id}
-              targetId={targetId}
-              operationId={view.operation.id}
-              bindings={view.bindings}
-              onRunCreated={onRunCreated(view.operation)}
-              onRunCleared={() => setRunShown(false)}
-            />
-            </Suspense>
+            <ChunkErrorBoundary resetKey={view.operation.id}>
+              <Suspense fallback={<OperationLoading />}>
+                <OperationScreen
+                  key={view.operation.id}
+                  targetId={targetId}
+                  operationId={view.operation.id}
+                  bindings={view.bindings}
+                  onRunCreated={onRunCreated(view.operation)}
+                  onRunCleared={() => setRunShown(false)}
+                />
+              </Suspense>
+            </ChunkErrorBoundary>
           </>
         )}
         {snapshot !== undefined && view.kind === "run" && (
           <>
             <BackBar onBack={backToLists} targetId={targetId} operationId={view.entry.operationId} />
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <Suspense fallback={<OperationLoading />}>
-              <RecentRunView
-                entry={view.entry}
-                onResultShown={setRunShown}
-                onRunAgain={() => {
-                  const operation = operations.find((candidate) => candidate.id === view.entry.operationId);
-                  if (operation === undefined) backToLists();
-                  else openOperation(operation);
-                }}
-              />
-              </Suspense>
+              <ChunkErrorBoundary resetKey={view.entry.runId}>
+                <Suspense fallback={<OperationLoading label="Loading run" />}>
+                  <RecentRunView
+                    entry={view.entry}
+                    onResultShown={setRunShown}
+                    onRunAgain={() => {
+                      const operation = operations.find((candidate) => candidate.id === view.entry.operationId);
+                      if (operation === undefined) backToLists();
+                      else openOperation(operation);
+                    }}
+                  />
+                </Suspense>
+              </ChunkErrorBoundary>
             </div>
           </>
         )}

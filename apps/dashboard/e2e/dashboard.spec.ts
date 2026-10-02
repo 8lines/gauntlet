@@ -399,3 +399,19 @@ test("a follow-up into the same operation reopens the form with its input", asyn
   await expect(page.getByLabel("Email")).toHaveValue(followUpInput.email);
   await expect(page.getByText("Nothing has run yet")).toBeVisible();
 });
+
+test("a failed screen chunk shows a retry alert and keeps the sidebar usable", async ({ page }, testInfo) => {
+  await installApiFixture(page, { operation: followUpOperation, scenario: testInfo.project.name === "mobile" ? "mobile" : "desktop" });
+  await page.route("**/assets/OperationScreen-*.js", (route) => route.abort());
+  await page.goto(`/t/browser-target/o/${encodeURIComponent(followUpOperation.id)}`);
+
+  const alert = page.getByRole("alert").filter({ hasText: "Could not load this screen" });
+  await expect(alert).toBeVisible();
+  await expect(alert.getByText("Check your connection, then try again.")).toBeVisible();
+  await expect(alert.getByRole("button", { name: "Try again" })).toBeVisible();
+
+  if (testInfo.project.name === "mobile") await page.getByRole("button", { name: "Toggle navigation" }).click();
+  await page.getByRole("navigation", { name: "Operations" }).getByRole("button", { name: "Overview" }).click();
+  await expect(page).toHaveURL("/t/browser-target");
+  await expect(alert).toHaveCount(0);
+});

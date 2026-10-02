@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "../components/gauntlet/EmptyState.tsx";
+import { OperationLoading } from "@/components/gauntlet/OperationLoading";
 import { ImpactBadge } from "../components/gauntlet/ImpactBadge.tsx";
 import { OperationForm } from "../components/gauntlet/operation-form/OperationForm.tsx";
 import { PolicyList } from "../components/gauntlet/PolicyList.tsx";
@@ -74,7 +75,7 @@ export function OperationScreen(
     );
   }
 
-  if (definition === undefined) return <OperationSkeleton />;
+  if (definition === undefined) return <OperationLoading />;
 
   const destructive = definition.execution.impact === "destructive";
   const presets = definition.presets ?? [];
@@ -310,25 +311,5 @@ function ResultArea(
       title="Nothing has run yet"
       description="The result will appear here when the run finishes. Your input stays in place, so fixing it and running again takes one click."
     />
-  );
-}
-
-function OperationSkeleton() {
-  return (
-    <div className="mx-auto flex w-full max-w-[1240px] flex-col gap-8 px-4 py-6 sm:px-8 sm:py-8" aria-busy="true">
-      <p className="sr-only" role="status">Loading operation</p>
-      <div className="flex flex-col gap-2">
-        <Skeleton className="h-8 w-64 max-w-full" />
-        <Skeleton className="h-4 w-40" />
-        <Skeleton className="h-4 w-96 max-w-full" />
-      </div>
-      <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)] xl:gap-12">
-        <Skeleton className="h-80 w-full" />
-        <div className="flex flex-col gap-3">
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-24 w-full" />
-        </div>
-      </div>
-    </div>
   );
 }

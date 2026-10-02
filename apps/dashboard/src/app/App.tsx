@@ -12,6 +12,7 @@ import { AppSidebar } from "./AppSidebar.tsx";
 import { CommandSearch } from "./CommandSearch.tsx";
 import { SettingsDialog } from "./SettingsDialog.tsx";
 import { LoadFailed, LoadingState, NoEnvironments } from "./PageStates.tsx";
+import { ChunkErrorBoundary } from "@/components/gauntlet/ChunkErrorBoundary";
 import { OperationLoading } from "@/components/gauntlet/OperationLoading";
 
 const OperationScreen = lazy(() => import("../screens/OperationScreen.tsx").then((m) => ({ default: m.OperationScreen })));
@@ -97,31 +98,33 @@ export function App() {
             />
           )}
           {selected !== undefined && route.operationId !== undefined && (
-            <Suspense fallback={<OperationLoading />}>
-            <OperationScreen
-              key={`${selected.id}:${route.operationId}:${navigationInput.key}`}
-              targetId={selected.id}
-              operationId={route.operationId}
-              runId={route.runId}
-              environment={selected.label}
-              {...(navigationInput.input === undefined
-                ? {}
-                : { initialInput: navigationInput.input })}
-              onInitialInputConsumed={consumeInitialInput}
-              onRunCreated={(run) => {
-                const operationId = route.operationId!;
-                rememberRun(browserStorage, {
-                  targetId: selected.id,
-                  operationId,
-                  label: selected.manifest?.operations.find((o) => o.id === operationId)?.label ?? operationId,
-                  runId: run.id,
-                  startedAt: run.startedAt ?? run.createdAt,
-                });
-                navigate({ targetId: selected.id, operationId, runId: run.id }, { replace: true });
-              }}
-              onRunCleared={() => navigate({ targetId: selected.id, operationId: route.operationId! }, { replace: true })}
-            />
-            </Suspense>
+            <ChunkErrorBoundary resetKey={`${selected.id}:${route.operationId}:${navigationInput.key}`}>
+              <Suspense fallback={<OperationLoading />}>
+                <OperationScreen
+                  key={`${selected.id}:${route.operationId}:${navigationInput.key}`}
+                  targetId={selected.id}
+                  operationId={route.operationId}
+                  runId={route.runId}
+                  environment={selected.label}
+                  {...(navigationInput.input === undefined
+                    ? {}
+                    : { initialInput: navigationInput.input })}
+                  onInitialInputConsumed={consumeInitialInput}
+                  onRunCreated={(run) => {
+                    const operationId = route.operationId!;
+                    rememberRun(browserStorage, {
+                      targetId: selected.id,
+                      operationId,
+                      label: selected.manifest?.operations.find((o) => o.id === operationId)?.label ?? operationId,
+                      runId: run.id,
+                      startedAt: run.startedAt ?? run.createdAt,
+                    });
+                    navigate({ targetId: selected.id, operationId, runId: run.id }, { replace: true });
+                  }}
+                  onRunCleared={() => navigate({ targetId: selected.id, operationId: route.operationId! }, { replace: true })}
+                />
+              </Suspense>
+            </ChunkErrorBoundary>
           )}
         </main>
       </div>
