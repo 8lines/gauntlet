@@ -31,10 +31,14 @@ export function PanelHeader({ snapshot, search, onClose }: {
           {snapshot !== undefined && (
             <p className="flex min-w-0 items-center gap-1.5 text-xs/4 text-muted-foreground">
               <StateMark tone={targetStateTone(snapshot)} className="shrink-0" />
-              <span className="sr-only">{targetStateLabel(snapshot)}. </span>
-              <span className="truncate">
-                {environment === undefined ? targetStateLabel(snapshot) : `${environment.name}, ${environment.kind}`}
-              </span>
+              {environment === undefined
+                ? <span className="truncate">{targetStateLabel(snapshot)}</span>
+                : (
+                  <>
+                    <span className="sr-only">{targetStateLabel(snapshot)}. </span>
+                    <span className="truncate">{`${environment.name}, ${environment.kind}`}</span>
+                  </>
+                )}
             </p>
           )}
         </div>

@@ -5,7 +5,6 @@ import { RecentRunRow } from "@/components/gauntlet/RecentRunsList";
 import { DashboardLink, OperationRow } from "./OperationRow.tsx";
 import type { PanelLists } from "./placements.ts";
 import type { RecentRun } from "../recent-runs.ts";
-import { useRecentRunStates } from "../useRecentRunStates.ts";
 import type { OperationDescription } from "./usePanelCatalog.ts";
 
 /**
@@ -25,7 +24,6 @@ export function OperationLists({
   onOpenOperation: (operation: OperationSummary) => void;
   onOpenRun: (run: RecentRun) => void;
 }) {
-  const states = useRecentRunStates(recent);
   const row = (operation: OperationSummary, subject: PageSubject | undefined) => (
     <OperationRow
       key={operation.id}
@@ -60,7 +58,8 @@ export function OperationLists({
           <RecentRunRow
             key={run.runId}
             entry={run}
-            state={states.get(run.runId)}
+            // The panel does not fetch run states for this list; a run's result loads when it is opened.
+            state={undefined}
             action={{ onOpen: () => onOpenRun(run) }}
             trailing={<DashboardLink targetId={run.targetId} operationId={run.operationId} />}
           />
