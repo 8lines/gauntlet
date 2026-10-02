@@ -243,11 +243,21 @@ test("search filters operations, supports keyboard navigation and restores focus
   await search.fill("nonexistent operation");
   await expect(dialog.getByText("No matching results")).toBeVisible();
   await expect(dialog.getByRole("option")).toHaveCount(0);
-  await search.fill("Process");
-  await expect(dialog.getByRole("option")).toHaveCount(1);
-  await expect(dialog.getByRole("option")).toHaveAttribute("aria-selected", "true");
+  // The environment and its operation both match, so there are two enabled options to move between.
+  await search.fill("Browser");
+  const options = dialog.getByRole("option");
+  await expect(options).toHaveCount(2);
+  await expect(options.nth(0)).toHaveAttribute("aria-selected", "true");
+  await expect(options.nth(1)).toHaveAttribute("aria-selected", "false");
   await search.press("ArrowDown");
-  await expect(dialog.getByRole("option")).toHaveAttribute("aria-selected", "true");
+  await expect(options.nth(1)).toHaveAttribute("aria-selected", "true");
+  await expect(options.nth(0)).toHaveAttribute("aria-selected", "false");
+  await search.press("ArrowUp");
+  await expect(options.nth(0)).toHaveAttribute("aria-selected", "true");
+  await expect(options.nth(1)).toHaveAttribute("aria-selected", "false");
+  await search.press("ArrowDown");
+  await expect(options.nth(1)).toContainText(desktopOperation.label);
+  await expect(options.nth(1)).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("Enter");
   await expect(dialog).toBeHidden();
   await expect(page.getByRole("heading", { name: desktopOperation.label, exact: true })).toBeVisible();

@@ -161,3 +161,32 @@ test("system theme follows the operating system live", async ({ page }) => {
   await page.reload();
   await expect(page.locator("html")).toHaveClass(/\bdark\b/);
 });
+
+for (const scheme of ["dark", "light"] as const) {
+  test(`system theme is applied before the first render when the operating system is ${scheme}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await installApiFixture(page, { operation: desktopOperation, scenario: "desktop" });
+    await page.addInitScript(() => {
+      localStorage.setItem("gauntlet.preferences.v1", JSON.stringify({ theme: "system", reducedMotion: false, sidebarCollapsed: false }));
+      // Records the theme at the moment React puts the first node into #root, without any retry.
+      const observer = new MutationObserver(() => {
+        if (document.getElementById("root")?.firstChild == null) return;
+        (window as unknown as { darkAtFirstRender: boolean }).darkAtFirstRender = document.documentElement.classList.contains("dark");
+        observer.disconnect();
+      });
+      observer.observe(document, { childList: true, subtree: true });
+    });
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: "Toggle navigation" })).toBeVisible();
+    expect(await page.evaluate(() => (window as unknown as { darkAtFirstRender?: boolean }).darkAtFirstRender)).toBe(scheme === "dark");
+
+    // The class keeps following the operating system after the first render.
+    const other = scheme === "dark" ? "light" : "dark";
+    await page.emulateMedia({ colorScheme: other });
+    if (other === "dark") await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+    else await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+    await page.emulateMedia({ colorScheme: scheme });
+    if (scheme === "dark") await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+    else await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+  });
+}
