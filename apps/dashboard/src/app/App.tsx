@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import type { JsonObject } from "@8lines/gauntlet-protocol";
 import { navigate, useRoute } from "../route.ts";
-import { EnvironmentOverview } from "../EnvironmentOverview.tsx";
 import { usePreferences } from "../preferences.ts";
 import { OperationScreen } from "../screens/OperationScreen.tsx";
+import { OverviewScreen } from "../screens/OverviewScreen.tsx";
 import { rememberRun } from "../recent-runs.ts";
 import { browserStorage } from "../browser-storage.ts";
 import { useTargets } from "../useTargets.ts";
@@ -82,11 +82,17 @@ export function App() {
           id="workspace"
           className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden ${route.operationId === undefined ? "overflow-y-auto" : "overflow-y-hidden"}`}
         >
-          {problem !== undefined && <LoadFailed problem={problem} refreshing={refreshing} onRetry={refresh} />}
+          {problem !== undefined && (targets === undefined || targets.length === 0) && <LoadFailed problem={problem} refreshing={refreshing} onRetry={refresh} />}
           {problem === undefined && targets === undefined && <LoadingState />}
           {problem === undefined && targets !== undefined && targets.length === 0 && <NoEnvironments />}
           {selected !== undefined && route.operationId === undefined && (
-            <EnvironmentOverview target={selected} />
+            <OverviewScreen
+              key={selected.id}
+              target={selected}
+              refreshing={refreshing}
+              refreshProblem={problem}
+              onRefresh={refresh}
+            />
           )}
           {selected !== undefined && route.operationId !== undefined && (
             <OperationScreen

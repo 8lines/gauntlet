@@ -52,6 +52,13 @@ export function navigate(route: Route, options: NavigateOptions = {}): void {
   globalThis.dispatchEvent(new PopStateEvent("popstate", { state }));
 }
 
+/** Client-side navigation for a link click; clicks with a modifier key are left to the browser (new tab, new window). */
+export function followRoute(event: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean; preventDefault(): void }, route: Route): void {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  navigate(route);
+}
+
 export function useRoute(): Route {
   return useSyncExternalStore(
     (listener) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
