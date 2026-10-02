@@ -4,7 +4,7 @@ import { api, isRunFinished } from "../api.ts";
 import { RunDetails } from "../RunDetails.tsx";
 import { Card } from "../ui.tsx";
 import { describeProblem } from "../copy.ts";
-import type { RecentRun } from "./recent-runs.ts";
+import type { RecentRun } from "../recent-runs.ts";
 
 type Loaded =
   | { readonly kind: "loading" }

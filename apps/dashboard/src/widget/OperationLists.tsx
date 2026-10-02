@@ -5,7 +5,7 @@ import { Card, Rows } from "../ui.tsx";
 import type { IconName } from "../Icon.tsx";
 import { DashboardLink, OperationRow } from "./OperationRow.tsx";
 import type { PanelLists } from "./placements.ts";
-import type { RecentRun } from "./recent-runs.ts";
+import type { RecentRun } from "../recent-runs.ts";
 import type { OperationDescription } from "./usePanelCatalog.ts";
 
 /**

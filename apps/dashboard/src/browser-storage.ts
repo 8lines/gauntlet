@@ -4,7 +4,7 @@ import type { StorageLike } from "./recent-runs.ts";
  * `localStorage` of the panel iframe, guarded: third-party iframes may have storage blocked
  * (privacy settings), in which case reads come back empty and writes are dropped.
  */
-export const panelStorage: StorageLike = {
+export const browserStorage: StorageLike = {
   getItem(key) {
     try {
       return globalThis.localStorage.getItem(key);

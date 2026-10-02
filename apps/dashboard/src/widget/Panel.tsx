@@ -10,8 +10,8 @@ import { PanelNotice, TargetProblem } from "./PanelNotice.tsx";
 import { subjectChip } from "./placements.ts";
 import type { BindingValue } from "./prefill.ts";
 import { RecentRunView } from "./RecentRunView.tsx";
-import { readRecentRuns, rememberRun } from "./recent-runs.ts";
-import { panelStorage } from "./storage.ts";
+import { readRecentRuns, rememberRun } from "../recent-runs.ts";
+import { browserStorage } from "../browser-storage.ts";
 import { usePanelCatalog } from "./usePanelCatalog.ts";
 import { usePanelChannel, type PanelChannel, type PanelChannelState } from "./usePanelChannel.ts";
 import { usePanelTarget } from "./usePanelTarget.ts";
@@ -65,7 +65,7 @@ function ConnectedPanel({ channel, targetId }: { channel: PanelChannel; targetId
   const [query, setQuery] = useState("");
   const catalog = usePanelCatalog(targetId, operations, context, query);
   const [view, setView] = useState<View>({ kind: "lists" });
-  const [recent, setRecent] = useState(() => readRecentRuns(panelStorage));
+  const [recent, setRecent] = useState(() => readRecentRuns(browserStorage));
   const searchRef = useRef<HTMLInputElement>(null);
 
   const resolved = target.kind !== "loading";
@@ -89,7 +89,7 @@ function ConnectedPanel({ channel, targetId }: { channel: PanelChannel; targetId
     setView(openOperationView(targetId, operation, catalog.subjectOf(operation.id), catalog.bindingsFor(operation.id)));
   const backToLists = () => setView({ kind: "lists" });
   const onRunCreated = (operation: OperationSummary) => (run: Run) => {
-    setRecent(rememberRun(panelStorage, {
+    setRecent(rememberRun(browserStorage, {
       targetId,
       operationId: operation.id,
       label: operation.label,

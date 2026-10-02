@@ -9,7 +9,7 @@
 import type { OperationSummary } from "@8lines/gauntlet-protocol";
 import type { PageSubject } from "@8lines/gauntlet-widget-channel";
 import type { BindingValue } from "./prefill.ts";
-import type { RecentRun } from "./recent-runs.ts";
+import type { RecentRun } from "../recent-runs.ts";
 
 export type View =
   | { readonly kind: "lists" }

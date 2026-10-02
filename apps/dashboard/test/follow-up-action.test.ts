@@ -5,7 +5,7 @@ import {
   beginBrowserLaunch,
   executeFollowUp,
   followUpPath,
-} from "../src/RunDetails.tsx";
+} from "../src/run-actions.ts";
 import { navigate, parseRoute } from "../src/route.ts";
 
 test("invoke-operation follow-up creates an internal Gauntlet route", () => {
