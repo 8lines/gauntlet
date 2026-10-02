@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import type { OperationSummary } from "@8lines/gauntlet-protocol";
+import type { OperationDefinition, OperationSummary } from "@8lines/gauntlet-protocol";
 import { api } from "./api.ts";
 
 interface OperationDetails {
   readonly label: string;
   readonly description?: string;
   readonly tags?: readonly string[];
+  readonly definition?: OperationDefinition;
 }
 
 // The manifest contains identities and availability, but no execution policy.
@@ -34,6 +35,7 @@ export function useOperationDetails(targetId: string, operations: readonly Opera
             label: `${impact}${execution.confirmationRequired ? " · Confirmation" : ""}`,
             ...(description === undefined ? {} : { description }),
             tags,
+            definition: result.data,
           };
         }
         setState((current) => ({ ...current, details: { ...current.details, [operation.id]: detail } }));

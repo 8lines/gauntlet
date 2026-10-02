@@ -16,7 +16,7 @@ export interface RecentRun {
   readonly startedAt: string;
 }
 
-export const RECENT_RUNS_KEY = "gauntlet.widget.recent.v1";
+export const RECENT_RUNS_KEY = "gauntlet.recent-runs.v1";
 export const MAX_RECENT_RUNS = 20;
 
 export interface StorageLike {

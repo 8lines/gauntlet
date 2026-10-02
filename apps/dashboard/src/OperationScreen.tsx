@@ -6,33 +6,13 @@ import { OperationForm } from "./OperationForm.tsx";
 import type { FileFieldState } from "./form-upload.ts";
 import { RunDetails } from "./RunDetails.tsx";
 import { Card, EffectList, Badge, ConfirmDialog, Button, EmptyState } from "./ui.tsx";
-import { runButtonLabel, describeProblem, policyEffects } from "./copy.ts";
+import { runButtonLabel, describeProblem, policyEffects, impactLabel } from "./copy.ts";
 import { Icon } from "./Icon.tsx";
 import { initialValues } from "./json-pointer.ts";
+import { attachToFields, generalErrors } from "./operation-errors.ts";
 import { applyBindings, prefillForPreset, restoreSkippedBindings, type BindingValue } from "./widget/prefill.ts";
 
-/**
- * JSON Schema validators report a missing required field as an error anchored
- * on the parent object (`instancePath: ""`) and give the field name in
- * `params.missingProperty`. We move such an error onto the specific field so it
- * can be highlighted. When the adapter gives no name, the error stays general — we do not guess.
- */
-function attachToFields(errors: readonly ValidationError[]): readonly ValidationError[] {
-  return errors.map((e) => {
-    const missing = (e.params as { missingProperty?: unknown } | undefined)?.missingProperty;
-    if (e.keyword !== "required" || typeof missing !== "string") return e;
-    return { ...e, instancePath: `${e.instancePath}/${missing}` as JsonPointer };
-  });
-}
-
-/** Errors that cannot be attached to any visible field. */
-function generalErrors(errors: readonly ValidationError[]): readonly string[] {
-  const messages = errors.filter((e) => e.instancePath === "").map((e) => e.message ?? "Invalid value");
-  return [...new Set(messages)];
-}
-
 const IMPACT_TONES = { read: "ok", write: "wait", destructive: "stop" } as const;
-const IMPACT_LABELS = { read: "read only", write: "changes data", destructive: "deletes data" } as const;
 
 export function OperationScreen(
   { targetId, operationId, initialInput, onInitialInputConsumed, bindings, onRunCreated, onRunCleared }: {
@@ -212,7 +192,7 @@ export function OperationScreen(
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2.5">
                 <h1 className="page-title">{definition.label}</h1>
-                <Badge tone={IMPACT_TONES[definition.execution.impact]}>{IMPACT_LABELS[definition.execution.impact]}</Badge>
+                <Badge tone={IMPACT_TONES[definition.execution.impact]}>{impactLabel(definition.execution.impact)}</Badge>
                 <span
                   className="mono-text text-[11px] text-muted-foreground"
                   title={`The run will be pinned to this definition revision: ${definition.revision}`}

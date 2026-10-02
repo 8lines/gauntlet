@@ -4,6 +4,7 @@ import type { JsonObject } from "@8lines/gauntlet-protocol";
 export interface Route {
   readonly targetId?: string;
   readonly operationId?: string;
+  readonly runId?: string;
   readonly input?: JsonObject;
 }
 
@@ -14,13 +15,13 @@ export interface NavigateOptions {
 export function parseRoute(pathname: string): Route {
   const parts = pathname.split("/").filter((part) => part.length > 0);
   if (parts[0] !== "t" || parts[1] === undefined) return {};
+  const targetId = decodeURIComponent(parts[1]);
   if (parts[2] === "o" && parts[3] !== undefined) {
-    return {
-      targetId: decodeURIComponent(parts[1]),
-      operationId: decodeURIComponent(parts[3]),
-    };
+    const operationId = decodeURIComponent(parts[3]);
+    if (parts[4] === "r" && parts[5] !== undefined) return { targetId, operationId, runId: decodeURIComponent(parts[5]) };
+    return { targetId, operationId };
   }
-  return { targetId: decodeURIComponent(parts[1]) };
+  return { targetId };
 }
 
 function readRoute(): Route {
@@ -37,11 +38,11 @@ function refresh() {
 globalThis.addEventListener?.("popstate", refresh);
 
 export function routePath(route: Route): string {
-  return route.targetId === undefined
-    ? "/"
-    : route.operationId === undefined
-      ? `/t/${encodeURIComponent(route.targetId)}`
-      : `/t/${encodeURIComponent(route.targetId)}/o/${encodeURIComponent(route.operationId)}`;
+  if (route.targetId === undefined) return "/";
+  const target = `/t/${encodeURIComponent(route.targetId)}`;
+  if (route.operationId === undefined) return target;
+  const operation = `${target}/o/${encodeURIComponent(route.operationId)}`;
+  return route.runId === undefined ? operation : `${operation}/r/${encodeURIComponent(route.runId)}`;
 }
 
 export function navigate(route: Route, options: NavigateOptions = {}): void {

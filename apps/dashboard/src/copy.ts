@@ -1,4 +1,5 @@
 import type { ExecutionPolicy, OperationDefinition, Problem, Run, RunState } from "@8lines/gauntlet-protocol";
+import type { Impact } from "./catalog.ts";
 
 export type Tone = "ok" | "wait" | "stop" | "info" | "sub";
 
@@ -24,7 +25,7 @@ export function policyEffects(policy: ExecutionPolicy): readonly PolicyEffect[] 
   }
 
   if (policy.dryRunSupported) {
-    effects.push({ tone: "ok", text: "You can do a dry run first — you will see the result, but nothing will change." });
+    effects.push({ tone: "ok", text: "You can do a dry run first. You will see the result, but nothing will change." });
   }
 
   effects.push(policy.cancellationSupported
@@ -42,7 +43,7 @@ export function policyEffects(policy: ExecutionPolicy): readonly PolicyEffect[] 
   }
 
   if (policy.idempotency === "required") {
-    effects.push({ tone: "sub", text: "Repeating with the same key is safe — it will not duplicate the effect." });
+    effects.push({ tone: "sub", text: "Repeating with the same key is safe. It will not duplicate the effect." });
   }
 
   return effects;
@@ -54,20 +55,24 @@ export function formatDuration(seconds: number): string {
   return minutes === 1 ? "a minute" : `${minutes} min`;
 }
 
-/** Run button label — never "Execute", always the operation name. */
+/** Run button label: never "Execute", always the operation name. */
 export function runButtonLabel(definition: OperationDefinition): string {
-  return definition.execution.impact === "destructive" ? `${definition.label} — delete` : definition.label;
+  return definition.label;
 }
 
+const IMPACT_LABELS: Readonly<Record<Impact, string>> = { read: "read only", write: "changes data", destructive: "deletes data" };
+export const IMPACT_MARK: Readonly<Record<Impact, "○" | "◐" | "●">> = { read: "○", write: "◐", destructive: "●" };
+export const impactLabel = (impact: Impact) => IMPACT_LABELS[impact];
+
 const RUN_STATES: Readonly<Record<RunState, { readonly label: string; readonly tone: Tone }>> = {
-  queued: { label: "queued", tone: "info" },
-  running: { label: "running", tone: "info" },
-  succeeded: { label: "done", tone: "ok" },
-  failed: { label: "failed", tone: "stop" },
-  partial: { label: "partial", tone: "wait" },
-  cancelled: { label: "cancelled", tone: "sub" },
-  timed_out: { label: "timed out", tone: "wait" },
-  expired: { label: "expired", tone: "sub" },
+  queued: { label: "Queued", tone: "info" },
+  running: { label: "Running", tone: "info" },
+  succeeded: { label: "Done", tone: "ok" },
+  failed: { label: "Failed", tone: "stop" },
+  partial: { label: "Partial", tone: "wait" },
+  cancelled: { label: "Cancelled", tone: "sub" },
+  timed_out: { label: "Timed out", tone: "wait" },
+  expired: { label: "Expired", tone: "sub" },
 };
 export const runStateLabel = (state: RunState) => RUN_STATES[state];
 
