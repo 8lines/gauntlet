@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import type { JsonObject } from "@8lines/gauntlet-protocol";
 import { navigate, useRoute } from "../route.ts";
 import { usePreferences } from "../preferences.ts";
-import { OperationScreen } from "../screens/OperationScreen.tsx";
 import { OverviewScreen } from "../screens/OverviewScreen.tsx";
 import { rememberRun } from "../recent-runs.ts";
 import { browserStorage } from "../browser-storage.ts";
@@ -13,6 +12,9 @@ import { AppSidebar } from "./AppSidebar.tsx";
 import { CommandSearch } from "./CommandSearch.tsx";
 import { SettingsDialog } from "./SettingsDialog.tsx";
 import { LoadFailed, LoadingState, NoEnvironments } from "./PageStates.tsx";
+import { OperationLoading } from "@/components/gauntlet/OperationLoading";
+
+const OperationScreen = lazy(() => import("../screens/OperationScreen.tsx").then((m) => ({ default: m.OperationScreen })));
 
 export function App() {
   const route = useRoute();
@@ -95,6 +97,7 @@ export function App() {
             />
           )}
           {selected !== undefined && route.operationId !== undefined && (
+            <Suspense fallback={<OperationLoading />}>
             <OperationScreen
               key={`${selected.id}:${route.operationId}:${navigationInput.key}`}
               targetId={selected.id}
@@ -118,6 +121,7 @@ export function App() {
               }}
               onRunCleared={() => navigate({ targetId: selected.id, operationId: route.operationId! }, { replace: true })}
             />
+            </Suspense>
           )}
         </main>
       </div>

@@ -1,24 +1,26 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { OperationSummary, Run } from "@8lines/gauntlet-protocol";
 import type { PageSubject } from "@8lines/gauntlet-widget-channel";
 import { TriangleAlert } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { describeProblem } from "../copy.ts";
-import { OperationScreen } from "../screens/OperationScreen.tsx";
 import { BackBar } from "./BackBar.tsx";
 import { OperationLists } from "./OperationLists.tsx";
 import { PanelHeader } from "./PanelHeader.tsx";
 import { PanelNotice, TargetProblem } from "./PanelNotice.tsx";
 import { subjectChip } from "./placements.ts";
 import type { BindingValue } from "./prefill.ts";
-import { RecentRunView } from "./RecentRunView.tsx";
 import { readRecentRuns, rememberRun } from "../recent-runs.ts";
 import { browserStorage } from "../browser-storage.ts";
 import { usePanelCatalog } from "./usePanelCatalog.ts";
 import { usePanelChannel, type PanelChannel, type PanelChannelState } from "./usePanelChannel.ts";
 import { usePanelTarget } from "./usePanelTarget.ts";
+import { OperationLoading } from "@/components/gauntlet/OperationLoading";
 import { openOperationView, pageSubjectDrifted, reseedOperationView, runCreatedIn, type OperationView, type View } from "./view.ts";
+
+const OperationScreen = lazy(() => import("../screens/OperationScreen.tsx").then((m) => ({ default: m.OperationScreen })));
+const RecentRunView = lazy(() => import("./RecentRunView.tsx").then((m) => ({ default: m.RecentRunView })));
 
 const NOT_CONNECTED: Readonly<Record<Exclude<PanelChannelState["kind"], "connected">, { title: string; detail?: string }>> = {
   // Framed and waiting for the loader's connect: normally a split second.
@@ -173,6 +175,7 @@ function ConnectedPanel({ channel, targetId }: { channel: PanelChannel; targetId
                   : current
               ))}
             />
+            <Suspense fallback={<OperationLoading />}>
             <OperationScreen
               key={view.operation.id}
               targetId={targetId}
@@ -181,12 +184,14 @@ function ConnectedPanel({ channel, targetId }: { channel: PanelChannel; targetId
               onRunCreated={onRunCreated(view.operation)}
               onRunCleared={() => setRunShown(false)}
             />
+            </Suspense>
           </>
         )}
         {snapshot !== undefined && view.kind === "run" && (
           <>
             <BackBar onBack={backToLists} targetId={targetId} operationId={view.entry.operationId} />
             <div className="min-h-0 flex-1 overflow-y-auto">
+              <Suspense fallback={<OperationLoading />}>
               <RecentRunView
                 entry={view.entry}
                 onResultShown={setRunShown}
@@ -196,6 +201,7 @@ function ConnectedPanel({ channel, targetId }: { channel: PanelChannel; targetId
                   else openOperation(operation);
                 }}
               />
+              </Suspense>
             </div>
           </>
         )}
