@@ -205,9 +205,26 @@ test("refresh reloads the environments", async ({ page }) => {
   await installApiFixture(page, { operation: destructiveOperation, scenario: "mobile" });
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Browser environment" })).toBeVisible();
+  const row = page.getByRole("row", { name: /Delete test data/ });
+  await expect(row).toContainText("deletes data");
+  // If definitions were reloaded, the slow response would leave "Loading" in the Impact column.
+  await page.context().route(`**/operations/${destructiveOperation.id}`, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.fallback();
+  });
   const before = await countTargetRequests(page);
-  await page.getByRole("button", { name: "Refresh" }).click();
+  const refresh = page.getByRole("button", { name: "Refresh" });
+  await refresh.click();
   await expect.poll(() => countTargetRequests(page)).toBeGreaterThan(before);
+  await expect(refresh).toBeEnabled();
+  // Sample without retrying: a retrying assertion would wait out a transient "Loading".
+  for (let sample = 0; sample < 10; sample += 1) {
+    const text = await row.innerText();
+    expect(text).toContain("deletes data");
+    expect(text).not.toContain("Loading");
+    expect(await page.getByText("Loading details").count()).toBe(0);
+    await page.waitForTimeout(50);
+  }
 });
 
 test("a failed refresh keeps the last environments and reports the problem", async ({ page }) => {

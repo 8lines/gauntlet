@@ -43,9 +43,9 @@ export function CatalogTable({ targetId, targetLabel, groups, details }: {
       <caption className="sr-only">Operations in {targetLabel}, grouped by feature</caption>
       <TableHeader>
         <TableRow>
-          <TableHead scope="col" className="w-[40%] px-2 text-[13px]/[18px] font-normal text-muted-foreground">Operation</TableHead>
-          <TableHead scope="col" className="w-[18%] px-2 text-[13px]/[18px] font-normal text-muted-foreground">Impact</TableHead>
-          <TableHead scope="col" className="px-2 text-[13px]/[18px] font-normal text-muted-foreground">Before you run</TableHead>
+          <TableHead scope="col" className="w-[40%] px-2 text-sm/5 font-medium text-muted-foreground">Operation</TableHead>
+          <TableHead scope="col" className="w-[18%] px-2 text-sm/5 font-medium text-muted-foreground">Impact</TableHead>
+          <TableHead scope="col" className="px-2 text-sm/5 font-medium text-muted-foreground">Before you run</TableHead>
         </TableRow>
       </TableHeader>
       {groups.map((group) => (

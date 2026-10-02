@@ -35,7 +35,11 @@ export function OverviewScreen({ target, refreshing, refreshProblem, onRefresh }
 }) {
   const manifest = target.manifest;
   const operations = manifest?.operations ?? NO_OPERATIONS;
-  const details = useOperationDetails(target.id, operations);
+  // A refresh yields a new manifest object even when nothing changed; definitions are only
+  // reloaded when an operation appears, disappears, changes revision or changes availability.
+  const catalogKey = operations.map((o) => `${o.id}:${o.revision}:${o.availability.state}`).join("|");
+  const stableOperations = useMemo(() => operations, [target.id, catalogKey]);
+  const details = useOperationDetails(target.id, stableOperations);
   const [query, setQuery] = useState("");
   const recentRuns = useMemo(
     () => readRecentRuns(browserStorage).filter((entry) => entry.targetId === target.id).slice(0, MAX_RECENT_RUNS_SHOWN),
