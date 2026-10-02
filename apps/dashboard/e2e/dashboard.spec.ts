@@ -238,13 +238,16 @@ test("search filters operations, supports keyboard navigation and restores focus
   const trigger = page.getByRole("button", { name: "Search environments and operations", exact: true });
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Search operations" });
-  const search = dialog.getByRole("searchbox");
+  const search = dialog.getByRole("combobox");
   await expect(search).toBeFocused();
   await search.fill("nonexistent operation");
-  await expect(dialog.getByRole("status")).toHaveText("No matching results");
+  await expect(dialog.getByText("No matching results")).toBeVisible();
+  await expect(dialog.getByRole("option")).toHaveCount(0);
   await search.fill("Process");
+  await expect(dialog.getByRole("option")).toHaveCount(1);
+  await expect(dialog.getByRole("option")).toHaveAttribute("aria-selected", "true");
   await search.press("ArrowDown");
-  await expect(dialog.getByRole("link")).toBeFocused();
+  await expect(dialog.getByRole("option")).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("Enter");
   await expect(dialog).toBeHidden();
   await expect(page.getByRole("heading", { name: desktopOperation.label, exact: true })).toBeVisible();
@@ -254,6 +257,24 @@ test("search filters operations, supports keyboard navigation and restores focus
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
+});
+
+test("search lists recent runs of the current environment and opens one", async ({ page }) => {
+  await installApiFixture(page, { operation: desktopOperation, scenario: "desktop" });
+  await page.addInitScript((operationId) => {
+    localStorage.setItem("gauntlet.recent-runs.v1", JSON.stringify([
+      { targetId: "browser-target", operationId, label: "Process test file", runId: "run-recent-1", startedAt: new Date().toISOString() },
+      { targetId: "other-target", operationId, label: "Elsewhere", runId: "run-other", startedAt: new Date().toISOString() },
+    ]));
+  }, desktopOperation.id);
+  await page.goto("/t/browser-target");
+  await page.keyboard.press("Control+k");
+  const dialog = page.getByRole("dialog", { name: "Search operations" });
+  const runs = dialog.getByRole("group", { name: "Recent runs" });
+  await expect(runs.getByRole("option")).toHaveCount(1);
+  await expect(dialog.getByRole("option", { name: /Elsewhere/ })).toHaveCount(0);
+  await runs.getByRole("option", { name: /Process test file/ }).click();
+  await expect(page).toHaveURL(`/t/browser-target/o/${desktopOperation.id}/r/run-recent-1`);
 });
 
 test("desktop sidebar collapses, stays collapsed after a reload and navigates to operations", async ({ page }, testInfo) => {

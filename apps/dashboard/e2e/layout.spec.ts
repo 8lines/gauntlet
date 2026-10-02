@@ -77,7 +77,7 @@ test("short viewports keep dialog controls reachable in both themes", async ({ p
     if (testInfo.project.name === "mobile") await page.getByRole("button", { name: "Toggle navigation" }).click();
     const sidebar = testInfo.project.name === "mobile" ? page.getByRole("dialog") : page.locator("#gauntlet-navigation");
     await sidebar.getByRole("button", { name: "Settings", exact: true }).click();
-    const settings = page.getByRole("dialog", { name: "User settings", exact: true });
+    const settings = page.getByRole("dialog", { name: "Settings", exact: true });
     await settings.getByRole("radio", { name: theme, exact: true }).check();
     const done = settings.getByRole("button", { name: "Done", exact: true });
     await expectContained(done, settings);
@@ -85,11 +85,13 @@ test("short viewports keep dialog controls reachable in both themes", async ({ p
     await done.click();
     await page.getByRole("button", { name: "Search environments and operations", exact: true }).click();
     const search = page.getByRole("dialog", { name: "Search operations", exact: true });
-    const close = search.getByRole("button", { name: "Close search" });
-    await expectContained(close, search);
-    await search.getByRole("link", { name: new RegExp(operation.label) }).focus();
-    await expectContained(close, search);
-    await expect(close).toBeInViewport();
+    const input = search.getByRole("combobox");
+    await expectContained(input, search);
+    await expect(input).toBeInViewport();
+    await input.fill(operation.label);
+    const result = search.getByRole("option", { name: new RegExp(operation.label) });
+    await expect(result).toBeInViewport();
+    await expectContained(result, search);
     await page.keyboard.press("Escape");
     await expect(search).toBeHidden();
   }

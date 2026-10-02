@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, type Ref } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import { Search } from "lucide-react";
 import { navigate, routePath, type Route } from "../route.ts";
 import { Button } from "@/components/ui/button";
@@ -18,11 +18,9 @@ export interface BreadcrumbEntry {
   readonly route?: Route;
 }
 
-export function AppHeader({ breadcrumb, onSearch, searchRef }: {
+export function AppHeader({ breadcrumb, onSearch }: {
   breadcrumb: readonly BreadcrumbEntry[];
   onSearch: () => void;
-  /** Receives focus back when the search dialog closes. */
-  searchRef?: Ref<HTMLButtonElement>;
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const { openMobile } = useSidebar();
@@ -69,7 +67,6 @@ export function AppHeader({ breadcrumb, onSearch, searchRef }: {
         </BreadcrumbList>
       </Breadcrumb>
       <Button
-        ref={searchRef}
         variant="outline"
         size="sm"
         aria-label="Search environments and operations"

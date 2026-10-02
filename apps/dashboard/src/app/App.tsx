@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { JsonObject } from "@8lines/gauntlet-protocol";
 import { navigate, useRoute } from "../route.ts";
-import { GlobalSearch } from "../GlobalSearch.tsx";
 import { EnvironmentOverview } from "../EnvironmentOverview.tsx";
-import { UserSettings } from "../UserSettings.tsx";
 import { usePreferences } from "../preferences.ts";
 import { OperationScreen } from "../screens/OperationScreen.tsx";
 import { rememberRun } from "../recent-runs.ts";
@@ -12,6 +10,8 @@ import { useTargets } from "../useTargets.ts";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppHeader, type BreadcrumbEntry } from "./AppHeader.tsx";
 import { AppSidebar } from "./AppSidebar.tsx";
+import { CommandSearch } from "./CommandSearch.tsx";
+import { SettingsDialog } from "./SettingsDialog.tsx";
 import { LoadFailed, LoadingState, NoEnvironments } from "./PageStates.tsx";
 
 export function App() {
@@ -20,7 +20,6 @@ export function App() {
   const { preferences, updatePreferences, saved } = usePreferences();
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const searchTriggerRef = useRef<HTMLButtonElement>(null);
   const [navigationInput, setNavigationInput] = useState(() => ({
     key: 0,
     input: gauntletInput(globalThis.history.state),
@@ -78,11 +77,7 @@ export function App() {
       />
       {/* Not `SidebarInset`: that renders a `main`, and the header belongs outside the main landmark. */}
       <div className="flex h-full min-w-0 flex-1 flex-col bg-background">
-        <AppHeader
-          breadcrumb={breadcrumb}
-          onSearch={() => setSearchOpen(true)}
-          searchRef={searchTriggerRef}
-        />
+        <AppHeader breadcrumb={breadcrumb} onSearch={() => setSearchOpen(true)} />
         <main
           id="workspace"
           className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden ${route.operationId === undefined ? "overflow-y-auto" : "overflow-y-hidden"}`}
@@ -120,15 +115,10 @@ export function App() {
           )}
         </main>
       </div>
-      <GlobalSearch
-        targets={targets}
-        open={searchOpen}
-        onOpenChange={setSearchOpen}
-        triggerRef={searchTriggerRef}
-      />
-      <UserSettings
+      <CommandSearch targets={targets} open={searchOpen} onOpenChange={setSearchOpen} />
+      <SettingsDialog
         open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        onOpenChange={setSettingsOpen}
         preferences={preferences}
         onChange={updatePreferences}
         saved={saved}
