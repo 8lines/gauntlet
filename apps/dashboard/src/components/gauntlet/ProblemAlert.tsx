@@ -3,7 +3,7 @@ import { CircleX } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { describeProblem } from "../../copy.ts";
 
-/** `correlationId` is `run.problem.correlationId`, the value RunDetails prints under a run problem. */
+/** `correlationId` is `run.problem.correlationId`, the value printed under a run problem. */
 export function ProblemAlert({ problem, title, correlationId }: { problem: Problem; title?: string; correlationId?: string }) {
   const described = describeProblem(problem);
   return (

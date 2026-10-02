@@ -4,7 +4,7 @@ import { api, isRunFinished } from "./api.ts";
 import { buildCreateRunRequest } from "./create-run-request.ts";
 import { OperationForm } from "./components/gauntlet/operation-form/OperationForm.tsx";
 import type { FileFieldState } from "./form-upload.ts";
-import { RunDetails } from "./RunDetails.tsx";
+import { RunView } from "./components/gauntlet/RunView.tsx";
 import { Card, EffectList, Badge, ConfirmDialog, Button, EmptyState } from "./ui.tsx";
 import { runButtonLabel, describeProblem, policyEffects, impactLabel } from "./copy.ts";
 import { Icon } from "./Icon.tsx";
@@ -283,13 +283,13 @@ export function OperationScreen(
                 </Card>
               )
               : (
-                <RunDetails
+                <RunView
                   targetId={targetId}
                   run={run}
                   onCancel={definition.execution.cancellationSupported
                     ? () => { void api.cancelRun(targetId, run.id).then((r) => { if (r.ok) setRun(r.data); }); }
                     : undefined}
-                  onRetry={() => { setRun(undefined); onRunCleared?.(); }}
+                  onRunAgain={() => { setRun(undefined); onRunCleared?.(); }}
                 />
               )}
           </div>
