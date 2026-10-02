@@ -15,7 +15,7 @@ All notable changes to this project are recorded here. Released artifacts are im
 ### Changed
 
 - Rebuilt the dashboard and widget panel on shadcn/ui with Geist type, a monochrome palette and colour reserved for state.
-- Recent runs are stored under `gauntlet.recent-runs.v1` and shared by the dashboard and widget; runs recorded by earlier widget versions are not carried over.
+- Recent runs are stored under `gauntlet.recent-runs.v1` and shared by the dashboard and widget when the host application and Gauntlet are on the same site (browsers that partition third-party storage keep a separate list in the widget); runs recorded by earlier widget versions are not carried over.
 - Run buttons are named after their operation for every impact; destructive operations are marked by colour and a confirmation instead of a suffix.
 
 ## [0.1.7] - 2026-10-01

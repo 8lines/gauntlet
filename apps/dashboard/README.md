@@ -79,8 +79,10 @@ All code lives under `apps/dashboard/src`:
 | `*.ts` at the `src/` root | UI-free logic with unit tests (`api`, `catalog`, `copy`, `route`, `recent-runs`, `browser-storage`, `run-actions`, `form-upload`, `operation-errors`, `targets-state`, `recent-run-state`, `preferences`, `json-pointer`, `create-run-request`) and the data hooks (`useRun`, `useTargets`, `useRecentRunStates`, `useOperationDetails`). |
 
 Run URLs have the form `/t/:targetId/o/:operationId/r/:runId`. Recent runs
-are stored in `localStorage` under `gauntlet.recent-runs.v1`, shared by the
-dashboard and the widget panel on the same origin.
+are stored in `localStorage` under `gauntlet.recent-runs.v1`. The dashboard
+and the widget panel share them when the host application and Gauntlet are on
+the same site; browsers that partition third-party storage keep a separate
+list in the widget.
 
 ### Add a shadcn component
 

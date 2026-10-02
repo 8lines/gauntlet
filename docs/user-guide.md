@@ -103,8 +103,10 @@ reopened later. Run history is held in the Gauntlet server's memory; a link to a
 run that the server no longer has shows "This run is no longer available".
 
 The environment overview and search list your recent runs. They are stored in
-this browser only (and shared with the embedded widget on the same origin), so
-they do not follow you to another browser or device.
+this browser only, so they do not follow you to another browser or device. The
+embedded widget shares the list when the application that embeds it and
+Gauntlet are on the same site; browsers that partition third-party storage
+keep a separate list in the widget.
 
 ## History and AI clients
 
