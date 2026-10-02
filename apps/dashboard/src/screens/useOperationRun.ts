@@ -73,20 +73,26 @@ export function useOperationRun(
     previousRunId.current = runId;
   }, [runId]);
   const runMissing = urlRun.missing;
+  /*
+   * The run on screen. When the URL moves to another run of this operation (search, back/forward),
+   * the previous run stays in state until the new one loads; it must not be shown, polled or cancelled meanwhile.
+   */
+  const shownRun = run !== undefined && (runId === undefined || run.id === runId) ? run : undefined;
 
-  /* Poll the run state until it reaches a terminal state. */
-  const runRef = useRef(run);
-  runRef.current = run;
+  /* Poll the shown run until it reaches a terminal state. */
+  const runRef = useRef(shownRun);
+  runRef.current = shownRun;
   useEffect(() => {
-    if (run === undefined || isRunFinished(run)) return;
+    if (shownRun === undefined || isRunFinished(shownRun)) return;
     const timer = setInterval(async () => {
-      const current = runRef.current;
-      if (current === undefined) return;
-      const result = await api.run(targetId, current.id);
-      if (result.ok) setRun(result.data);
+      const requested = runRef.current;
+      if (requested === undefined) return;
+      const result = await api.run(targetId, requested.id);
+      // A late answer for a run that is no longer on screen must not replace the one that is.
+      if (result.ok && runRef.current?.id === requested.id) setRun(result.data);
     }, 1500);
     return () => clearInterval(timer);
-  }, [run?.id, run?.state, targetId]);
+  }, [shownRun?.id, shownRun?.state, targetId]);
 
   const preset = definition?.presets?.find((p) => p.id === presetId);
   const locked: readonly JsonPointer[] = preset?.lockedPointers ?? [];
@@ -137,7 +143,7 @@ export function useOperationRun(
    * and asking for consent to an operation without effects teaches people to click through dialogs without reading.
    */
   const attempt = (dryRun: boolean) => {
-    if (definition === undefined) return;
+    if (definition === undefined || submitting) return;
     if (!dryRun && definition.execution.confirmationRequired) { setAwaitingConfirmation(true); return; }
     void start(dryRun);
   };
@@ -157,8 +163,11 @@ export function useOperationRun(
   };
 
   const cancelRun = () => {
-    if (run === undefined) return;
-    void api.cancelRun(targetId, run.id).then((r) => { if (r.ok) setRun(r.data); });
+    const requested = runRef.current;
+    if (requested === undefined) return;
+    void api.cancelRun(targetId, requested.id).then((r) => {
+      if (r.ok && runRef.current?.id === requested.id) setRun(r.data);
+    });
   };
 
   const runAgain = () => { setRun(undefined); onRunCleared?.(); };
@@ -173,7 +182,7 @@ export function useOperationRun(
     locked,
     skipped,
     errors,
-    run,
+    run: shownRun,
     runMissing,
     runProblem: urlRun.problem,
     submitting,

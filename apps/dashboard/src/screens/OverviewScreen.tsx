@@ -26,8 +26,10 @@ function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-export function OverviewScreen({ target, refreshing, refreshProblem, onRefresh }: {
+export function OverviewScreen({ target, recentRunsVersion = 0, refreshing, refreshProblem, onRefresh }: {
   target: TargetSnapshot;
+  /** Changes when a run is remembered, so the recent runs are read again. */
+  recentRunsVersion?: number;
   refreshing: boolean;
   /** Set when the last refresh failed; the environments shown are from the last successful load. */
   refreshProblem?: Problem | undefined;
@@ -43,7 +45,7 @@ export function OverviewScreen({ target, refreshing, refreshProblem, onRefresh }
   const [query, setQuery] = useState("");
   const recentRuns = useMemo(
     () => readRecentRuns(browserStorage).filter((entry) => entry.targetId === target.id).slice(0, MAX_RECENT_RUNS_SHOWN),
-    [target.id],
+    [target.id, recentRunsVersion],
   );
 
   const unavailable = operations.filter((operation) => operation.availability.state !== "available");

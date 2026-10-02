@@ -163,7 +163,7 @@ export function OperationScreen(
               {errors.length > 0 && (
                 <Alert className="border-err">
                   <CircleX className="text-err" aria-hidden="true" />
-                  <AlertTitle className="text-sm/5 font-medium">Fix the input</AlertTitle>
+                  <AlertTitle className="line-clamp-none text-sm/5 font-medium">Fix the input</AlertTitle>
                   <AlertDescription className="max-w-[68ch] text-sm/5">
                     <p>Nothing was sent to the application. The form is filled in just as you left it.</p>
                     {general.length > 0 && (
@@ -254,12 +254,17 @@ export function OperationScreen(
               Dry run
             </Button>
           )}
+          {/*
+            * While a run is being sent the button stays focusable (`aria-disabled`, not `disabled`):
+            * confirming in the dialog returns focus here, and a disabled button would drop it to <body>.
+            */}
           <Button
             ref={confirmationTriggerRef}
             variant={destructive ? "destructive" : "default"}
-            className="h-11 w-full min-w-0 shrink sm:h-9 sm:w-auto"
-            disabled={state.submitting || state.uploadPending}
-            onClick={() => state.attempt(false)}
+            className="h-11 w-full min-w-0 shrink aria-disabled:pointer-events-none aria-disabled:opacity-50 sm:h-9 sm:w-auto"
+            disabled={state.uploadPending}
+            aria-disabled={state.submitting || undefined}
+            onClick={() => { if (!state.submitting) state.attempt(false); }}
           >
             <span className="truncate">{state.submitting ? "Sending" : label}</span>
           </Button>
@@ -294,10 +299,12 @@ function ResultArea(
       />
     );
   }
-  if (run !== undefined) {
+  // A failed load of the run in the URL wins over any run still held from before the URL changed.
+  if (runProblem !== undefined) return <ProblemAlert problem={runProblem} title="Could not load this run" />;
+  // `run` is only ever the run the URL names (or, without a run id, the one just started).
+  if (run !== undefined && (runId === undefined || run.id === runId)) {
     return <RunView targetId={targetId} run={run} onCancel={onCancel} onRunAgain={onRunAgain} />;
   }
-  if (runProblem !== undefined) return <ProblemAlert problem={runProblem} title="Could not load this run" />;
   if (runId !== undefined) {
     return (
       <div className="flex flex-col gap-2" role="status">

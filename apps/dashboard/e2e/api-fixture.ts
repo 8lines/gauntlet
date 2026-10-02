@@ -32,6 +32,8 @@ export interface ApiFixtureOptions {
    */
   readonly scenario: "mobile" | "desktop" | "run-url";
   readonly targetLabel?: string;
+  /** When set, every create-run response waits for this promise to settle. */
+  readonly createRunGate?: Promise<unknown>;
 }
 
 export function operationWithRevision(
@@ -329,6 +331,24 @@ function followUpRun(operation: OperationDefinition): Run {
   });
 }
 
+/** A run with its own id and summary title, for cases that move between several runs of one operation. */
+export function namedRun(operation: OperationDefinition, id: string, state: "running" | "succeeded", title: string): Run {
+  return verifiedRun(operation, {
+    id,
+    operationId: operation.id,
+    operationRevision: operation.revision,
+    sequence: 1,
+    state,
+    createdAt: "2026-09-03T12:00:00Z",
+    updatedAt: "2026-09-03T12:00:04Z",
+    startedAt: "2026-09-03T12:00:01Z",
+    ...(state === "succeeded" ? { completedAt: "2026-09-03T12:00:04Z", output: {} } : {}),
+    summary: { title, tone: state === "succeeded" ? "success" : "neutral" },
+    artifacts: [],
+    actions: [],
+  });
+}
+
 function cancelledRun(operation: OperationDefinition): Run {
   return verifiedRun(operation, {
     id: "browser-run-01",
@@ -418,6 +438,7 @@ export async function installApiFixture(page: Page, options: ApiFixtureOptions):
 
     if (method === "POST" && url.pathname === `/api/v1/targets/browser-target/operations/${options.operation.id}/runs`) {
       creates += 1;
+      if (options.createRunGate !== undefined) await options.createRunGate;
       return json(options.scenario === "mobile" ? succeededRun(options.operation, false) : activeRun(options.operation), 202);
     }
 

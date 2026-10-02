@@ -6,6 +6,7 @@ import {
   followUpInput,
   followUpOperation,
   installApiFixture,
+  namedRun,
   recordedRuns,
   recordedState,
 } from "./api-fixture.ts";
@@ -127,7 +128,9 @@ test("mobile navigation removes the closed sheet from view and focus order", asy
 
 test("confirmation dialog contains focus and restores its exact trigger", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile", "mobile acceptance");
-  await installApiFixture(page, { operation: destructiveOperation, scenario: "mobile" });
+  let releaseCreate!: () => void;
+  const createGate = new Promise<void>((resolve) => { releaseCreate = resolve; });
+  await installApiFixture(page, { operation: destructiveOperation, scenario: "mobile", createRunGate: createGate });
   await page.goto("/");
 
   await page.getByRole("button", { name: "Toggle navigation" }).click();
@@ -159,6 +162,24 @@ test("confirmation dialog contains focus and restores its exact trigger", async 
   await expect(dialog).toBeHidden();
   await expect(appRoot).not.toHaveAttribute("aria-hidden", "true");
   await expect(trigger).toBeFocused();
+
+  // Confirming also returns focus to the trigger: it stays focusable (aria-disabled) while the run is sent.
+  await page.keyboard.press("Enter");
+  await expect(dialog).toBeVisible();
+  await confirm.focus();
+  await page.keyboard.press("Enter");
+  await expect(dialog).toBeHidden();
+  const sending = page.getByRole("region", { name: "Operation actions" }).getByRole("button", { name: "Sending", exact: true });
+  await expect(sending).toBeFocused();
+  await expect(sending).toHaveAttribute("aria-disabled", "true");
+  // A second press while sending starts nothing.
+  await page.keyboard.press("Enter");
+  await expect(dialog).toBeHidden();
+  releaseCreate();
+  await expect(page).toHaveURL(/\/r\/browser-run-01$/);
+  await expect(trigger).toBeFocused();
+  await expect(trigger).not.toHaveAttribute("aria-disabled");
+  expect(await recordedRuns(page)).toHaveLength(1);
 });
 
 test("desktop handles upload, polling, cancellation, rich results and follow-ups", async ({ page }, testInfo) => {
@@ -371,9 +392,100 @@ test("a run URL survives reload and keeps polling", async ({ page }, testInfo) =
   await expect(page.getByText(/^\W+Running$/)).toBeVisible();
   await expect(page.getByText(/^\W+Done$/)).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText("Invitation sent", { exact: true })).toBeVisible();
+  await expect(page.getByRole("main").getByText(/^Started .+, took 4 s$/)).toBeVisible();
   const polls = (await recordedState(page)).requests
     .filter(({ method, path }) => method === "GET" && path.endsWith("/runs/browser-run-01"));
   expect(polls.length).toBeGreaterThanOrEqual(2);
+});
+
+test("moving between runs of one operation shows only the run the URL names", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "desktop acceptance");
+  await installApiFixture(page, { operation: followUpOperation, scenario: "desktop" });
+  let releaseSecond!: () => void;
+  const secondReleased = new Promise<void>((resolve) => { releaseSecond = resolve; });
+  const runs = "**/api/v1/targets/browser-target/runs";
+  // Page routes take precedence over the fixture's context route.
+  await page.route(`${runs}/run-one`, (route) => route.fulfill({
+    json: namedRun(followUpOperation, "run-one", "running", "First invitation pending"),
+  }));
+  await page.route(`${runs}/run-two`, async (route) => {
+    await secondReleased;
+    await route.fulfill({ json: namedRun(followUpOperation, "run-two", "succeeded", "Second invitation sent") });
+  });
+  await page.route(`${runs}/run-three`, (route) => route.fulfill({
+    status: 503,
+    json: { type: "urn:gauntlet:problem:network-unreachable", title: "Application unreachable", status: 503 },
+  }));
+  await page.addInitScript((operationId) => {
+    localStorage.setItem("gauntlet.recent-runs.v1", JSON.stringify([
+      { targetId: "browser-target", operationId, label: "Invite test user", runId: "run-two", startedAt: new Date().toISOString() },
+      { targetId: "browser-target", operationId, label: "Invite test user", runId: "run-one", startedAt: new Date().toISOString() },
+    ]));
+  }, followUpOperation.id);
+
+  const runUrl = (runId: string) => `/t/browser-target/o/${followUpOperation.id}/r/${runId}`;
+  const main = page.getByRole("main");
+  const first = main.getByText("First invitation pending", { exact: true });
+  const second = main.getByText("Second invitation sent", { exact: true });
+  await page.goto(runUrl("run-one"));
+  await expect(first).toBeVisible();
+  await expect(main.getByText("run-one", { exact: true })).toBeVisible();
+
+  await page.keyboard.press("Control+k");
+  const dialog = page.getByRole("dialog", { name: "Search operations" });
+  await dialog.getByRole("combobox").fill("run-two");
+  await dialog.getByRole("group", { name: "Recent runs" }).getByRole("option").click();
+  await expect(page).toHaveURL(runUrl("run-two"));
+
+  // While run-two loads, run-one is neither shown nor brought back by its own polling (every 1.5 s).
+  const loading = main.getByRole("status").filter({ hasText: "Loading the run" });
+  await expect(loading).toBeVisible();
+  await expect(first).toHaveCount(0);
+  await expect(main.getByText("run-one", { exact: true })).toHaveCount(0);
+  await page.waitForTimeout(2_000);
+  await expect(first).toHaveCount(0);
+  await expect(loading).toBeVisible();
+
+  releaseSecond();
+  await expect(second).toBeVisible();
+  await expect(main.getByText("run-two", { exact: true })).toBeVisible();
+  await expect(first).toHaveCount(0);
+
+  await page.goBack();
+  await expect(page).toHaveURL(runUrl("run-one"));
+  await expect(first).toBeVisible();
+  await expect(second).toHaveCount(0);
+
+  // A run that fails to load (not a 404) shows the failure, not the run that was on screen before.
+  await page.evaluate((path) => {
+    history.pushState(null, "", path);
+    dispatchEvent(new PopStateEvent("popstate", { state: null }));
+  }, runUrl("run-three"));
+  await expect(main.getByText("Could not load this run", { exact: true })).toBeVisible();
+  await expect(first).toHaveCount(0);
+  await expect(main.getByText("run-one", { exact: true })).toHaveCount(0);
+});
+
+test("a run created after leaving the operation is remembered without pulling the user back", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "desktop acceptance");
+  let releaseCreate!: () => void;
+  const createGate = new Promise<void>((resolve) => { releaseCreate = resolve; });
+  await installApiFixture(page, { operation: followUpOperation, scenario: "run-url", createRunGate: createGate });
+  await page.goto(`/t/browser-target/o/${followUpOperation.id}`);
+  await page.getByRole("region", { name: "Operation actions" })
+    .getByRole("button", { name: followUpOperation.label, exact: true }).click();
+  await expect.poll(() => recordedRuns(page)).toHaveLength(1);
+
+  await page.getByRole("navigation", { name: "Operations" }).getByRole("button", { name: "Overview" }).click();
+  await expect(page).toHaveURL("/t/browser-target");
+  const recent = page.getByRole("region", { name: "Your recent runs" });
+  await expect(recent.getByText("Runs you start in this browser appear here.")).toBeVisible();
+
+  releaseCreate();
+  await expect(recent.getByRole("link", { name: new RegExp(followUpOperation.label) })).toBeVisible();
+  await expect(page).toHaveURL("/t/browser-target");
+  await page.goBack();
+  await expect(page).toHaveURL(`/t/browser-target/o/${followUpOperation.id}`);
 });
 
 test("an unknown run shows that it is no longer available", async ({ page }, testInfo) => {

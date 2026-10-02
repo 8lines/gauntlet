@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { JsonObject } from "@8lines/gauntlet-protocol";
-import { navigate, useRoute } from "../route.ts";
+import { navigate, parseRoute, useRoute } from "../route.ts";
 import { usePreferences } from "../preferences.ts";
 import { OverviewScreen } from "../screens/OverviewScreen.tsx";
 import { rememberRun } from "../recent-runs.ts";
@@ -23,6 +23,8 @@ export function App() {
   const { preferences, updatePreferences, saved } = usePreferences();
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /* Bumped when a run is remembered, so an overview already on screen lists it. */
+  const [recentRunsVersion, setRecentRunsVersion] = useState(0);
   const navigationToggle = useRef<HTMLButtonElement>(null);
   const settingsOpener = useRef<HTMLElement | null>(null);
   const [navigationInput, setNavigationInput] = useState(() => ({
@@ -51,8 +53,9 @@ export function App() {
   const selected = targets?.find((t) => t.id === route.targetId) ?? targets?.[0];
 
   useEffect(() => {
+    // Replace, not push: Back from the first environment must not land on "/" and redirect again.
     if (route.targetId === undefined && selected !== undefined)
-      navigate({ targetId: selected.id });
+      navigate({ targetId: selected.id }, { replace: true });
   }, [route.targetId, selected]);
 
   const manifest = selected?.manifest;
@@ -99,6 +102,7 @@ export function App() {
             <OverviewScreen
               key={selected.id}
               target={selected}
+              recentRunsVersion={recentRunsVersion}
               refreshing={refreshing}
               refreshProblem={problem}
               onRefresh={refresh}
@@ -126,7 +130,12 @@ export function App() {
                       runId: run.id,
                       startedAt: run.startedAt ?? run.createdAt,
                     });
-                    navigate({ targetId: selected.id, operationId, runId: run.id }, { replace: true });
+                    setRecentRunsVersion((version) => version + 1);
+                    // The run may be created after the user moved on (another screen, another run);
+                    // only a user still on this operation's form is taken to the run's URL.
+                    const current = parseRoute(globalThis.location.pathname);
+                    if (current.targetId === route.targetId && current.operationId === operationId && current.runId === undefined)
+                      navigate({ targetId: selected.id, operationId, runId: run.id }, { replace: true });
                   }}
                   onRunCleared={() => navigate({ targetId: selected.id, operationId: route.operationId! }, { replace: true })}
                 />
