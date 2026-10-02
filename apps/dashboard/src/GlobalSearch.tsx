@@ -1,18 +1,23 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { TargetSnapshot } from "./api.ts";
 import { Icon } from "./Icon.tsx";
 import { navigate, routePath, type Route } from "./route.ts";
 
+/** Controlled by the app header's Search button (`triggerRef`) until the command palette replaces it. */
 export function GlobalSearch({
   targets,
+  open,
+  onOpenChange: setOpen,
+  triggerRef,
 }: {
   targets: readonly TargetSnapshot[] | undefined;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
   const [search, setSearch] = useState("");
-  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -21,15 +26,16 @@ export function GlobalSearch({
       if (modal !== null && modal !== dialogRef.current) return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setOpen((current) => !current);
+        setOpen(!open);
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, []);
+  }, [open, setOpen, triggerRef]);
 
   useEffect(() => {
     if (open) {
+      setSearch("");
       dialogRef.current?.showModal();
       inputRef.current?.focus();
     } else if (dialogRef.current?.open) {
@@ -70,24 +76,6 @@ export function GlobalSearch({
 
   return (
     <>
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => {
-          setSearch("");
-          setOpen(true);
-        }}
-        aria-label="Search operations"
-        className="toolbar-control search-trigger flex items-center gap-3 rounded-control text-left text-muted-foreground hover:bg-accent"
-      >
-        <Icon name="search" />
-        <span className="search-label truncate text-[14px]">
-          Search operations…
-        </span>
-        <kbd className="search-shortcut ml-auto shrink-0 whitespace-nowrap rounded-badge border border-border bg-background/60 px-1.5 py-0.5 text-[11px]">
-          ⌘ / Ctrl K
-        </kbd>
-      </button>
       <dialog
         ref={dialogRef}
         className="dialog-surface search-dialog"

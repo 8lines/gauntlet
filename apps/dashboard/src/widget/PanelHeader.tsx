@@ -1,7 +1,8 @@
 import type { Ref } from "react";
 import type { TargetSnapshot } from "../api.ts";
 import { Icon } from "../Icon.tsx";
-import { stateColorClass, stateLabel } from "../EnvironmentPicker.tsx";
+import { StateMark } from "@/components/gauntlet/StateMark";
+import { targetStateLabel, targetStateTone } from "../app/EnvironmentSwitcher.tsx";
 
 /**
  * Header of the embedded panel. The close button (and Escape, handled by `Panel`) is the
@@ -28,11 +29,11 @@ export function PanelHeader({ snapshot, search, onClose }: {
         {snapshot !== undefined && (
           <span
             className="flex min-w-0 max-w-[45%] items-center gap-1.5 rounded-badge border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground"
-            title={`Environment: ${environment?.name ?? snapshot.label} · ${stateLabel(snapshot)}`}
+            title={`Environment: ${environment?.name ?? snapshot.label} · ${targetStateLabel(snapshot)}`}
           >
-            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${stateColorClass(snapshot)}`} />
+            <StateMark tone={targetStateTone(snapshot)} className="shrink-0" />
             {environment === undefined
-              ? <span className="truncate">{stateLabel(snapshot)}</span>
+              ? <span className="truncate">{targetStateLabel(snapshot)}</span>
               : (
                 <>
                   <span className="truncate font-medium text-foreground">{environment.name}</span>

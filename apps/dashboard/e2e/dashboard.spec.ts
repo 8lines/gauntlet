@@ -10,20 +10,22 @@ import {
   recordedState,
 } from "./api-fixture.ts";
 
-test("application footer shows the build version on desktop and mobile", async ({ page }, testInfo) => {
+test("the sidebar footer shows the build version on desktop and in the mobile sheet", async ({ page }, testInfo) => {
   await installApiFixture(page, { operation: desktopOperation, scenario: testInfo.project.name === "mobile" ? "mobile" : "desktop" });
   await page.goto("/");
+  const version = `Gauntlet v${dashboardPackage.version}`;
 
-  const footer = page.getByRole("contentinfo", { name: "Application information" });
-  await expect(footer).toBeVisible();
-  await expect(footer).toHaveText(`Gauntlet v${dashboardPackage.version}`);
-
-  if (testInfo.project.name === "desktop") {
-    await page.getByRole("button", { name: "Collapse navigation" }).click();
-    await expect(page.locator("#gauntlet-navigation")).toBeHidden();
-    await expect(footer).toBeVisible();
-    await expect(footer).toHaveText(`Gauntlet v${dashboardPackage.version}`);
+  if (testInfo.project.name === "mobile") {
+    await expect(page.getByText(version)).toBeHidden();
+    await page.getByRole("button", { name: "Toggle navigation" }).click();
+    await expect(page.getByRole("dialog").getByText(version, { exact: true })).toBeVisible();
+    return;
   }
+  const navigation = page.locator("#gauntlet-navigation");
+  await expect(navigation.getByText(version, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Toggle navigation" }).click();
+  await expect(navigation).toHaveJSProperty("inert", true);
+  await expect(navigation.getByText(version, { exact: true })).not.toBeInViewport();
 });
 
 test("mobile execution stays inside the viewport and confirms both modes", async ({ page }, testInfo) => {
@@ -31,7 +33,7 @@ test("mobile execution stays inside the viewport and confirms both modes", async
   await installApiFixture(page, { operation: destructiveOperation, scenario: "mobile" });
   await page.goto("/");
 
-  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: "Toggle navigation" }).click();
   await page.getByRole("button", { name: destructiveOperation.label }).click();
 
   const roleGroup = page.getByRole("group", { name: "Role" });
@@ -93,40 +95,34 @@ test("mobile execution stays inside the viewport and confirms both modes", async
   expect(widths.document).toBe(widths.viewport);
 });
 
-test("mobile navigation removes the closed drawer from view and focus order", async ({ page }, testInfo) => {
+test("mobile navigation removes the closed sheet from view and focus order", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile", "mobile acceptance");
   await installApiFixture(page, { operation: destructiveOperation, scenario: "mobile" });
   await page.goto("/");
 
-  const navigation = page.locator("#gauntlet-navigation");
-  const hamburger = page.getByRole("button", { name: "Open navigation" });
+  const sheet = page.getByRole("dialog");
+  const trigger = page.getByRole("button", { name: "Toggle navigation" });
 
-  await expect(navigation).toBeHidden();
-  await expect(navigation).toHaveAttribute("aria-hidden", "true");
-  expect(await navigation.evaluate((element) => (element as HTMLElement).inert)).toBe(true);
-
-  await hamburger.focus();
+  await expect(sheet).toHaveCount(0);
+  await trigger.focus();
   await page.keyboard.press("Shift+Tab");
-  expect(await page.evaluate(() => document.activeElement?.closest("#gauntlet-navigation"))).toBeNull();
+  expect(await page.evaluate(() => document.activeElement?.closest("[data-slot=sidebar]"))).toBeNull();
 
-  await hamburger.click();
-  await expect(navigation).toBeVisible();
-  await expect(navigation).not.toHaveAttribute("aria-hidden", "true");
-  const closeNavigation = page.getByRole("button", { name: "Close navigation" });
-  await expect(closeNavigation).toBeFocused();
-  const closeBox = await closeNavigation.boundingBox();
-  expect(closeBox?.height).toBeGreaterThanOrEqual(44);
-  expect(closeBox?.width).toBeGreaterThanOrEqual(44);
+  await trigger.click();
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("button", { name: destructiveOperation.label, exact: true })).toBeVisible();
+  // Radix hides the page behind the sheet from assistive technology.
+  await expect(page.getByRole("main")).toHaveCount(0);
 
   await page.keyboard.press("Escape");
-  await expect(navigation).toBeHidden();
-  await expect(hamburger).toBeFocused();
+  await expect(sheet).toHaveCount(0);
+  await expect(trigger).toBeFocused();
 
-  await hamburger.click();
-  await expect(closeNavigation).toBeFocused();
-  await page.getByRole("button", { name: destructiveOperation.label }).click();
-  await expect(navigation).toBeHidden();
-  await expect(hamburger).toBeFocused();
+  await trigger.click();
+  await sheet.getByRole("button", { name: destructiveOperation.label, exact: true }).click();
+  await expect(sheet).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(page).toHaveURL(new RegExp(`/o/${destructiveOperation.id}$`));
 });
 
 test("confirmation dialog contains focus and restores its exact trigger", async ({ page }, testInfo) => {
@@ -134,7 +130,7 @@ test("confirmation dialog contains focus and restores its exact trigger", async 
   await installApiFixture(page, { operation: destructiveOperation, scenario: "mobile" });
   await page.goto("/");
 
-  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: "Toggle navigation" }).click();
   await page.getByRole("button", { name: destructiveOperation.label }).click();
 
   const trigger = page.getByRole("region", { name: "Operation actions" })
@@ -170,7 +166,7 @@ test("desktop handles upload, polling, cancellation, rich results and follow-ups
   await installApiFixture(page, { operation: desktopOperation, scenario: "desktop" });
   await page.goto("/t/browser-target");
   await page.getByRole("button", { name: /^Choose environment:/ }).click();
-  await expect(page.getByRole("dialog", { name: "Environments", exact: true }).getByText("Acme Portal", { exact: true })).toBeVisible();
+  await expect(page.getByRole("menu").getByText("Acme Portal", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: desktopOperation.label }).click();
 
@@ -239,7 +235,7 @@ test("search filters operations, supports keyboard navigation and restores focus
   await installApiFixture(page, { operation: desktopOperation, scenario: "desktop" });
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Operation catalog" })).toBeVisible();
-  const trigger = page.getByRole("button", { name: "Search operations", exact: true });
+  const trigger = page.getByRole("button", { name: "Search environments and operations", exact: true });
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Search operations" });
   const search = dialog.getByRole("searchbox");
@@ -260,39 +256,51 @@ test("search filters operations, supports keyboard navigation and restores focus
   await expect(trigger).toBeFocused();
 });
 
-test("desktop sidebar collapses and overview links navigate to operations", async ({ page }, testInfo) => {
+test("desktop sidebar collapses, stays collapsed after a reload and navigates to operations", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "desktop acceptance");
   await installApiFixture(page, { operation: desktopOperation, scenario: "desktop" });
   await page.goto("/");
   const navigation = page.locator("#gauntlet-navigation");
+  const sidebar = page.locator('[data-slot="sidebar"]');
+  const trigger = page.getByRole("button", { name: "Toggle navigation" });
   const expectHeaderAligned = async () => {
-    const workspace = (await page.getByRole("main").boundingBox())!;
-    const header = (await page.locator(".app-header").boundingBox())!;
-    const toggle = (await page.locator(".app-header > button").first().boundingBox())!;
-    const profile = (await page.getByRole("button", { name: "User settings", exact: true }).boundingBox())!;
-    expect(header.x).toBeCloseTo(workspace.x, 0);
-    expect(header.width).toBeCloseTo(workspace.width, 0);
-    expect(toggle.x).toBeCloseTo(workspace.x, 0);
-    expect(profile.x + profile.width).toBeCloseTo(workspace.x + workspace.width, 0);
-    expect(toggle.y + toggle.height / 2).toBeCloseTo(profile.y + profile.height / 2, 0);
+    const main = (await page.getByRole("main").boundingBox())!;
+    const header = (await page.getByRole("banner").boundingBox())!;
+    const toggle = (await trigger.boundingBox())!;
+    const search = (await page.getByRole("button", { name: "Search environments and operations" }).boundingBox())!;
+    expect(header.x).toBeCloseTo(main.x, 0);
+    expect(header.width).toBeCloseTo(main.width, 0);
+    expect(toggle.x).toBeGreaterThan(main.x);
+    expect(search.x + search.width).toBeLessThanOrEqual(main.x + main.width);
+    expect(toggle.y + toggle.height / 2).toBeCloseTo(search.y + search.height / 2, 0);
+    expect(header.y + header.height).toBeCloseTo(main.y, 0);
   };
+
+  await expect(sidebar).toHaveAttribute("data-state", "expanded");
+  await expect(navigation.getByRole("button", { name: "Overview" })).toHaveAttribute("aria-current", "page");
   await expectHeaderAligned();
-  await page.getByRole("button", { name: "Collapse navigation" }).click();
-  await expect(navigation).toBeHidden();
+  const expandedMain = (await page.getByRole("main").boundingBox())!;
+  expect(expandedMain.x).toBeGreaterThanOrEqual(256);
+
+  await trigger.click();
+  await expect(sidebar).toHaveAttribute("data-state", "collapsed");
+  await expect(navigation).toHaveJSProperty("inert", true);
+  await expect.poll(async () => (await page.getByRole("main").boundingBox())!.x).toBeCloseTo(0, 0);
+  expect((await page.getByRole("main").boundingBox())!.width).toBeCloseTo(page.viewportSize()!.width, 0);
   await expectHeaderAligned();
-  const workspace = (await page.getByRole("main").boundingBox())!;
-  const viewport = page.viewportSize()!;
-  expect(workspace.x).toBeGreaterThan(0);
-  expect(workspace.x).toBeCloseTo(viewport.width - workspace.x - workspace.width, 0);
-  const profile = (await page.getByRole("button", { name: "User settings", exact: true }).boundingBox())!;
-  expect(profile.x + profile.width).toBeLessThanOrEqual(workspace.x + workspace.width);
-  expect(profile.y + profile.height).toBeLessThan(workspace.y);
-  await page.getByRole("button", { name: "Open navigation" }).click();
-  await expect(navigation).toBeVisible();
-  await expectHeaderAligned();
-  await page.getByRole("main").getByRole("link", { name: /Process test file/ }).click();
+
+  await page.reload();
+  await expect(sidebar).toHaveAttribute("data-state", "collapsed");
+  await expect(page.getByRole("main").getByRole("heading", { level: 1 })).toBeVisible();
+
+  await page.keyboard.press("Control+b");
+  await expect(sidebar).toHaveAttribute("data-state", "expanded");
+  await expect(navigation).toHaveJSProperty("inert", false);
+  await navigation.getByRole("button", { name: desktopOperation.label }).click();
   await expect(page.getByRole("heading", { name: desktopOperation.label, exact: true })).toBeVisible();
   await expect(navigation.getByRole("button", { name: desktopOperation.label })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Browser environment" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByText(desktopOperation.label, { exact: true })).toHaveAttribute("aria-current", "page");
 });
 
 test("operation actions stay at the bottom while the content scrolls", async ({ page }, testInfo) => {

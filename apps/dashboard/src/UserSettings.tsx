@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Icon, type IconName } from "./Icon.tsx";
 import { Button } from "./ui.tsx";
 import { McpConnectionSettings } from "./McpConnectionSettings.tsx";
@@ -14,11 +14,16 @@ const THEMES: readonly { value: Theme; label: string; icon: IconName }[] = [
   { value: "system", label: "System", icon: "monitor" },
 ];
 
+/** Opened from the sidebar's Settings button (`open`) until the settings dialog replaces it. */
 export function UserSettings({
+  open,
+  onClose,
   preferences,
   onChange,
   saved,
 }: {
+  open: boolean;
+  onClose: () => void;
   preferences: Preferences;
   onChange: (changes: Partial<Preferences>) => void;
   saved: boolean;
@@ -30,6 +35,12 @@ export function UserSettings({
   const [section, setSection] = useState<"appearance" | "mcp">("appearance");
   const contentRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (open && dialog !== null && !dialog.open) dialog.showModal();
+    else if (!open && dialog?.open) dialog.close();
+  }, [open]);
+
   const selectSection = (next: "appearance" | "mcp") => {
     setSection(next);
     if (contentRef.current) contentRef.current.scrollTop = 0;
@@ -37,21 +48,12 @@ export function UserSettings({
 
   return (
     <>
-      <button
-        type="button"
-        aria-label="User settings"
-        aria-haspopup="dialog"
-        title="User settings"
-        onClick={() => dialogRef.current?.showModal()}
-        className="icon-button icon-button-surface hover:text-primary"
-      >
-        <Icon name="user" />
-      </button>
       <dialog
         ref={dialogRef}
         className="dialog-surface settings-dialog"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
+        onClose={onClose}
         onClick={(event) => {
           if (event.target === event.currentTarget) dialogRef.current?.close();
         }}
