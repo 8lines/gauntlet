@@ -27,7 +27,9 @@ import { crc32, inflateRawSync } from "node:zlib";
 
 import { parseDocument } from "yaml";
 
-import { RELEASE_ARTIFACTS, readReleaseVersion } from "./release-model.mjs";
+import { unitIdForArtifact } from "./plan.mjs";
+import { RELEASE_ARTIFACTS, parseReleaseVersion } from "./release-model.mjs";
+import { RELEASE_UNITS, dependencyOrder } from "./units.mjs";
 
 const execFileAsync = promisify(execFile);
 const PNPM_VERSION = "11.24.0";
@@ -39,6 +41,7 @@ const MAX_TAR_BYTES = 160 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRIES = 4_096;
 const NPM_TAR_MTIME_SECONDS = 499_162_500;
 const INTERNAL_NAMES = new Set(RELEASE_ARTIFACTS.npm.map(({ name }) => name));
+export const NPM_UNIT_IDS = Object.freeze(RELEASE_UNITS.filter(({ kind }) => kind === "npm").map(({ id }) => id));
 const EXACT_STABLE_VERSION = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
 
 const CONTRACTS = Object.freeze({
@@ -139,14 +142,56 @@ function validateClosedOptions(options) {
   }
   const descriptors = Object.getOwnPropertyDescriptors(options);
   const keys = Reflect.ownKeys(descriptors);
-  if (keys.length !== 2 || !keys.includes("root") || !keys.includes("outputDirectory")
-      || keys.some((key) => typeof key !== "string"
-        || !["root", "outputDirectory"].includes(key)
+  const names = ["root", "outputDirectory", "versions", "include"];
+  if (keys.length !== names.length || keys.some((key) => typeof key !== "string"
+        || !names.includes(key)
         || descriptors[key].enumerable !== true
         || !("value" in descriptors[key]))) {
     throw new TypeError("NPM staging options must be a closed data object");
   }
-  return { root: descriptors.root.value, outputDirectory: descriptors.outputDirectory.value };
+  return {
+    root: descriptors.root.value,
+    outputDirectory: descriptors.outputDirectory.value,
+    versions: validateUnitVersions(descriptors.versions.value),
+    include: validateInclude(descriptors.include.value),
+  };
+}
+
+function validateUnitVersions(versions) {
+  try {
+    if (versions === null || typeof versions !== "object" || Array.isArray(versions)
+        || utilTypes.isProxy(versions)
+        || ![Object.prototype, null].includes(Object.getPrototypeOf(versions))) throw new Error();
+    const descriptors = Object.getOwnPropertyDescriptors(versions);
+    const keys = Reflect.ownKeys(descriptors);
+    if (keys.length !== NPM_UNIT_IDS.length
+        || keys.some((key) => typeof key !== "string" || !NPM_UNIT_IDS.includes(key)
+          || descriptors[key].enumerable !== true || !("value" in descriptors[key])
+          || typeof descriptors[key].value !== "string"
+          || parseReleaseVersion(`${descriptors[key].value}\n`) !== descriptors[key].value)) throw new Error();
+    return Object.freeze(Object.fromEntries(NPM_UNIT_IDS.map((id) => [id, descriptors[id].value])));
+  } catch {
+    return fixedFailure();
+  }
+}
+
+function validateInclude(include) {
+  try {
+    if (!Array.isArray(include) || utilTypes.isProxy(include) || include.length === 0
+        || Object.getPrototypeOf(include) !== Array.prototype
+        || Reflect.ownKeys(include).length !== include.length + 1) throw new Error();
+    const ids = [];
+    for (let index = 0; index < include.length; index += 1) {
+      const descriptor = Object.getOwnPropertyDescriptor(include, String(index));
+      if (descriptor === undefined || !("value" in descriptor) || !NPM_UNIT_IDS.includes(descriptor.value)) throw new Error();
+      ids.push(descriptor.value);
+    }
+    if (new Set(ids).size !== ids.length
+        || JSON.stringify(dependencyOrder(ids)) !== JSON.stringify(ids)) throw new Error();
+    return Object.freeze(ids);
+  } catch {
+    return fixedFailure();
+  }
 }
 
 function validateCanonicalDirectory(path, label, { privateDirectory = false } = {}) {
@@ -343,10 +388,10 @@ function validateManifest(manifest, artifact, version, contract) {
   }
 }
 
-function projectedManifest(manifest, version) {
+function projectedManifest(manifest, version, versions) {
   const dependencies = Object.fromEntries(Object.entries(manifest.dependencies ?? {}).map(([name, value]) => [
     name,
-    INTERNAL_NAMES.has(name) ? version : value,
+    INTERNAL_NAMES.has(name) ? versions[unitIdForArtifact(name)] : value,
   ]));
   const projected = {
     name: manifest.name,
@@ -408,7 +453,7 @@ function walkClosedRoot(packageDirectory, rootName) {
   return result;
 }
 
-function capturePackage(root, artifact, version, rootLicense) {
+function capturePackage(root, artifact, version, rootLicense, versions) {
   const contract = CONTRACTS[artifact.name];
   if (contract === undefined) fixedFailure();
   const packageDirectory = resolve(root, artifact.directory);
@@ -433,7 +478,7 @@ function capturePackage(root, artifact, version, rootLicense) {
   let sourceBytes = manifestRecord.bytes.length;
   for (const record of records.values()) sourceBytes += record.bytes.length;
   if (records.size > MAX_ARCHIVE_ENTRIES || sourceBytes > MAX_SOURCE_BYTES) fixedFailure();
-  const projectionManifest = projectedManifest(manifest, version);
+  const projectionManifest = projectedManifest(manifest, version, versions);
   return Object.freeze({
     artifact,
     contract,
@@ -791,7 +836,7 @@ function promoteArchives(outputDirectory, archives, outputGuard, ancestorGuards)
 }
 
 export async function stageNpmPackages(options) {
-  const { root, outputDirectory } = validateClosedOptions(options);
+  const { root, outputDirectory, versions, include } = validateClosedOptions(options);
   validateCanonicalDirectory(root, "NPM staging root");
   validateCanonicalDirectory(outputDirectory, "NPM staging output", { privateDirectory: true });
   const rootPrefix = `${root}${sep}`;
@@ -806,7 +851,6 @@ export async function stageNpmPackages(options) {
   let workspace;
   let workspaceSignature;
   let publication;
-  let version;
   let result;
   const archives = [];
   let primaryError;
@@ -814,8 +858,11 @@ export async function stageNpmPackages(options) {
     outputGuard = openDirectoryGuard(outputDirectory);
     assertEmptyOutput(outputDirectory, outputGuard, ancestorGuards);
     const rootLicense = safeRead(join(root, "LICENSE"), 1024 * 1024).bytes;
-    version = readReleaseVersion(root);
-    const captures = RELEASE_ARTIFACTS.npm.map((artifact) => capturePackage(root, artifact, version, rootLicense));
+    const captures = include.map((id) => {
+      const artifact = RELEASE_ARTIFACTS.npm.find(({ name }) => unitIdForArtifact(name) === id);
+      if (artifact === undefined) fixedFailure();
+      return capturePackage(root, artifact, versions[id], rootLicense, versions);
+    });
     workspace = mkdtempSync(join(dirname(outputDirectory), ".gauntlet-npm-stage-"));
     chmodSync(workspace, 0o700);
     workspaceSignature = directorySignature(workspace);
@@ -838,6 +885,7 @@ export async function stageNpmPackages(options) {
         packOutput,
       ], projection, environment);
       const entries = readdirSync(packOutput).sort(binaryCompare);
+      const version = versions[unitIdForArtifact(captured.artifact.name)];
       const filename = archiveName(captured.artifact.name, version);
       if (entries.length !== 1 || entries[0] !== filename) fixedFailure();
       let packReport;
@@ -896,7 +944,7 @@ export async function stageNpmPackages(options) {
           .map((archive) => Object.freeze({
             kind: "npm",
             name: archive.name,
-            version,
+            version: versions[unitIdForArtifact(archive.name)],
             path: join(outputDirectory, archive.filename),
             sha256: archive.sha256,
           })));

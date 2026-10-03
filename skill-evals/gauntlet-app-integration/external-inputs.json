@@ -39,7 +39,7 @@
     },
     {
       "path": "scripts/release/stage-composer.mjs",
-      "sha256": "6222bc7bc51d8255ea948c860abab994a8c81d14ad5f64f82443801e072e3e8c"
+      "sha256": "d738ddf377833a4c5ab677e396408d0dfb573487e11851d5e2c3f337b538aded"
     },
     {
       "path": "scripts/release/units.mjs",

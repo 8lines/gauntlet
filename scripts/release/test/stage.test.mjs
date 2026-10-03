@@ -27,6 +27,8 @@ import {
   stageRelease,
 } from "../stage.mjs";
 import * as stageModule from "../stage.mjs";
+import { COMPOSER_UNIT_IDS } from "../stage-composer.mjs";
+import { NPM_UNIT_IDS } from "../stage-npm.mjs";
 
 const COMMIT = "0123456789abcdef0123456789abcdef01234567";
 const VERSION = "0.1.0";
@@ -71,16 +73,22 @@ function fakeDependencies(calls, failurePhase) {
   };
   return {
     packageCanonicalTree,
-    async stageNpmPackages({ outputDirectory }) {
+    async stageNpmPackages({ outputDirectory, versions, include }) {
       fail("npm");
+      assert.deepEqual(include, NPM_UNIT_IDS);
+      assert.deepEqual(Object.keys(versions), NPM_UNIT_IDS);
+      for (const id of NPM_UNIT_IDS) assert.equal(versions[id], VERSION);
       return RELEASE_ARTIFACTS.npm.map((artifact, index) => {
         const path = resolve(outputDirectory, `package-${index}-${VERSION}.tgz`);
         write(path, artifact.name);
         return { kind: "npm", name: artifact.name, path, sha256: "a".repeat(64), version: VERSION };
       });
     },
-    async stageComposerPackages({ outputDirectory, sourceCommit }) {
+    async stageComposerPackages({ outputDirectory, sourceCommit, versions, include }) {
       fail("composer");
+      assert.deepEqual(include, COMPOSER_UNIT_IDS);
+      assert.deepEqual(Object.keys(versions), COMPOSER_UNIT_IDS);
+      for (const id of COMPOSER_UNIT_IDS) assert.equal(versions[id], VERSION);
       assert.equal(sourceCommit, COMMIT);
       return RELEASE_ARTIFACTS.composer.map((artifact) => {
         const path = resolve(outputDirectory, artifact.repository);

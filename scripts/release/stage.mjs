@@ -31,11 +31,11 @@ import {
   RELEASE_ARTIFACTS,
   RELEASE_STAGE_ARTIFACT_COUNT,
 } from "./release-model.mjs";
-import { stageComposerPackages } from "./stage-composer.mjs";
+import { COMPOSER_UNIT_IDS, stageComposerPackages } from "./stage-composer.mjs";
 import { packageHelmChart } from "./stage-helm.mjs";
 import { exportImageAndAttestations } from "./stage-image.mjs";
 import { publishMavenLocally } from "./stage-maven.mjs";
-import { stageNpmPackages } from "./stage-npm.mjs";
+import { NPM_UNIT_IDS, stageNpmPackages } from "./stage-npm.mjs";
 import { generateSpdxSbom } from "./stage-sbom.mjs";
 import { packageCanonicalTree } from "./tree-archive.mjs";
 
@@ -491,7 +491,12 @@ export async function executeReleaseStage(options, dependencyOverrides) {
 
   const npmDirectory = makePrivateDirectory(join(workDirectory, "npm"));
   const npm = validateRecordArray(
-    await dependencies.stageNpmPackages({ root, outputDirectory: npmDirectory }),
+    await dependencies.stageNpmPackages({
+      root,
+      outputDirectory: npmDirectory,
+      versions: Object.fromEntries(NPM_UNIT_IDS.map((id) => [id, version])),
+      include: NPM_UNIT_IDS,
+    }),
     "npm",
     RELEASE_ARTIFACTS.npm,
     version,
@@ -503,7 +508,13 @@ export async function executeReleaseStage(options, dependencyOverrides) {
   const composerRoot = makePrivateDirectory(join(workDirectory, "composer"));
   const composerRepositories = makePrivateDirectory(join(composerRoot, "repositories"));
   const composer = validateRecordArray(
-    await dependencies.stageComposerPackages({ root, outputDirectory: composerRepositories, sourceCommit }),
+    await dependencies.stageComposerPackages({
+      root,
+      outputDirectory: composerRepositories,
+      sourceCommit,
+      versions: Object.fromEntries(COMPOSER_UNIT_IDS.map((id) => [id, version])),
+      include: COMPOSER_UNIT_IDS,
+    }),
     "composer",
     RELEASE_ARTIFACTS.composer,
     version,

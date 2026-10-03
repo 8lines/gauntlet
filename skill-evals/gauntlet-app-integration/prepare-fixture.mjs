@@ -1032,6 +1032,11 @@ async function validSymfonyFixture(root, contract) {
     root: repositoryRoot,
     outputDirectory: composerArtifacts,
     sourceCommit: sourceCommit.stdout.trim(),
+    versions: {
+      "php-core": contract.composerArtifacts["8lines/gauntlet-php-core"],
+      "symfony-bundle": contract.composerArtifacts["8lines/gauntlet-symfony-bundle"],
+    },
+    include: ["php-core", "symfony-bundle"],
   });
   const artifactHashes = Object.fromEntries(staged.map(({ repository, path }) => [repository, regularTreeSha256(path)]));
 
