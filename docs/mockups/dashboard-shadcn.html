@@ -1,0 +1,1733 @@
+<!doctype html>
+<!--
+  Gauntlet dashboard redesign. Variant 1: Stock shadcn/ui, revised to follow DESIGN-RULES.md.
+  Built from stock shadcn/ui parts (Sidebar, Card, Button, Input, Select, Tabs, Table, Dialog,
+  AlertDialog, CommandDialog, Sheet, Switch, Badge) with the shared Gauntlet tokens.
+  Static mockup. Not wired to the real app.
+
+  Screen selection via URL hash (read on load and on hashchange):
+    #overview  #operation  #result  #running  #confirm  #search  #settings  #mobile
+
+  Extra hash flags, appended with "&":
+    &dark              force the dark theme (also supported: ?theme=dark query string)
+    &picker            open the environment picker dropdown (desktop)
+    &collapsed         collapse the sidebar (offcanvas)
+    &mcp               open the MCP tab of the settings dialog (with #settings)
+    &account           open the Account tab of the input form (with #operation)
+    &state=loading|empty|error|unreachable   alternative overview states (with #overview)
+
+  Examples:
+    01-shadcn-stock.html#operation&dark
+    01-shadcn-stock.html?theme=dark#result
+    01-shadcn-stock.html#settings&mcp
+    01-shadcn-stock.html#overview&state=loading
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gauntlet: Variant 1, Stock shadcn/ui (design rules)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400..600&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style type="text/tailwindcss">
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  /* Gauntlet tokens, exposed as utilities (bg-bg-2, text-fg-2, text-ok, ...) */
+  --color-bg: var(--bg);
+  --color-bg-2: var(--bg-2);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-border-strong: var(--border-strong);
+  --color-focus: var(--focus);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-err: var(--err);
+  /* Radius: 6 px controls, 8 px containers, nothing rounder */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 8px;
+}
+
+/* Gauntlet tokens (DESIGN-RULES.md), mapped onto the stock shadcn variable names */
+:root {
+  --bg: #ffffff;
+  --bg-2: #fafafa;
+  --fg: #171717;
+  --fg-2: #666666;
+  --border: #ebebeb;
+  --border-strong: #d4d4d4;
+  --focus: #0a72ef;
+  --ok: #107d32;
+  --warn: #a35200;
+  --err: #cb2a2f;
+
+  --radius: 8px;
+  --background: var(--bg);
+  --foreground: var(--fg);
+  --card: var(--bg);
+  --card-foreground: var(--fg);
+  --popover: var(--bg);
+  --popover-foreground: var(--fg);
+  --primary: var(--fg);
+  --primary-foreground: var(--bg);
+  --secondary: var(--bg-2);
+  --secondary-foreground: var(--fg);
+  --muted: var(--bg-2);
+  --muted-foreground: var(--fg-2);
+  --accent: var(--border);
+  --accent-foreground: var(--fg);
+  --destructive: var(--err);
+  --destructive-foreground: #ffffff;
+  --input: var(--border-strong);
+  --ring: var(--focus);
+  --sidebar: var(--bg-2);
+  --sidebar-foreground: var(--fg);
+  --sidebar-accent: var(--border);
+  --sidebar-accent-foreground: var(--fg);
+  --sidebar-border: var(--border);
+  --overlay-shadow: 0 8px 24px rgb(0 0 0 / 0.08);
+}
+
+.dark {
+  --bg: #0a0a0a;
+  --bg-2: #111111;
+  --fg: #ededed;
+  --fg-2: #a1a1a1;
+  --border: #242424;
+  --border-strong: #3d3d3d;
+  --focus: #3b9eff;
+  --ok: #4cc274;
+  --warn: #f0a23b;
+  --err: #ff6166;
+  --destructive-foreground: var(--bg);
+  --overlay-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
+  color-scheme: dark;
+}
+
+@layer base {
+  * { @apply border-border; }
+  html, body { height: 100%; }
+  body { @apply bg-background text-foreground font-sans antialiased; font-size: 14px; line-height: 20px; font-variant-numeric: tabular-nums; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  a { color: inherit; text-decoration: none; }
+  code { font-family: var(--font-mono); }
+  ::selection { background: color-mix(in srgb, var(--focus) 25%, transparent); }
+}
+
+@utility t-compact { font-size: 13px; line-height: 18px; font-weight: 400; }
+
+@layer components {
+  /* Type roles (only these sizes and weights). 14/20, 16/24, 20/28, 24/32 and 12/16 map to
+     text-sm, text-base, text-xl, text-2xl and text-xs; compact 13/18 has its own class. */
+  .link { color: var(--focus); text-underline-offset: 4px; }
+  .link:hover { text-decoration: underline; }
+
+  /* Button */
+  .btn { @apply inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 text-sm font-medium transition-colors select-none disabled:pointer-events-none disabled:opacity-50; }
+  .btn > svg { @apply size-4 shrink-0 pointer-events-none; }
+  .btn-sm { @apply h-8 px-3; }
+  .btn-icon-sm { @apply size-8 p-0; }
+  .btn-default { @apply bg-primary text-primary-foreground hover:bg-primary/90; }
+  .btn-destructive { @apply bg-destructive text-destructive-foreground hover:bg-destructive/90; }
+  .btn-outline { @apply border border-input bg-background hover:bg-accent; }
+  .btn-ghost { @apply hover:bg-accent; }
+
+  /* Badge (outline only; state words: run state, impact, unavailable) */
+  .badge { @apply inline-flex h-[22px] w-fit shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-input px-2 text-fg; font-size: 13px; line-height: 18px; font-weight: 400; }
+
+  /* State marks: paired with a word, never colour alone */
+  .mk { display: inline-block; width: 8px; height: 8px; border-radius: 9999px; flex-shrink: 0; position: relative; overflow: hidden; }
+  .mk-ring { border: 1.5px solid currentColor; }
+  .mk-half { border: 1.5px solid currentColor; }
+  .mk-half::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 50%; background: currentColor; }
+  .mk-full { background: currentColor; }
+  .mk-tri { width: 0; height: 0; border-radius: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 8px solid currentColor; overflow: visible; }
+
+  /* Card: only around real groups (the form, a dialog) */
+  .card { @apply flex flex-col rounded-lg border bg-card text-card-foreground; }
+
+  /* Inputs */
+  .input { @apply flex h-9 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm outline-none placeholder:text-fg-2; }
+  .input[aria-invalid="true"], .select-trigger[aria-invalid="true"] { @apply border-err; }
+  .select-trigger { @apply flex h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-left text-sm whitespace-nowrap; }
+  .select-trigger > svg:last-child { @apply size-4 shrink-0 text-fg-2; }
+  .select-trigger[aria-disabled="true"] { @apply cursor-not-allowed bg-bg-2 text-fg-2; }
+  .textarea { @apply flex w-full rounded-md border border-input bg-background px-3 py-2 outline-none; }
+  .label { @apply flex items-center gap-2 text-sm font-medium select-none; }
+  .label[data-error="true"] { @apply text-err; }
+  .req { @apply font-normal text-fg-2; }
+  .form-description { @apply t-compact text-fg-2; }
+  .form-message { @apply t-compact text-err; }
+  .field { @apply grid content-start gap-2; }
+
+  /* Switch / checkbox */
+  .switch { @apply inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-md border border-transparent bg-input p-[2px]; }
+  .switch > span { @apply block size-4 rounded-sm bg-background transition-transform; }
+  .switch[data-state="checked"] { @apply bg-primary; }
+  .switch[data-state="checked"] > span { @apply translate-x-4; }
+  .switch[aria-disabled="true"] { @apply cursor-not-allowed opacity-50; }
+  .checkbox { @apply inline-flex size-4 shrink-0 items-center justify-center rounded-sm border border-input; }
+  .checkbox[data-state="checked"] { @apply border-primary bg-primary text-primary-foreground; }
+  .checkbox > svg { @apply size-3; }
+
+  /* Tabs */
+  .tabs-list { @apply inline-flex h-9 w-fit items-center rounded-lg bg-bg-2 p-[3px] text-fg-2; border: 1px solid var(--border); }
+  .tabs-trigger { @apply inline-flex h-full flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border border-transparent px-3 text-sm font-medium whitespace-nowrap transition-colors; }
+  .tabs-trigger[data-state="active"] { @apply border-border bg-background text-fg; }
+
+  /* Callout: 1 px state border, leading mark, no fill */
+  .callout { @apply grid grid-cols-[8px_1fr] items-baseline gap-x-3 gap-y-1 rounded-lg border px-4 py-3; }
+  .callout > .mk { transform: translateY(-1px); }
+  .callout-err { border-color: var(--err); }
+  .callout-warn { border-color: var(--warn); }
+
+  /* Table: evidence */
+  .table { @apply w-full border-collapse text-sm; }
+  .table thead th { @apply whitespace-nowrap border-b bg-bg-2 px-4 py-2 text-left align-bottom font-medium text-fg-2; }
+  .table td, .table tbody th { @apply border-b px-4 py-3 text-left align-baseline; }
+  .table tbody th { @apply font-medium; }
+  .table tbody:last-child tr:last-child > * { @apply border-b-0; }
+  .table .num { @apply text-right; }
+  .table tr.grp > th { @apply bg-background pt-4 pb-2; }
+  .table tr[data-go] { @apply cursor-pointer; }
+  .table tr[data-go]:hover > td { @apply bg-bg-2; }
+  .table.kv td, .table.kv tbody th { @apply py-2; }
+  .table td.act { @apply py-1 align-middle; }
+  .table td.act .btn { @apply size-7; }
+  .table-wrap { @apply overflow-hidden rounded-lg border; }
+
+  /* Progress, skeleton, kbd */
+  .progress { @apply relative h-1 w-full overflow-hidden rounded-sm bg-border; }
+  .progress > div { @apply h-full bg-primary transition-[width]; }
+  .skeleton { @apply rounded-md bg-bg-2; border: 1px solid var(--border); }
+  .kbd { @apply pointer-events-none inline-flex h-5 min-w-5 items-center justify-center rounded-sm border bg-bg-2 px-1 font-mono text-xs text-fg-2 select-none; }
+
+  /* Overlays: the only places with a shadow */
+  .overlay { @apply absolute inset-0 z-50 bg-black/40; }
+  .dark .overlay { @apply bg-black/60; }
+  .dialog { @apply absolute top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 rounded-lg border bg-popover p-6 sm:max-w-lg; box-shadow: var(--overlay-shadow); }
+  .dialog-title { @apply text-xl font-semibold; }
+  .dialog-description { @apply text-sm text-fg-2; }
+  .menu { @apply z-50 min-w-[8rem] overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground; box-shadow: var(--overlay-shadow); }
+  .menu-label { @apply flex items-center justify-between px-2 py-2 t-compact text-fg-2; }
+  .menu-item { @apply relative flex cursor-default items-center gap-2 rounded-md px-2 py-2 text-sm outline-none select-none hover:bg-accent; }
+  .menu-sep { @apply -mx-1 my-1 h-px bg-border; }
+  .cmd-item { @apply relative flex cursor-default items-baseline gap-2 rounded-md px-3 py-2 text-sm font-medium outline-none select-none; }
+  .cmd-item[data-selected="true"] { @apply bg-accent; }
+  .cmd-item[data-disabled="true"] { @apply text-fg-2; }
+  .cmd-heading { @apply px-3 pt-3 pb-1 t-compact text-fg-2; }
+
+  /* Sidebar */
+  .sb-btn { @apply flex h-8 w-full cursor-pointer items-center gap-2 overflow-hidden rounded-md px-2 text-left text-sm font-medium outline-none hover:bg-sidebar-accent; }
+  .sb-btn > svg { @apply size-4 shrink-0; }
+  .sb-btn[data-active="true"] { @apply bg-sidebar-accent; }
+  .sb-btn[aria-disabled="true"] { @apply pointer-events-none text-fg-2; }
+  .sb-group-label { @apply flex h-8 shrink-0 items-center px-2 t-compact text-fg-2; }
+  .sb-aside { @apply ml-auto font-normal text-fg-2; }
+
+  /* Breadcrumb */
+  .crumbs { @apply flex flex-wrap items-center gap-2 text-sm text-fg-2; }
+  .crumbs a:hover { @apply text-fg; }
+  .crumbs .crumb-page { @apply text-fg; }
+
+  /* Policy effects list */
+  .effects { @apply flex flex-col gap-3; }
+  .effects li { @apply grid grid-cols-[8px_1fr] items-baseline gap-x-3 text-sm; }
+  .effects li > .mk { transform: translateY(-1px); }
+  .effects .bullet { @apply inline-block size-1 rounded-full bg-fg-2; transform: translate(2px, -3px); }
+  .effects li[data-tone="stop"] { @apply text-err; }
+  .effects li[data-tone="sub"] { @apply text-fg-2; }
+
+  .dot { @apply inline-block size-2 shrink-0 rounded-full; }
+}
+
+/* ScrollArea-like scrollbar */
+.scroll-area { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+
+/* Collapsed sidebar: stock offcanvas mode (no icon rail, because items carry no icons) */
+#sidebar { transition: width 200ms ease; }
+.app.collapsed #sidebar { width: 0; border-right-width: 0; overflow: hidden; }
+
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details[open] > summary .chev { transform: rotate(90deg); }
+details[open] > summary .chev-down { transform: rotate(180deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* Mockup toolbar: mockup chrome, deliberately NOT part of the design system */
+#mock-toolbar { height: 40px; background: #e4e4e4; border-bottom: 1px dashed #a3a3a3; color: #262626; font: 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; display: flex; align-items: center; gap: 4px; padding: 0 12px; white-space: nowrap; overflow-x: auto; }
+#mock-toolbar .mt-title { font-weight: 600; margin-right: 10px; }
+#mock-toolbar button, #mock-toolbar select { font: inherit; border: 1px solid #b5b5b5; background: #f5f5f5; color: #262626; border-radius: 4px; padding: 4px 8px; cursor: pointer; }
+#mock-toolbar button[aria-pressed="true"] { background: #404040; color: #fff; border-color: #404040; }
+#mock-toolbar .mt-sep { width: 1px; height: 20px; background: #b5b5b5; margin: 0 4px; }
+#mock-toolbar select { max-width: 120px; }
+#mock-toolbar label { display: inline-flex; align-items: center; gap: 4px; color: #525252; }
+#stage { position: relative; height: calc(100vh - 40px); overflow: hidden; }
+</style>
+</head>
+<body>
+
+<!-- ======================= MOCKUP TOOLBAR ======================= -->
+<div id="mock-toolbar">
+  <span class="mt-title">Variant 1 — Stock shadcn/ui (design rules)</span>
+  <button data-go="overview">1 Overview</button>
+  <button data-go="operation">2 Operation</button>
+  <button data-go="result">3 Run result</button>
+  <button data-go="running">4 Running / failed</button>
+  <button data-go="confirm">5 Confirm</button>
+  <button data-go="search">6 Search ⌘K</button>
+  <button data-go="settings">7 Settings</button>
+  <button data-go="mobile">8 Mobile</button>
+  <span class="mt-sep"></span>
+  <label>Overview state
+    <select id="mt-state">
+      <option value="">Loaded</option>
+      <option value="loading">Loading</option>
+      <option value="empty">No environments</option>
+      <option value="error">Could not load</option>
+      <option value="unreachable">Environment unreachable</option>
+    </select>
+  </label>
+  <button id="mt-picker">Env picker</button>
+  <span class="mt-sep"></span>
+  <button id="mt-light">Light</button>
+  <button id="mt-dark">Dark</button>
+</div>
+
+<div id="stage">
+
+<!-- ======================= DESKTOP APP ======================= -->
+<div id="desktop" class="app flex h-full">
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="flex h-full w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground" aria-label="Main navigation">
+    <!-- SidebarHeader -->
+    <div class="flex flex-col gap-2 p-2">
+      <a class="sb-btn sb-brand h-9" href="#overview" data-nav="overview">
+        <i data-icon="shield-check"></i>
+        <span class="text-base font-semibold">Gauntlet</span>
+      </a>
+      <div class="relative">
+        <button id="env-trigger" class="sb-btn h-auto items-start py-2 data-[state=open]:bg-sidebar-accent" data-state="closed" aria-haspopup="menu" aria-expanded="false" aria-label="Environment: Shop staging, online. Change environment">
+          <span class="grid min-w-0 flex-1 gap-1">
+            <span class="truncate text-sm font-medium">Shop staging</span>
+            <span class="t-compact flex items-center gap-2 font-normal text-fg-2"><span class="dot bg-ok"></span>Online · staging</span>
+          </span>
+          <i data-icon="chevrons-up-down" class="mt-[2px] text-fg-2"></i>
+        </button>
+
+        <!-- Environment picker (DropdownMenu, side=right) -->
+        <div id="env-menu" class="menu absolute left-full top-0 ml-3 hidden w-[24rem]" role="menu" aria-label="Environments">
+          <div class="menu-label"><span>Environments</span><span>Refreshed 2 min ago</span></div>
+          <div class="menu-item items-baseline bg-accent" role="menuitemradio" aria-checked="true">
+            <div class="grid min-w-0 flex-1 gap-1">
+              <span class="font-medium">Shop staging</span>
+              <span class="t-compact text-fg-2">Acme Shop · staging</span>
+            </div>
+            <span class="t-compact flex items-center gap-2"><span class="dot bg-ok"></span>Online</span>
+            <i data-icon="check" class="size-4 self-center"></i>
+          </div>
+          <div class="menu-item items-baseline" role="menuitemradio" aria-checked="false">
+            <div class="grid min-w-0 flex-1 gap-1">
+              <span class="font-medium">Shop QA 2</span>
+              <span class="t-compact text-fg-2">Acme Shop · qa · 1 diagnostic</span>
+            </div>
+            <span class="t-compact flex items-center gap-2 text-warn"><span class="dot bg-warn"></span>Degraded</span>
+            <span class="w-4"></span>
+          </div>
+          <div class="menu-item items-baseline" role="menuitemradio" aria-checked="false" aria-disabled="true">
+            <div class="grid min-w-0 flex-1 gap-1">
+              <span class="font-medium text-fg-2">Back office preview 482</span>
+              <span class="t-compact text-fg-2">Acme Back Office · preview</span>
+            </div>
+            <span class="t-compact flex items-center gap-2 text-err"><span class="dot bg-err"></span>Unavailable</span>
+            <span class="w-4"></span>
+          </div>
+          <div class="menu-sep"></div>
+          <div class="menu-item" role="menuitem">Refresh environments<span class="ml-auto flex gap-1"><kbd class="kbd">⇧</kbd><kbd class="kbd">⌘</kbd><kbd class="kbd">R</kbd></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SidebarContent -->
+    <nav class="scroll-area flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-2" aria-label="Operations">
+      <ul class="flex flex-col gap-1">
+        <li><a class="sb-btn" href="#overview" data-nav="overview">Overview<span class="sb-aside">9</span></a></li>
+      </ul>
+      <div>
+        <div class="sb-group-label" id="g-testdata">Test data</div>
+        <ul class="flex flex-col gap-1" aria-labelledby="g-testdata">
+          <li><a class="sb-btn" href="#operation" data-nav="operation">Create test customer</a></li>
+          <li><a class="sb-btn" href="#running" data-nav="running">Seed order history</a></li>
+          <li><a class="sb-btn" href="#confirm" data-nav="confirm">Delete test data</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="sb-group-label" id="g-sessions">Sessions</div>
+        <ul class="flex flex-col gap-1" aria-labelledby="g-sessions">
+          <li><a class="sb-btn" href="#overview">Open test session</a></li>
+          <li><a class="sb-btn" href="#overview">Impersonate customer</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="sb-group-label" id="g-files">Files</div>
+        <ul class="flex flex-col gap-1" aria-labelledby="g-files">
+          <li><a class="sb-btn" href="#mobile" data-nav="mobile">Process test file</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="sb-group-label" id="g-diag">Diagnostics</div>
+        <ul class="flex flex-col gap-1" aria-labelledby="g-diag">
+          <li><a class="sb-btn" href="#running">Check payment gateway</a></li>
+          <li><a class="sb-btn" href="#running">Inspect feature flags</a></li>
+          <li><a class="sb-btn" aria-disabled="true">Reset search index<span class="sb-aside t-compact">Unavailable</span></a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <!-- SidebarFooter -->
+    <div class="flex flex-col gap-1 border-t border-sidebar-border p-2">
+      <button class="sb-btn" data-go="settings"><i data-icon="settings" class="text-fg-2"></i>Settings</button>
+      <div class="px-2 py-1 font-mono text-xs text-fg-2">Gauntlet v0.1.1</div>
+    </div>
+  </aside>
+
+  <!-- SidebarInset -->
+  <div class="flex min-w-0 flex-1 flex-col bg-background">
+    <!-- Site header -->
+    <header class="flex h-12 shrink-0 items-center gap-3 border-b px-4">
+      <button id="sb-trigger" class="btn btn-ghost btn-icon-sm" aria-label="Toggle navigation"><i data-icon="panel-left"></i></button>
+      <span class="h-4 w-px bg-border" aria-hidden="true"></span>
+      <nav id="crumbs" class="crumbs" aria-label="Breadcrumb"></nav>
+      <div class="ml-auto flex items-center gap-2">
+        <button class="btn btn-outline btn-sm w-64 justify-between font-normal text-fg-2" data-go="search" aria-label="Search environments and operations">
+          <span class="flex items-center gap-2"><i data-icon="search" class="size-4"></i>Search</span>
+          <span class="flex gap-1"><kbd class="kbd">⌘</kbd><kbd class="kbd">K</kbd></span>
+        </button>
+      </div>
+    </header>
+
+    <main class="relative min-h-0 flex-1" id="main">
+
+      <!-- ============ PAGE: OVERVIEW ============ -->
+      <div class="page absolute inset-0 hidden flex-col" data-page="overview">
+        <div class="scroll-area flex-1 overflow-y-auto">
+
+          <!-- Loaded -->
+          <div class="ov-state mx-auto flex max-w-[1240px] flex-col gap-8 px-8 py-8" data-state="">
+            <div id="unreachable-alert" class="hidden"></div>
+
+            <header class="flex items-start justify-between gap-6">
+              <div class="flex flex-col gap-2">
+                <h1 class="text-2xl font-semibold">Shop staging</h1>
+                <p class="t-compact flex flex-wrap items-center gap-2 text-fg-2">
+                  <span>Acme Shop</span><span aria-hidden="true">·</span><span>staging</span><span aria-hidden="true">·</span>
+                  <span class="flex items-center gap-2 text-fg"><span class="dot bg-ok"></span>Online</span><span aria-hidden="true">·</span><span>Refreshed 2 min ago</span>
+                </p>
+                <p class="max-w-[68ch] text-sm">9 operations in the catalog. Choose one to prepare a run.</p>
+              </div>
+              <button class="btn btn-outline btn-sm">Refresh</button>
+            </header>
+
+            <!-- Stats as one strip -->
+            <dl class="grid grid-cols-3 gap-8 border-y py-4">
+              <div class="flex flex-col gap-1">
+                <dt class="t-compact text-fg-2">All operations</dt>
+                <dd class="text-xl font-semibold">9</dd>
+                <dd class="t-compact text-fg-2">In 4 feature groups</dd>
+              </div>
+              <div class="flex flex-col gap-1">
+                <dt class="t-compact text-fg-2">Ready to run</dt>
+                <dd class="text-xl font-semibold">8</dd>
+                <dd class="t-compact text-fg-2">4 read only, 3 change data, 1 deletes data</dd>
+              </div>
+              <div class="flex flex-col gap-1">
+                <dt class="t-compact text-fg-2">Need attention</dt>
+                <dd class="text-xl font-semibold">2</dd>
+                <dd class="t-compact text-fg-2">1 diagnostic, 1 unavailable operation</dd>
+              </div>
+            </dl>
+
+            <div class="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-12">
+              <!-- Catalog: the focal object -->
+              <section class="flex min-w-0 flex-col gap-4" aria-labelledby="cat-h">
+                <div class="flex items-end justify-between gap-6">
+                  <div class="flex flex-col gap-1">
+                    <h2 id="cat-h" class="text-xl font-semibold">Operation catalog</h2>
+                    <p class="t-compact text-fg-2">Grouped by feature. Open an operation to see what it does before you run it.</p>
+                  </div>
+                  <div class="relative">
+                    <i data-icon="search" class="pointer-events-none absolute left-3 top-[10px] size-4 text-fg-2"></i>
+                    <input class="input w-56 pl-8" placeholder="Filter operations" aria-label="Filter operations">
+                  </div>
+                </div>
+                <div class="table-wrap">
+                  <table class="table">
+                    <caption class="sr-only">Operations in Shop staging, grouped by feature</caption>
+                    <thead>
+                      <tr><th scope="col" class="w-[40%]">Operation</th><th scope="col" class="w-[18%]">Impact</th><th scope="col">Before you run</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr class="grp"><th scope="rowgroup" colspan="3">Test data <span class="font-normal text-fg-2">3</span></th></tr>
+                      <tr data-go="operation">
+                        <td><a href="#operation" class="font-medium">Create test customer</a><div class="font-mono text-xs text-fg-2">customers.create</div></td>
+                        <td><span class="badge"><span class="mk mk-half text-warn"></span>changes data</span></td>
+                        <td class="text-fg-2">Dry run, can cancel, 2 presets</td>
+                      </tr>
+                      <tr data-go="running">
+                        <td><a href="#running" class="font-medium">Seed order history</a><div class="font-mono text-xs text-fg-2">orders.seed</div></td>
+                        <td><span class="badge"><span class="mk mk-half text-warn"></span>changes data</span></td>
+                        <td class="text-fg-2">Waits in a queue, shows progress</td>
+                      </tr>
+                      <tr data-go="confirm">
+                        <td><a href="#confirm" class="font-medium">Delete test data</a><div class="font-mono text-xs text-fg-2">testdata.purge</div></td>
+                        <td><span class="badge"><span class="mk mk-full text-err"></span>deletes data</span></td>
+                        <td class="text-fg-2">Asks you to confirm, cannot be cancelled</td>
+                      </tr>
+                    </tbody>
+                    <tbody>
+                      <tr class="grp"><th scope="rowgroup" colspan="3">Sessions <span class="font-normal text-fg-2">2</span></th></tr>
+                      <tr data-go="result">
+                        <td><a href="#result" class="font-medium">Open test session</a><div class="font-mono text-xs text-fg-2">sessions.open</div></td>
+                        <td><span class="badge"><span class="mk mk-ring text-ok"></span>read only</span></td>
+                        <td class="text-fg-2">Opens a browser session</td>
+                      </tr>
+                      <tr data-go="result">
+                        <td><a href="#result" class="font-medium">Impersonate customer</a><div class="font-mono text-xs text-fg-2">sessions.impersonate</div></td>
+                        <td><span class="badge"><span class="mk mk-ring text-ok"></span>read only</span></td>
+                        <td class="text-fg-2">Changes nothing</td>
+                      </tr>
+                    </tbody>
+                    <tbody>
+                      <tr class="grp"><th scope="rowgroup" colspan="3">Files <span class="font-normal text-fg-2">1</span></th></tr>
+                      <tr data-go="mobile">
+                        <td><a href="#mobile" class="font-medium">Process test file</a><div class="font-mono text-xs text-fg-2">files.process</div></td>
+                        <td><span class="badge"><span class="mk mk-half text-warn"></span>changes data</span></td>
+                        <td class="text-fg-2">Needs a file upload</td>
+                      </tr>
+                    </tbody>
+                    <tbody>
+                      <tr class="grp"><th scope="rowgroup" colspan="3">Diagnostics <span class="font-normal text-fg-2">3</span></th></tr>
+                      <tr data-go="running">
+                        <td><a href="#running" class="font-medium">Check payment gateway</a><div class="font-mono text-xs text-fg-2">payments.health</div></td>
+                        <td><span class="badge"><span class="mk mk-ring text-ok"></span>read only</span></td>
+                        <td class="text-fg-2">Metrics and log</td>
+                      </tr>
+                      <tr data-go="running">
+                        <td><a href="#running" class="font-medium">Inspect feature flags</a><div class="font-mono text-xs text-fg-2">flags.inspect</div></td>
+                        <td><span class="badge"><span class="mk mk-ring text-ok"></span>read only</span></td>
+                        <td class="text-fg-2">Shows what changed</td>
+                      </tr>
+                      <tr aria-disabled="true">
+                        <td><span class="font-medium text-fg-2">Reset search index</span><div class="font-mono text-xs text-fg-2">search.reset</div></td>
+                        <td><span class="badge text-fg-2"><span class="mk mk-half"></span>changes data</span></td>
+                        <td><span class="badge">Unavailable</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <!-- Supporting rail -->
+              <aside class="flex flex-col gap-8" aria-label="Environment details">
+                <section class="flex flex-col gap-3" aria-labelledby="att-h">
+                  <h2 id="att-h" class="text-base font-semibold">Needs attention</h2>
+                  <ul class="flex flex-col divide-y border-y">
+                    <li class="flex flex-col gap-1 py-3">
+                      <div class="flex items-baseline justify-between gap-3">
+                        <span class="text-sm font-medium">Deprecated schema keyword</span>
+                        <span class="t-compact flex items-center gap-2 text-warn"><span class="mk mk-tri"></span>Warning</span>
+                      </div>
+                      <p class="text-sm">Operation <code class="text-[13px]">orders.seed</code> uses the deprecated keyword <code class="text-[13px]">dependencies</code>.</p>
+                      <p class="font-mono text-xs text-fg-2">catalog.schema.deprecated-keyword</p>
+                    </li>
+                    <li class="flex flex-col gap-1 py-3">
+                      <div class="flex items-baseline justify-between gap-3">
+                        <span class="text-sm font-medium">Reset search index</span>
+                        <span class="badge">Unavailable</span>
+                      </div>
+                      <p class="text-sm text-fg-2">This application does not provide this feature. Its team has to register it in their integration.</p>
+                      <p class="font-mono text-xs text-fg-2">search.reset</p>
+                    </li>
+                  </ul>
+                </section>
+
+                <section class="flex flex-col gap-1" aria-labelledby="note-h">
+                  <h2 id="note-h" class="text-sm font-medium">Details first, then action</h2>
+                  <p class="text-sm text-fg-2">Before a run you will see what the operation does. Operations that need confirmation will ask for your approval.</p>
+                </section>
+
+                <details class="group border-t pt-3" open>
+                  <summary class="flex cursor-pointer items-center justify-between gap-2 rounded-md">
+                    <span class="flex flex-col gap-1">
+                      <span class="text-sm font-medium">Adapter capabilities</span>
+                      <span class="t-compact text-fg-2">7 reported by Acme Shop</span>
+                    </span>
+                    <i data-icon="chevron-down" class="chev-down size-4 text-fg-2 transition-transform"></i>
+                  </summary>
+                  <ul class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-xs">
+                    <li>gauntlet-core@1</li>
+                    <li>tc-rich-forms@1</li>
+                    <li>presets@1</li>
+                    <li>file-upload@1</li>
+                    <li>browser-launch@1</li>
+                    <li>follow-up@1</li>
+                    <li>progress@1</li>
+                  </ul>
+                </details>
+              </aside>
+            </div>
+          </div>
+
+          <!-- Loading -->
+          <div class="ov-state mx-auto hidden max-w-[1240px] flex-col gap-8 px-8 py-8" data-state="loading" aria-busy="true">
+            <div class="flex flex-col gap-2">
+              <h1 class="sr-only">Loading environments</h1>
+              <div class="skeleton h-8 w-64"></div>
+              <div class="skeleton h-4 w-96"></div>
+            </div>
+            <div class="grid grid-cols-3 gap-8 border-y py-4">
+              <div class="flex flex-col gap-2"><div class="skeleton h-4 w-28"></div><div class="skeleton h-6 w-10"></div><div class="skeleton h-4 w-44"></div></div>
+              <div class="flex flex-col gap-2"><div class="skeleton h-4 w-28"></div><div class="skeleton h-6 w-10"></div><div class="skeleton h-4 w-44"></div></div>
+              <div class="flex flex-col gap-2"><div class="skeleton h-4 w-28"></div><div class="skeleton h-6 w-10"></div><div class="skeleton h-4 w-44"></div></div>
+            </div>
+            <div class="grid grid-cols-[minmax(0,1fr)_320px] gap-12">
+              <div class="flex flex-col gap-3">
+                <div class="skeleton h-6 w-48"></div>
+                <div class="skeleton h-10 w-full"></div><div class="skeleton h-12 w-full"></div><div class="skeleton h-12 w-full"></div><div class="skeleton h-12 w-full"></div><div class="skeleton h-12 w-3/4"></div>
+              </div>
+              <div class="flex flex-col gap-3"><div class="skeleton h-6 w-40"></div><div class="skeleton h-24 w-full"></div></div>
+            </div>
+            <p class="text-sm text-fg-2" role="status">Loading environments…</p>
+          </div>
+
+          <!-- Empty -->
+          <div class="ov-state mx-auto hidden max-w-[1240px] flex-col gap-4 px-8 py-16" data-state="empty">
+            <h1 class="text-2xl font-semibold">No environments configured</h1>
+            <p class="max-w-[68ch] text-sm text-fg-2">Gauntlet has nothing to show yet. Add an environment to the Gauntlet configuration, then refresh this page.</p>
+            <div class="flex gap-2">
+              <button class="btn btn-default btn-sm">Refresh</button>
+              <a class="btn btn-outline btn-sm" href="#overview">Read the setup guide<i data-icon="external-link"></i></a>
+            </div>
+          </div>
+
+          <!-- Error -->
+          <div class="ov-state mx-auto hidden max-w-[1240px] flex-col gap-4 px-8 py-16" data-state="error">
+            <p class="t-compact flex items-center gap-2 text-err"><span class="mk mk-full"></span>Error</p>
+            <h1 class="text-2xl font-semibold">Could not load environments</h1>
+            <p class="max-w-[68ch] text-sm">Gauntlet did not get a response from its server. Check your connection to the network Gauntlet runs in, then try again.</p>
+            <p class="t-compact text-fg-2">Correlation ID <span class="font-mono text-xs text-fg">c0rr-11b7-90ae</span></p>
+            <div><button class="btn btn-default btn-sm">Try again</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ PAGE: OPERATION (Create test customer) ============ -->
+      <div class="page absolute inset-0 hidden flex-col" data-page="operation">
+        <div class="scroll-area flex-1 overflow-y-auto">
+          <div class="mx-auto flex max-w-[1240px] flex-col gap-8 px-8 py-8">
+            <header class="flex flex-col gap-2">
+              <div class="flex items-center gap-3">
+                <h1 class="text-2xl font-semibold">Create test customer</h1>
+                <span class="badge"><span class="mk mk-half text-warn"></span>changes data</span>
+              </div>
+              <p class="font-mono text-xs text-fg-2">customers.create</p>
+              <p class="max-w-[68ch] text-sm">Creates a customer account in Acme Shop, with an optional saved payment method. Use it to prepare data for checkout and account tests.</p>
+            </header>
+
+            <div class="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-12">
+              <div class="flex min-w-0 flex-col gap-6">
+                <!-- Fix the input -->
+                <div class="callout callout-err" role="alert">
+                  <span class="mk mk-full text-err"></span>
+                  <p class="text-sm font-medium">Fix the input</p>
+                  <div class="col-start-2 flex flex-col gap-1 text-sm">
+                    <p>Fix the highlighted field and try again. Nothing was sent to the application.</p>
+                    <p><a class="link" href="#operation">Email</a>: must match format "email"</p>
+                  </div>
+                </div>
+
+                <!-- Input: the one Card, because the form is a real group -->
+                <form class="card" data-tabs aria-labelledby="input-h" onsubmit="return false">
+                  <div class="flex flex-col gap-4 border-b p-6">
+                    <div class="flex items-baseline justify-between gap-4">
+                      <h2 id="input-h" class="text-base font-semibold">Input</h2>
+                      <p class="t-compact text-fg-2">Fields marked * are required.</p>
+                    </div>
+                    <div class="field">
+                      <label class="label" for="f-preset">Start from a preset</label>
+                      <div class="grid grid-cols-[280px_minmax(0,1fr)] items-start gap-4">
+                        <button id="f-preset" type="button" class="select-trigger"><span>Verified EU customer</span><i data-icon="chevron-down"></i></button>
+                        <div class="flex flex-col gap-1">
+                          <p class="t-compact text-fg-2">A verified customer in Germany with a saved card. Locks country and verification.</p>
+                          <p class="t-compact flex items-center gap-1"><i data-icon="lock" class="size-3"></i>This preset locks 2 fields.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-col gap-6 p-6">
+                    <div class="tabs-list" role="tablist" aria-label="Input sections">
+                      <button type="button" role="tab" class="tabs-trigger" data-tab="customer" data-state="active">Customer <span class="t-compact text-err">1 error</span></button>
+                      <button type="button" role="tab" class="tabs-trigger" data-tab="account">Account</button>
+                    </div>
+
+                    <!-- Customer tab -->
+                    <div data-panel="customer" role="tabpanel" class="flex flex-col gap-6">
+                      <div class="grid grid-cols-2 gap-4">
+                        <div class="field">
+                          <label class="label" for="f-first">First name <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
+                          <input id="f-first" class="input" value="Ada" required>
+                        </div>
+                        <div class="field">
+                          <label class="label" for="f-last">Last name</label>
+                          <input id="f-last" class="input" value="Lovelace">
+                        </div>
+                      </div>
+                      <div class="field">
+                        <label class="label" for="f-email" data-error="true">Email</label>
+                        <input id="f-email" class="input" aria-invalid="true" aria-describedby="f-email-msg f-email-help" value="ada.lovelace@">
+                        <p id="f-email-msg" class="form-message">must match format "email"</p>
+                        <p id="f-email-help" class="form-description">Leave empty to generate <code class="text-xs">test+{random}@acme.test</code></p>
+                      </div>
+                      <div class="grid grid-cols-2 gap-4">
+                        <div class="field">
+                          <label class="label" for="f-country">Country <span class="t-compact ml-auto flex items-center gap-1 font-normal text-fg-2"><i data-icon="lock" class="size-3"></i>Locked by preset</span></label>
+                          <div id="f-country" class="select-trigger" aria-disabled="true" role="button"><span>Germany</span><i data-icon="chevron-down"></i></div>
+                        </div>
+                        <div class="field">
+                          <label class="label" for="f-segment">Segment</label>
+                          <button id="f-segment" type="button" class="select-trigger"><span>B2C, Newsletter</span><i data-icon="chevron-down"></i></button>
+                          <p class="form-description">Choose any number.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Account tab -->
+                    <div data-panel="account" role="tabpanel" class="hidden flex-col gap-6">
+                      <div class="flex items-start justify-between gap-6">
+                        <div class="flex flex-col gap-1">
+                          <span class="label" id="f-verified-l">Verified <span class="t-compact flex items-center gap-1 font-normal text-fg-2"><i data-icon="lock" class="size-3"></i>Locked by preset</span></span>
+                          <p class="form-description">The customer has confirmed their email address.</p>
+                        </div>
+                        <span class="switch" role="switch" aria-checked="true" aria-labelledby="f-verified-l" data-state="checked" aria-disabled="true"><span></span></span>
+                      </div>
+                      <div class="grid grid-cols-2 gap-4">
+                        <div class="field">
+                          <label class="label" for="f-points">Loyalty points</label>
+                          <input id="f-points" class="input" type="number" value="1200">
+                          <p class="form-description">Whole number, 0 or more.</p>
+                        </div>
+                      </div>
+                      <fieldset class="flex flex-col gap-4 border-t pt-4">
+                        <legend class="float-left text-sm font-medium">Payment</legend>
+                        <div class="clear-left grid grid-cols-2 gap-4">
+                          <div class="field">
+                            <label class="label" for="f-pay">Payment method</label>
+                            <button id="f-pay" type="button" class="select-trigger"><span>Saved card</span><i data-icon="chevron-down"></i></button>
+                          </div>
+                          <div class="field">
+                            <label class="label" for="f-brand">Card brand</label>
+                            <button id="f-brand" type="button" class="select-trigger"><span>Visa</span><i data-icon="chevron-down"></i></button>
+                            <p class="form-description">Shown because Payment method is Saved card.</p>
+                          </div>
+                        </div>
+                      </fieldset>
+                      <div class="field">
+                        <label class="label" for="f-extra">Extra attributes <span class="font-mono text-xs font-normal text-fg-2">JSON</span></label>
+                        <textarea id="f-extra" class="textarea min-h-24 font-mono t-compact" spellcheck="false">{
+  "locale": "de-DE"
+}</textarea>
+                        <p class="form-description">Any extra attributes the shop accepts, as a JSON object.</p>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              </div>
+
+              <!-- Policy and result rail -->
+              <aside class="sticky top-0 flex flex-col gap-8" aria-label="Execution policy and result">
+                <section class="flex flex-col gap-3" aria-labelledby="pol-h">
+                  <h2 id="pol-h" class="text-base font-semibold">What this operation does</h2>
+                  <ul class="effects">
+                    <li data-tone="wait"><span class="mk mk-half text-warn"></span><span>Changes data in the application.</span></li>
+                    <li data-tone="ok"><span class="bullet"></span><span>You can do a dry run first. You will see the result, but nothing will change.</span></li>
+                    <li data-tone="ok"><span class="bullet"></span><span>You can cancel it while it runs.</span></li>
+                    <li data-tone="sub"><span class="bullet"></span><span>If it takes longer than 2 min, it will be stopped.</span></li>
+                    <li data-tone="sub"><span class="bullet"></span><span>Repeating with the same key is safe. It will not duplicate the effect.</span></li>
+                  </ul>
+                </section>
+                <section class="flex flex-col gap-1 border-t pt-4" aria-labelledby="res-h">
+                  <h2 id="res-h" class="text-base font-semibold">Result</h2>
+                  <p class="text-sm font-medium">Nothing has run yet.</p>
+                  <p class="text-sm text-fg-2">The result will appear here when the run finishes. Your input stays in place, so fixing it and running again takes one click.</p>
+                </section>
+              </aside>
+            </div>
+          </div>
+        </div>
+        <!-- Sticky action bar -->
+        <div class="flex h-16 shrink-0 items-center gap-3 border-t bg-background px-8">
+          <div class="min-w-0">
+            <div class="text-sm font-medium">Create test customer</div>
+            <div class="t-compact text-fg-2">In Shop staging, preset Verified EU customer</div>
+          </div>
+          <div class="ml-auto flex items-center gap-2">
+            <button class="btn btn-outline">Dry run</button>
+            <button class="btn btn-default" data-go="result">Create test customer</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ PAGE: RESULT ============ -->
+      <div class="page absolute inset-0 hidden flex-col" data-page="result">
+        <div class="scroll-area flex-1 overflow-y-auto">
+          <div class="mx-auto flex max-w-[1240px] flex-col gap-8 px-8 py-8">
+            <header class="flex items-start justify-between gap-6">
+              <div class="flex flex-col gap-2">
+                <div class="flex items-center gap-3">
+                  <h1 class="text-2xl font-semibold">Create test customer</h1>
+                  <span class="badge"><span class="mk mk-half text-warn"></span>changes data</span>
+                </div>
+                <p class="font-mono text-xs text-fg-2">customers.create</p>
+              </div>
+              <button class="btn btn-outline btn-sm" data-go="operation">Edit input</button>
+            </header>
+
+            <div class="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-12">
+              <!-- Run outcome: the focal object -->
+              <article class="flex min-w-0 flex-col gap-8" aria-labelledby="run-h">
+                <div class="flex flex-col gap-3">
+                  <div class="flex flex-wrap items-center gap-3">
+                    <span class="badge"><span class="mk mk-full text-ok"></span>done</span>
+                    <span class="font-mono text-xs">run_01J9Z4K8W2</span>
+                    <span class="t-compact text-fg-2">Started 12 s ago, took 3.4 s</span>
+                  </div>
+                  <div class="flex items-start justify-between gap-6">
+                    <h2 id="run-h" class="text-xl font-semibold">Customer Ada Lovelace created with a saved Visa card.</h2>
+                    <button class="btn btn-outline btn-sm">Run again</button>
+                  </div>
+                  <p class="flex items-baseline gap-3 text-sm"><span class="mk mk-full translate-y-[-1px] text-ok"></span><span>Welcome email suppressed in staging. No message was sent to the customer's address.</span></p>
+                </div>
+
+                <!-- Key-value -->
+                <section class="flex flex-col gap-3" aria-labelledby="kv-h">
+                  <h3 id="kv-h" class="text-base font-semibold">Customer</h3>
+                  <div class="table-wrap">
+                    <table class="table kv">
+                      <tbody>
+                        <tr><th scope="row" class="w-40 font-normal text-fg-2">Customer ID</th><td class="font-mono">cus_7Q2xN8</td><td class="act w-12 text-right"><button class="btn btn-ghost btn-icon-sm" aria-label="Copy customer ID"><i data-icon="copy"></i></button></td></tr>
+                        <tr><th scope="row" class="font-normal text-fg-2">Email</th><td class="font-mono">test+ada.7q2x@acme.test</td><td class="act text-right"><button class="btn btn-ghost btn-icon-sm" aria-label="Copy email"><i data-icon="copy"></i></button></td></tr>
+                        <tr><th scope="row" class="font-normal text-fg-2">Password</th><td class="font-mono">Gauntlet!2026</td><td class="act relative text-right">
+                          <div class="absolute right-full top-1/2 z-10 -translate-y-1/2 whitespace-nowrap rounded-md bg-primary px-3 py-1 t-compact text-primary-foreground" role="status">Copied</div>
+                          <button class="btn btn-ghost btn-icon-sm" aria-label="Password copied"><i data-icon="check"></i></button></td></tr>
+                        <tr><th scope="row" class="font-normal text-fg-2">Country</th><td class="font-mono">DE</td><td class="act"></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <!-- Browser launch -->
+                <section class="flex items-center justify-between gap-6 border-y py-4" aria-labelledby="bl-h">
+                  <div class="flex flex-col gap-1">
+                    <h3 id="bl-h" class="text-base font-semibold">Sign in as Ada Lovelace</h3>
+                    <p class="text-sm text-fg-2">One-time entry. Opening it uses up the link.</p>
+                  </div>
+                  <button class="btn btn-default">Open test session<i data-icon="external-link"></i></button>
+                </section>
+
+                <!-- Timeline + markdown -->
+                <div class="grid grid-cols-2 gap-8">
+                  <section class="flex flex-col gap-3" aria-labelledby="tl-h">
+                    <h3 id="tl-h" class="text-base font-semibold">Timeline</h3>
+                    <ol class="flex flex-col gap-2 text-sm">
+                      <li class="grid grid-cols-[56px_1fr] items-baseline gap-3"><span class="font-mono text-xs text-fg-2">+0.0 s</span><span>Input checked</span></li>
+                      <li class="grid grid-cols-[56px_1fr] items-baseline gap-3"><span class="font-mono text-xs text-fg-2">+0.6 s</span><span>Customer account created, <code class="text-[13px]">cus_7Q2xN8</code></span></li>
+                      <li class="grid grid-cols-[56px_1fr] items-baseline gap-3"><span class="font-mono text-xs text-fg-2">+2.1 s</span><span>Visa card saved, ending 4242</span></li>
+                      <li class="grid grid-cols-[56px_1fr] items-baseline gap-3"><span class="font-mono text-xs text-fg-2">+3.4 s</span><span>Welcome email suppressed</span></li>
+                    </ol>
+                  </section>
+                  <section class="flex flex-col gap-3" aria-labelledby="md-h">
+                    <h3 id="md-h" class="text-base font-semibold">Notes for testers</h3>
+                    <div class="flex flex-col gap-2 text-sm">
+                      <p><strong class="font-semibold">Ada Lovelace</strong> is ready for checkout tests.</p>
+                      <ul class="flex list-disc flex-col gap-1 pl-4 marker:text-fg-2">
+                        <li>Saved card: Visa ending 4242, no 3-D Secure step</li>
+                        <li>Shipping address: Unter den Linden 1, 10117 Berlin</li>
+                        <li>Loyalty tier: <code class="text-[13px]">silver</code> (1 200 points)</li>
+                      </ul>
+                    </div>
+                  </section>
+                </div>
+
+                <!-- Download + link -->
+                <section class="flex flex-col gap-3" aria-labelledby="files-h">
+                  <h3 id="files-h" class="text-base font-semibold">Files and links</h3>
+                  <ul class="flex flex-col divide-y border-y">
+                    <li class="flex items-center gap-4 py-3">
+                      <div class="flex min-w-0 flex-1 items-baseline gap-3"><span class="truncate font-mono text-[13px]">customer-cus_7Q2xN8.json</span><span class="t-compact text-fg-2">2.1 KB</span></div>
+                      <button class="btn btn-outline btn-sm">Download</button>
+                    </li>
+                    <li class="flex items-center gap-4 py-3">
+                      <div class="flex min-w-0 flex-1 items-baseline gap-3"><span class="text-sm font-medium">Payment method in the provider sandbox</span><span class="truncate font-mono text-xs text-fg-2">sandbox.pay.example/pm_1Q2x</span></div>
+                      <a class="btn btn-ghost btn-sm" href="#result">Open<i data-icon="external-link"></i></a>
+                    </li>
+                  </ul>
+                </section>
+
+                <!-- Raw JSON -->
+                <details class="rounded-lg border">
+                  <summary class="flex cursor-pointer items-center justify-between rounded-lg px-4 py-3">
+                    <span class="flex items-center gap-2 text-sm font-medium"><i data-icon="chevron-right" class="chev size-4 text-fg-2 transition-transform"></i>Raw JSON</span>
+                    <span class="t-compact text-fg-2">For bug reports</span>
+                  </summary>
+                  <pre class="scroll-area overflow-x-auto rounded-b-lg border-t bg-bg-2 px-4 py-3 font-mono text-xs">{
+  "id": "run_01J9Z4K8W2",
+  "operation": "customers.create",
+  "state": "succeeded",
+  "dryRun": false,
+  "durationMs": 3412,
+  "result": {
+    "customerId": "cus_7Q2xN8",
+    "email": "test+ada.7q2x@acme.test",
+    "country": "DE",
+    "paymentMethod": { "type": "card", "brand": "visa", "last4": "4242" }
+  }
+}</pre>
+                </details>
+              </article>
+
+              <!-- What next -->
+              <aside class="sticky top-0 flex flex-col gap-8" aria-label="Follow-up actions">
+                <section class="flex flex-col gap-3" aria-labelledby="next-h">
+                  <h2 id="next-h" class="text-base font-semibold">What next</h2>
+                  <div class="flex flex-col gap-2">
+                    <button class="btn btn-outline h-auto flex-col items-start gap-1 whitespace-normal py-2 text-left" data-go="running">
+                      <span>Seed order history for this customer</span>
+                      <span class="t-compact font-normal text-fg-2">Opens the form with Customer ID filled in</span>
+                    </button>
+                    <button class="btn btn-outline h-auto flex-col items-start gap-1 whitespace-normal py-2 text-left">
+                      <span>Open customer in admin ↗</span>
+                      <span class="font-mono text-xs font-normal text-fg-2">admin.staging.acme.test</span>
+                    </button>
+                    <button class="btn btn-outline h-auto flex-col items-start gap-1 whitespace-normal py-2 text-left">
+                      <span>Sign in as Ada Lovelace</span>
+                      <span class="t-compact font-normal text-fg-2">Launches a browser session</span>
+                    </button>
+                  </div>
+                </section>
+                <section class="flex flex-col gap-3 border-t pt-4" aria-labelledby="used-h">
+                  <div class="flex flex-col gap-1">
+                    <h2 id="used-h" class="text-base font-semibold">Input used</h2>
+                    <p class="t-compact text-fg-2">Preset Verified EU customer. Run again keeps this input.</p>
+                  </div>
+                  <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                    <dt class="text-fg-2">Name</dt><dd>Ada Lovelace</dd>
+                    <dt class="text-fg-2">Email</dt><dd>Generated</dd>
+                    <dt class="text-fg-2">Country</dt><dd class="flex items-center gap-2">Germany <i data-icon="lock" class="size-3 text-fg-2"></i><span class="sr-only">locked by preset</span></dd>
+                    <dt class="text-fg-2">Segment</dt><dd>B2C, Newsletter</dd>
+                    <dt class="text-fg-2">Payment</dt><dd>Saved card, Visa</dd>
+                  </dl>
+                </section>
+              </aside>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ PAGE: RUNNING / FAILED ============ -->
+      <div class="page absolute inset-0 hidden flex-col" data-page="running">
+        <div class="scroll-area flex-1 overflow-y-auto">
+          <div class="mx-auto flex max-w-[1240px] flex-col gap-8 px-8 py-8">
+            <header class="flex flex-col gap-2">
+              <div class="flex items-center gap-3">
+                <h1 class="text-2xl font-semibold">Seed order history</h1>
+                <span class="badge"><span class="mk mk-half text-warn"></span>changes data</span>
+              </div>
+              <p class="font-mono text-xs text-fg-2">orders.seed</p>
+            </header>
+
+            <div class="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-12">
+              <div class="flex min-w-0 flex-col gap-12">
+                <!-- Running -->
+                <article class="flex flex-col gap-6" aria-labelledby="run2-h">
+                  <div class="flex flex-col gap-3">
+                    <div class="flex flex-wrap items-center gap-3">
+                      <span class="badge"><span class="mk mk-half text-fg"></span>running</span>
+                      <span class="font-mono text-xs">run_01J9Z6P3QX</span>
+                      <span class="t-compact text-fg-2">Started 41 s ago</span>
+                    </div>
+                    <div class="flex items-start justify-between gap-6">
+                      <h2 id="run2-h" class="text-xl font-semibold">Creating 8 past orders for Ada Lovelace</h2>
+                      <button class="btn btn-outline btn-sm">Cancel run</button>
+                    </div>
+                  </div>
+                  <div class="flex flex-col gap-2">
+                    <div class="flex items-baseline justify-between text-sm">
+                      <span class="flex items-baseline gap-2 text-fg-2">Phase <code class="text-[13px] text-fg">orders.create</code></span>
+                      <span class="font-medium">3 of 8</span>
+                    </div>
+                    <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="8" aria-valuenow="3" aria-label="Orders created"><div style="width:37.5%"></div></div>
+                  </div>
+                  <section class="flex flex-col gap-2" aria-labelledby="log-h">
+                    <div class="flex items-baseline justify-between"><h3 id="log-h" class="text-sm font-medium">Log</h3><span class="t-compact text-fg-2">Live, 6 lines</span></div>
+                    <div class="scroll-area max-h-48 overflow-y-auto rounded-lg border bg-bg-2">
+                      <table class="w-full font-mono t-compact">
+                        <caption class="sr-only">Run log</caption>
+                        <thead class="sr-only"><tr><th scope="col">Time</th><th scope="col">Level</th><th scope="col">Message</th></tr></thead>
+                        <tbody class="[&_td]:px-3 [&_td]:py-1 [&_td]:align-baseline">
+                          <tr><td class="w-32 text-fg-2">09:41:02.114</td><td class="w-16 text-fg-2">INFO</td><td>Starting batch of 8 orders for cus_7Q2xN8</td></tr>
+                          <tr><td class="text-fg-2">09:41:05.320</td><td class="text-fg-2">INFO</td><td>Order 1 of 8 created · ord_5Hk2 · 3 items · €84.20</td></tr>
+                          <tr><td class="text-fg-2">09:41:09.007</td><td class="text-fg-2">INFO</td><td>Order 2 of 8 created · ord_5Hk3 · 1 item · €19.90</td></tr>
+                          <tr><td class="text-fg-2">09:41:12.481</td><td class="text-warn">WARN</td><td>Inventory service answered slowly (2.4 s)</td></tr>
+                          <tr><td class="text-fg-2">09:41:14.902</td><td class="text-fg-2">INFO</td><td>Order 3 of 8 created · ord_5Hk4 · 5 items · €212.75</td></tr>
+                          <tr><td class="text-fg-2">09:41:15.230</td><td class="text-fg-2">DEBUG</td><td class="text-fg-2">Waiting for invoice numbering</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                  <p class="text-sm text-fg-2">You can cancel it while it runs. Orders created so far will stay.</p>
+                </article>
+
+                <!-- Failed -->
+                <article class="flex flex-col gap-4 border-t pt-8" aria-labelledby="fail-h">
+                  <div class="flex flex-wrap items-center gap-3">
+                    <span class="badge"><span class="mk mk-full text-err"></span>failed</span>
+                    <h2 id="fail-h" class="text-base font-semibold">Create test customer</h2>
+                    <span class="font-mono text-xs text-fg-2">run_01J9Z5M1TB</span>
+                    <span class="t-compact text-fg-2">Started 4 min ago, took 2.1 s</span>
+                    <button class="btn btn-outline btn-sm ml-auto">Run again</button>
+                  </div>
+                  <div class="callout callout-err" role="alert">
+                    <span class="mk mk-full text-err"></span>
+                    <p class="text-sm font-medium">Payment provider sandbox rejected the card</p>
+                    <p class="col-start-2 max-w-[68ch] text-sm">The customer account was not created. Switch Payment method to Invoice or choose another card brand, then run again. If it happens again, give the team the correlation ID.</p>
+                    <div class="col-start-2 mt-2 flex items-center gap-3">
+                      <span class="t-compact text-fg-2">Correlation ID</span>
+                      <span class="font-mono text-xs">c0rr-8f2a-41d9</span>
+                      <button class="btn btn-ghost btn-sm"><i data-icon="copy"></i>Copy</button>
+                    </div>
+                  </div>
+                </article>
+
+                <!-- Non-cancellable -->
+                <article class="flex flex-col gap-4 border-t pt-8" aria-labelledby="nc-h">
+                  <div class="flex flex-wrap items-center gap-3">
+                    <span class="badge"><span class="mk mk-half text-fg"></span>running</span>
+                    <h2 id="nc-h" class="text-base font-semibold">Delete test data</h2>
+                    <span class="font-mono text-xs text-fg-2">run_01J9Z6R0AA</span>
+                    <span class="t-compact text-fg-2">Started 2 min ago</span>
+                  </div>
+                  <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="62" aria-label="Delete test data progress"><div style="width:62%"></div></div>
+                  <p class="text-sm text-fg-2">This application does not allow cancelling an operation once it has started.</p>
+                </article>
+
+                <!-- Other artifact kinds -->
+                <article class="flex flex-col gap-6 border-t pt-8" aria-labelledby="pg-h">
+                  <div class="flex flex-col gap-2">
+                    <div class="flex flex-wrap items-center gap-3">
+                      <span class="badge"><span class="mk mk-full text-ok"></span>done</span>
+                      <h2 id="pg-h" class="text-base font-semibold">Check payment gateway</h2>
+                      <span class="font-mono text-xs text-fg-2">run_01J9Z4QB7N</span>
+                    </div>
+                    <p class="text-sm">The sandbox gateway is healthy. 1 of 4 recent transactions was declined.</p>
+                  </div>
+                  <dl class="grid grid-cols-3 gap-8">
+                    <div class="flex flex-col gap-1"><dt class="t-compact text-fg-2">Latency p95</dt><dd class="text-xl font-semibold">182 <span class="t-compact font-normal text-fg-2">ms</span></dd></div>
+                    <div class="flex flex-col gap-1"><dt class="t-compact text-fg-2">Error rate</dt><dd class="text-xl font-semibold">0.4 <span class="t-compact font-normal text-fg-2">%</span></dd></div>
+                    <div class="flex flex-col gap-1"><dt class="t-compact text-fg-2">Requests</dt><dd class="text-xl font-semibold">1 284 <span class="t-compact font-normal text-fg-2">in the last hour</span></dd></div>
+                  </dl>
+                  <div class="table-wrap">
+                    <table class="table">
+                      <caption class="sr-only">Recent sandbox transactions</caption>
+                      <thead><tr><th scope="col">Time</th><th scope="col">Transaction</th><th scope="col">Status</th><th scope="col" class="num">Amount</th><th scope="col" class="num">Latency</th></tr></thead>
+                      <tbody>
+                        <tr><td>09:38:12</td><td class="font-mono">txn_9Jd2</td><td>Captured</td><td class="num">€84.20</td><td class="num">164 ms</td></tr>
+                        <tr><td>09:37:58</td><td class="font-mono">txn_9Jd1</td><td>Captured</td><td class="num">€19.90</td><td class="num">171 ms</td></tr>
+                        <tr><td>09:37:40</td><td class="font-mono">txn_9Jc8</td><td><span class="inline-flex items-center gap-2 text-err"><span class="mk mk-full"></span>Declined</span></td><td class="num">€212.75</td><td class="num">402 ms</td></tr>
+                        <tr><td>09:37:02</td><td class="font-mono">txn_9Jc7</td><td>Captured</td><td class="num">€45.00</td><td class="num">158 ms</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <pre class="rounded-lg border bg-bg-2 px-4 py-3 font-mono t-compact"><span class="text-fg-2">09:38:20 INFO </span> Health check passed · sandbox.pay.example
+<span class="text-fg-2">09:38:20 INFO </span> Webhook endpoint answered in 96 ms
+<span class="text-warn">09:38:21 WARN </span> Declines above 0.3 % in the last hour</pre>
+                </article>
+
+                <article class="flex flex-col gap-6 border-t pt-8" aria-labelledby="ff-h">
+                  <div class="flex flex-col gap-2">
+                    <div class="flex flex-wrap items-center gap-3">
+                      <span class="badge"><span class="mk mk-full text-ok"></span>done</span>
+                      <h2 id="ff-h" class="text-base font-semibold">Inspect feature flags</h2>
+                      <span class="font-mono text-xs text-fg-2">run_01J9Z4P0C2</span>
+                    </div>
+                    <p class="text-sm">2 flags changed since the last snapshot.</p>
+                  </div>
+                  <div class="table-wrap">
+                    <table class="table kv">
+                      <tbody>
+                        <tr><th scope="row" class="w-40 font-normal text-fg-2">Flags evaluated</th><td>24</td></tr>
+                        <tr><th scope="row" class="font-normal text-fg-2">Source</th><td>Flag service (staging project)</td></tr>
+                        <tr><th scope="row" class="font-normal text-fg-2">Compared with</th><td>Snapshot <span class="font-mono">2026-10-01 18:00</span></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <section class="flex flex-col gap-2" aria-labelledby="diff-h">
+                    <h3 id="diff-h" class="text-sm font-medium">Changes</h3>
+                    <pre class="rounded-lg border bg-bg-2 py-2 font-mono t-compact"><div class="px-4 text-fg-2">  checkout.express: true</div><div class="px-4 text-err">- checkout.v2: false</div><div class="px-4 text-ok">+ checkout.v2: true</div><div class="px-4 text-fg-2">  search.semantic: false</div><div class="px-4 text-err">- loyalty.tiers: "legacy"</div><div class="px-4 text-ok">+ loyalty.tiers: "v3"</div></pre>
+                  </section>
+                </article>
+              </div>
+
+              <!-- Recent runs -->
+              <aside class="sticky top-0 flex flex-col gap-3" aria-labelledby="recent-h">
+                <div class="flex flex-col gap-1">
+                  <h2 id="recent-h" class="text-base font-semibold">Your recent runs</h2>
+                  <p class="t-compact text-fg-2">In this browser, Shop staging</p>
+                </div>
+                <ul class="flex flex-col divide-y border-y">
+                  <li class="flex items-baseline gap-3 py-2"><div class="min-w-0 flex-1"><div class="truncate text-sm font-medium">Seed order history</div><div class="t-compact text-fg-2">41 s ago</div></div><span class="t-compact flex items-center gap-2"><span class="mk mk-half"></span>Running</span></li>
+                  <li class="flex items-baseline gap-3 py-2"><div class="min-w-0 flex-1"><div class="truncate text-sm font-medium">Create test customer</div><div class="t-compact text-fg-2">Just now, dry run</div></div><span class="t-compact flex items-center gap-2 text-fg-2"><span class="mk mk-ring"></span>Queued</span></li>
+                  <li class="flex items-baseline gap-3 py-2"><div class="min-w-0 flex-1"><div class="truncate text-sm font-medium">Delete test data</div><div class="t-compact text-fg-2">2 min ago</div></div><span class="t-compact flex items-center gap-2"><span class="mk mk-half"></span>Running</span></li>
+                  <li class="flex items-baseline gap-3 py-2"><div class="min-w-0 flex-1"><div class="truncate text-sm font-medium">Create test customer</div><div class="t-compact text-fg-2">4 min ago</div></div><span class="t-compact flex items-center gap-2 text-err"><span class="mk mk-full"></span>Failed</span></li>
+                  <li class="flex items-baseline gap-3 py-2"><div class="min-w-0 flex-1"><div class="truncate text-sm font-medium">Check payment gateway</div><div class="t-compact text-fg-2">6 min ago</div></div><span class="t-compact flex items-center gap-2 text-ok"><span class="mk mk-full"></span>Done</span></li>
+                  <li class="flex items-baseline gap-3 py-2"><div class="min-w-0 flex-1"><div class="truncate text-sm font-medium">Inspect feature flags</div><div class="t-compact text-fg-2">7 min ago</div></div><span class="t-compact flex items-center gap-2 text-ok"><span class="mk mk-full"></span>Done</span></li>
+                  <li class="flex items-baseline gap-3 py-2"><div class="min-w-0 flex-1"><div class="truncate text-sm font-medium">Process test file</div><div class="t-compact text-fg-2">12 min ago, 41 of 44 rows</div></div><span class="t-compact flex items-center gap-2 text-warn"><span class="mk mk-half"></span>Partial</span></li>
+                  <li class="flex items-baseline gap-3 py-2"><div class="min-w-0 flex-1"><div class="truncate text-sm font-medium">Seed order history</div><div class="t-compact text-fg-2">25 min ago, stopped after 5 min</div></div><span class="t-compact flex items-center gap-2 text-warn"><span class="mk mk-tri"></span>Timed out</span></li>
+                  <li class="flex items-baseline gap-3 py-2"><div class="min-w-0 flex-1"><div class="truncate text-sm font-medium">Impersonate customer</div><div class="t-compact text-fg-2">31 min ago</div></div><span class="t-compact flex items-center gap-2 text-fg-2"><span class="mk mk-ring"></span>Cancelled</span></li>
+                  <li class="flex items-baseline gap-3 py-2"><div class="min-w-0 flex-1"><div class="truncate text-sm font-medium text-fg-2">Open test session</div><div class="t-compact text-fg-2">1 h ago, link used up</div></div><span class="t-compact flex items-center gap-2 text-fg-2"><span class="mk mk-ring"></span>Expired</span></li>
+                </ul>
+              </aside>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ PAGE: DELETE TEST DATA (for confirm) ============ -->
+      <div class="page absolute inset-0 hidden flex-col" data-page="delete">
+        <div class="scroll-area flex-1 overflow-y-auto">
+          <div class="mx-auto flex max-w-[1240px] flex-col gap-8 px-8 py-8">
+            <header class="flex flex-col gap-2">
+              <div class="flex items-center gap-3">
+                <h1 class="text-2xl font-semibold">Delete test data</h1>
+                <span class="badge"><span class="mk mk-full text-err"></span>deletes data</span>
+              </div>
+              <p class="font-mono text-xs text-fg-2">testdata.purge</p>
+              <p class="max-w-[68ch] text-sm">Removes customers, orders and sessions that Gauntlet created in this environment. Data created by people or by the shop itself is not touched.</p>
+            </header>
+            <div class="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-12">
+              <form class="card" aria-labelledby="del-input-h" onsubmit="return false">
+                <div class="flex flex-col gap-6 p-6">
+                  <div class="flex items-baseline justify-between gap-4">
+                    <h2 id="del-input-h" class="text-base font-semibold">Input</h2>
+                    <p class="t-compact text-fg-2">Fields marked * are required.</p>
+                  </div>
+                  <fieldset class="field">
+                    <legend class="label mb-2">What to delete <span class="req" aria-hidden="true">*</span></legend>
+                    <div class="flex gap-6">
+                      <label class="flex items-center gap-2 text-sm"><span class="checkbox" data-state="checked"><i data-icon="check"></i></span>Customers</label>
+                      <label class="flex items-center gap-2 text-sm"><span class="checkbox" data-state="checked"><i data-icon="check"></i></span>Orders</label>
+                      <label class="flex items-center gap-2 text-sm"><span class="checkbox" data-state="checked"><i data-icon="check"></i></span>Sessions</label>
+                    </div>
+                  </fieldset>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div class="field"><label class="label" for="d-by">Created by</label><button id="d-by" type="button" class="select-trigger"><span>Everyone</span><i data-icon="chevron-down"></i></button></div>
+                    <div class="field"><label class="label" for="d-age">Older than (days)</label><input id="d-age" class="input" value="7"></div>
+                  </div>
+                  <div class="flex items-start justify-between gap-6">
+                    <div class="flex flex-col gap-1"><span class="label" id="d-fix">Keep fixtures</span><p class="form-description">Customers marked as fixtures are never deleted.</p></div>
+                    <span class="switch" role="switch" aria-checked="true" aria-labelledby="d-fix" data-state="checked"><span></span></span>
+                  </div>
+                </div>
+              </form>
+              <aside class="flex flex-col gap-3" aria-labelledby="del-pol-h">
+                <h2 id="del-pol-h" class="text-base font-semibold">What this operation does</h2>
+                <ul class="effects">
+                  <li data-tone="stop"><span class="mk mk-full"></span><span>Deletes data. This cannot be undone.</span></li>
+                  <li data-tone="wait"><span class="bullet"></span><span>Once started, it cannot be cancelled.</span></li>
+                  <li data-tone="wait"><span class="bullet"></span><span>You will be asked to confirm before it starts.</span></li>
+                  <li data-tone="sub"><span class="bullet"></span><span>If it takes longer than 5 min, it will be stopped.</span></li>
+                </ul>
+              </aside>
+            </div>
+          </div>
+        </div>
+        <div class="flex h-16 shrink-0 items-center gap-3 border-t bg-background px-8">
+          <div class="min-w-0">
+            <div class="text-sm font-medium">Delete test data</div>
+            <div class="t-compact text-fg-2">In Shop staging. You will be asked to confirm.</div>
+          </div>
+          <div class="ml-auto flex items-center gap-2">
+            <button class="btn btn-destructive" data-go="confirm">Delete test data</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ======================= OVERLAYS ======================= -->
+
+<!-- AlertDialog: confirm -->
+<div id="ov-confirm" class="overlay-root hidden">
+  <div class="overlay" data-close></div>
+  <div class="dialog sm:max-w-lg" role="alertdialog" aria-modal="true" aria-labelledby="cf-h" aria-describedby="cf-d">
+    <div class="flex flex-col gap-2 text-left">
+      <h2 id="cf-h" class="dialog-title">Delete test data in Shop staging?</h2>
+      <p id="cf-d" class="dialog-description">Customers, orders and sessions created by Gauntlet more than 7 days ago will be deleted. Fixtures are kept.</p>
+    </div>
+    <ul class="effects border-y py-4">
+      <li data-tone="stop"><span class="mk mk-full"></span><span>Deletes data. This cannot be undone.</span></li>
+      <li data-tone="wait"><span class="bullet"></span><span>Once started, it cannot be cancelled.</span></li>
+      <li data-tone="sub"><span class="bullet"></span><span>If it takes longer than 5 min, it will be stopped.</span></li>
+    </ul>
+    <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <button class="btn btn-outline" data-close>Cancel</button>
+      <button class="btn btn-destructive" data-go="running">Delete test data</button>
+    </div>
+  </div>
+</div>
+
+<!-- CommandDialog: search -->
+<div id="ov-search" class="overlay-root hidden">
+  <div class="overlay" data-close></div>
+  <div class="dialog top-[38%] gap-0 overflow-hidden p-0 sm:max-w-xl" role="dialog" aria-modal="true" aria-label="Search">
+    <div class="flex h-12 items-center gap-2 border-b px-3">
+      <i data-icon="search" class="size-4 shrink-0 text-fg-2"></i>
+      <input class="flex h-10 w-full bg-transparent text-sm outline-none placeholder:text-fg-2" placeholder="Search environments and operations" aria-label="Search environments and operations" value="">
+    </div>
+    <div class="scroll-area max-h-[400px] overflow-y-auto overflow-x-hidden" role="listbox">
+      <div class="p-1">
+        <div class="cmd-heading">Environments</div>
+        <div class="cmd-item" data-selected="true" role="option" aria-selected="true"><span>Shop staging</span><span class="t-compact ml-auto font-normal text-fg-2">Environment overview</span><kbd class="kbd ml-2 self-center">↵</kbd></div>
+        <div class="cmd-item" role="option"><span>Shop QA 2</span><span class="t-compact ml-auto font-normal text-fg-2">Environment overview</span></div>
+        <div class="cmd-item" data-disabled="true" role="option" aria-disabled="true"><span>Back office preview 482</span><span class="t-compact ml-auto font-normal text-fg-2">Environment overview · unavailable</span></div>
+      </div>
+      <div class="h-px bg-border"></div>
+      <div class="p-1">
+        <div class="cmd-heading">Operations</div>
+        <div class="cmd-item" role="option"><span>Create test customer</span><span class="t-compact ml-auto font-normal text-fg-2">Shop staging</span></div>
+        <div class="cmd-item" role="option"><span>Seed order history</span><span class="t-compact ml-auto font-normal text-fg-2">Shop staging</span></div>
+        <div class="cmd-item" role="option"><span>Delete test data</span><span class="t-compact ml-auto font-normal text-fg-2">Shop staging</span></div>
+        <div class="cmd-item" role="option"><span>Open test session</span><span class="t-compact ml-auto font-normal text-fg-2">Shop staging</span></div>
+        <div class="cmd-item" role="option"><span>Impersonate customer</span><span class="t-compact ml-auto font-normal text-fg-2">Shop staging</span></div>
+        <div class="cmd-item" role="option"><span>Process test file</span><span class="t-compact ml-auto font-normal text-fg-2">Shop staging</span></div>
+        <div class="cmd-item" role="option"><span>Check payment gateway</span><span class="t-compact ml-auto font-normal text-fg-2">Shop staging</span></div>
+        <div class="cmd-item" role="option"><span>Inspect feature flags</span><span class="t-compact ml-auto font-normal text-fg-2">Shop staging</span></div>
+        <div class="cmd-item" data-disabled="true" role="option" aria-disabled="true"><span>Reset search index</span><span class="t-compact ml-auto font-normal text-fg-2">Shop staging · unavailable</span></div>
+        <div class="cmd-item" role="option"><span>Create test customer</span><span class="t-compact ml-auto font-normal text-fg-2">Shop QA 2</span></div>
+      </div>
+    </div>
+    <div class="flex items-center gap-4 border-t px-3 py-2 text-xs text-fg-2">
+      <span class="flex items-center gap-1"><kbd class="kbd">↑</kbd><kbd class="kbd">↓</kbd> select</span>
+      <span class="flex items-center gap-1"><kbd class="kbd">↵</kbd> open</span>
+      <span class="flex items-center gap-1"><kbd class="kbd">Esc</kbd> close</span>
+      <span class="ml-auto">13 results</span>
+    </div>
+  </div>
+</div>
+
+<!-- Dialog: settings -->
+<div id="ov-settings" class="overlay-root hidden">
+  <div class="overlay" data-close></div>
+  <div class="dialog max-h-[calc(100%-2rem)] overflow-y-auto sm:max-w-[600px]" data-tabs role="dialog" aria-modal="true" aria-labelledby="st-h">
+    <button class="btn btn-ghost btn-icon-sm absolute right-4 top-4 text-fg-2" data-close aria-label="Close"><i data-icon="x"></i></button>
+    <div class="flex flex-col gap-2 text-left">
+      <h2 id="st-h" class="dialog-title">Settings</h2>
+      <p class="dialog-description">Personal preferences for this browser, and how to connect AI agents over MCP.</p>
+    </div>
+    <div class="tabs-list grid w-full grid-cols-2" role="tablist">
+      <button class="tabs-trigger" role="tab" data-tab="appearance" data-state="active">Appearance</button>
+      <button class="tabs-trigger" role="tab" data-tab="mcp">MCP</button>
+    </div>
+
+    <!-- Appearance -->
+    <div data-panel="appearance" role="tabpanel" class="flex flex-col gap-6">
+      <fieldset class="flex flex-col gap-3">
+        <div class="flex flex-col gap-1">
+          <legend class="label">Theme</legend>
+          <p class="form-description">Choose how Gauntlet looks.</p>
+        </div>
+        <div class="grid grid-cols-3 gap-4">
+          <label class="flex cursor-pointer flex-col gap-2">
+            <div class="rounded-lg border-2 border-primary p-1">
+              <div class="flex flex-col gap-2 rounded-md bg-[#fafafa] p-2">
+                <div class="flex flex-col gap-2 rounded-md border border-[#ebebeb] bg-white p-2"><div class="h-2 w-[80%] rounded-sm bg-[#ebebeb]"></div><div class="h-2 w-[60%] rounded-sm bg-[#ebebeb]"></div></div>
+                <div class="flex items-center gap-2 rounded-md border border-[#ebebeb] bg-white p-2"><div class="size-3 rounded-sm bg-[#171717]"></div><div class="h-2 w-[70%] rounded-sm bg-[#ebebeb]"></div></div>
+              </div>
+            </div>
+            <span class="flex items-center gap-2 text-sm font-medium"><input type="radio" name="theme" checked class="accent-[var(--fg)]">Light</span>
+          </label>
+          <label class="flex cursor-pointer flex-col gap-2">
+            <div class="rounded-lg border-2 border-border p-1 hover:border-input">
+              <div class="flex flex-col gap-2 rounded-md bg-[#111111] p-2">
+                <div class="flex flex-col gap-2 rounded-md border border-[#242424] bg-[#0a0a0a] p-2"><div class="h-2 w-[80%] rounded-sm bg-[#3d3d3d]"></div><div class="h-2 w-[60%] rounded-sm bg-[#3d3d3d]"></div></div>
+                <div class="flex items-center gap-2 rounded-md border border-[#242424] bg-[#0a0a0a] p-2"><div class="size-3 rounded-sm bg-[#ededed]"></div><div class="h-2 w-[70%] rounded-sm bg-[#3d3d3d]"></div></div>
+              </div>
+            </div>
+            <span class="flex items-center gap-2 text-sm font-medium"><input type="radio" name="theme" class="accent-[var(--fg)]">Dark</span>
+          </label>
+          <label class="flex cursor-pointer flex-col gap-2">
+            <div class="rounded-lg border-2 border-border p-1 hover:border-input">
+              <div class="grid grid-cols-2 overflow-hidden rounded-md">
+                <div class="flex flex-col gap-2 bg-[#fafafa] p-2 pr-0">
+                  <div class="flex flex-col gap-2 rounded-l-md border border-r-0 border-[#ebebeb] bg-white p-2 pr-0"><div class="h-2 w-full bg-[#ebebeb]"></div><div class="h-2 w-[80%] bg-[#ebebeb]"></div></div>
+                  <div class="flex items-center gap-2 rounded-l-md border border-r-0 border-[#ebebeb] bg-white p-2"><div class="size-3 rounded-sm bg-[#171717]"></div></div>
+                </div>
+                <div class="flex flex-col gap-2 bg-[#111111] p-2 pl-0">
+                  <div class="flex flex-col gap-2 rounded-r-md border border-l-0 border-[#242424] bg-[#0a0a0a] p-2 pl-0"><div class="h-2 w-[80%] bg-[#3d3d3d]"></div><div class="h-2 w-[40%] bg-[#3d3d3d]"></div></div>
+                  <div class="flex items-center gap-2 rounded-r-md border border-l-0 border-[#242424] bg-[#0a0a0a] p-2 pl-0"><div class="h-2 w-[70%] bg-[#3d3d3d]"></div></div>
+                </div>
+              </div>
+            </div>
+            <span class="flex items-center gap-2 text-sm font-medium"><input type="radio" name="theme" class="accent-[var(--fg)]">System</span>
+          </label>
+        </div>
+      </fieldset>
+      <div class="flex flex-col gap-4 border-t pt-4">
+        <div class="flex items-start justify-between gap-6">
+          <div class="flex flex-col gap-1"><span class="label" id="s-motion">Reduce motion</span><p class="form-description">A calmer interface, without animated transitions.</p></div>
+          <span class="switch" role="switch" aria-checked="false" aria-labelledby="s-motion" data-state="unchecked" data-toggle tabindex="0"><span></span></span>
+        </div>
+        <div class="flex items-start justify-between gap-6">
+          <div class="flex flex-col gap-1"><span class="label" id="s-nav">Collapsed navigation</span><p class="form-description">More room for content on desktop. You can expand it at any time.</p></div>
+          <span class="switch" role="switch" aria-checked="false" aria-labelledby="s-nav" data-state="unchecked" data-toggle tabindex="0"><span></span></span>
+        </div>
+      </div>
+      <p class="t-compact text-fg-2">Preferences are saved automatically in this browser.</p>
+      <div class="flex items-center justify-between gap-2 border-t pt-4">
+        <button class="btn btn-ghost">Restore defaults</button>
+        <button class="btn btn-default" data-close>Done</button>
+      </div>
+    </div>
+
+    <!-- MCP -->
+    <div data-panel="mcp" role="tabpanel" class="hidden flex-col gap-6">
+      <div class="field">
+        <div class="flex items-baseline justify-between">
+          <label class="label" for="s-url" data-error="true">MCP server URL</label>
+          <span class="t-compact text-fg-2">Transport: Streamable HTTP</span>
+        </div>
+        <input id="s-url" class="input font-mono" aria-invalid="true" aria-describedby="s-url-msg s-url-help" value="gauntlet.example.com/mcp">
+        <p id="s-url-msg" class="form-message">Enter an HTTP or HTTPS URL ending in <code>/mcp</code>.</p>
+        <p id="s-url-help" class="form-description">The address AI agents use to reach this Gauntlet server.</p>
+      </div>
+      <div class="field">
+        <div class="flex items-center justify-between">
+          <span class="label">Client configuration</span>
+          <button class="btn btn-outline btn-sm"><i data-icon="copy"></i>Copy</button>
+        </div>
+        <pre class="rounded-lg border bg-bg-2 px-4 py-3 font-mono text-xs">{
+  "mcpServers": {
+    "gauntlet": {
+      "url": "https://gauntlet.example.com/mcp"
+    }
+  }
+}</pre>
+        <p class="form-description">Paste this into clients that use <code class="text-xs text-fg">mcpServers</code> JSON. In other clients, enter the URL above and select Streamable HTTP. Shown with the last valid URL.</p>
+      </div>
+      <details class="border-t pt-4" open>
+        <summary class="flex cursor-pointer items-center justify-between rounded-md">
+          <span class="text-sm font-medium">Server setup</span>
+          <i data-icon="chevron-down" class="chev-down size-4 text-fg-2 transition-transform"></i>
+        </summary>
+        <div class="mt-3 flex flex-col gap-3 text-sm" data-tabs>
+          <p class="text-fg-2">The MCP endpoint is off by default. Turn it on where Gauntlet runs.</p>
+          <div class="tabs-list" role="tablist">
+            <button class="tabs-trigger" role="tab" data-tab="local" data-state="active">Local</button>
+            <button class="tabs-trigger" role="tab" data-tab="compose">Compose</button>
+            <button class="tabs-trigger" role="tab" data-tab="helm">Helm</button>
+          </div>
+          <div data-panel="local" role="tabpanel" class="grid gap-2">
+            <p>Set this before starting the server:</p>
+            <pre class="rounded-md border bg-bg-2 px-3 py-2 font-mono text-xs">GAUNTLET_MCP_ENABLED=true</pre>
+          </div>
+          <div data-panel="compose" role="tabpanel" class="hidden gap-2">
+            <p>Set the value in the installation's <code class="text-xs">.env</code>, then run:</p>
+            <pre class="rounded-md border bg-bg-2 px-3 py-2 font-mono text-xs">./gauntlet up -d --wait</pre>
+          </div>
+          <div data-panel="helm" role="tabpanel" class="hidden gap-2">
+            <p>Set this in the values file, then upgrade the release:</p>
+            <pre class="rounded-md border bg-bg-2 px-3 py-2 font-mono text-xs">mcp:
+  enabled: true</pre>
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= MOBILE ======================= -->
+<div id="mobile" class="scroll-area hidden h-full items-start justify-center gap-12 overflow-auto bg-bg-2 px-8 pt-6">
+
+  <!-- Phone 1: operation -->
+  <figure class="flex flex-col items-center gap-2">
+    <div class="relative flex h-[800px] w-[390px] flex-col overflow-hidden rounded-[2.5rem] border-[10px] border-neutral-900 bg-background dark:border-neutral-700">
+      <div class="flex h-7 shrink-0 items-center justify-between px-8 text-xs font-semibold"><span>9:41</span><span>●●● ▮</span></div>
+      <header class="flex h-12 shrink-0 items-center gap-2 border-b px-3">
+        <button class="btn btn-ghost btn-icon-sm" aria-label="Open navigation"><i data-icon="panel-left"></i></button>
+        <span class="truncate text-sm text-fg-2">Shop staging <span class="mx-1">/</span> <span class="text-fg">Process test file</span></span>
+        <button class="btn btn-ghost btn-icon-sm ml-auto" aria-label="Search"><i data-icon="search"></i></button>
+      </header>
+      <div class="scroll-area min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div class="flex flex-col gap-6">
+          <div class="flex flex-col gap-2">
+            <h1 class="text-2xl font-semibold">Process test file</h1>
+            <div class="flex items-center gap-3"><span class="badge"><span class="mk mk-half text-warn"></span>changes data</span><span class="font-mono text-xs text-fg-2">files.process</span></div>
+            <p class="text-sm">Imports a CSV of orders or customers into the shop, the way an integration partner would.</p>
+          </div>
+          <section class="flex flex-col gap-3">
+            <h2 class="text-base font-semibold">What this operation does</h2>
+            <ul class="effects">
+              <li data-tone="wait"><span class="mk mk-half text-warn"></span><span>Changes data in the application.</span></li>
+              <li data-tone="ok"><span class="bullet"></span><span>You can do a dry run first. You will see the result, but nothing will change.</span></li>
+              <li data-tone="ok"><span class="bullet"></span><span>You can cancel it while it runs.</span></li>
+            </ul>
+          </section>
+          <form class="card gap-4 p-4" onsubmit="return false">
+            <h2 class="text-base font-semibold">Input</h2>
+            <div class="field">
+              <span class="label">File <span class="req" aria-hidden="true">*</span></span>
+              <div class="flex flex-col items-center gap-1 rounded-lg border border-dashed border-input px-4 py-4 text-center">
+                <i data-icon="upload" class="size-4 text-fg-2"></i>
+                <p class="text-sm"><span class="font-medium underline underline-offset-4">Choose a file</span> or drop it here</p>
+                <p class="t-compact text-fg-2">CSV or JSON, up to 20 MB</p>
+              </div>
+              <div class="flex items-center gap-3 rounded-lg border p-3">
+                <div class="flex min-w-0 flex-1 flex-col gap-2">
+                  <div class="flex justify-between gap-2 text-sm"><span class="truncate font-mono text-[13px]">orders-september.csv</span><span class="shrink-0 text-fg-2">66 %</span></div>
+                  <div class="progress"><div style="width:66%"></div></div>
+                  <div class="t-compact text-fg-2">Uploading, 1.2 of 1.8 MB</div>
+                </div>
+                <button class="btn btn-ghost btn-icon-sm" aria-label="Cancel upload"><i data-icon="x"></i></button>
+              </div>
+            </div>
+            <div class="field"><span class="label">Import as</span><button type="button" class="select-trigger"><span>Orders</span><i data-icon="chevron-down"></i></button></div>
+            <div class="field"><span class="label">Delimiter</span><button type="button" class="select-trigger"><span>, (comma)</span><i data-icon="chevron-down"></i></button></div>
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex flex-col gap-1"><span class="label">Skip rows with errors</span><p class="form-description">The rest of the file is still imported.</p></div>
+              <span class="switch" data-state="checked"><span></span></span>
+            </div>
+          </form>
+          <section class="flex flex-col gap-1">
+            <h2 class="text-base font-semibold">Result</h2>
+            <p class="text-sm text-fg-2">Nothing has run yet. The result will appear here when the run finishes.</p>
+          </section>
+        </div>
+      </div>
+      <div class="flex shrink-0 gap-2 border-t bg-background px-3 pt-3 pb-6">
+        <button class="btn btn-outline flex-1">Dry run</button>
+        <button class="btn btn-default flex-[1.6]">Process test file</button>
+      </div>
+    </div>
+    <figcaption class="t-compact text-fg-2">Operation, file upload in progress</figcaption>
+  </figure>
+
+  <!-- Phone 2: navigation drawer -->
+  <figure class="flex flex-col items-center gap-2">
+    <div class="relative h-[800px] w-[390px] overflow-hidden rounded-[2.5rem] border-[10px] border-neutral-900 bg-background dark:border-neutral-700">
+      <div class="flex h-7 items-center justify-between px-8 text-xs font-semibold"><span>9:41</span><span>●●● ▮</span></div>
+      <header class="flex h-12 items-center gap-2 border-b px-3">
+        <button class="btn btn-ghost btn-icon-sm" aria-label="Open navigation"><i data-icon="panel-left"></i></button>
+        <span class="text-sm">Shop staging</span>
+      </header>
+      <div class="flex flex-col gap-4 p-4">
+        <h1 class="text-2xl font-semibold">Shop staging</h1>
+        <p class="text-sm">9 operations in the catalog. Choose one to prepare a run.</p>
+        <dl class="grid grid-cols-3 gap-4 border-y py-3">
+          <div class="flex flex-col gap-1"><dt class="t-compact text-fg-2">All</dt><dd class="text-xl font-semibold">9</dd></div>
+          <div class="flex flex-col gap-1"><dt class="t-compact text-fg-2">Ready</dt><dd class="text-xl font-semibold">8</dd></div>
+          <div class="flex flex-col gap-1"><dt class="t-compact text-fg-2">Attention</dt><dd class="text-xl font-semibold">2</dd></div>
+        </dl>
+      </div>
+      <!-- Sheet -->
+      <div class="absolute inset-0 top-7 bg-black/40"></div>
+      <div class="absolute bottom-0 left-0 top-7 flex w-[288px] flex-col border-r bg-sidebar text-sidebar-foreground" style="box-shadow: var(--overlay-shadow)">
+        <div class="flex flex-col gap-2 p-2">
+          <a class="sb-btn h-9"><i data-icon="shield-check"></i><span class="text-base font-semibold">Gauntlet</span></a>
+          <button class="sb-btn h-auto items-start py-2">
+            <span class="grid min-w-0 flex-1 gap-1"><span class="truncate text-sm font-medium">Shop staging</span><span class="t-compact flex items-center gap-2 font-normal text-fg-2"><span class="dot bg-ok"></span>Online · staging</span></span>
+            <i data-icon="chevrons-up-down" class="mt-[2px] text-fg-2"></i>
+          </button>
+        </div>
+        <div class="flex flex-1 flex-col gap-4 overflow-hidden p-2">
+          <a class="sb-btn">Overview<span class="sb-aside">9</span></a>
+          <div><div class="sb-group-label">Test data</div>
+            <a class="sb-btn">Create test customer</a>
+            <a class="sb-btn">Seed order history</a>
+            <a class="sb-btn">Delete test data</a></div>
+          <div><div class="sb-group-label">Sessions</div>
+            <a class="sb-btn">Open test session</a>
+            <a class="sb-btn">Impersonate customer</a></div>
+          <div><div class="sb-group-label">Files</div>
+            <a class="sb-btn" data-active="true">Process test file</a></div>
+          <div><div class="sb-group-label">Diagnostics</div>
+            <a class="sb-btn">Check payment gateway</a>
+            <a class="sb-btn">Inspect feature flags</a>
+            <a class="sb-btn" aria-disabled="true">Reset search index<span class="sb-aside t-compact">Unavailable</span></a></div>
+        </div>
+        <div class="flex flex-col gap-1 border-t p-2">
+          <button class="sb-btn"><i data-icon="settings" class="text-fg-2"></i>Settings</button>
+          <div class="px-2 pb-2 font-mono text-xs text-fg-2">Gauntlet v0.1.1</div>
+        </div>
+      </div>
+    </div>
+    <figcaption class="t-compact text-fg-2">Navigation drawer (Sheet)</figcaption>
+  </figure>
+
+  <!-- Phone 3: environment picker -->
+  <figure class="flex flex-col items-center gap-2">
+    <div class="relative h-[800px] w-[390px] overflow-hidden rounded-[2.5rem] border-[10px] border-neutral-900 bg-background dark:border-neutral-700">
+      <div class="flex h-7 items-center justify-between px-8 text-xs font-semibold"><span>9:41</span><span>●●● ▮</span></div>
+      <header class="flex h-12 items-center gap-2 border-b px-3">
+        <button class="btn btn-ghost btn-icon-sm" aria-label="Open navigation"><i data-icon="panel-left"></i></button>
+        <span class="text-sm">Shop staging</span>
+      </header>
+      <div class="flex flex-col gap-4 p-4">
+        <h1 class="text-2xl font-semibold">Shop staging</h1>
+        <p class="text-sm">9 operations in the catalog. Choose one to prepare a run.</p>
+      </div>
+      <div class="absolute inset-0 top-7 bg-black/40"></div>
+      <div class="absolute bottom-0 left-0 top-7 flex w-[288px] flex-col border-r bg-sidebar text-sidebar-foreground" style="box-shadow: var(--overlay-shadow)">
+        <div class="relative flex flex-col gap-2 p-2">
+          <a class="sb-btn h-9"><i data-icon="shield-check"></i><span class="text-base font-semibold">Gauntlet</span></a>
+          <button class="sb-btn h-auto items-start bg-sidebar-accent py-2">
+            <span class="grid min-w-0 flex-1 gap-1"><span class="truncate text-sm font-medium">Shop staging</span><span class="t-compact flex items-center gap-2 font-normal text-fg-2"><span class="dot bg-ok"></span>Online · staging</span></span>
+            <i data-icon="chevrons-up-down" class="mt-[2px] text-fg-2"></i>
+          </button>
+          <div class="menu absolute left-2 right-2 top-[108px]">
+            <div class="menu-label"><span>Environments</span><span>Refreshed 2 min ago</span></div>
+            <div class="menu-item bg-accent">
+              <div class="grid min-w-0 flex-1 gap-1"><span class="font-medium">Shop staging</span><span class="t-compact flex items-center gap-2"><span class="dot bg-ok"></span>Online<span class="text-fg-2">· Acme Shop · staging</span></span></div>
+            </div>
+            <div class="menu-item">
+              <div class="grid min-w-0 flex-1 gap-1"><span class="font-medium">Shop QA 2</span><span class="t-compact flex items-center gap-2 text-warn"><span class="dot bg-warn"></span>Degraded<span class="text-fg-2">· Acme Shop · qa</span></span></div>
+            </div>
+            <div class="menu-item">
+              <div class="grid min-w-0 flex-1 gap-1"><span class="font-medium text-fg-2">Back office preview 482</span><span class="t-compact flex items-center gap-2 text-err"><span class="dot bg-err"></span>Unavailable<span class="text-fg-2">· preview</span></span></div>
+            </div>
+            <div class="menu-sep"></div>
+            <div class="menu-item">Refresh environments</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption class="t-compact text-fg-2">Environment picker (DropdownMenu in the drawer)</figcaption>
+  </figure>
+</div>
+
+</div><!-- /stage -->
+
+<script>
+// ---------- Lucide icons (functional subset only, inline) ----------
+const ICONS = {
+  "search": '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  "panel-left": '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>',
+  "chevrons-up-down": '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+  "chevron-right": '<path d="m9 18 6-6-6-6"/>',
+  "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+  "check": '<path d="M20 6 9 17l-5-5"/>',
+  "x": '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  "lock": '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  "copy": '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  "external-link": '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  "upload": '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+  "settings": '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  "shield-check": '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+};
+function renderIcons(root = document) {
+  root.querySelectorAll("i[data-icon]").forEach((el) => {
+    const body = ICONS[el.dataset.icon] || "";
+    const cls = el.getAttribute("class") || "";
+    el.outerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${cls}" aria-hidden="true">${body}</svg>`;
+  });
+}
+renderIcons();
+
+// ---------- Screens ----------
+const SCREENS = {
+  overview:  { page: "overview", nav: "overview",  crumbs: ["Shop staging", "Overview"] },
+  operation: { page: "operation", nav: "operation", crumbs: ["Shop staging", "Test data", "Create test customer"] },
+  result:    { page: "result", nav: "operation",    crumbs: ["Shop staging", "Test data", "Create test customer", "run_01J9Z4K8W2"] },
+  running:   { page: "running", nav: "running",     crumbs: ["Shop staging", "Test data", "Seed order history"] },
+  confirm:   { page: "delete", nav: "confirm", overlay: "confirm", crumbs: ["Shop staging", "Test data", "Delete test data"] },
+  search:    { page: "overview", nav: "overview", overlay: "search", crumbs: ["Shop staging", "Overview"] },
+  settings:  { page: "overview", nav: "overview", overlay: "settings", crumbs: ["Shop staging", "Overview"] },
+  mobile:    { mobile: true },
+};
+
+function parseHash() {
+  const parts = location.hash.replace(/^#/, "").split("&").filter(Boolean);
+  const out = { screen: "overview", flags: new Set(), state: "" };
+  parts.forEach((p, i) => {
+    if (i === 0 && SCREENS[p]) out.screen = p;
+    else if (p.startsWith("state=")) out.state = p.slice(6);
+    else out.flags.add(p);
+  });
+  if (new URLSearchParams(location.search).get("theme") === "dark") out.flags.add("dark");
+  return out;
+}
+function buildHash(screen, flags, state) {
+  const parts = [screen, ...flags];
+  if (state) parts.push("state=" + state);
+  return "#" + parts.join("&");
+}
+function go(screen, extra = {}) {
+  const cur = parseHash();
+  const flags = new Set(cur.flags);
+  ["picker", "mcp", "account"].forEach((f) => flags.delete(f));
+  if (extra.add) extra.add.forEach((f) => flags.add(f));
+  location.hash = buildHash(screen, flags, extra.state ?? (screen === "overview" ? cur.state : ""));
+}
+
+function apply() {
+  const { screen, flags, state } = parseHash();
+  const s = SCREENS[screen];
+  document.documentElement.classList.toggle("dark", flags.has("dark"));
+  document.getElementById("desktop").classList.toggle("collapsed", flags.has("collapsed"));
+  document.getElementById("desktop").style.display = s.mobile ? "none" : "";
+  document.getElementById("mobile").style.display = s.mobile ? "flex" : "none";
+  document.querySelectorAll(".page").forEach((p) => {
+    const on = p.dataset.page === s.page;
+    p.classList.toggle("hidden", !on);
+    p.classList.toggle("flex", on);
+  });
+  document.querySelectorAll(".overlay-root").forEach((o) => o.classList.add("hidden"));
+  if (s.overlay) document.getElementById("ov-" + s.overlay).classList.remove("hidden");
+  setTab(document.querySelector('[data-page="operation"] [data-tabs]'), flags.has("account") ? "account" : "customer");
+  if (s.overlay === "settings") setTab(document.querySelector("#ov-settings [data-tabs]"), flags.has("mcp") ? "mcp" : "appearance");
+  // sidebar active
+  document.querySelectorAll("#sidebar [data-nav]").forEach((a) => {
+    if (!a.classList.contains("sb-brand")) {
+      const on = a.dataset.nav === s.nav;
+      a.dataset.active = String(on);
+      if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+    }
+  });
+  // breadcrumbs, separated by " / "
+  if (s.crumbs) {
+    document.getElementById("crumbs").innerHTML = s.crumbs.map((c, i) =>
+      i === s.crumbs.length - 1
+        ? `<span class="crumb-page ${c.startsWith("run_") ? "font-mono text-xs" : ""}" aria-current="page">${c}</span>`
+        : `<a href="#overview">${c}</a><span aria-hidden="true">/</span>`
+    ).join("");
+  }
+  // overview states
+  const st = ["loading", "empty", "error"].includes(state) ? state : "";
+  document.querySelectorAll(".ov-state").forEach((el) => {
+    const on = el.dataset.state === st;
+    el.classList.toggle("hidden", !on);
+    el.classList.toggle("flex", on);
+  });
+  const un = document.getElementById("unreachable-alert");
+  if (state === "unreachable") {
+    un.className = "callout callout-err";
+    un.setAttribute("role", "alert");
+    un.innerHTML = `<span class="mk mk-full text-err"></span>
+      <p class="text-sm font-medium">Shop staging is unreachable</p>
+      <p class="col-start-2 max-w-[68ch] text-sm">Gauntlet could not reach the Acme Shop integration. Operations cannot run until it responds. The catalog below is from the last successful refresh, 2 min ago.</p>
+      <div class="col-start-2 mt-2 flex items-center gap-3"><button class="btn btn-outline btn-sm">Try again</button><span class="t-compact text-fg-2">Correlation ID</span><span class="font-mono text-xs">c0rr-77d0-1c3e</span></div>`;
+  } else { un.className = "hidden"; un.removeAttribute("role"); un.innerHTML = ""; }
+  // env picker
+  const open = flags.has("picker") && !s.mobile;
+  document.getElementById("env-menu").classList.toggle("hidden", !open);
+  document.getElementById("env-trigger").dataset.state = open ? "open" : "closed";
+  document.getElementById("env-trigger").setAttribute("aria-expanded", String(open));
+  // toolbar state
+  document.querySelectorAll("#mock-toolbar [data-go]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.go === screen)));
+  document.getElementById("mt-light").setAttribute("aria-pressed", String(!flags.has("dark")));
+  document.getElementById("mt-dark").setAttribute("aria-pressed", String(flags.has("dark")));
+  document.getElementById("mt-picker").setAttribute("aria-pressed", String(open));
+  document.getElementById("mt-state").value = state || "";
+}
+
+// ---------- Tabs ----------
+function setTab(container, value) {
+  if (!container) return;
+  const triggers = [...container.querySelectorAll(":scope [data-tab]")].filter((t) => t.closest("[data-tabs]") === container);
+  const panels = [...container.querySelectorAll(":scope [data-panel]")].filter((p) => p.closest("[data-tabs]") === container);
+  triggers.forEach((t) => { const on = t.dataset.tab === value; t.dataset.state = on ? "active" : "inactive"; t.setAttribute("aria-selected", String(on)); });
+  panels.forEach((p) => {
+    const on = p.dataset.panel === value;
+    p.classList.toggle("hidden", !on);
+    p.classList.toggle(["local", "compose", "helm"].includes(p.dataset.panel) ? "grid" : "flex", on);
+  });
+}
+
+// ---------- Events ----------
+document.addEventListener("click", (e) => {
+  const tab = e.target.closest("[data-tab]");
+  if (tab) { setTab(tab.closest("[data-tabs]"), tab.dataset.tab); return; }
+  const goEl = e.target.closest("[data-go]");
+  if (goEl) { e.preventDefault(); go(goEl.dataset.go); return; }
+  const nav = e.target.closest("[data-nav]");
+  if (nav) { e.preventDefault(); go(nav.dataset.nav); return; }
+  if (e.target.closest("[data-close]")) { e.target.closest(".overlay-root").classList.add("hidden"); return; }
+  const sw = e.target.closest("[data-toggle]");
+  if (sw) { const on = sw.dataset.state !== "checked"; sw.dataset.state = on ? "checked" : "unchecked"; sw.setAttribute("aria-checked", String(on)); return; }
+  if (e.target.closest("#env-trigger")) {
+    const m = document.getElementById("env-menu");
+    const open = m.classList.toggle("hidden") === false;
+    document.getElementById("env-trigger").dataset.state = open ? "open" : "closed";
+    document.getElementById("env-trigger").setAttribute("aria-expanded", String(open));
+    return;
+  }
+  if (!e.target.closest("#env-menu")) {
+    document.getElementById("env-menu").classList.add("hidden");
+    document.getElementById("env-trigger").dataset.state = "closed";
+    document.getElementById("env-trigger").setAttribute("aria-expanded", "false");
+  }
+});
+document.getElementById("sb-trigger").addEventListener("click", (e) => {
+  e.stopPropagation();
+  const { screen, flags, state } = parseHash();
+  flags.has("collapsed") ? flags.delete("collapsed") : flags.add("collapsed");
+  location.hash = buildHash(screen, flags, state);
+});
+document.getElementById("mt-light").addEventListener("click", () => { const { screen, flags, state } = parseHash(); flags.delete("dark"); history.replaceState(null, "", location.pathname + buildHash(screen, flags, state)); apply(); });
+document.getElementById("mt-dark").addEventListener("click", () => { const { screen, flags, state } = parseHash(); flags.add("dark"); location.hash = buildHash(screen, flags, state); });
+document.getElementById("mt-picker").addEventListener("click", () => { const { screen, flags, state } = parseHash(); flags.has("picker") ? flags.delete("picker") : flags.add("picker"); location.hash = buildHash(screen === "mobile" ? "overview" : screen, flags, state); });
+document.getElementById("mt-state").addEventListener("change", (e) => { const { flags } = parseHash(); location.hash = buildHash("overview", flags, e.target.value); });
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); go("search"); }
+  if (e.key === "Escape") document.querySelectorAll(".overlay-root").forEach((o) => o.classList.add("hidden"));
+});
+window.addEventListener("hashchange", apply);
+apply();
+</script>
+</body>
+</html>

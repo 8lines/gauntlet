@@ -35,6 +35,7 @@ export default defineConfig({
   root,
   base: "/widget/",
   plugins: [react(), tailwindcss(), copyLoader()],
+  resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   server: {
     port: 5274,
     proxy: {

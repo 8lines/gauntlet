@@ -38,8 +38,8 @@ function prepareValidSymfony() {
   assert.equal(prepared.status, 0, prepared.stderr);
   assert.equal(prepared.stdout.trim(), ROOT);
   const composer = JSON.parse(readFileSync(resolve(ROOT, "composer.json"), "utf8"));
-  composer.require["8lines/gauntlet-php-core"] = "0.1.7";
-  composer.require["8lines/gauntlet-symfony-bundle"] = "0.1.7";
+  composer.require["8lines/gauntlet-php-core"] = "0.1.8";
+  composer.require["8lines/gauntlet-symfony-bundle"] = "0.1.8";
   write("composer.json", `${JSON.stringify(composer, null, 2)}\n`);
   write("config/bundles.php", [
     "<?php",
@@ -109,7 +109,7 @@ function prepareValidSymfony() {
   ]) {
     const artifact = JSON.parse(readFileSync(resolve(ROOT, `artifacts/composer/8lines/${directory}/composer.json`), "utf8"));
     assert.equal(artifact.name, name);
-    assert.equal(artifact.version, "0.1.7");
+    assert.equal(artifact.version, "0.1.8");
   }
   assert.equal(existsSync(resolve(ROOT, "runtime/examples/symfony/composer.lock")), true);
   assert.equal(existsSync(resolve(ROOT, "runtime/examples/symfony/src/Kernel.php")), true);
@@ -199,8 +199,8 @@ test("Symfony verifier proves only a replayed single-process synthetic contract"
     manifestStatus: 200,
     environment: { name: "staging", kind: "staging" },
     phpVersion: "8.3.33",
-    phpCoreVersion: "0.1.7",
-    symfonyBundleVersion: "0.1.7",
+    phpCoreVersion: "0.1.8",
+    symfonyBundleVersion: "0.1.8",
   });
 });
 

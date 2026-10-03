@@ -26,8 +26,14 @@ export interface BrowserFixtureState {
 
 export interface ApiFixtureOptions {
   readonly operation: OperationDefinition;
-  readonly scenario: "mobile" | "desktop";
+  /**
+   * `mobile`: runs finish at once. `desktop`: the first run stays running until cancelled, the second finishes with rich results.
+   * `run-url`: a run stays running for its first two `GET`s, then finishes with a follow-up into the same operation.
+   */
+  readonly scenario: "mobile" | "desktop" | "run-url";
   readonly targetLabel?: string;
+  /** When set, every create-run response waits for this promise to settle. */
+  readonly createRunGate?: Promise<unknown>;
 }
 
 export function operationWithRevision(
@@ -149,6 +155,45 @@ export const desktopOperation = operationWithRevision({
   output: { schema: emptyObjectSchema },
 });
 
+export const followUpOperation = operationWithRevision({
+  id: "browser-invite-fixture",
+  label: "Invite test user",
+  description: "Browser case for run URLs and follow-ups into the same operation.",
+  inputSchema: {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: {
+      email: { type: "string", title: "Email" },
+    },
+    additionalProperties: false,
+  },
+  inputHandling: undefined,
+  uiSchema: {
+    profile: "tc-rich-forms@1",
+    root: {
+      type: "field",
+      pointer: "/email",
+      widget: "text",
+      label: "Email",
+    },
+  },
+  dataSources: [],
+  presets: [],
+  execution: {
+    impact: "write",
+    confirmationRequired: false,
+    dryRunSupported: false,
+    idempotency: "required",
+    cancellationSupported: false,
+    timeoutSeconds: 120,
+    concurrency: "queue",
+  },
+  output: { schema: emptyObjectSchema },
+});
+
+/** The follow-up a finished `run-url` run offers: the same operation, prefilled with this input. */
+export const followUpInput = Object.freeze({ email: "next@acme.test" });
+
 function manifestFor(operation: OperationDefinition): AdapterManifest {
   const { manifestRevision: _revision, ...canonical } = structuredClone(manifestDocument);
   const capabilities = [...new Set([...canonical.capabilities, "tc-run-cancellation@1"])] as AdapterManifest["capabilities"];
@@ -263,6 +308,47 @@ function succeededRun(operation: OperationDefinition, rich: boolean): Run {
   });
 }
 
+function followUpRun(operation: OperationDefinition): Run {
+  return verifiedRun(operation, {
+    id: "browser-run-01",
+    operationId: operation.id,
+    operationRevision: operation.revision,
+    sequence: 3,
+    state: "succeeded",
+    createdAt: "2026-09-03T12:00:00Z",
+    updatedAt: "2026-09-03T12:00:05Z",
+    startedAt: "2026-09-03T12:00:01Z",
+    completedAt: "2026-09-03T12:00:05Z",
+    summary: { title: "Invitation sent", tone: "success" },
+    output: {},
+    artifacts: [],
+    actions: [{
+      kind: "invoke-operation",
+      label: "Invite another user",
+      operationId: operation.id,
+      input: followUpInput,
+    }],
+  });
+}
+
+/** A run with its own id and summary title, for cases that move between several runs of one operation. */
+export function namedRun(operation: OperationDefinition, id: string, state: "running" | "succeeded", title: string): Run {
+  return verifiedRun(operation, {
+    id,
+    operationId: operation.id,
+    operationRevision: operation.revision,
+    sequence: 1,
+    state,
+    createdAt: "2026-09-03T12:00:00Z",
+    updatedAt: "2026-09-03T12:00:04Z",
+    startedAt: "2026-09-03T12:00:01Z",
+    ...(state === "succeeded" ? { completedAt: "2026-09-03T12:00:04Z", output: {} } : {}),
+    summary: { title, tone: state === "succeeded" ? "success" : "neutral" },
+    artifacts: [],
+    actions: [],
+  });
+}
+
 function cancelledRun(operation: OperationDefinition): Run {
   return verifiedRun(operation, {
     id: "browser-run-01",
@@ -352,12 +438,22 @@ export async function installApiFixture(page: Page, options: ApiFixtureOptions):
 
     if (method === "POST" && url.pathname === `/api/v1/targets/browser-target/operations/${options.operation.id}/runs`) {
       creates += 1;
+      if (options.createRunGate !== undefined) await options.createRunGate;
       return json(options.scenario === "mobile" ? succeededRun(options.operation, false) : activeRun(options.operation), 202);
     }
 
     if (method === "GET" && url.pathname === "/api/v1/targets/browser-target/runs/browser-run-01") {
       polls += 1;
+      if (options.scenario === "run-url") return json(polls > 2 ? followUpRun(options.operation) : activeRun(options.operation));
       return json(creates >= 2 && polls >= 1 ? succeededRun(options.operation, true) : activeRun(options.operation));
+    }
+
+    if (method === "GET" && /^\/api\/v1\/targets\/browser-target\/runs\/[^/]+$/.test(url.pathname)) {
+      return json({
+        type: "urn:gauntlet:problem:run-not-found",
+        title: "Run not found",
+        status: 404,
+      }, 404);
     }
 
     if (method === "POST" && url.pathname === "/api/v1/targets/browser-target/runs/browser-run-01/cancel") {

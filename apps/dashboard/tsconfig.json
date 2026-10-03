@@ -10,7 +10,8 @@
     "declaration": false,
     "declarationMap": false,
     "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts", "vite.widget.config.ts"]
 }

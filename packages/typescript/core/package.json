@@ -1,7 +1,7 @@
 {
   "name": "@8lines/gauntlet-typescript-core",
   "description": "Framework-neutral registries, validation, execution coordination, run management, and capability catalog for TypeScript Gauntlet adapters.",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "type": "module",
   "license": "Apache-2.0",
   "engines": { "node": ">=24 <27" },

@@ -1,7 +1,11 @@
 import type { Ref } from "react";
+import { Search, X } from "lucide-react";
 import type { TargetSnapshot } from "../api.ts";
-import { Icon } from "../Icon.tsx";
-import { stateColorClass, stateLabel } from "../EnvironmentPicker.tsx";
+import { GauntletMark } from "@/components/gauntlet/GauntletMark";
+import { StateMark } from "@/components/gauntlet/StateMark";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { targetStateLabel, targetStateTone } from "../app/EnvironmentSwitcher.tsx";
 
 /**
  * Header of the embedded panel. The close button (and Escape, handled by `Panel`) is the
@@ -19,39 +23,33 @@ export function PanelHeader({ snapshot, search, onClose }: {
 }) {
   const environment = snapshot?.manifest?.application.environment;
   return (
-    <header className="shrink-0 border-b border-border bg-background px-4 py-3">
-      <div className="flex items-center gap-2.5">
-        <Icon name="logo" className="h-4 w-4 shrink-0 text-primary" />
-        <p className="min-w-0 flex-1 truncate text-[14px] font-semibold tracking-tight">
-          {snapshot?.label ?? "Gauntlet"}
-        </p>
-        {snapshot !== undefined && (
-          <span
-            className="flex min-w-0 max-w-[45%] items-center gap-1.5 rounded-badge border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground"
-            title={`Environment: ${environment?.name ?? snapshot.label} · ${stateLabel(snapshot)}`}
-          >
-            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${stateColorClass(snapshot)}`} />
-            {environment === undefined
-              ? <span className="truncate">{stateLabel(snapshot)}</span>
-              : (
-                <>
-                  <span className="truncate font-medium text-foreground">{environment.name}</span>
-                  <span className="shrink-0">{environment.kind}</span>
-                </>
-              )}
-          </span>
-        )}
-        <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
-          <Icon name="close" />
-        </button>
+    <header className="shrink-0 border-b bg-background px-4 py-3">
+      <div className="flex items-center gap-2">
+        <GauntletMark className="size-4 shrink-0" />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <p className="truncate text-sm/5 font-medium">{snapshot?.label ?? "Gauntlet"}</p>
+          {snapshot !== undefined && (
+            <p className="flex min-w-0 items-center gap-1.5 text-xs/4 text-muted-foreground">
+              <StateMark tone={targetStateTone(snapshot)} className="shrink-0" />
+              {environment === undefined
+                ? <span className="truncate">{targetStateLabel(snapshot)}</span>
+                : (
+                  <>
+                    <span className="sr-only">{targetStateLabel(snapshot)}. </span>
+                    <span className="truncate">{`${environment.name}, ${environment.kind}`}</span>
+                  </>
+                )}
+            </p>
+          )}
+        </div>
+        <Button type="button" variant="ghost" size="icon" aria-label="Close" onClick={onClose}>
+          <X aria-hidden="true" />
+        </Button>
       </div>
       {search !== undefined && (
-        <label
-          className={`mt-3 flex items-center gap-2 rounded-control border border-input bg-background px-3 focus-within:border-ring ${search.disabled ? "opacity-50" : ""}`}
-          title={search.disabled ? "Go back to the list to search" : undefined}
-        >
-          <Icon name="search" className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <input
+        <div className="relative mt-3" title={search.disabled ? "Go back to the list to search" : undefined}>
+          <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
             ref={search.inputRef}
             type="search"
             aria-label="Search operations"
@@ -66,9 +64,9 @@ export function PanelHeader({ snapshot, search, onClose }: {
               event.stopPropagation();
               search.onQuery("");
             }}
-            className="min-h-9 min-w-0 flex-1 bg-transparent text-[13px] outline-none"
+            className="pl-9 text-sm/5 md:text-sm/5"
           />
-        </label>
+        </div>
       )}
     </header>
   );

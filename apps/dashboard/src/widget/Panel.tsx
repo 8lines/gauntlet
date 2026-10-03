@@ -1,21 +1,27 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { OperationSummary, Run } from "@8lines/gauntlet-protocol";
 import type { PageSubject } from "@8lines/gauntlet-widget-channel";
+import { TriangleAlert } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { describeProblem } from "../copy.ts";
-import { OperationScreen } from "../OperationScreen.tsx";
 import { BackBar } from "./BackBar.tsx";
 import { OperationLists } from "./OperationLists.tsx";
 import { PanelHeader } from "./PanelHeader.tsx";
 import { PanelNotice, TargetProblem } from "./PanelNotice.tsx";
 import { subjectChip } from "./placements.ts";
 import type { BindingValue } from "./prefill.ts";
-import { RecentRunView } from "./RecentRunView.tsx";
-import { readRecentRuns, rememberRun } from "./recent-runs.ts";
-import { panelStorage } from "./storage.ts";
+import { readRecentRuns, rememberRun } from "../recent-runs.ts";
+import { browserStorage } from "../browser-storage.ts";
 import { usePanelCatalog } from "./usePanelCatalog.ts";
 import { usePanelChannel, type PanelChannel, type PanelChannelState } from "./usePanelChannel.ts";
 import { usePanelTarget } from "./usePanelTarget.ts";
+import { ChunkErrorBoundary } from "@/components/gauntlet/ChunkErrorBoundary";
+import { OperationLoading } from "@/components/gauntlet/OperationLoading";
 import { openOperationView, pageSubjectDrifted, reseedOperationView, runCreatedIn, type OperationView, type View } from "./view.ts";
+
+const OperationScreen = lazy(() => import("../screens/OperationScreen.tsx").then((m) => ({ default: m.OperationScreen })));
+const RecentRunView = lazy(() => import("./RecentRunView.tsx").then((m) => ({ default: m.RecentRunView })));
 
 const NOT_CONNECTED: Readonly<Record<Exclude<PanelChannelState["kind"], "connected">, { title: string; detail?: string }>> = {
   // Framed and waiting for the loader's connect: normally a split second.
@@ -50,7 +56,7 @@ export function Panel() {
   if (channel.state.kind !== "connected") {
     const notice = NOT_CONNECTED[channel.state.kind];
     return (
-      <div className="flex h-full flex-col bg-canvas">
+      <div className="flex h-full flex-col bg-background">
         <PanelHeader snapshot={undefined} onClose={close} />
         <PanelNotice title={notice.title} detail={notice.detail} />
       </div>
@@ -65,7 +71,7 @@ function ConnectedPanel({ channel, targetId }: { channel: PanelChannel; targetId
   const [query, setQuery] = useState("");
   const catalog = usePanelCatalog(targetId, operations, context, query);
   const [view, setView] = useState<View>({ kind: "lists" });
-  const [recent, setRecent] = useState(() => readRecentRuns(panelStorage));
+  const [recent, setRecent] = useState(() => readRecentRuns(browserStorage));
   const searchRef = useRef<HTMLInputElement>(null);
 
   const resolved = target.kind !== "loading";
@@ -89,7 +95,7 @@ function ConnectedPanel({ channel, targetId }: { channel: PanelChannel; targetId
     setView(openOperationView(targetId, operation, catalog.subjectOf(operation.id), catalog.bindingsFor(operation.id)));
   const backToLists = () => setView({ kind: "lists" });
   const onRunCreated = (operation: OperationSummary) => (run: Run) => {
-    setRecent(rememberRun(panelStorage, {
+    setRecent(rememberRun(browserStorage, {
       targetId,
       operationId: operation.id,
       label: operation.label,
@@ -106,7 +112,7 @@ function ConnectedPanel({ channel, targetId }: { channel: PanelChannel; targetId
   const snapshot = target.kind === "found" ? target.snapshot : undefined;
 
   return (
-    <div className="flex h-full flex-col bg-canvas">
+    <div className="flex h-full flex-col bg-background">
       <PanelHeader
         snapshot={snapshot}
         search={snapshot === undefined
@@ -117,21 +123,26 @@ function ConnectedPanel({ channel, targetId }: { channel: PanelChannel; targetId
       />
       <main className="@container/workspace flex min-h-0 flex-1 flex-col">
         {refreshProblem !== undefined && snapshot !== undefined && (
-          <p role="status" className="shrink-0 border-b border-wait-bd bg-wait-bg px-4 py-2 text-[12px] text-wait">
-            Could not refresh the catalog: {describeProblem(refreshProblem).title}. Showing the last known state.
-          </p>
+          <div className="shrink-0 px-4 pt-4">
+            <Alert role="status" className="border-warn [&>svg]:text-warn">
+              <TriangleAlert aria-hidden="true" />
+              <AlertDescription>
+                {`Could not refresh the catalog: ${describeProblem(refreshProblem).title}. Showing the last known state.`}
+              </AlertDescription>
+            </Alert>
+          </div>
         )}
-        {target.kind === "loading" && <p className="p-6 text-[13px] text-muted-foreground">Loading catalog…</p>}
+        {target.kind === "loading" && <p className="p-6 text-sm/5 text-muted-foreground">Loading catalog…</p>}
         {target.kind === "unknown" && (
           <PanelNotice
-            tone="stop" icon="warning"
+            tone="stop"
             title={`Unknown target ${targetId}`}
             detail="Check the target ID in the widget boot call and in the Gauntlet configuration."
           />
         )}
         {target.kind === "error" && (
           <PanelNotice
-            tone="stop" icon="warning"
+            tone="stop"
             title={describeProblem(target.problem).title}
             detail={describeProblem(target.problem).advice}
           />
@@ -165,29 +176,37 @@ function ConnectedPanel({ channel, targetId }: { channel: PanelChannel; targetId
                   : current
               ))}
             />
-            <OperationScreen
-              key={view.operation.id}
-              targetId={targetId}
-              operationId={view.operation.id}
-              bindings={view.bindings}
-              onRunCreated={onRunCreated(view.operation)}
-              onRunCleared={() => setRunShown(false)}
-            />
+            <ChunkErrorBoundary resetKey={view.operation.id}>
+              <Suspense fallback={<OperationLoading />}>
+                <OperationScreen
+                  key={view.operation.id}
+                  targetId={targetId}
+                  operationId={view.operation.id}
+                  bindings={view.bindings}
+                  onRunCreated={onRunCreated(view.operation)}
+                  onRunCleared={() => setRunShown(false)}
+                />
+              </Suspense>
+            </ChunkErrorBoundary>
           </>
         )}
         {snapshot !== undefined && view.kind === "run" && (
           <>
             <BackBar onBack={backToLists} targetId={targetId} operationId={view.entry.operationId} />
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <RecentRunView
-                entry={view.entry}
-                onResultShown={setRunShown}
-                onRunAgain={() => {
-                  const operation = operations.find((candidate) => candidate.id === view.entry.operationId);
-                  if (operation === undefined) backToLists();
-                  else openOperation(operation);
-                }}
-              />
+              <ChunkErrorBoundary resetKey={view.entry.runId}>
+                <Suspense fallback={<OperationLoading label="Loading run" />}>
+                  <RecentRunView
+                    entry={view.entry}
+                    onResultShown={setRunShown}
+                    onRunAgain={() => {
+                      const operation = operations.find((candidate) => candidate.id === view.entry.operationId);
+                      if (operation === undefined) backToLists();
+                      else openOperation(operation);
+                    }}
+                  />
+                </Suspense>
+              </ChunkErrorBoundary>
             </div>
           </>
         )}
@@ -210,20 +229,21 @@ function PageSubjectDrift({ view, current, currentBindings, onUseCurrent }: {
     return null;
   }
   return (
-    <div role="status" className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-wait-bd bg-wait-bg px-4 py-2 text-[12px] text-wait">
-      <p className="min-w-0 flex-1">
-        The page now shows <span className="font-medium">{subjectChip(current)}</span>.{" "}
-        {view.subject === undefined
-          ? "The form has no values from the page."
-          : <>The form has values for <span className="font-medium">{subjectChip(view.subject)}</span>.</>}
-      </p>
-      <button
-        type="button"
-        onClick={() => onUseCurrent(current, currentBindings)}
-        className="shrink-0 rounded-control border border-wait-bd bg-background px-2 py-1 font-medium text-foreground hover:bg-accent"
-      >
-        Use values from the page
-      </button>
+    <div className="shrink-0 px-4 pt-4">
+      <Alert role="status" className="border-warn [&>svg]:text-warn">
+        <TriangleAlert aria-hidden="true" />
+        <AlertDescription>
+          <p>
+            The page now shows <span className="font-medium text-foreground">{subjectChip(current)}</span>.{" "}
+            {view.subject === undefined
+              ? "The form has no values from the page."
+              : <>The form has values for <span className="font-medium text-foreground">{subjectChip(view.subject)}</span>.</>}
+          </p>
+          <Button type="button" variant="outline" size="sm" onClick={() => onUseCurrent(current, currentBindings)}>
+            Use values from the page
+          </Button>
+        </AlertDescription>
+      </Alert>
     </div>
   );
 }

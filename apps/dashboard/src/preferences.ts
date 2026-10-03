@@ -38,16 +38,19 @@ export function readPreferences(): Preferences {
   }
 }
 
+export function resolveTheme(theme: Theme, systemDark: boolean): "light" | "dark" {
+  return theme === "system" ? (systemDark ? "dark" : "light") : theme;
+}
+
 export function applyPreferences(preferences: Preferences): void {
-  document.documentElement.dataset.theme =
-    preferences.theme === "system"
-      ? globalThis.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light"
-      : preferences.theme;
-  document.documentElement.dataset.motion = preferences.reducedMotion
-    ? "reduce"
-    : "system";
+  const root = document.documentElement;
+  const theme = resolveTheme(
+    preferences.theme,
+    globalThis.matchMedia("(prefers-color-scheme: dark)").matches,
+  );
+  root.classList.toggle("dark", theme === "dark");
+  root.style.colorScheme = theme;
+  root.dataset.motion = preferences.reducedMotion ? "reduce" : "system";
 }
 
 export function usePreferences() {

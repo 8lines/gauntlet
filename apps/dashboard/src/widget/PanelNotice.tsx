@@ -1,19 +1,34 @@
+import { CircleX } from "lucide-react";
 import type { TargetSnapshot } from "../api.ts";
-import { Icon, type IconName } from "../Icon.tsx";
 import { describeProblem } from "../copy.ts";
+import { EmptyState } from "@/components/gauntlet/EmptyState";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-/** Full-body message for panel states that have no catalog to show. */
-export function PanelNotice({ title, detail, icon = "panel", tone = "sub" }: {
+/**
+ * Full-body message for panel states that have no catalog to show. `tone="stop"` is a problem
+ * the user has to act on; the default only explains why there is nothing to show yet.
+ */
+export function PanelNotice({ title, detail, tone = "sub" }: {
   title: string;
   detail?: string | undefined;
-  icon?: IconName;
   tone?: "sub" | "stop";
 }) {
+  if (tone === "stop") {
+    return (
+      <div className="p-4">
+        <Alert role="status" className="border-err [&>svg]:text-err">
+          <CircleX aria-hidden="true" />
+          <AlertTitle className="line-clamp-none">{title}</AlertTitle>
+          {detail !== undefined && <AlertDescription>{detail}</AlertDescription>}
+        </Alert>
+      </div>
+    );
+  }
   return (
-    <div role="status" className="flex flex-col items-center gap-2 px-6 py-16 text-center">
-      <span className="empty-icon mb-3"><Icon name={icon} className="h-6 w-6" /></span>
-      <p className={`text-[14px] font-medium ${tone === "stop" ? "text-stop" : ""}`}>{title}</p>
-      {detail !== undefined && <p className="max-w-sm text-[12px] leading-relaxed text-muted-foreground">{detail}</p>}
+    <div role="status" className="p-4">
+      {detail === undefined
+        ? <p className="px-6 py-8 text-center text-sm/5 font-medium">{title}</p>
+        : <EmptyState title={title} description={detail} />}
     </div>
   );
 }
@@ -23,9 +38,12 @@ export function TargetProblem({ snapshot }: { snapshot: TargetSnapshot }) {
   if (snapshot.problem === undefined) return null;
   const { title, advice } = describeProblem(snapshot.problem);
   return (
-    <div className="mx-4 mt-4 rounded-card border border-stop-bd bg-stop-bg p-4">
-      <p className="text-[13px] font-medium text-stop">{title}</p>
-      <p className="mt-1 text-[12px] text-muted-foreground">{advice}</p>
+    <div className="px-4 pt-4">
+      <Alert className="border-err [&>svg]:text-err">
+        <CircleX aria-hidden="true" />
+        <AlertTitle className="line-clamp-none">{title}</AlertTitle>
+        <AlertDescription>{advice}</AlertDescription>
+      </Alert>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -11,6 +12,7 @@ const apiOrigin = process.env.GAUNTLET_API ?? "http://127.0.0.1:8080";
  */
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   define: {
     __GAUNTLET_VERSION__: JSON.stringify(dashboardPackage.version),
     __GAUNTLET_DEV_MCP_URL__: JSON.stringify(new URL("/mcp", apiOrigin).href),

@@ -7,7 +7,7 @@ import {
   fileRuleForPointer,
   UploadProblem,
   uploadFiles,
-} from "../src/OperationForm.tsx";
+} from "../src/form-upload.ts";
 
 const validFileReference: FileReference = {
   kind: "file",

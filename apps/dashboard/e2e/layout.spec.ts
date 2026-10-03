@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { desktopOperation, installApiFixture, operationWithRevision } from "./api-fixture.ts";
 
 const operation = operationWithRevision({
@@ -7,6 +7,11 @@ const operation = operationWithRevision({
   execution: { ...desktopOperation.execution, dryRunSupported: true },
 });
 const targetLabel = "Environment for verifying extended business scenarios";
+
+/** The sidebar width transition would otherwise be measured half way. */
+async function settled(page: Page) {
+  await page.waitForFunction(() => document.getAnimations().every((animation) => animation.playState !== "running"));
+}
 
 async function expectContained(child: Locator, parent: Locator) {
   const inside = (await child.boundingBox())!;
@@ -23,6 +28,7 @@ test("long operation labels keep both actions visible across workspace widths", 
   await page.goto(`/t/browser-target/o/${operation.id}`);
   for (const width of [320, 390, 640, 768, 1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 800 });
+    await settled(page);
     const actions = page.getByRole("region", { name: "Operation actions" });
     const execute = actions.getByRole("button", { name: operation.label, exact: true });
     const dryRun = actions.getByRole("button", { name: "Dry run" });
@@ -34,14 +40,33 @@ test("long operation labels keep both actions visible across workspace widths", 
     expect(await actions.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1);
     const breadcrumbs = page.getByRole("navigation", { name: "Breadcrumb" });
     expect((await breadcrumbs.boundingBox())!.height).toBeLessThanOrEqual(24);
-    const pageBody = page.locator(".page-body");
     await expectContained(actions, page.getByRole("main"));
-    expect((await pageBody.boundingBox())!.width).toBeGreaterThan(0);
-    const insets = await page.locator(".page-heading, .page-body, .page-inset, .action-bar").evaluateAll(
-      (nodes) => nodes.map((node) => getComputedStyle(node).paddingLeft),
-    );
-    expect(new Set(insets).size).toBe(1);
+    const header = page.getByRole("banner");
+    await expectContained(page.getByRole("button", { name: "Search environments and operations" }), header);
+    await expectContained(page.getByRole("button", { name: "Toggle navigation" }), header);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
   }
+});
+
+test("the shell switches between the sidebar and the mobile sheet at the md breakpoint", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "one responsive width matrix");
+  await installApiFixture(page, { operation, scenario: "desktop", targetLabel });
+  await page.goto(`/t/browser-target/o/${operation.id}`);
+  const trigger = page.getByRole("button", { name: "Toggle navigation" });
+  const environment = `Choose environment: ${targetLabel}`;
+
+  await page.setViewportSize({ width: 767, height: 800 });
+  await expect(page.locator("#gauntlet-navigation")).toHaveCount(0);
+  await trigger.click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
+  await expectContained(sheet.getByRole("button", { name: environment }), sheet);
+  await page.keyboard.press("Escape");
+
+  await page.setViewportSize({ width: 768, height: 800 });
+  const sidebar = page.locator("#gauntlet-navigation");
+  await expect(sidebar).toBeVisible();
+  await expectContained(sidebar.getByRole("button", { name: environment }), sidebar);
 });
 
 test("short viewports keep dialog controls reachable in both themes", async ({ page }, testInfo) => {
@@ -49,20 +74,24 @@ test("short viewports keep dialog controls reachable in both themes", async ({ p
   await installApiFixture(page, { operation, scenario: "desktop", targetLabel });
   await page.goto("/");
   for (const theme of ["Light", "Dark"]) {
-    await page.getByRole("button", { name: "User settings", exact: true }).click();
-    const settings = page.getByRole("dialog", { name: "User settings", exact: true });
+    if (testInfo.project.name === "mobile") await page.getByRole("button", { name: "Toggle navigation" }).click();
+    const sidebar = testInfo.project.name === "mobile" ? page.getByRole("dialog") : page.locator("#gauntlet-navigation");
+    await sidebar.getByRole("button", { name: "Settings", exact: true }).click();
+    const settings = page.getByRole("dialog", { name: "Settings", exact: true });
     await settings.getByRole("radio", { name: theme, exact: true }).check();
     const done = settings.getByRole("button", { name: "Done", exact: true });
     await expectContained(done, settings);
     await expect(done).toBeInViewport();
     await done.click();
-    await page.getByRole("button", { name: "Search operations", exact: true }).click();
+    await page.getByRole("button", { name: "Search environments and operations", exact: true }).click();
     const search = page.getByRole("dialog", { name: "Search operations", exact: true });
-    const close = search.getByRole("button", { name: "Close search" });
-    await expectContained(close, search);
-    await search.getByRole("link", { name: new RegExp(operation.label) }).focus();
-    await expectContained(close, search);
-    await expect(close).toBeInViewport();
+    const input = search.getByRole("combobox");
+    await expectContained(input, search);
+    await expect(input).toBeInViewport();
+    await input.fill(operation.label);
+    const result = search.getByRole("option", { name: new RegExp(operation.label) });
+    await expect(result).toBeInViewport();
+    await expectContained(result, search);
     await page.keyboard.press("Escape");
     await expect(search).toBeHidden();
   }

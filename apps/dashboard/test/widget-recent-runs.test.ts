@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { MAX_RECENT_RUNS, RECENT_RUNS_KEY, readRecentRuns, rememberRun, type RecentRun, type StorageLike } from "../src/widget/recent-runs.ts";
+import { MAX_RECENT_RUNS, RECENT_RUNS_KEY, readRecentRuns, rememberRun, type RecentRun, type StorageLike } from "../src/recent-runs.ts";
 
 function memoryStorage(initial: Record<string, string> = {}): StorageLike & { readonly data: Record<string, string> } {
   const data: Record<string, string> = { ...initial };

@@ -79,7 +79,7 @@ run `PLAYWRIGHT_BROWSER_CHANNEL=chrome pnpm release:dry-run`. The browser
 preflight must finish successfully before starting the long rehearsal.
 
 The command rejects a dirty source tree, validates the exact version, runs the
-complete repository verification, stages `.artifacts/release/0.1.7`, exercises
+complete repository verification, stages `.artifacts/release/0.1.8`, exercises
 a uniquely named loopback-only OCI registry, verifies package consumers and
 inventory hashes, and removes only resources it created. It never contacts a
 GitHub publishing endpoint.
@@ -98,7 +98,7 @@ Review:
 ```sh
 git status --short
 node scripts/release/version.mjs --check
-node scripts/release/verify-inventory.mjs --release-root "$PWD/.artifacts/release/0.1.7"
+node scripts/release/verify-inventory.mjs --release-root "$PWD/.artifacts/release/0.1.8"
 ```
 
 The generated directory is reproducible evidence, not a credential store.
@@ -109,9 +109,9 @@ Create an annotated tag only after the clean dry-run and code review. The tag
 must point at a commit contained in `main`:
 
 ```sh
-git tag -a v0.1.7 -m "Gauntlet 0.1.7"
-git show --no-patch --verify v0.1.7
-git push origin v0.1.7
+git tag -a v0.1.8 -m "Gauntlet 0.1.8"
+git show --no-patch --verify v0.1.8
+git push origin v0.1.8
 ```
 
 The tag-triggered workflow repeats all gates. Its publication job first probes
@@ -151,17 +151,17 @@ Record the workflow run URL and immutable identities for all artifacts:
 
 Run clean consumers through each public registry (and GitHub Packages for
 Maven) and deploy the exact image or chart into an isolated non-production
-validation environment. Do not retag or overwrite `0.1.7`. A correction
+validation environment. Do not retag or overwrite `0.1.8`. A correction
 requires a new version.
 
 ## Failure handling
 
 A failure after staging deliberately retains
-`.artifacts/release/0.1.7` for inspection. After preserving any evidence you
+`.artifacts/release/0.1.8` for inspection. After preserving any evidence you
 need, discard only that verified, commit-bound staged directory with:
 
 ```sh
-pnpm release:discard-staged --release-root .artifacts/release/0.1.7 \
+pnpm release:discard-staged --release-root .artifacts/release/0.1.8 \
   --source-commit "$(git rev-parse HEAD)"
 ```
 

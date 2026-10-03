@@ -5,6 +5,18 @@ available operations, input fields and results depend on the connected
 application. This guide assumes an operator has already provided your private
 dashboard address; see [getting started](getting-started.md) for installation.
 
+## Navigate the dashboard
+
+- **Sidebar.** Lists the selected environment's features and operations.
+  On narrow screens it opens from the navigation button in the header.
+- **Environment switcher.** At the top of the sidebar; choose another
+  application (target) and see its status and when it was last refreshed.
+- **Search.** Press <kbd>⌘ K</kbd> (<kbd>Ctrl K</kbd> on Windows and Linux) or
+  use the header search to jump to an environment, an operation or one of your
+  recent runs.
+- **Settings.** The Settings entry at the bottom of the sidebar holds
+  appearance preferences and the MCP connection details.
+
 ## Choose an application and operation
 
 Check the environment before doing anything. Select an application (called a
@@ -25,6 +37,12 @@ Read the description and impact before entering data:
 
 These declarations come from the application. Use operations only for work you
 are authorized to perform.
+
+The environment overview shows the catalog as a table with each operation's
+impact and what to expect before running it. Use **Filter operations** to
+narrow the list, and **Refresh** to reload the environment's definitions from
+its application. Run buttons carry the operation's name for every impact;
+destructive operations are marked by colour and ask for confirmation.
 
 ## Fill in the form
 
@@ -76,6 +94,19 @@ and returns a short-lived link; request a fresh launch if it expires.
 Use cancellation when the operation supports it. Cancellation asks application
 code to stop cooperatively. Closing a tab or disconnecting an AI client does
 not cancel the application run, and cancellation does not roll back changes.
+
+## Run URLs and recent runs
+
+Every run has its own address, `/t/<target>/o/<operation>/r/<run>`, so a result
+can be reloaded, shared with a colleague who uses the same Gauntlet server and
+reopened later. Run history is held in the Gauntlet server's memory; a link to a
+run that the server no longer has shows "This run is no longer available".
+
+The environment overview and search list your recent runs. They are stored in
+this browser only, so they do not follow you to another browser or device. The
+embedded widget shares the list when the application that embeds it and
+Gauntlet are on the same site; browsers that partition third-party storage
+keep a separate list in the widget.
 
 ## History and AI clients
 
