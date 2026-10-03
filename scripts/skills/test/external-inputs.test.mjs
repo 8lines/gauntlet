@@ -313,6 +313,7 @@ test("checked-in evaluation manifests retain their audited closed declarations",
       "pnpm-workspace.yaml",
       "scripts/release/release-model.mjs",
       "scripts/release/stage-composer.mjs",
+      "scripts/release/units.mjs",
       "tsconfig.base.json",
     ],
     sourceTrees: [

@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 
+import { readUnitVersion } from "../../../scripts/release/release-model.mjs";
+
 const EVAL_ROOT = resolve(import.meta.dirname, "..");
+const REPOSITORY_ROOT = realpathSync(resolve(EVAL_ROOT, "../.."));
+const PHP_CORE_VERSION = readUnitVersion(REPOSITORY_ROOT, "php-core");
+const SYMFONY_BUNDLE_VERSION = readUnitVersion(REPOSITORY_ROOT, "symfony-bundle");
 const PREPARE = resolve(EVAL_ROOT, "prepare-fixture.mjs");
 const FIXTURE_SUFFIX = `-focused-${process.pid}`;
 const ROOT = `/tmp/tc-eval-valid-symfony${FIXTURE_SUFFIX}`;
@@ -38,8 +43,8 @@ function prepareValidSymfony() {
   assert.equal(prepared.status, 0, prepared.stderr);
   assert.equal(prepared.stdout.trim(), ROOT);
   const composer = JSON.parse(readFileSync(resolve(ROOT, "composer.json"), "utf8"));
-  composer.require["8lines/gauntlet-php-core"] = "0.1.8";
-  composer.require["8lines/gauntlet-symfony-bundle"] = "0.1.8";
+  composer.require["8lines/gauntlet-php-core"] = PHP_CORE_VERSION;
+  composer.require["8lines/gauntlet-symfony-bundle"] = SYMFONY_BUNDLE_VERSION;
   write("composer.json", `${JSON.stringify(composer, null, 2)}\n`);
   write("config/bundles.php", [
     "<?php",
@@ -103,13 +108,13 @@ function prepareValidSymfony() {
     "",
   ].join("\n"));
 
-  for (const [directory, name] of [
-    ["gauntlet-php-core", "8lines/gauntlet-php-core"],
-    ["gauntlet-symfony-bundle", "8lines/gauntlet-symfony-bundle"],
+  for (const [directory, name, version] of [
+    ["gauntlet-php-core", "8lines/gauntlet-php-core", PHP_CORE_VERSION],
+    ["gauntlet-symfony-bundle", "8lines/gauntlet-symfony-bundle", SYMFONY_BUNDLE_VERSION],
   ]) {
     const artifact = JSON.parse(readFileSync(resolve(ROOT, `artifacts/composer/8lines/${directory}/composer.json`), "utf8"));
     assert.equal(artifact.name, name);
-    assert.equal(artifact.version, "0.1.8");
+    assert.equal(artifact.version, version);
   }
   assert.equal(existsSync(resolve(ROOT, "runtime/examples/symfony/composer.lock")), true);
   assert.equal(existsSync(resolve(ROOT, "runtime/examples/symfony/src/Kernel.php")), true);
@@ -199,8 +204,8 @@ test("Symfony verifier proves only a replayed single-process synthetic contract"
     manifestStatus: 200,
     environment: { name: "staging", kind: "staging" },
     phpVersion: "8.3.33",
-    phpCoreVersion: "0.1.8",
-    symfonyBundleVersion: "0.1.8",
+    phpCoreVersion: PHP_CORE_VERSION,
+    symfonyBundleVersion: SYMFONY_BUNDLE_VERSION,
   });
 });
 

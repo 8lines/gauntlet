@@ -23,6 +23,8 @@ import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 import { gzipSync, gunzipSync } from "node:zlib";
 
+import { CHART_VERSION } from "./test-support.mjs";
+
 let packager = {};
 try {
   packager = await import("./package-chart.mjs");
@@ -64,16 +66,17 @@ const archivePaths = [
   "gauntlet/templates/service.yaml",
 ];
 if (sourcePaths.includes("LICENSE")) archivePaths.push("gauntlet/LICENSE");
+const CHART_ARCHIVE = `gauntlet-${CHART_VERSION}.tgz`;
 const canonicalChartPayload = Buffer.from([
   "annotations:",
   "  artifacthub.io/license: Apache-2.0",
   "apiVersion: v2",
-  "appVersion: 0.1.8",
+  `appVersion: ${CHART_VERSION}`,
   "description: Private non-production Gauntlet control plane and dashboard",
   "kubeVersion: '>=1.33.0-0'",
   "name: gauntlet",
   "type: application",
-  "version: 0.1.8",
+  `version: ${CHART_VERSION}`,
   "",
 ].join("\n"));
 
@@ -211,7 +214,7 @@ test("the package projection is a closed, normalized regular-file chart", () => 
       assert.equal(stat.mtimeMs, normalizedMtimeMs, path);
       assert.deepEqual(readFileSync(projectedPath), readFileSync(join(chartRoot, path)), path);
     }
-    assert.equal(projection.version, "0.1.8");
+    assert.equal(projection.version, CHART_VERSION);
   } finally {
     projection.dispose();
   }
@@ -591,7 +594,7 @@ test("destination race checks never publish or clean exchanged paths", { timeout
   const destination = join(fixture, "destination");
   const displaced = join(fixture, "destination-original");
   const foreign = join(fixture, "foreign");
-  const foreignArchive = join(foreign, "gauntlet-0.1.8.tgz");
+  const foreignArchive = join(foreign, CHART_ARCHIVE);
   const temporarySwapDestination = join(fixture, "temporary-swap");
   const finalSwapDestination = join(fixture, "final-swap");
   const sentinel = "destination-race-sentinel-915702";
@@ -639,7 +642,7 @@ test("destination race checks never publish or clean exchanged paths", { timeout
     );
     assert.equal(readFileSync(exchangedDestinationPath, "utf8"), sentinel);
 
-    const exchangedFinalPath = join(finalSwapDestination, "gauntlet-0.1.8.tgz");
+    const exchangedFinalPath = join(finalSwapDestination, CHART_ARCHIVE);
     assert.throws(
       () => packager.packageChart({
         destinationDirectory: finalSwapDestination,
@@ -681,7 +684,7 @@ test("package cleanup is independent, preserves primary errors, and cannot undo 
         },
       },
     });
-    assert.equal(receipt.archivePath, join(successfulDestination, "gauntlet-0.1.8.tgz"));
+    assert.equal(receipt.archivePath, join(successfulDestination, CHART_ARCHIVE));
     assert.deepEqual(receipt.cleanupPending, ["helm-output"]);
     assert.equal(existsSync(receipt.archivePath), true);
     assert.equal(outputCleanupCalls, 1);
@@ -714,7 +717,7 @@ test("package cleanup is independent, preserves primary errors, and cannot undo 
       },
     );
     assert.equal(cleanupRoots.length, 2);
-    assert.equal(existsSync(join(failedDestination, "gauntlet-0.1.8.tgz")), false);
+    assert.equal(existsSync(join(failedDestination, CHART_ARCHIVE)), false);
     for (const root of cleanupRoots) {
       assert.equal(existsSync(root), true);
       removeGeneratedTree(root);
@@ -745,11 +748,11 @@ test("the pinned Helm package is exact, deterministic, mutation-sensitive, and n
     const first = packager.packageChart({ destinationDirectory: firstDestination });
     const second = packager.packageChart({ destinationDirectory: secondDestination });
     assert.deepEqual(first, {
-      archivePath: join(firstDestination, "gauntlet-0.1.8.tgz"),
+      archivePath: join(firstDestination, CHART_ARCHIVE),
       cleanupPending: [],
       sha256: createHash("sha256").update(readFileSync(first.archivePath)).digest("hex"),
       size: lstatSync(first.archivePath).size,
-      version: "0.1.8",
+      version: CHART_VERSION,
     });
     const firstArchive = readFileSync(first.archivePath);
     const secondArchive = readFileSync(second.archivePath);

@@ -23,7 +23,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "d6e6569e2459b72760a7a07ae7d0b1a06eef41a106c31bfdefbc303c09d6a826"
+      "sha256": "84066346f642887b7bb75b4af4bbdd89c902b99638be4768548215c4758bcfdd"
     },
     {
       "path": "pnpm-lock.yaml",
@@ -35,11 +35,15 @@
     },
     {
       "path": "scripts/release/release-model.mjs",
-      "sha256": "ffda054228bfc5e7bdffbc3e26211e2e48ae47ff44ba2342526b1475d55f464d"
+      "sha256": "93c75a977cf8beec0a31235c1b31748eb85b6b5492629aa98fd57ab7c332b4ad"
     },
     {
       "path": "scripts/release/stage-composer.mjs",
       "sha256": "6222bc7bc51d8255ea948c860abab994a8c81d14ad5f64f82443801e072e3e8c"
+    },
+    {
+      "path": "scripts/release/units.mjs",
+      "sha256": "679902b84a30ed9422bd88edac46e966dee011ab7f46a2ac71cfa7eea380f91b"
     },
     {
       "path": "tsconfig.base.json",

@@ -1,12 +1,19 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
+import { pathToFileURL } from "node:url";
+
+import { readUnitVersion } from "../../../scripts/release/release-model.mjs";
 
 const EVAL_ROOT = resolve(import.meta.dirname, "..");
+const REPOSITORY_ROOT = realpathSync(resolve(EVAL_ROOT, "../.."));
 const PREPARE = resolve(EVAL_ROOT, "prepare-fixture.mjs");
+const unitVersion = (id) => readUnitVersion(REPOSITORY_ROOT, id);
+const CANDIDATE_PACKAGES = ["protocol", "typescript-core", "typescript-node"];
+const candidateArchive = (leaf) => `8lines-gauntlet-${leaf}-${unitVersion(leaf)}.tgz`;
 const FIXTURE_SUFFIX = `-suite-${process.pid}`;
 const EXPECTED_RUNTIME_DEPENDENCY_PINS = {
   ajv: "8.20.0",
@@ -105,6 +112,57 @@ function assertProbeReplayAndRejection(root, key, expectedRuns = 2) {
   }
 }
 
+const FIXTURE_UNITS = ["gauntlet", "php-core", "protocol", "symfony-bundle", "typescript-core", "typescript-node"];
+
+test("fixture contracts follow the release unit versions instead of literals", async () => {
+  const preparer = await import(pathToFileURL(PREPARE).href);
+  assert.equal(typeof preparer.fixtureContracts, "function");
+  const requests = [];
+  const contracts = preparer.fixtureContracts({
+    readVersion: (root, id) => {
+      requests.push([root, id]);
+      return "0.1.9";
+    },
+  });
+  assert.deepEqual([...new Set(requests.map(([, id]) => id))].sort(), FIXTURE_UNITS);
+  assert.ok(requests.every(([root]) => root === REPOSITORY_ROOT), "units must be read from this repository");
+  assert.deepEqual(contracts.symfony.composerRequire, {
+    php: ">=8.3",
+    "symfony/framework-bundle": "7.4.*",
+    "8lines/gauntlet-php-core": "0.1.9",
+    "8lines/gauntlet-symfony-bundle": "0.1.9",
+  });
+  assert.equal(contracts.compose.dashboardImage, "ghcr.io/8lines/gauntlet:0.1.9");
+  assert.deepEqual(contracts.compose.packages, [
+    { name: "@8lines/gauntlet-protocol", leaf: "protocol", version: "0.1.9", archive: "8lines-gauntlet-protocol-0.1.9.tgz" },
+    { name: "@8lines/gauntlet-typescript-core", leaf: "typescript-core", version: "0.1.9", archive: "8lines-gauntlet-typescript-core-0.1.9.tgz" },
+    { name: "@8lines/gauntlet-typescript-node", leaf: "typescript-node", version: "0.1.9", archive: "8lines-gauntlet-typescript-node-0.1.9.tgz" },
+  ]);
+  const current = preparer.fixtureContracts();
+  assert.equal(current.compose.dashboardImage, `ghcr.io/8lines/gauntlet:${unitVersion("gauntlet")}`);
+  assert.equal(current.symfony.composerRequire["8lines/gauntlet-php-core"], unitVersion("php-core"));
+});
+
+test("the exported preparer reads candidate versions through the injected reader before touching the fixture", async () => {
+  const preparer = await import(pathToFileURL(PREPARE).href);
+  assert.equal(typeof preparer.prepareFixture, "function");
+  for (const scenario of ["valid-symfony", "valid-compose"]) {
+    const destination = `/tmp/tc-eval-${scenario}${FIXTURE_SUFFIX}`;
+    write(destination, "untouched-sentinel", "kept\n");
+    await assert.rejects(
+      preparer.prepareFixture(scenario, {
+        suffix: FIXTURE_SUFFIX,
+        readVersion: () => {
+          throw new Error("injected-reader-sentinel");
+        },
+      }),
+      /injected-reader-sentinel/,
+    );
+    assert.equal(readFileSync(resolve(destination, "untouched-sentinel"), "utf8"), "kept\n");
+    rmSync(destination, { recursive: true, force: true });
+  }
+});
+
 test("Symfony fixture rejects the observed legacy-shaped false positive", () => {
   const root = prepare("valid-symfony");
   write(root, "composer.json", `${JSON.stringify({
@@ -113,8 +171,8 @@ test("Symfony fixture rejects the observed legacy-shaped false positive", () => 
     require: {
       php: ">=8.3",
       "symfony/framework-bundle": "7.4.*",
-      "8lines/gauntlet-php-core": "0.1.8",
-      "8lines/gauntlet-symfony-bundle": "0.1.8",
+      "8lines/gauntlet-php-core": unitVersion("php-core"),
+      "8lines/gauntlet-symfony-bundle": unitVersion("symfony-bundle"),
     },
   }, null, 2)}\n`);
   write(root, "config/bundles.php", "<?php\nuse EightLines\\Gauntlet\\SymfonyBundle\\GauntletBundle;\nreturn [GauntletBundle::class => ['staging' => true]];\n");
@@ -342,17 +400,14 @@ function integratedNodeHostSource() {
 function configureComposeApplication(root, application, label) {
   const runtimeDependencyPins = JSON.parse(readFileSync(resolve(root, "artifacts/runtime-pins.json"), "utf8"));
   const manifest = JSON.parse(readFileSync(resolve(root, `${application}/package.json`), "utf8"));
-  manifest.dependencies = {
-    "@8lines/gauntlet-protocol": "file:../artifacts/8lines-gauntlet-protocol-0.1.8.tgz",
-    "@8lines/gauntlet-typescript-core": "file:../artifacts/8lines-gauntlet-typescript-core-0.1.8.tgz",
-    "@8lines/gauntlet-typescript-node": "file:../artifacts/8lines-gauntlet-typescript-node-0.1.8.tgz",
-  };
+  manifest.dependencies = Object.fromEntries(CANDIDATE_PACKAGES.map((leaf) => [
+    `@8lines/gauntlet-${leaf}`,
+    `file:../artifacts/${candidateArchive(leaf)}`,
+  ]));
   write(root, `${application}/package.json`, `${JSON.stringify(manifest, null, 2)}\n`);
   write(root, `${application}/pnpm-workspace.yaml`, [
     "packages:", "  - .", "overrides:",
-    "  '@8lines/gauntlet-protocol': 'file:../artifacts/8lines-gauntlet-protocol-0.1.8.tgz'",
-    "  '@8lines/gauntlet-typescript-core': 'file:../artifacts/8lines-gauntlet-typescript-core-0.1.8.tgz'",
-    "  '@8lines/gauntlet-typescript-node': 'file:../artifacts/8lines-gauntlet-typescript-node-0.1.8.tgz'",
+    ...CANDIDATE_PACKAGES.map((leaf) => `  '@8lines/gauntlet-${leaf}': 'file:../artifacts/${candidateArchive(leaf)}'`),
     ...Object.entries(runtimeDependencyPins).map(([name, version]) => `  ${name}: '${version}'`),
     "",
   ].join("\n"));
@@ -391,7 +446,7 @@ test("Compose fixture rejects the observed incomplete standalone contract", () =
     assert.throws(() => readFileSync(resolve(root, `${application}/adapter.json`), "utf8"));
   }
   for (const artifact of ["protocol", "typescript-core", "typescript-node"]) {
-    const archive = resolve(root, `artifacts/8lines-gauntlet-${artifact}-0.1.8.tgz`);
+    const archive = resolve(root, `artifacts/${candidateArchive(artifact)}`);
     assert.deepEqual([...readFileSync(archive).subarray(0, 2)], [0x1f, 0x8b], `${artifact} must be a gzip archive`);
     const listed = spawnSync("tar", ["-tzf", archive], { encoding: "utf8" });
     assert.equal(listed.status, 0, listed.stderr);
@@ -400,7 +455,7 @@ test("Compose fixture rejects the observed incomplete standalone contract", () =
   configureComposeApplication(root, "billing", "Billing");
   configureComposeApplication(root, "portal", "Portal");
   write(root, "gauntlet/compose.yaml", [
-    "services:", "  gauntlet:", "    image: ghcr.io/8lines/gauntlet:0.1.8",
+    "services:", "  gauntlet:", `    image: ghcr.io/8lines/gauntlet:${unitVersion("gauntlet")}`,
     "    environment:", "      GAUNTLET_CONFIG_FILE: /etc/gauntlet/config.yaml",
     "    ports:", "      - 127.0.0.1:8080:8080", "    volumes:",
     "      - ./config.yaml:/etc/gauntlet/config.yaml:ro", "    networks:", "      - gauntlet",
@@ -568,7 +623,7 @@ test("Compose fixture rejects the observed incomplete standalone contract", () =
     { path: "portal/node_modules/@8lines/gauntlet-typescript-node/dist/adapter-handler.js", change: (source) => `${source}\n// stale loaded SDK module\n` },
     { path: "billing/node_modules/@8lines/gauntlet-typescript-core/package.json", change: (source) => `${source} ` },
     { path: "verify.mjs", change: (source) => `${source}\n// stale verifier revision\n` },
-    { path: "artifacts/8lines-gauntlet-typescript-node-0.1.8.tgz", change: (source) => Buffer.concat([source, Buffer.from("stale")]) },
+    { path: `artifacts/${candidateArchive("typescript-node")}`, change: (source) => Buffer.concat([source, Buffer.from("stale")]) },
   ]) {
     const path = resolve(root, mutation.path);
     const original = readFileSync(path);

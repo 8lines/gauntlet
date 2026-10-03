@@ -16,8 +16,12 @@ import {
 } from "node:fs";
 import { createServer } from "node:http";
 import { relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
+import { readUnitVersion } from "../../scripts/release/release-model.mjs";
 import { stageComposerPackages } from "../../scripts/release/stage-composer.mjs";
+
+const REPOSITORY_ROOT = realpathSync(resolve(import.meta.dirname, "../.."));
 
 const scenarios = new Set([
   "prod-alias",
@@ -38,6 +42,44 @@ const VALID_COMPOSE_RUNTIME_DEPENDENCY_PINS = Object.freeze({
   "json-schema-traverse": "1.0.0",
   "require-from-string": "2.0.2",
 });
+
+function deeplyFreeze(value) {
+  if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
+    for (const child of Object.values(value)) deeplyFreeze(child);
+    Object.freeze(value);
+  }
+  return value;
+}
+
+// The candidate coordinates each standard fixture supplies and its verifier demands, read from
+// the release units so a version bump never needs a fixture edit. The forward Node Compose
+// fixture deliberately stays on the version named in its frozen prompt instead.
+export function fixtureContracts({ readVersion = readUnitVersion } = {}) {
+  const version = (id) => readVersion(REPOSITORY_ROOT, id);
+  const composerArtifacts = {
+    "8lines/gauntlet-php-core": version("php-core"),
+    "8lines/gauntlet-symfony-bundle": version("symfony-bundle"),
+  };
+  const packages = ["protocol", "typescript-core", "typescript-node"].map((leaf) => {
+    const packageVersion = version(leaf);
+    return {
+      name: `@8lines/gauntlet-${leaf}`,
+      leaf,
+      version: packageVersion,
+      archive: `8lines-gauntlet-${leaf}-${packageVersion}.tgz`,
+    };
+  });
+  return deeplyFreeze({
+    symfony: {
+      composerRequire: { php: ">=8.3", "symfony/framework-bundle": "7.4.*", ...composerArtifacts },
+      composerArtifacts,
+    },
+    compose: {
+      packages,
+      dashboardImage: `ghcr.io/8lines/gauntlet:${version("gauntlet")}`,
+    },
+  });
+}
 
 function write(root, path, contents, mode = 0o600) {
   const destination = resolve(root, path);
@@ -968,7 +1010,7 @@ try {
 `;
 }
 
-async function validSymfonyFixture(root) {
+async function validSymfonyFixture(root, contract) {
   const repositoryRoot = realpathSync(resolve(import.meta.dirname, "../.."));
   const validatorBuilt = spawnSync("pnpm", [
     "--filter", "@8lines/gauntlet-dashboard-client...", "build",
@@ -1103,6 +1145,7 @@ async function validSymfonyFixture(root) {
   const verifierDependencyHashes = Object.fromEntries(Object.entries(verifierDependencyPaths)
     .map(([name, path]) => [name, regularTreeSha256(path, { excludeTopLevel: ["node_modules"] })]));
   write(root, "verify.mjs", validSymfonyVerifier(
+    contract,
     artifactHashes,
     runtimeHashes,
     verifierDependencyHashes,
@@ -1112,6 +1155,7 @@ async function validSymfonyFixture(root) {
 }
 
 function validSymfonyVerifier(
+  contract,
   artifactHashes,
   runtimeHashes,
   verifierDependencyHashes,
@@ -1145,6 +1189,7 @@ function validSymfonyVerifier(
     "  dataSourceResolveResponse: (value) => validates(protocolValidators.dataSourceResolveResponse, value),",
     "  problem: (value) => validates(protocolValidators.problem, value),",
     "});",
+    `const fixtureContract = Object.freeze(${JSON.stringify(contract)});`,
     `const expectedComposerArtifactHashes = Object.freeze(${JSON.stringify(artifactHashes)});`,
     `const expectedSymfonyRuntimeHashes = Object.freeze(${JSON.stringify(runtimeHashes)});`,
     `const expectedVerifierDependencyHashes = Object.freeze(${JSON.stringify(verifierDependencyHashes)});`,
@@ -1207,13 +1252,7 @@ const stripPhpComments = (source) => {
   return result;
 };
 const composer = json("composer.json");
-const expected = {
-  php: ">=8.3",
-  "symfony/framework-bundle": "7.4.*",
-  "8lines/gauntlet-php-core": "0.1.8",
-  "8lines/gauntlet-symfony-bundle": "0.1.8",
-};
-exactJson(composer.require, expected, "exact PHP 8.3, Symfony 7.4, and supplied candidate Composer requirements missing");
+exactJson(composer.require, fixtureContract.composerRequire, "exact PHP 8.3, Symfony 7.4, and supplied candidate Composer requirements missing");
 if (Object.hasOwn(composer, "repositories")) {
   throw new Error("Packagist releases must not declare custom Composer repositories");
 }
@@ -1260,7 +1299,7 @@ for (const [repository, expectedHash] of Object.entries(expectedComposerArtifact
   const path = resolve(root, "artifacts/composer", repository);
   harness.assert(regularTreeSha256(path) === expectedHash, `supplied candidate Composer artifact changed: ${repository}`);
   const artifact = json(`artifacts/composer/${repository}/composer.json`);
-  harness.assert(artifact.name === repository && artifact.version === "0.1.8",
+  harness.assert(artifact.name === repository && artifact.version === fixtureContract.composerArtifacts[repository],
     `supplied candidate Composer artifact identity changed: ${repository}`);
 }
 for (const [path, expectedHash] of [
@@ -1665,8 +1704,9 @@ if (process.argv.length === 4 && process.argv[2] === "--probe" && probeKeys.incl
       harness.assert(symfonyRuntime.kernelRequest === true
         && symfonyRuntime.healthStatus === 200 && symfonyRuntime.manifestStatus === 200
         && symfonyRuntime.phpVersion === "8.3.33"
-        && symfonyRuntime.phpCoreVersion === "0.1.8" && symfonyRuntime.symfonyBundleVersion === "0.1.8",
-      "Composer-installed Symfony bundle runtime did not satisfy the exact 0.1.8 contract");
+        && symfonyRuntime.phpCoreVersion === fixtureContract.composerArtifacts["8lines/gauntlet-php-core"]
+        && symfonyRuntime.symfonyBundleVersion === fixtureContract.composerArtifacts["8lines/gauntlet-symfony-bundle"],
+      "Composer-installed Symfony bundle runtime did not satisfy the exact supplied candidate contract");
       exactJson(symfonyRuntime.environment, staging, "Composer-installed Symfony environment differs from configuration");
       observation = harness.makeObservation("http-loopback", [
         { request: `GET /proxy${harness.PREFIX}/health`, status: 200, protocolVersion: health.body.protocolVersion },
@@ -1760,7 +1800,7 @@ harness.validateEvidence(evidence, probeKeys, integrity);
 process.stdout.write("valid Symfony synthetic fixture contract verified; customer deployment not verified\n");
 }
 
-function validComposeFixture(root) {
+function validComposeFixture(root, contract) {
   for (const application of ["billing", "portal"]) {
     write(root, `${application}/package.json`, `${JSON.stringify({
       name: `synthetic-${application}`,
@@ -1822,11 +1862,7 @@ function validComposeFixture(root) {
   const verifierDependencyPaths = trustedVerifierDependencyPaths(repositoryRoot);
   const verifierDependencyHashes = Object.fromEntries(Object.entries(verifierDependencyPaths)
     .map(([name, path]) => [name, regularTreeSha256(path, { excludeTopLevel: ["node_modules"] })]));
-  const packageArtifacts = [
-    ["@8lines/gauntlet-protocol", "8lines-gauntlet-protocol-0.1.8.tgz"],
-    ["@8lines/gauntlet-typescript-core", "8lines-gauntlet-typescript-core-0.1.8.tgz"],
-    ["@8lines/gauntlet-typescript-node", "8lines-gauntlet-typescript-node-0.1.8.tgz"],
-  ];
+  const packageArtifacts = contract.packages.map(({ name, archive }) => [name, archive]);
   for (const [packageName] of packageArtifacts) {
     const packed = spawnSync("pnpm", ["--filter", packageName, "pack", "--pack-destination", artifactDirectory], {
       cwd: repositoryRoot,
@@ -1894,6 +1930,7 @@ function validComposeFixture(root) {
     "",
   ].join("\n"));
   write(root, "verify.mjs", validComposeVerifier(
+    contract,
     expectedArchives,
     VALID_COMPOSE_RUNTIME_DEPENDENCY_PINS,
     verifierDependencyHashes,
@@ -1902,7 +1939,7 @@ function validComposeFixture(root) {
   ));
 }
 
-function validComposeVerifier(expectedArchives, runtimeDependencyPins, verifierDependencyHashes, verifierDependencyPaths, goldenApplicationSourceSha256) {
+function validComposeVerifier(contract, expectedArchives, runtimeDependencyPins, verifierDependencyHashes, verifierDependencyPaths, goldenApplicationSourceSha256) {
   const validatorUrl = new URL("../../packages/dashboard-client/dist/protocol-validator.js", import.meta.url).href;
   const protocolUrl = new URL("../../packages/protocol/dist/index.js", import.meta.url).href;
   const yamlUrl = import.meta.resolve("yaml");
@@ -1918,6 +1955,7 @@ function validComposeVerifier(expectedArchives, runtimeDependencyPins, verifierD
     `import { operationRunIsValid, protocolValidators, validates } from ${JSON.stringify(validatorUrl)};`,
     `import { manifestSemanticsAreValid, operationSemanticsAreValid } from ${JSON.stringify(protocolUrl)};`,
     "",
+    `const fixtureContract = Object.freeze(${JSON.stringify(contract)});`,
     `const expectedArchives = Object.freeze(${JSON.stringify(expectedArchives)});`,
     `const expectedRuntimeDependencyPins = Object.freeze(${JSON.stringify(runtimeDependencyPins)});`,
     `const expectedVerifierDependencyHashes = Object.freeze(${JSON.stringify(verifierDependencyHashes)});`,
@@ -1987,11 +2025,8 @@ const assertEnvironment = (value, label) => {
   const environment = mapping(value, label, ["name", "kind"]);
   harness.assert(environment.name === "staging" && environment.kind === "staging", `${label} is not staging`);
 };
-const packageSpecs = [
-  ["@8lines/gauntlet-protocol", "protocol"],
-  ["@8lines/gauntlet-typescript-core", "typescript-core"],
-  ["@8lines/gauntlet-typescript-node", "typescript-node"],
-];
+const packageSpecs = fixtureContract.packages.map(({ name, leaf }) => [name, leaf]);
+const candidatePackages = Object.fromEntries(fixtureContract.packages.map((candidate) => [candidate.name, candidate]));
 const applications = [
   { id: "billing", label: "Billing" },
   { id: "portal", label: "Portal" },
@@ -2009,9 +2044,7 @@ harness.assert(harness.canonicalJson(runtimeDependencyPins) === harness.canonica
 harness.assert(runtimeDependencyPinsSource === `${JSON.stringify(expectedRuntimeDependencyPins, null, 2)}\n`,
   "artifacts/runtime-pins.json must retain its canonical pretty JSON bytes and one trailing LF");
 const expectedWorkspaceOverrides = {
-  "@8lines/gauntlet-protocol": "file:../artifacts/8lines-gauntlet-protocol-0.1.8.tgz",
-  "@8lines/gauntlet-typescript-core": "file:../artifacts/8lines-gauntlet-typescript-core-0.1.8.tgz",
-  "@8lines/gauntlet-typescript-node": "file:../artifacts/8lines-gauntlet-typescript-node-0.1.8.tgz",
+  ...Object.fromEntries(fixtureContract.packages.map(({ name, archive }) => [name, `file:../artifacts/${archive}`])),
   ...runtimeDependencyPins,
 };
 const runtimeDependencyHashes = {};
@@ -2024,10 +2057,10 @@ for (const application of applications) {
   const overrides = mapping(workspace.overrides, `${application.id} pnpm overrides`, Object.keys(expectedWorkspaceOverrides));
   harness.assert(harness.canonicalJson(overrides) === harness.canonicalJson(expectedWorkspaceOverrides),
     `${application.id} pnpm overrides must pin the supplied candidate and runtime dependency graph`);
-  for (const [name, leaf] of packageSpecs) {
+  for (const [name] of packageSpecs) {
     const expectedArchive = expectedArchives[name];
-    const archivePath = `artifacts/8lines-gauntlet-${leaf}-0.1.8.tgz`;
-    harness.assert(expectedArchive?.archive === `8lines-gauntlet-${leaf}-0.1.8.tgz`,
+    const archivePath = `artifacts/${candidatePackages[name].archive}`;
+    harness.assert(expectedArchive?.archive === candidatePackages[name].archive,
       `trusted archive metadata missing for ${name}`);
     harness.assert(harness.sha256(readFileSync(resolve(root, archivePath))) === expectedArchive.sha256,
       `packed archive changed before verification: ${name}`);
@@ -2036,7 +2069,7 @@ for (const application of applications) {
       `exact supplied candidate package missing for ${application.id}`,
     );
     harness.assert(
-      json(`${application.id}/node_modules/${name}/package.json`).version === "0.1.8",
+      json(`${application.id}/node_modules/${name}/package.json`).version === candidatePackages[name].version,
       `installed package version mismatch for ${application.id}: ${name}`,
     );
     harness.assert(regularTreeSha256(resolve(root, `${application.id}/node_modules/${name}`), { excludeTopLevel: ["node_modules"] })
@@ -2135,7 +2168,7 @@ for (const application of applications) {
 const dashboardCompose = mapping(yaml("gauntlet/compose.yaml"), "dashboard Compose root", ["services", "networks"]);
 const dashboardServices = mapping(dashboardCompose.services, "dashboard services", ["gauntlet"]);
 const dashboard = mapping(dashboardServices["gauntlet"], "dashboard service", ["image", "environment", "ports", "volumes", "networks"]);
-harness.assert(dashboard.image === "ghcr.io/8lines/gauntlet:0.1.8", "dashboard image is not pinned");
+harness.assert(dashboard.image === fixtureContract.dashboardImage, "dashboard image is not pinned");
 const dashboardEnvironment = mapping(dashboard.environment, "dashboard environment", ["GAUNTLET_CONFIG_FILE"]);
 harness.assert(dashboardEnvironment.GAUNTLET_CONFIG_FILE === "/etc/gauntlet/config.yaml", "dashboard config-file selector missing");
 harness.assert(JSON.stringify(sequence(dashboard.ports, "dashboard ports", 1)) === JSON.stringify(["127.0.0.1:8080:8080"]), "dashboard must bind only to loopback");
@@ -2195,9 +2228,7 @@ const integrity = {
   ]),
   runnerSha256: harness.sha256(readFileSync(import.meta.filename)),
   runtimeArtifactsSha256: digestFiles([
-    "artifacts/8lines-gauntlet-protocol-0.1.8.tgz",
-    "artifacts/8lines-gauntlet-typescript-core-0.1.8.tgz",
-    "artifacts/8lines-gauntlet-typescript-node-0.1.8.tgz",
+    ...fixtureContract.packages.map(({ archive }) => `artifacts/${archive}`),
     "billing/dist/server.mjs",
     "portal/dist/server.mjs",
     ...applications.flatMap(({ id }) => packageSpecs.flatMap(([name]) => filesBelow(`${id}/node_modules/${name}`))),
@@ -2849,25 +2880,41 @@ harness.validateEvidence(evidence, probeKeys, integrity);
 process.stdout.write("valid Compose synthetic protocol receipts verified; customer deployment not verified\n");
 }
 
-const scenario = process.argv[2];
-if (process.argv.length !== 3 || !scenarios.has(scenario)) {
-  process.stderr.write("Usage: node prepare-fixture.mjs SCENARIO\n");
-  process.exitCode = 2;
-} else {
-  const suffix = process.env.TC_EVAL_FIXTURE_SUFFIX ?? "";
+export async function prepareFixture(scenario, { suffix = "", readVersion = readUnitVersion } = {}) {
+  if (!scenarios.has(scenario)) throw new Error("unknown fixture scenario");
   if (!/^(?:|-[a-z0-9][a-z0-9-]{0,31})$/u.test(suffix)) throw new Error("invalid fixture suffix");
   const root = `/tmp/tc-eval-${scenario}${suffix}`;
   if (!/^\/tmp\/tc-eval-(?:prod-alias|public-ingress|unstable-runtime|next-raw-path|valid-symfony|valid-compose|forward-spring-ingress)(?:-[a-z0-9][a-z0-9-]{0,31})?$/u.test(root)) {
     throw new Error("unsafe fixture destination");
   }
+  // Read every candidate version before the destination is replaced, so a bad reader leaves no fixture.
+  const contracts = scenario.startsWith("valid-") ? fixtureContracts({ readVersion }) : undefined;
   rmSync(root, { recursive: true, force: true });
   mkdirSync(root, { mode: 0o700 });
-  if (scenario.startsWith("valid-")) {
-    if (scenario === "valid-symfony") await validSymfonyFixture(root);
-    else validComposeFixture(root);
-  } else pressureFixture(root, scenario);
+  if (scenario === "valid-symfony") await validSymfonyFixture(root, contracts.symfony);
+  else if (scenario === "valid-compose") validComposeFixture(root, contracts.compose);
+  else pressureFixture(root, scenario);
   write(root, "PROMPT.md", readFileSync(resolve(import.meta.dirname, "prompts", `${scenario}.md`), "utf8"), 0o400);
   chmodSync(resolve(root, "PROMPT.md"), 0o400);
   chmodSync(root, 0o700);
-  process.stdout.write(`${root}\n`);
+  return root;
+}
+
+function invokedAsScript() {
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (invokedAsScript()) {
+  const scenario = process.argv[2];
+  if (process.argv.length !== 3 || !scenarios.has(scenario)) {
+    process.stderr.write("Usage: node prepare-fixture.mjs SCENARIO\n");
+    process.exitCode = 2;
+  } else {
+    const root = await prepareFixture(scenario, { suffix: process.env.TC_EVAL_FIXTURE_SUFFIX ?? "" });
+    process.stdout.write(`${root}\n`);
+  }
 }

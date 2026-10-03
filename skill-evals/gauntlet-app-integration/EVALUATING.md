@@ -31,6 +31,11 @@ responses, reviews, or timestamps. This confirms content integrity, not
 behaviour against the 0.1.8 packages. A fresh evaluation and independent review
 are required before claiming current behavioural evidence.
 
+The release unit model (2026-10-03) changed bound inputs without changing
+prompts, scenarios, scorecards or verifiers; hashes were re-bound to current
+bytes without generating new model samples. This confirms content integrity,
+not behaviour.
+
 The preserved prompts, results, and evidence describe the original evaluation
 and have not been rewritten. The standard fixture preparers and verifier
 self-tests exercise the current 0.1.8 candidate packages. The forward Node

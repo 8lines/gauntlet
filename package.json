@@ -14,7 +14,7 @@
     "test:image": "node scripts/verify-product-image.mjs",
     "test:packages": "node scripts/test-packed-npm-packages.mjs",
     "smoke:compose": "node scripts/run-compose-smoke.mjs",
-    "test:helm": "node --test --test-concurrency=1 deploy/helm/test/test-support.test.mjs deploy/helm/test/test-kubeconform-support.test.mjs deploy/helm/test-values-schema.mjs deploy/helm/test-rendered-manifests.mjs deploy/helm/test-private-ingress.mjs deploy/helm/test-network-policy.mjs deploy/helm/test-kubeconform.mjs deploy/helm/test-chart-package.mjs deploy/helm/test-documentation.mjs",
+    "test:helm": "node --test --test-concurrency=1 deploy/helm/test/test-support.test.mjs deploy/helm/test/test-kubeconform-support.test.mjs deploy/helm/test-values-schema.mjs deploy/helm/test-rendered-manifests.mjs deploy/helm/test-private-ingress.mjs deploy/helm/test-network-policy.mjs deploy/helm/test-kubeconform.mjs deploy/helm/test-chart-package.mjs deploy/helm/test-documentation.mjs deploy/helm/test-version-independence.mjs",
     "test:helm:rendered": "node --test --test-concurrency=1 deploy/helm/test-rendered-manifests.mjs",
     "test:helm:ingress": "node --test --test-concurrency=1 deploy/helm/test-private-ingress.mjs",
     "test:helm:network-policy": "node --test --test-concurrency=1 deploy/helm/test-network-policy.mjs",

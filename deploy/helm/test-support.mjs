@@ -14,12 +14,25 @@ import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
-import { parseAllDocuments } from "yaml";
+import { parse as parseYaml, parseAllDocuments } from "yaml";
 
 export const HELM_IMAGE = "alpine/helm:4.0.4@sha256:adb87b125214fd356ecc1a24a1e86e4afed0ee03de5d4391de4925777de7fd42";
 export const repositoryRoot = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 export const helmChart = "deploy/helm/gauntlet";
 export const stagingValues = "deploy/helm/ci/staging-values.yaml";
+
+// Chart.yaml is the single source of the chart and application version the Helm tests assert.
+export function readChartVersion(chartDirectory = join(repositoryRoot, helmChart)) {
+  const chart = parseYaml(readFileSync(join(chartDirectory, "Chart.yaml"), "utf8"));
+  const { version, appVersion } = chart ?? {};
+  if (typeof version !== "string" || !/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(version)) {
+    throw new Error("Chart.yaml version must be an exact release version");
+  }
+  if (appVersion !== version) throw new Error("Chart.yaml version and appVersion must match");
+  return version;
+}
+
+export const CHART_VERSION = readChartVersion();
 
 const MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
 const SAFE_ENVIRONMENT_KEYS = new Set([
