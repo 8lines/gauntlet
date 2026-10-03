@@ -399,6 +399,9 @@ jobs:
         env:
           PLAYWRIGHT_BROWSER_CHANNEL: chromium
         run: pnpm release:dry-run
+      - name: Print verify trace (diagnostic branch only)
+        if: always()
+        run: cat /tmp/verify-trace.log || true
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-dry-run

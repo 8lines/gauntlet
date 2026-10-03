@@ -311,6 +311,7 @@ export async function runPhases(options = {}) {
     let completed = 0;
     for (const descriptor of runnable) {
       let raw;
+      const diagStarted = Date.now();
       try {
         raw = await runner({
           phase,
@@ -319,7 +320,8 @@ export async function runPhases(options = {}) {
           workingDirectory: root,
           timeoutMs: PHASE_TIMEOUTS[phase],
         });
-      } catch {
+      } catch (diagError) {
+        try { (await import("node:fs")).appendFileSync("/tmp/verify-trace.log", `THROW ${phase} ${descriptor.id} seconds=${Math.round((Date.now() - diagStarted) / 1000)} ${diagError?.stack ?? diagError}\n`); } catch { /* diagnostics only */ }
         records[phaseIndex] = { name: phase, status: "failed", commands: completed };
         for (let index = phaseIndex + 1; index < records.length; index += 1) {
           records[index] = { name: PHASES[index], status: "not-run", reason: "short-circuited", commands: 0 };
@@ -327,6 +329,11 @@ export async function runPhases(options = {}) {
         fail("EXECUTION_FAILED", phase, 1, records, version);
       }
       const child = closeResult(raw);
+      try {
+        const { appendFileSync } = await import("node:fs");
+        const tail = (text, lines) => String(text ?? "").split("\n").slice(-lines).join("\n");
+        appendFileSync("/tmp/verify-trace.log", `END ${phase} ${descriptor.id} status=${child?.status} signal=${child?.signal} seconds=${Math.round((Date.now() - diagStarted) / 1000)}\n--- stdout tail ---\n${tail(child?.stdout, 120)}\n--- stderr tail ---\n${tail(child?.stderr, 60)}\n`);
+      } catch { /* diagnostics only */ }
       if (child === undefined) {
         records[phaseIndex] = { name: phase, status: "failed", commands: completed };
         for (let index = phaseIndex + 1; index < records.length; index += 1) {
