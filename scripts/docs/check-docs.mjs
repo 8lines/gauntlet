@@ -4,6 +4,9 @@ import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { readUnitVersion } from "../release/release-model.mjs";
+import { RELEASE_UNITS } from "../release/units.mjs";
+
 const FAILURE = "Documentation manifest is invalid";
 const MANIFEST = "docs/documentation-manifest.json";
 const MAX_TEXT_BYTES = 4 * 1024 * 1024;
@@ -26,6 +29,10 @@ const SYMFONY_GUIDE_COORDINATES = Object.freeze([
   "8lines/gauntlet-php-core",
   "8lines/gauntlet-symfony-bundle",
 ]);
+
+// Every published coordinate name (npm package, Composer package, Maven coordinate, image) maps to its unit.
+const UNIT_BY_COORDINATE = new Map(RELEASE_UNITS.flatMap((unit) => unit.artifacts.map((name) => [name, unit.id])));
+const APPLICATION_IMAGE = "ghcr.io/8lines/gauntlet";
 
 function failManifest() {
   throw new Error(FAILURE);
@@ -121,24 +128,39 @@ function localLinkError(root, owner, rawTarget) {
   return undefined;
 }
 
-function staleCoordinateErrors(owner, source, version) {
+// Documented versions are compared with the unit that owns the coordinate. Without unit versions
+// (synthetic fixtures) the comparison is skipped.
+function expectedVersion(versions, name) {
+  const unitId = UNIT_BY_COORDINATE.get(name);
+  return versions === undefined || unitId === undefined ? undefined : versions.get(unitId);
+}
+
+function staleCoordinateErrors(owner, source, versions) {
   const errors = [];
   const installLines = source.split("\n").filter((line) => /\b(?:npm|pnpm|yarn)\s+(?:add|install)\b/u.test(line));
   const coordinates = installLines.flatMap((line) => [
-    ...line.matchAll(/@8lines\/gauntlet-[a-z0-9-]+(?:@([^\s`'"]+))?/gu),
+    ...line.matchAll(/(@8lines\/gauntlet-[a-z0-9-]+)(?:@([^\s`'"]+))?/gu),
   ]);
-  if (coordinates.some((match) => match[1] === undefined
-      || !/^(?:\d+\.\d+\.\d+|file:|workspace:)/u.test(match[1]))) {
+  if (coordinates.some((match) => match[2] === undefined
+      || !/^(?:\d+\.\d+\.\d+|file:|workspace:)/u.test(match[2]))) {
     errors.push(`${owner} contains unversioned Gauntlet package install`);
   }
-  if (version !== undefined) {
-    for (const line of installLines) {
-      for (const match of line.matchAll(/@8lines\/gauntlet-[a-z0-9-]+@(\d+\.\d+\.\d+)/gu)) {
-        if (match[1] !== version) errors.push(`${owner} contains mismatched Gauntlet package version: ${match[1]}`);
+  for (const match of coordinates) {
+    if (!UNIT_BY_COORDINATE.has(match[1])) errors.push(`${owner} contains unknown Gauntlet package: ${match[1]}`);
+  }
+  if (versions !== undefined) {
+    for (const match of coordinates) {
+      const expected = expectedVersion(versions, match[1]);
+      const documented = /^\d+\.\d+\.\d+$/u.exec(match[2] ?? "")?.[0];
+      if (expected !== undefined && documented !== undefined && documented !== expected) {
+        errors.push(`${owner} contains mismatched Gauntlet package version: ${documented}`);
       }
     }
+    const imageVersion = expectedVersion(versions, APPLICATION_IMAGE);
     for (const match of source.matchAll(/ghcr\.io\/8lines\/gauntlet:(\d+\.\d+\.\d+|latest)\b/gu)) {
-      if (match[1] !== version) errors.push(`${owner} contains mismatched Gauntlet image version: ${match[1]}`);
+      if (imageVersion !== undefined && match[1] !== imageVersion) {
+        errors.push(`${owner} contains mismatched Gauntlet image version: ${match[1]}`);
+      }
     }
   }
   return errors;
@@ -175,21 +197,25 @@ function hasStructuredApplicationEnvironment(source) {
   return false;
 }
 
-function releasedSdkGuideErrors(owner, source, version) {
-  if (version === undefined) return [];
+function releasedSdkGuideErrors(owner, source, versions) {
+  if (versions === undefined) return [];
   const errors = [];
+  const wrongVersion = (coordinates) => coordinates.some((coordinate) => {
+    const expected = expectedVersion(versions, coordinate.name);
+    return expected !== undefined && coordinate.version !== expected;
+  });
   if (JAVA_CONSUMER_GUIDES.has(owner)) {
     const coordinates = [...source.matchAll(
       /(dev\.eightlines\.gauntlet:(?:core|spring-boot-starter)):([^\s`'"()<>\],]+)/gu,
     )].map((match) => Object.freeze({ name: match[1], version: match[2] }));
     for (const name of JAVA_GUIDE_COORDINATES[owner]) {
       if (!coordinates.some((coordinate) => coordinate.name === name)) {
-        errors.push(`${owner} is missing Java consumer coordinate ${name}:${version}`);
+        errors.push(`${owner} is missing Java consumer coordinate ${name}:${expectedVersion(versions, name)}`);
       }
     }
     if (coordinates.some((coordinate) => /snapshot/iu.test(coordinate.version))) {
       errors.push(`${owner} contains a snapshot Java consumer coordinate`);
-    } else if (coordinates.some((coordinate) => coordinate.version !== version)) {
+    } else if (wrongVersion(coordinates)) {
       errors.push(`${owner} contains a non-exact Java consumer coordinate`);
     }
     if (!hasStructuredApplicationEnvironment(source)) {
@@ -203,10 +229,10 @@ function releasedSdkGuideErrors(owner, source, version) {
     ].map((match) => Object.freeze({ name: match[1], version: match[2] }));
     for (const name of SYMFONY_GUIDE_COORDINATES) {
       if (!coordinates.some((coordinate) => coordinate.name === name)) {
-        errors.push(`${owner} is missing Composer consumer coordinate ${name}:${version}`);
+        errors.push(`${owner} is missing Composer consumer coordinate ${name}:${expectedVersion(versions, name)}`);
       }
     }
-    if (coordinates.some((coordinate) => coordinate.version !== version)) {
+    if (wrongVersion(coordinates)) {
       errors.push(`${owner} contains a non-exact Composer consumer coordinate`);
     }
     if (!hasStructuredApplicationEnvironment(source)) {
@@ -214,6 +240,24 @@ function releasedSdkGuideErrors(owner, source, version) {
     }
   }
   return errors;
+}
+
+// Reads every release unit's own version. A fixture that models no unit version files besides the
+// root VERSION is treated as lockstep at that version; otherwise unreadable units are skipped.
+function loadUnitVersions(root) {
+  const versions = new Map();
+  for (const { id } of RELEASE_UNITS) {
+    try {
+      versions.set(id, readUnitVersion(root, id));
+    } catch {
+      // A unit without a readable version file is not compared.
+    }
+  }
+  if (versions.size === 0) return undefined;
+  if (versions.size === 1 && versions.has("gauntlet")) {
+    return new Map(RELEASE_UNITS.map(({ id }) => [id, versions.get("gauntlet")]));
+  }
+  return versions;
 }
 
 export async function checkDocumentation({ root: rawRoot }) {
@@ -228,13 +272,7 @@ export async function checkDocumentation({ root: rawRoot }) {
       errors.push(`missing required file ${path}`);
     }
   }
-  let version;
-  try {
-    const rawVersion = readRegular(root, "VERSION", 128);
-    if (/^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\n$/u.test(rawVersion)) version = rawVersion.trimEnd();
-  } catch {
-    // Synthetic checker fixtures need not model a complete release repository.
-  }
+  const versions = loadUnitVersions(root);
   const corpus = [...documents.values()].join("\n");
   for (const phrase of manifest.requiredPhrases) {
     if (!corpus.includes(phrase)) errors.push(`required phrase is absent: ${phrase}`);
@@ -243,8 +281,8 @@ export async function checkDocumentation({ root: rawRoot }) {
     for (const phrase of manifest.forbiddenPhrases) {
       if (source.includes(phrase)) errors.push(`${owner} contains forbidden phrase: ${phrase}`);
     }
-    errors.push(...staleCoordinateErrors(owner, source, version));
-    errors.push(...releasedSdkGuideErrors(owner, source, version));
+    errors.push(...staleCoordinateErrors(owner, source, versions));
+    errors.push(...releasedSdkGuideErrors(owner, source, versions));
     for (const target of markdownTargets(source)) {
       const error = localLinkError(root, owner, target);
       if (error !== undefined) errors.push(error);

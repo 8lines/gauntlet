@@ -210,3 +210,116 @@ test("rejects released SDK guides with required consumer coordinates removed", a
     "packages/php/symfony-bundle/README.md is missing Composer consumer coordinate 8lines/gauntlet-symfony-bundle:0.1.0",
   ]);
 });
+
+const UNIT_VERSION_FILES = Object.freeze({
+  "VERSION": "0.1.0\n",
+  "packages/java/core/VERSION": "0.1.0\n",
+  "packages/java/spring-boot-starter/VERSION": "0.1.0\n",
+  ...Object.fromEntries([
+    "packages/protocol",
+    "packages/dashboard-client",
+    "packages/typescript/core",
+    "packages/typescript/node",
+    "packages/typescript/next",
+    "conformance/runner",
+    "packages/widget",
+    "packages/php/core",
+    "packages/php/symfony-bundle",
+  ].map((directory) => [
+    `${directory}/${directory.startsWith("packages/php/") ? "composer" : "package"}.json`,
+    `${JSON.stringify({ name: "fixture", version: "0.1.0" })}\n`,
+  ])),
+});
+
+function unitFixture(files, overrides = {}) {
+  return fixture({
+    ...UNIT_VERSION_FILES,
+    ...overrides,
+    ...files,
+    "docs/documentation-manifest.json": `${JSON.stringify({
+      schemaVersion: 1,
+      requiredFiles: Object.keys(files),
+      forbiddenPhrases: [],
+      requiredPhrases: [],
+    })}\n`,
+  });
+}
+
+const PROTOCOL_AHEAD = {
+  "packages/protocol/package.json": `${JSON.stringify({ name: "fixture", version: "0.1.1" })}\n`,
+};
+
+test("compares each documented npm package with its own release unit", async (t) => {
+  const root = await unitFixture({
+    "README.md": "`pnpm add @8lines/gauntlet-protocol@0.1.1 @8lines/gauntlet-typescript-core@0.1.0`\n",
+  }, PROTOCOL_AHEAD);
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  assert.deepEqual(await checkDocumentation({ root }), { errors: [] });
+});
+
+test("rejects a package version that belongs to a different release unit", async (t) => {
+  const root = await unitFixture({
+    "README.md": "`pnpm add @8lines/gauntlet-protocol@0.1.0 @8lines/gauntlet-typescript-core@0.1.1`\n",
+  }, PROTOCOL_AHEAD);
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  assert.deepEqual((await checkDocumentation({ root })).errors, [
+    "README.md contains mismatched Gauntlet package version: 0.1.0",
+    "README.md contains mismatched Gauntlet package version: 0.1.1",
+  ]);
+});
+
+test("compares the application image with the gauntlet unit and rejects unknown packages", async (t) => {
+  const root = await unitFixture({
+    "README.md": [
+      "`ghcr.io/8lines/gauntlet:0.1.1`",
+      "`pnpm add @8lines/gauntlet-nonexistent@0.1.0`",
+      "",
+    ].join("\n"),
+  }, PROTOCOL_AHEAD);
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  assert.deepEqual((await checkDocumentation({ root })).errors, [
+    "README.md contains mismatched Gauntlet image version: 0.1.1",
+    "README.md contains unknown Gauntlet package: @8lines/gauntlet-nonexistent",
+  ]);
+});
+
+test("compares Maven and Composer coordinates with their own release units", async (t) => {
+  const environment = [
+    "gauntlet:",
+    "  application:",
+    "    environment:",
+    "      name: fixture-staging",
+    "      kind: staging",
+    "",
+  ].join("\n");
+  const files = (javaCore, bundle) => ({
+    "packages/java/README.md": [
+      `\`dev.eightlines.gauntlet:core:${javaCore}\``,
+      "`dev.eightlines.gauntlet:spring-boot-starter:0.1.2`",
+      environment,
+    ].join("\n"),
+    "packages/php/symfony-bundle/README.md": [
+      "\"8lines/gauntlet-php-core\": \"0.1.0\"",
+      `"8lines/gauntlet-symfony-bundle": "${bundle}"`,
+      environment,
+    ].join("\n"),
+  });
+  const overrides = {
+    "packages/java/spring-boot-starter/VERSION": "0.1.2\n",
+    "packages/php/symfony-bundle/composer.json": `${JSON.stringify({ name: "fixture", version: "0.1.3" })}\n`,
+  };
+
+  const accepted = await unitFixture(files("0.1.0", "0.1.3"), overrides);
+  t.after(() => rm(accepted, { recursive: true, force: true }));
+  assert.deepEqual(await checkDocumentation({ root: accepted }), { errors: [] });
+
+  const rejected = await unitFixture(files("0.1.1", "0.1.0"), overrides);
+  t.after(() => rm(rejected, { recursive: true, force: true }));
+  assert.deepEqual((await checkDocumentation({ root: rejected })).errors, [
+    "packages/java/README.md contains a non-exact Java consumer coordinate",
+    "packages/php/symfony-bundle/README.md contains a non-exact Composer consumer coordinate",
+  ]);
+});
