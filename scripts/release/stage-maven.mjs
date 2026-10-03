@@ -22,7 +22,7 @@ import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify, types as utilTypes } from "node:util";
 
-import { RELEASE_ARTIFACTS, readReleaseVersion } from "./release-model.mjs";
+import { RELEASE_ARTIFACTS, javaLockstepVersion } from "./release-model.mjs";
 import { INSPECTOR_FILENAME, writeJdkInspector } from "./inspect-jdk.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -582,6 +582,19 @@ function resultRecords(outputDirectory, staged, version) {
   }));
 }
 
+// Maven publishes only the Java units, so the version comes from their own VERSION files
+// (both must agree until staging learns per-artifact versions), never the root VERSION.
+function javaCaptureVersion(capture) {
+  return javaLockstepVersion(capture.records.map(({ relativePath, bytes }) => ({
+    relativePath: `packages/java/${relativePath}`,
+    bytes,
+  })));
+}
+
+export function readMavenStageVersion(root) {
+  return javaCaptureVersion(captureJavaTree(root));
+}
+
 export async function publishMavenLocally(options) {
   const { root, outputDirectory } = validateClosedOptions(options);
   validateCanonicalDirectory(root, "Maven staging root");
@@ -597,10 +610,10 @@ export async function publishMavenLocally(options) {
         "dev.eightlines.gauntlet:core", "dev.eightlines.gauntlet:spring-boot-starter",
       ])) fixedFailure();
 
-  const version = readReleaseVersion(root);
   const rootLicense = safeRead(join(root, "LICENSE"), 1024 * 1024);
   if (rootLicense.bytes.length === 0) fixedFailure();
   const javaCapture = captureJavaTree(root);
+  const version = javaCaptureVersion(javaCapture);
   const scratch = realpathSync(mkdtempSync(join(dirname(outputDirectory), ".gauntlet-maven-stage-")));
   chmodSync(scratch, 0o700);
   const ready = realpathSync(mkdtempSync(join(dirname(outputDirectory), ".gauntlet-maven-ready-")));

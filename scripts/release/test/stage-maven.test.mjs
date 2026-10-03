@@ -16,7 +16,7 @@ import { join, resolve } from "node:path";
 import test from "node:test";
 
 import { readReleaseVersion } from "../release-model.mjs";
-import { MAVEN_TOOLCHAIN, publishMavenLocally } from "../stage-maven.mjs";
+import { MAVEN_TOOLCHAIN, publishMavenLocally, readMavenStageVersion } from "../stage-maven.mjs";
 
 const ROOT = realpathSync(resolve(import.meta.dirname, "../../.."));
 const RELEASE_VERSION = readReleaseVersion(ROOT);
@@ -157,6 +157,53 @@ test("rejects unsafe outputs and closed-option violations before running Docker"
       message: "Maven package staging failed closed",
     });
     assert.equal(readFileSync(join(outputDirectory, "foreign"), "utf8"), "FOREIGN\n");
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true });
+  }
+});
+
+function createJavaFixtureRoot(parent, { core, starter }) {
+  const root = join(parent, "root");
+  const javaRoot = join(root, "packages/java");
+  mkdirSync(javaRoot, { recursive: true, mode: 0o755 });
+  for (const file of ["README.md", "build.gradle.kts", "gradlew", "gradlew.bat", "settings.gradle.kts"]) {
+    writeFileSync(join(javaRoot, file), "fixture\n", { mode: 0o644 });
+  }
+  for (const directory of ["core", "gradle", "spring-boot-starter", "spring-example", "starter-api-consumer-test"]) {
+    mkdirSync(join(javaRoot, directory), { mode: 0o755 });
+    writeFileSync(join(javaRoot, directory, "fixture.txt"), "fixture\n", { mode: 0o644 });
+  }
+  if (core !== undefined) writeFileSync(join(javaRoot, "core/VERSION"), core, { mode: 0o644 });
+  if (starter !== undefined) writeFileSync(join(javaRoot, "spring-boot-starter/VERSION"), starter, { mode: 0o644 });
+  return root;
+}
+
+test("reads the Maven staging version from the Java unit files without a root VERSION", () => {
+  const sandbox = realpathSync(mkdtempSync(join(tmpdir(), "gauntlet-stage-maven-version-")));
+  try {
+    const root = createJavaFixtureRoot(sandbox, { core: "7.8.9\n", starter: "7.8.9\n" });
+    assert.equal(readdirSync(root).includes("VERSION"), false);
+    assert.equal(readMavenStageVersion(root), "7.8.9");
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true });
+  }
+});
+
+test("rejects diverged, missing or invalid Java unit versions for Maven staging", () => {
+  const sandbox = realpathSync(mkdtempSync(join(tmpdir(), "gauntlet-stage-maven-version-")));
+  const cases = [
+    { core: "7.8.9\n", starter: "7.8.10\n" },
+    { core: "7.8.9\n" },
+    { starter: "7.8.9\n" },
+    { core: "7.8.9\n", starter: "not-a-version\n" },
+  ];
+  try {
+    cases.forEach((versions, index) => {
+      const root = createJavaFixtureRoot(join(sandbox, String(index)), versions);
+      assert.throws(() => readMavenStageVersion(root), {
+        message: "Release version must be an exact stable ASCII semantic version followed by one LF",
+      });
+    });
   } finally {
     rmSync(sandbox, { recursive: true, force: true });
   }
