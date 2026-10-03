@@ -298,6 +298,8 @@ test("every workflow-facing gate resolves to one exact local root script", () =>
     "test:java:source": "node scripts/release/test-java-source.mjs",
     "verify:official-adapters": "node scripts/release/verify-official-adapters.mjs",
     "dashboard:test:e2e": "pnpm --filter @8lines/gauntlet-dashboard exec playwright test --reporter=line",
+    "release:plan": "node scripts/release/plan.mjs --write",
+    "release:tag": "node scripts/release/release-tag.mjs",
     "release:security": "node scripts/release/security.mjs",
     "release:stage": "node scripts/release/stage.mjs",
     "release:verify": "node scripts/release/verify.mjs",

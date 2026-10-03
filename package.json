@@ -23,6 +23,8 @@
     "test:helm:docs": "node --test --test-concurrency=1 deploy/helm/test-documentation.mjs",
     "release:version": "node scripts/release/version.mjs",
     "release:baseline-tags": "node scripts/release/baseline-tags.mjs",
+    "release:plan": "node scripts/release/plan.mjs --write",
+    "release:tag": "node scripts/release/release-tag.mjs",
     "release:test": "node --test --test-concurrency=1 scripts/release/test/*.test.mjs",
     "release:security": "node scripts/release/security.mjs",
     "release:stage": "node scripts/release/stage.mjs",
