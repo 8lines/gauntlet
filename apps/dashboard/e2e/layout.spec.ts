@@ -1,5 +1,6 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { desktopOperation, installApiFixture, operationWithRevision } from "./api-fixture.ts";
+import { resizeViewport, waitForStableLayout } from "./layout-stability.ts";
 
 const operation = operationWithRevision({
   ...desktopOperation,
@@ -7,11 +8,6 @@ const operation = operationWithRevision({
   execution: { ...desktopOperation.execution, dryRunSupported: true },
 });
 const targetLabel = "Environment for verifying extended business scenarios";
-
-/** The sidebar width transition would otherwise be measured half way. */
-async function settled(page: Page) {
-  await page.waitForFunction(() => document.getAnimations().every((animation) => animation.playState !== "running"));
-}
 
 async function expectContained(child: Locator, parent: Locator) {
   const inside = (await child.boundingBox())!;
@@ -26,9 +22,9 @@ test("long operation labels keep both actions visible across workspace widths", 
   test.skip(testInfo.project.name !== "desktop", "one responsive width matrix");
   await installApiFixture(page, { operation, scenario: "desktop", targetLabel });
   await page.goto(`/t/browser-target/o/${operation.id}`);
+  await expect(page.getByRole("region", { name: "Operation actions" })).toBeVisible();
   for (const width of [320, 390, 640, 768, 1024, 1280, 1440]) {
-    await page.setViewportSize({ width, height: 800 });
-    await settled(page);
+    await resizeViewport(page, width);
     const actions = page.getByRole("region", { name: "Operation actions" });
     const execute = actions.getByRole("button", { name: operation.label, exact: true });
     const dryRun = actions.getByRole("button", { name: "Dry run" });
@@ -52,20 +48,20 @@ test("the shell switches between the sidebar and the mobile sheet at the md brea
   test.skip(testInfo.project.name !== "desktop", "one responsive width matrix");
   await installApiFixture(page, { operation, scenario: "desktop", targetLabel });
   await page.goto(`/t/browser-target/o/${operation.id}`);
+  await expect(page.getByRole("region", { name: "Operation actions" })).toBeVisible();
   const trigger = page.getByRole("button", { name: "Toggle navigation" });
   const environment = `Choose environment: ${targetLabel}`;
 
-  await page.setViewportSize({ width: 767, height: 800 });
-  await expect(page.locator("#gauntlet-navigation")).toHaveCount(0);
+  await resizeViewport(page, 767);
   await trigger.click();
   const sheet = page.getByRole("dialog");
   await expect(sheet.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
+  await waitForStableLayout(page);
   await expectContained(sheet.getByRole("button", { name: environment }), sheet);
   await page.keyboard.press("Escape");
 
-  await page.setViewportSize({ width: 768, height: 800 });
+  await resizeViewport(page, 768);
   const sidebar = page.locator("#gauntlet-navigation");
-  await expect(sidebar).toBeVisible();
   await expectContained(sidebar.getByRole("button", { name: environment }), sidebar);
 });
 
