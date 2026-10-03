@@ -222,9 +222,9 @@ test("the documented values and command blocks are complete and exact", () => {
     tolerations: [],
     affinity: {},
   });
-  assert.match(blocks.get("pull-render-install").text, /helm pull oci:\/\/ghcr\.io\/8lines\/charts\/gauntlet --version 0\.1\.7/);
-  assert.match(blocks.get("pull-render-install").text, /helm template gauntlet \.\/gauntlet-0\.1\.7\.tgz/);
-  assert.match(blocks.get("pull-render-install").text, /helm upgrade --install gauntlet \.\/gauntlet-0\.1\.7\.tgz/);
+  assert.match(blocks.get("pull-render-install").text, /helm pull oci:\/\/ghcr\.io\/8lines\/charts\/gauntlet --version 0\.1\.8/);
+  assert.match(blocks.get("pull-render-install").text, /helm template gauntlet \.\/gauntlet-0\.1\.8\.tgz/);
+  assert.match(blocks.get("pull-render-install").text, /helm upgrade --install gauntlet \.\/gauntlet-0\.1\.8\.tgz/);
   assert.match(blocks.get("pull-render-install").text, /--reset-values/);
   assert.match(blocks.get("private-access").text, /--address 127\.0\.0\.1/);
   assert.match(blocks.get("rollback").text, /helm rollback gauntlet 3 /);

@@ -4,7 +4,7 @@ All notable changes to this project are recorded here. Released artifacts are im
 
 ## Unreleased
 
-## [0.1.8] - 2026-10-02
+## [0.1.8] - 2026-10-03
 
 ### Added
 
