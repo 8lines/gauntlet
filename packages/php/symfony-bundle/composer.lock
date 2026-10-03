@@ -12,7 +12,7 @@
             "dist": {
                 "type": "path",
                 "url": "../core",
-                "reference": "df7b58c610954735e7541140fe43dadb2b28c1af"
+                "reference": "f3929e7f06b8077e2e5dcacdd941e749dba17fca"
             },
             "require": {
                 "ext-curl": "*",

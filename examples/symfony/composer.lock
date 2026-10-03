@@ -12,7 +12,7 @@
             "dist": {
                 "type": "path",
                 "url": "../../packages/php/core",
-                "reference": "df7b58c610954735e7541140fe43dadb2b28c1af"
+                "reference": "f3929e7f06b8077e2e5dcacdd941e749dba17fca"
             },
             "require": {
                 "ext-curl": "*",
@@ -59,7 +59,7 @@
             "dist": {
                 "type": "path",
                 "url": "../../packages/php/symfony-bundle",
-                "reference": "71e21a420dfca1edf0d4ce85feca79af7d41d8f8"
+                "reference": "c604e4a5e984e9e6e4a60f10b98ee2b87f5fb9d8"
             },
             "require": {
                 "8lines/gauntlet-php-core": "^0.1.8",

@@ -1210,8 +1210,8 @@ const composer = json("composer.json");
 const expected = {
   php: ">=8.3",
   "symfony/framework-bundle": "7.4.*",
-  "8lines/gauntlet-php-core": "0.1.7",
-  "8lines/gauntlet-symfony-bundle": "0.1.7",
+  "8lines/gauntlet-php-core": "0.1.8",
+  "8lines/gauntlet-symfony-bundle": "0.1.8",
 };
 exactJson(composer.require, expected, "exact PHP 8.3, Symfony 7.4, and supplied candidate Composer requirements missing");
 if (Object.hasOwn(composer, "repositories")) {
@@ -1260,7 +1260,7 @@ for (const [repository, expectedHash] of Object.entries(expectedComposerArtifact
   const path = resolve(root, "artifacts/composer", repository);
   harness.assert(regularTreeSha256(path) === expectedHash, `supplied candidate Composer artifact changed: ${repository}`);
   const artifact = json(`artifacts/composer/${repository}/composer.json`);
-  harness.assert(artifact.name === repository && artifact.version === "0.1.7",
+  harness.assert(artifact.name === repository && artifact.version === "0.1.8",
     `supplied candidate Composer artifact identity changed: ${repository}`);
 }
 for (const [path, expectedHash] of [
@@ -1665,8 +1665,8 @@ if (process.argv.length === 4 && process.argv[2] === "--probe" && probeKeys.incl
       harness.assert(symfonyRuntime.kernelRequest === true
         && symfonyRuntime.healthStatus === 200 && symfonyRuntime.manifestStatus === 200
         && symfonyRuntime.phpVersion === "8.3.33"
-        && symfonyRuntime.phpCoreVersion === "0.1.7" && symfonyRuntime.symfonyBundleVersion === "0.1.7",
-      "Composer-installed Symfony bundle runtime did not satisfy the exact 0.1.7 contract");
+        && symfonyRuntime.phpCoreVersion === "0.1.8" && symfonyRuntime.symfonyBundleVersion === "0.1.8",
+      "Composer-installed Symfony bundle runtime did not satisfy the exact 0.1.8 contract");
       exactJson(symfonyRuntime.environment, staging, "Composer-installed Symfony environment differs from configuration");
       observation = harness.makeObservation("http-loopback", [
         { request: `GET /proxy${harness.PREFIX}/health`, status: 200, protocolVersion: health.body.protocolVersion },
@@ -1823,9 +1823,9 @@ function validComposeFixture(root) {
   const verifierDependencyHashes = Object.fromEntries(Object.entries(verifierDependencyPaths)
     .map(([name, path]) => [name, regularTreeSha256(path, { excludeTopLevel: ["node_modules"] })]));
   const packageArtifacts = [
-    ["@8lines/gauntlet-protocol", "8lines-gauntlet-protocol-0.1.7.tgz"],
-    ["@8lines/gauntlet-typescript-core", "8lines-gauntlet-typescript-core-0.1.7.tgz"],
-    ["@8lines/gauntlet-typescript-node", "8lines-gauntlet-typescript-node-0.1.7.tgz"],
+    ["@8lines/gauntlet-protocol", "8lines-gauntlet-protocol-0.1.8.tgz"],
+    ["@8lines/gauntlet-typescript-core", "8lines-gauntlet-typescript-core-0.1.8.tgz"],
+    ["@8lines/gauntlet-typescript-node", "8lines-gauntlet-typescript-node-0.1.8.tgz"],
   ];
   for (const [packageName] of packageArtifacts) {
     const packed = spawnSync("pnpm", ["--filter", packageName, "pack", "--pack-destination", artifactDirectory], {
@@ -2009,9 +2009,9 @@ harness.assert(harness.canonicalJson(runtimeDependencyPins) === harness.canonica
 harness.assert(runtimeDependencyPinsSource === `${JSON.stringify(expectedRuntimeDependencyPins, null, 2)}\n`,
   "artifacts/runtime-pins.json must retain its canonical pretty JSON bytes and one trailing LF");
 const expectedWorkspaceOverrides = {
-  "@8lines/gauntlet-protocol": "file:../artifacts/8lines-gauntlet-protocol-0.1.7.tgz",
-  "@8lines/gauntlet-typescript-core": "file:../artifacts/8lines-gauntlet-typescript-core-0.1.7.tgz",
-  "@8lines/gauntlet-typescript-node": "file:../artifacts/8lines-gauntlet-typescript-node-0.1.7.tgz",
+  "@8lines/gauntlet-protocol": "file:../artifacts/8lines-gauntlet-protocol-0.1.8.tgz",
+  "@8lines/gauntlet-typescript-core": "file:../artifacts/8lines-gauntlet-typescript-core-0.1.8.tgz",
+  "@8lines/gauntlet-typescript-node": "file:../artifacts/8lines-gauntlet-typescript-node-0.1.8.tgz",
   ...runtimeDependencyPins,
 };
 const runtimeDependencyHashes = {};
@@ -2026,8 +2026,8 @@ for (const application of applications) {
     `${application.id} pnpm overrides must pin the supplied candidate and runtime dependency graph`);
   for (const [name, leaf] of packageSpecs) {
     const expectedArchive = expectedArchives[name];
-    const archivePath = `artifacts/8lines-gauntlet-${leaf}-0.1.7.tgz`;
-    harness.assert(expectedArchive?.archive === `8lines-gauntlet-${leaf}-0.1.7.tgz`,
+    const archivePath = `artifacts/8lines-gauntlet-${leaf}-0.1.8.tgz`;
+    harness.assert(expectedArchive?.archive === `8lines-gauntlet-${leaf}-0.1.8.tgz`,
       `trusted archive metadata missing for ${name}`);
     harness.assert(harness.sha256(readFileSync(resolve(root, archivePath))) === expectedArchive.sha256,
       `packed archive changed before verification: ${name}`);
@@ -2036,7 +2036,7 @@ for (const application of applications) {
       `exact supplied candidate package missing for ${application.id}`,
     );
     harness.assert(
-      json(`${application.id}/node_modules/${name}/package.json`).version === "0.1.7",
+      json(`${application.id}/node_modules/${name}/package.json`).version === "0.1.8",
       `installed package version mismatch for ${application.id}: ${name}`,
     );
     harness.assert(regularTreeSha256(resolve(root, `${application.id}/node_modules/${name}`), { excludeTopLevel: ["node_modules"] })
@@ -2135,7 +2135,7 @@ for (const application of applications) {
 const dashboardCompose = mapping(yaml("gauntlet/compose.yaml"), "dashboard Compose root", ["services", "networks"]);
 const dashboardServices = mapping(dashboardCompose.services, "dashboard services", ["gauntlet"]);
 const dashboard = mapping(dashboardServices["gauntlet"], "dashboard service", ["image", "environment", "ports", "volumes", "networks"]);
-harness.assert(dashboard.image === "ghcr.io/8lines/gauntlet:0.1.7", "dashboard image is not pinned");
+harness.assert(dashboard.image === "ghcr.io/8lines/gauntlet:0.1.8", "dashboard image is not pinned");
 const dashboardEnvironment = mapping(dashboard.environment, "dashboard environment", ["GAUNTLET_CONFIG_FILE"]);
 harness.assert(dashboardEnvironment.GAUNTLET_CONFIG_FILE === "/etc/gauntlet/config.yaml", "dashboard config-file selector missing");
 harness.assert(JSON.stringify(sequence(dashboard.ports, "dashboard ports", 1)) === JSON.stringify(["127.0.0.1:8080:8080"]), "dashboard must bind only to loopback");
@@ -2195,9 +2195,9 @@ const integrity = {
   ]),
   runnerSha256: harness.sha256(readFileSync(import.meta.filename)),
   runtimeArtifactsSha256: digestFiles([
-    "artifacts/8lines-gauntlet-protocol-0.1.7.tgz",
-    "artifacts/8lines-gauntlet-typescript-core-0.1.7.tgz",
-    "artifacts/8lines-gauntlet-typescript-node-0.1.7.tgz",
+    "artifacts/8lines-gauntlet-protocol-0.1.8.tgz",
+    "artifacts/8lines-gauntlet-typescript-core-0.1.8.tgz",
+    "artifacts/8lines-gauntlet-typescript-node-0.1.8.tgz",
     "billing/dist/server.mjs",
     "portal/dist/server.mjs",
     ...applications.flatMap(({ id }) => packageSpecs.flatMap(([name]) => filesBelow(`${id}/node_modules/${name}`))),

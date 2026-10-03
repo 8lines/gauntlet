@@ -23,6 +23,13 @@ recorded responses, reviews, or timestamps. This confirms content integrity,
 not behaviour against the 0.1.7 inputs. A fresh evaluation and independent
 review are required before claiming current behavioural evidence.
 
+The 0.1.8 release candidate updates the exact package versions bound as
+external inputs. The external-input, evaluation, and transcript hashes are
+re-bound to the current bytes without generating new model samples or changing
+recorded responses, reviews, or timestamps. This confirms content integrity,
+not behaviour against the 0.1.8 inputs. A fresh evaluation and independent
+review are required before claiming current behavioural evidence.
+
 Every sample in the matrix is a fresh generation by a new evaluator process
 run against the frozen skill and evaluation inputs. Every started sample
 counts; a sample is rerun only after a documented harness failure (crash,
