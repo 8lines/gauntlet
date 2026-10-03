@@ -70,6 +70,7 @@ test("versions come from the baseline commit, not the working tree or later comm
     "protocol-v0.1.8",
   );
   const later = commit(root, "bump protocol");
+  git(root, "tag", "-a", "v0.1.9", "-m", "v0.1.9", later);
   assert.equal(
     planBaselineTags({ root, commit: later }).create.find(({ unit }) => unit === "protocol").tag,
     "protocol-v0.5.0",
@@ -104,9 +105,42 @@ test("applying creates annotated local tags once and is a no-op the second time"
 test("a malformed version at the commit is rejected", (t) => {
   const { root } = repository(t);
   write(root, "packages/protocol/package.json", `${JSON.stringify({ name: "p", version: "v1" })}\n`);
-  assert.throws(() => planBaselineTags({ root, commit: commit(root, "bad") }), /version/i);
+  const bad = commit(root, "bad");
+  git(root, "tag", "-a", "v0.1.9", "-m", "v0.1.9", bad);
+  assert.throws(() => planBaselineTags({ root, commit: bad }), /version/i);
   write(root, "packages/protocol/package.json", `${JSON.stringify({ name: "p", version: 1 })}\n`);
-  assert.throws(() => planBaselineTags({ root, commit: commit(root, "worse") }), /version/i);
+  const worse = commit(root, "worse");
+  git(root, "tag", "-a", "v0.1.9", "-m", "v0.1.9", worse, "-f");
+  assert.throws(() => planBaselineTags({ root, commit: worse }), /version/i);
+});
+
+test("the application tag is never created: it must already exist at the commit", (t) => {
+  const { root, first, second } = repository(t);
+  // VERSION is 0.1.9 at the second commit and no v0.1.9 tag exists.
+  const missing = new Error(`baseline requires existing tag v0.1.9 at ${second}`);
+  assert.throws(() => planBaselineTags({ root, commit: second }), missing);
+  assert.throws(() => applyBaselineTags({ root, commit: second }), missing);
+  assert.equal(git(root, "tag", "--list"), "v0.1.8");
+  const cli = runBaselineTagsCli(["--commit", second, "--apply"], { root });
+  assert.equal(cli.exitCode, 1);
+  assert.equal(cli.stdout, "");
+  assert.equal(cli.stderr, `${missing.message}\n`);
+  assert.equal(git(root, "tag", "--list"), "v0.1.8");
+
+  // A clone without any tags creates nothing either.
+  git(root, "tag", "-d", "v0.1.8");
+  assert.throws(() => applyBaselineTags({ root, commit: first }), new Error(`baseline requires existing tag v0.1.8 at ${first}`));
+  assert.equal(git(root, "tag", "--list"), "");
+});
+
+test("the application tag on a different commit is an error and nothing is created", (t) => {
+  const { root, first, second } = repository(t);
+  git(root, "tag", "-d", "v0.1.8");
+  git(root, "tag", "-a", "v0.1.8", "-m", "elsewhere", second);
+  const wrong = new Error(`baseline requires existing tag v0.1.8 at ${first}`);
+  assert.throws(() => planBaselineTags({ root, commit: first }), wrong);
+  assert.throws(() => applyBaselineTags({ root, commit: first }), wrong);
+  assert.equal(git(root, "tag", "--list"), "v0.1.8");
 });
 
 test("an unknown commit is rejected", (t) => {

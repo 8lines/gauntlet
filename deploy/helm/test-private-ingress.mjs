@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { parse, stringify } from "yaml";
-import { helm, helmChart, render, stagingValues } from "./test-support.mjs";
+import { CHART_VERSION, helm, helmChart, render, stagingValues } from "./test-support.mjs";
 
 const kubernetesVersions = ["1.35.0", "1.36.0", "1.37.0"];
 
@@ -78,7 +78,7 @@ test("default values render no Ingress on every maintained Kubernetes line", () 
 });
 
 test("the private ALB example renders one exact internal Ingress on every maintained Kubernetes line", async () => {
-  const version = (await readFile(new URL("../../VERSION", import.meta.url), "utf8")).trimEnd();
+  const version = CHART_VERSION;
   const chart = parse(await readFile(
     new URL("gauntlet/Chart.yaml", import.meta.url),
     "utf8",

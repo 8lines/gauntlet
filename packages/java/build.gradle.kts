@@ -20,12 +20,13 @@ plugins {
 }
 
 fun projectReleaseVersion(versionFile: java.io.File): String {
+    val label = versionFile.relativeTo(rootDir).invariantSeparatorsPath
     val bytes = versionFile.readBytes()
-    require(bytes.size in 6..64) { "${versionFile.name} must contain one bounded stable semantic version record" }
-    require(bytes.all { it.toInt() in 0..127 }) { "${versionFile.name} must contain ASCII bytes only" }
+    require(bytes.size in 6..64) { "$label must contain one bounded stable semantic version record" }
+    require(bytes.all { it.toInt() in 0..127 }) { "$label must contain ASCII bytes only" }
     val record = bytes.toString(StandardCharsets.US_ASCII)
     require(Regex("""^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\n$""").matches(record)) {
-        "${versionFile.name} must contain an exact stable semantic version followed by one LF"
+        "$label must contain an exact stable semantic version followed by one LF"
     }
     return record.removeSuffix("\n")
 }

@@ -2,8 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { parse } from "yaml";
-import { parseReleaseVersion } from "../../scripts/release/release-model.mjs";
-import { helm, render } from "./test-support.mjs";
+import { CHART_VERSION, helm, render } from "./test-support.mjs";
 
 const chart = "deploy/helm/gauntlet";
 const stagingValues = "deploy/helm/ci/staging-values.yaml";
@@ -50,7 +49,7 @@ test("staging values lint and render on every maintained Kubernetes line", () =>
 });
 
 test("chart metadata and defaults are release-aligned but deliberately undeployable", async () => {
-  const version = parseReleaseVersion(await readFile(new URL("../../VERSION", import.meta.url)));
+  const version = CHART_VERSION;
   const metadata = parse(await readFile(new URL("gauntlet/Chart.yaml", import.meta.url), "utf8"));
   const defaults = parse(await readFile(new URL("gauntlet/values.yaml", import.meta.url), "utf8"));
   assert.deepEqual(metadata, {

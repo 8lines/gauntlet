@@ -36,17 +36,24 @@ lockstep release, so every unit version must equal the root `VERSION`. The
 lockstep guard (`pnpm release:version --check`) fails otherwise.
 
 Each unit needs a baseline tag so later releases can be compared against it.
-Preview the tags that would be created for the last lockstep release, then
-create them locally; the command never pushes:
+The baseline is `e3f80e5`, the v0.1.8 release commit. Preview the tags that
+would be created, then create them locally:
 
 ```sh
-pnpm release:baseline-tags --commit <release-commit>
-pnpm release:baseline-tags --commit <release-commit> --apply
+pnpm release:baseline-tags --commit e3f80e5
+pnpm release:baseline-tags --commit e3f80e5 --apply
 ```
 
-Units whose own version file did not yet exist at that commit take the root
-`VERSION` from it, and a baseline tag that already points at another commit is
-an error.
+The command only creates local tags and never pushes. It never creates the
+`gauntlet` tag either: `v<version>` must already exist and point at the given
+commit, otherwise the command fails with `baseline requires existing tag
+v<version> at <sha>` and creates nothing. Units whose own version file did not
+yet exist at that commit take the root `VERSION` from it, and a baseline tag
+that already points at another commit is an error.
+
+Push unit tags by name (`git push origin <tag>...`), never with a blanket
+`git push --tags`. Unit tags such as `protocol-v0.1.8` do not match the release
+trigger `v*.*.*`, so pushing them does not start a release.
 
 ## Repository configuration
 

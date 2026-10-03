@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { RELEASE_ARTIFACTS, readUnitVersion, readUnitVersions } from "../release-model.mjs";
+import { RELEASE_ARTIFACTS, readReleaseVersion, readUnitVersion, readUnitVersions } from "../release-model.mjs";
 import { RELEASE_UNITS, dependencyOrder, dependentsOf, unitById, unitTag, validateUnits } from "../units.mjs";
 
 const IDS = [
@@ -66,10 +66,11 @@ test("validation rejects cycles, unknown dependencies and duplicate ids", () => 
 
 const ROOT = new URL("../../..", import.meta.url).pathname;
 
-test("every unit reads 0.1.8 from the repository", () => {
+test("every unit reads the lockstep release version from the repository", () => {
   const versions = readUnitVersions(ROOT);
+  const lockstep = readReleaseVersion(ROOT);
   assert.equal(versions.size, 13);
-  for (const [id, version] of versions) assert.equal(version, "0.1.8", id);
+  for (const [id, version] of versions) assert.equal(version, lockstep, id);
 });
 
 for (const bad of ["0.1.9\r\n", "0.1.9-rc.1\n", "0.1.9 \n", "0.1.9", ""]) {
