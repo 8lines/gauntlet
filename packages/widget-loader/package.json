@@ -9,9 +9,9 @@
   },
   "devDependencies": {
     "@8lines/gauntlet-widget": "workspace:*",
-    "@playwright/test": "1.55.1",
+    "@playwright/test": "1.63.0",
     "typescript": "7.0.2",
-    "vite": "8.2.2"
+    "vite": "8.3.1"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json && vite build",
