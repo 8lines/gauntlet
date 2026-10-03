@@ -21,6 +21,33 @@ pushing a tag is the explicit publication trigger.
   provenance limitations, SBOMs, and vulnerability reports;
 - no target application or deployment is being enabled as part of publishing.
 
+## Release units
+
+Gauntlet is released as thirteen units, each with its own version and its own
+tag: `gauntlet` (the application, tag `v<version>`), `protocol`,
+`dashboard-client`, `typescript-core`, `typescript-node`, `next-adapter`,
+`conformance-runner`, `widget`, `php-core`, `symfony-bundle`, `java-core`,
+`spring-boot-starter`, and `skills` (tag `<unit>-v<version>`). The catalog lives
+in `scripts/release/units.mjs`, and every unit reads its version from its own
+manifest or `VERSION` file.
+
+Until plan-driven publishing lands, the release workflow still publishes one
+lockstep release, so every unit version must equal the root `VERSION`. The
+lockstep guard (`pnpm release:version --check`) fails otherwise.
+
+Each unit needs a baseline tag so later releases can be compared against it.
+Preview the tags that would be created for the last lockstep release, then
+create them locally; the command never pushes:
+
+```sh
+pnpm release:baseline-tags --commit <release-commit>
+pnpm release:baseline-tags --commit <release-commit> --apply
+```
+
+Units whose own version file did not yet exist at that commit take the root
+`VERSION` from it, and a baseline tag that already points at another commit is
+an error.
+
 ## Repository configuration
 
 The `release` workflow (`.github/workflows/release.yml`) publishes from a
