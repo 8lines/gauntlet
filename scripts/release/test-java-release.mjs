@@ -17,7 +17,7 @@ import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 
-import { parseReleaseVersion } from "./release-model.mjs";
+import { javaLockstepVersion, parseReleaseVersion } from "./release-model.mjs";
 import { MAVEN_TOOLCHAIN, publishMavenLocally } from "./stage-maven.mjs";
 
 const ROOT = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), "../.."));
@@ -31,16 +31,16 @@ const MAVEN_CENTRAL = "https://repo.maven.apache.org/maven2";
 const RELEVANT_INPUTS = Object.freeze([
   "LICENSE",
   "NOTICE",
-  "VERSION",
   "packages/java",
   "packages/protocol/fixtures/v1",
   "tests/consumers/java",
   "scripts/release/inspect-jdk.mjs",
   "scripts/release/release-model.mjs",
+  "scripts/release/units.mjs",
   "scripts/release/stage-maven.mjs",
   "scripts/release/test-java-release.mjs",
 ]);
-const SOURCE_INPUTS = Object.freeze(RELEVANT_INPUTS.slice(0, 5));
+const SOURCE_INPUTS = Object.freeze(RELEVANT_INPUTS.slice(0, 4));
 const CONSUMER_PREFIX = "tests/consumers/java/";
 const CONSUMER_FILES = Object.freeze([
   "build.gradle.kts",
@@ -551,9 +551,7 @@ export async function runJavaRelease({ root = ROOT } = {}) {
   try {
     const commit = exactCommittedHead(root, environment);
     const sourceRecords = captureGitFiles(root, commit, SOURCE_INPUTS, environment);
-    const versionRecord = sourceRecords.find(({ relativePath }) => relativePath === "VERSION");
-    if (versionRecord === undefined) fail();
-    const version = parseReleaseVersion(versionRecord.bytes);
+    const version = javaLockstepVersion(sourceRecords);
     const uid = typeof process.getuid === "function" ? process.getuid() : 0;
     const gid = typeof process.getgid === "function" ? process.getgid() : 0;
     const plan = createJavaReleasePlan({ sandbox, version, uid, gid });

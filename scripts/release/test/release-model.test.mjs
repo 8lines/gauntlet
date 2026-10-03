@@ -126,17 +126,18 @@ const EXPECTED_UPDATE_PATHS = [
 
 const GRADLE_VERSION_DERIVATION = `import java.nio.charset.StandardCharsets
 
-val releaseVersionFile = rootProject.file("../../VERSION")
-val releaseVersionBytes = releaseVersionFile.readBytes()
-require(releaseVersionBytes.size in 6..64)
-require(releaseVersionBytes.all { it.toInt() in 0..127 })
-val releaseVersionRecord = releaseVersionBytes.toString(StandardCharsets.US_ASCII)
-require(Regex("""^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\n$""").matches(releaseVersionRecord))
-val releaseVersion = releaseVersionRecord.removeSuffix("\\n")
+fun projectReleaseVersion(versionFile: java.io.File): String {
+    val bytes = versionFile.readBytes()
+    require(bytes.size in 6..64)
+    require(bytes.all { it.toInt() in 0..127 })
+    val record = bytes.toString(StandardCharsets.US_ASCII)
+    require(Regex("""^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\n$""").matches(record))
+    return record.removeSuffix("\\n")
+}
 
 allprojects {
     group = "dev.eightlines.gauntlet"
-    version = releaseVersion
+    version = projectReleaseVersion(project.file("VERSION"))
 }
 `;
 
@@ -567,6 +568,22 @@ test("aggregates missing, malformed, duplicate, and wrongly typed version source
       "deploy/compose/.env.example: manifest is malformed",
     ]);
     assert.doesNotMatch(mismatches.join("\n"), /SECRET_VALUE|9\.9\.9/);
+  });
+});
+
+test("the Gradle contract accepts the per-project version derivation and rejects literal versions", () => {
+  withVersionFixture((root) => {
+    assert.deepEqual(collectVersionMismatches(root), []);
+    for (const literal of [
+      `${GRADLE_VERSION_DERIVATION}\nversion = "0.1.8"\n`,
+      GRADLE_VERSION_DERIVATION.replace("project.file(\"VERSION\")", "rootProject.file(\"../../VERSION\")"),
+      `${GRADLE_VERSION_DERIVATION}\n// 0.1.8-SNAPSHOT\n`,
+    ]) {
+      writeFixtureFile(root, "packages/java/build.gradle.kts", literal);
+      assert.deepEqual(collectVersionMismatches(root), [
+        "packages/java/build.gradle.kts: project group/version must derive from the canonical VERSION contract",
+      ]);
+    }
   });
 });
 

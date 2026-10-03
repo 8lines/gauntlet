@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 
-import { RELEASE_ARTIFACTS } from "../release-model.mjs";
+import { RELEASE_ARTIFACTS, readUnitVersion, readUnitVersions } from "../release-model.mjs";
 import { RELEASE_UNITS, dependencyOrder, dependentsOf, unitById, unitTag, validateUnits } from "../units.mjs";
 
 const IDS = [
@@ -59,4 +62,41 @@ test("validation rejects cycles, unknown dependencies and duplicate ids", () => 
   const unknown = base.map((unit) => (unit.id === "widget" ? { ...unit, dependsOn: ["missing"] } : unit));
   assert.throws(() => validateUnits(unknown), /unknown dependency/);
   assert.throws(() => validateUnits([...base, base[1]]), /duplicate/);
+});
+
+const ROOT = new URL("../../..", import.meta.url).pathname;
+
+test("every unit reads 0.1.8 from the repository", () => {
+  const versions = readUnitVersions(ROOT);
+  assert.equal(versions.size, 13);
+  for (const [id, version] of versions) assert.equal(version, "0.1.8", id);
+});
+
+for (const bad of ["0.1.9\r\n", "0.1.9-rc.1\n", "0.1.9 \n", "0.1.9", ""]) {
+  test(`a malformed unit VERSION file is rejected: ${JSON.stringify(bad)}`, () => {
+    const root = mkdtempSync(join(tmpdir(), "units-"));
+    mkdirSync(join(root, "skills"));
+    writeFileSync(join(root, "skills", "VERSION"), bad);
+    assert.throws(() => readUnitVersion(root, "skills"), /skills version is invalid/);
+  });
+}
+
+test("a unit VERSION file that is missing or a symlink is rejected", () => {
+  const root = mkdtempSync(join(tmpdir(), "units-"));
+  assert.throws(() => readUnitVersion(root, "skills"), /skills version is invalid/);
+  mkdirSync(join(root, "skills"));
+  writeFileSync(join(root, "real"), "0.1.9\n");
+  symlinkSync(join(root, "real"), join(root, "skills", "VERSION"));
+  assert.throws(() => readUnitVersion(root, "skills"), /skills version is invalid/);
+});
+
+test("a JSON unit version must be a stable version string", () => {
+  const root = mkdtempSync(join(tmpdir(), "units-"));
+  mkdirSync(join(root, "packages", "protocol"), { recursive: true });
+  writeFileSync(join(root, "packages", "protocol", "package.json"), '{"version":"1.2.3-rc.1"}\n');
+  assert.throws(() => readUnitVersion(root, "protocol"), /protocol version is invalid/);
+  writeFileSync(join(root, "packages", "protocol", "package.json"), '{"version":7}\n');
+  assert.throws(() => readUnitVersion(root, "protocol"), /protocol version is invalid/);
+  writeFileSync(join(root, "packages", "protocol", "package.json"), '{"version":"1.2.3"}\n');
+  assert.equal(readUnitVersion(root, "protocol"), "1.2.3");
 });

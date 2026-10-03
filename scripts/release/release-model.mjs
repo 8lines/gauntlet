@@ -17,6 +17,8 @@ import { TextDecoder, types as utilTypes } from "node:util";
 
 import { isScalar, parseDocument } from "yaml";
 
+import { RELEASE_UNITS, unitById } from "./units.mjs";
+
 const VERSION_ERROR = "Release version must be an exact stable ASCII semantic version followed by one LF";
 const STABLE_VERSION_BYTES = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\n$/;
 const MAX_VERSION_BYTES = 64;
@@ -364,15 +366,15 @@ function parseComposeEnvironment(root) {
 
 function hasGradleVersionContract(source) {
   const requiredFragments = [
-    'rootProject.file("../../VERSION")',
-    "releaseVersionFile.readBytes()",
-    "releaseVersionBytes.size in 6..64",
-    "releaseVersionBytes.all { it.toInt() in 0..127 }",
+    "fun projectReleaseVersion(",
+    "versionFile.readBytes()",
+    "bytes.size in 6..64",
+    "bytes.all { it.toInt() in 0..127 }",
     "StandardCharsets.US_ASCII",
     '"""^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\n$"""',
-    'releaseVersionRecord.removeSuffix("\\n")',
+    'record.removeSuffix("\\n")',
     'group = "dev.eightlines.gauntlet"',
-    "version = releaseVersion",
+    'projectReleaseVersion(project.file("VERSION"))',
   ];
   return requiredFragments.every((fragment) => source.includes(fragment)) && !source.includes("SNAPSHOT") && !/version\s*=\s*"/.test(source);
 }
@@ -542,14 +544,51 @@ function pushReleaseTextChecks(mismatches, root, { path, slots }, version) {
   }
 }
 
+export function readVersionFile(root, path) {
+  const { bytes } = readManifest(root, path);
+  if (bytes.length > MAX_VERSION_BYTES) throw new Error("VERSION is too large");
+  return parseReleaseVersion(bytes);
+}
+
+export function readJsonVersion(root, path, keyPath) {
+  const node = jsonNodeAt(parseJsonManifest(root, path).document, keyPath);
+  if (node?.type !== "string") throw new Error("Manifest version must be a string");
+  return parseReleaseVersion(Buffer.from(`${node.value}\n`, "utf8"));
+}
+
 export function readReleaseVersion(root) {
   try {
-    const { bytes } = readManifest(root, "VERSION");
-    if (bytes.length > MAX_VERSION_BYTES) throw new Error("VERSION is too large");
-    return parseReleaseVersion(bytes);
+    return readVersionFile(root, "VERSION");
   } catch {
     throw new Error("The canonical VERSION file is invalid");
   }
+}
+
+export function readUnitVersion(root, id) {
+  const unit = unitById(id);
+  try {
+    return unit.version.type === "file"
+      ? readVersionFile(root, unit.version.path)
+      : readJsonVersion(root, unit.version.path, unit.version.keyPath);
+  } catch {
+    throw new Error(`Release unit ${id} version is invalid`);
+  }
+}
+
+// The Java source and release checks build both artifacts from one captured tree, so both
+// unit VERSION records must be present and agree until the checks learn per-artifact versions.
+export function javaLockstepVersion(records) {
+  const versions = ["packages/java/core/VERSION", "packages/java/spring-boot-starter/VERSION"].map((path) => {
+    const record = records.find(({ relativePath }) => relativePath === path);
+    if (record === undefined) throw new Error(VERSION_ERROR);
+    return parseReleaseVersion(record.bytes);
+  });
+  if (versions[0] !== versions[1]) throw new Error(VERSION_ERROR);
+  return versions[0];
+}
+
+export function readUnitVersions(root) {
+  return new Map(RELEASE_UNITS.map(({ id }) => [id, readUnitVersion(root, id)]));
 }
 
 export function collectVersionMismatches(root, expectedTag) {

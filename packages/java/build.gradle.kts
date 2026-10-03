@@ -19,22 +19,17 @@ plugins {
     id("com.diffplug.spotless") version "8.10.1" apply false
 }
 
-val releaseVersionFile = rootProject.file("../../VERSION")
-val releaseVersionBytes = releaseVersionFile.readBytes()
-require(releaseVersionBytes.size in 6..64) {
-    "../../VERSION must contain one bounded stable semantic version record"
+fun projectReleaseVersion(versionFile: java.io.File): String {
+    val bytes = versionFile.readBytes()
+    require(bytes.size in 6..64) { "${versionFile.name} must contain one bounded stable semantic version record" }
+    require(bytes.all { it.toInt() in 0..127 }) { "${versionFile.name} must contain ASCII bytes only" }
+    val record = bytes.toString(StandardCharsets.US_ASCII)
+    require(Regex("""^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\n$""").matches(record)) {
+        "${versionFile.name} must contain an exact stable semantic version followed by one LF"
+    }
+    return record.removeSuffix("\n")
 }
-require(releaseVersionBytes.all { it.toInt() in 0..127 }) {
-    "../../VERSION must contain ASCII bytes only"
-}
-val releaseVersionRecord = releaseVersionBytes.toString(StandardCharsets.US_ASCII)
-require(
-    Regex("""^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\n$""")
-        .matches(releaseVersionRecord)
-) {
-    "../../VERSION must contain an exact stable semantic version followed by one LF"
-}
-val releaseVersion = releaseVersionRecord.removeSuffix("\n")
+
 val publishableProjects = setOf(":core", ":spring-boot-starter")
 
 fun localPublishingUri(raw: String): URI {
@@ -64,12 +59,15 @@ fun localPublishingUri(raw: String): URI {
 
 allprojects {
     group = "dev.eightlines.gauntlet"
-    version = releaseVersion
     repositories { mavenCentral() }
 }
 
 subprojects {
     apply(plugin = "java-library")
+    // Publishable projects own their version file; internal projects follow :core.
+    version =
+        if (path in publishableProjects) projectReleaseVersion(project.file("VERSION"))
+        else projectReleaseVersion(rootProject.file("core/VERSION"))
     extensions.configure<JavaPluginExtension> {
         toolchain { languageVersion = JavaLanguageVersion.of(21) }
     }

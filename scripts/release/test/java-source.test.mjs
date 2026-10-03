@@ -62,7 +62,8 @@ function sourceFixture(t) {
   };
   write("LICENSE", "License fixture\n");
   write("NOTICE", "Notice fixture\n");
-  write("VERSION", "0.1.0\n");
+  write("packages/java/core/VERSION", "0.1.0\n");
+  write("packages/java/spring-boot-starter/VERSION", "0.1.0\n");
   write("packages/java/settings.gradle.kts", 'rootProject.name = "fixture"\n');
   write("packages/java/build.gradle.kts", "plugins {}\n");
   write("packages/java/gradlew", "#!/bin/sh\nexit 99\n", 0o755);

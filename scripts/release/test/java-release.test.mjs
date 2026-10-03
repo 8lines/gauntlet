@@ -38,12 +38,12 @@ test("plans pinned source checks, Maven staging, and isolated online-to-offline 
   assert.deepEqual(plan.relevantInputs, [
     "LICENSE",
     "NOTICE",
-    "VERSION",
     "packages/java",
     "packages/protocol/fixtures/v1",
     "tests/consumers/java",
     "scripts/release/inspect-jdk.mjs",
     "scripts/release/release-model.mjs",
+    "scripts/release/units.mjs",
     "scripts/release/stage-maven.mjs",
     "scripts/release/test-java-release.mjs",
   ]);
@@ -180,18 +180,20 @@ test("accepts an exact Git HEAD and rejects tracked or untracked release input c
 
   try {
     git("init", "--quiet", "--initial-branch=main");
-    writeFileSync(resolve(repository, "VERSION"), "0.1.0\n");
-    git("add", "VERSION");
+    const coreVersion = resolve(repository, "packages/java/core/VERSION");
+    mkdirSync(resolve(coreVersion, ".."), { recursive: true });
+    writeFileSync(coreVersion, "0.1.0\n");
+    git("add", "packages/java/core/VERSION");
     git("commit", "--quiet", "--message", "fixture");
     const commit = git("rev-parse", "HEAD").trimEnd();
     assert.equal(requireCommittedJavaReleaseInputs(repository), commit);
 
-    writeFileSync(resolve(repository, "VERSION"), "0.1.1\n");
+    writeFileSync(coreVersion, "0.1.1\n");
     assert.throws(() => requireCommittedJavaReleaseInputs(repository), {
       message: "Java release requires committed release inputs",
     });
 
-    writeFileSync(resolve(repository, "VERSION"), "0.1.0\n");
+    writeFileSync(coreVersion, "0.1.0\n");
     mkdirSync(resolve(repository, "tests/consumers/java"), { recursive: true });
     writeFileSync(resolve(repository, "tests/consumers/java/untracked"), "unsafe\n");
     assert.throws(() => requireCommittedJavaReleaseInputs(repository), {
@@ -204,7 +206,7 @@ test("accepts an exact Git HEAD and rejects tracked or untracked release input c
 
 test("the committed consumer closes Gauntlet resolution to the staged repository and pins transitives", () => {
   const directory = resolve(ROOT, "tests/consumers/java");
-  const version = readFileSync(resolve(ROOT, "VERSION"), "utf8").trimEnd();
+  const version = readFileSync(resolve(ROOT, "packages/java/core/VERSION"), "utf8").trimEnd();
   const expectedFiles = [
     "build.gradle.kts",
     "gradle.lockfile",

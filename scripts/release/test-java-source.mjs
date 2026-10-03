@@ -26,7 +26,7 @@ import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 
-import { parseReleaseVersion } from "./release-model.mjs";
+import { javaLockstepVersion } from "./release-model.mjs";
 import { MAVEN_TOOLCHAIN } from "./stage-maven.mjs";
 
 const ROOT = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), "../.."));
@@ -47,7 +47,6 @@ const MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
 const SOURCE_INPUTS = Object.freeze([
   "LICENSE",
   "NOTICE",
-  "VERSION",
   "packages/java",
   "packages/protocol/fixtures/v1",
 ]);
@@ -502,9 +501,7 @@ export async function runJavaSourceCheck(options = {}) {
   try {
     workspace = createWorkspace(temporaryDirectory);
     const capture = captureWorkingSource(root);
-    const versionRecord = capture.records.find(({ relativePath }) => relativePath === "VERSION");
-    if (versionRecord === undefined) throw new Error(FAILURE);
-    const version = parseReleaseVersion(versionRecord.bytes);
+    const version = javaLockstepVersion(capture.records);
     const source = resolve(workspace.root, "source");
     materializeSource(source, capture);
     for (const directory of [
