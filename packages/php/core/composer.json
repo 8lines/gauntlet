@@ -17,7 +17,7 @@
     "ext-json": "*",
     "ext-libxml": "*",
     "ext-mbstring": "*",
-    "onematrix/tracing-sdk": "1.1.0",
+    "onematrix/tracing-sdk": "1.2.0",
     "opis/json-schema": "2.6.0"
   },
   "require-dev": {

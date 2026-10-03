@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "abfa9af4065886fd13c26a57c77f0ec2",
+    "content-hash": "62d895068329c7576fb296d02894cfd1",
     "packages": [
         {
             "name": "onematrix/tracing-sdk",
-            "version": "1.1.0",
+            "version": "1.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/OneMatrixL1/tracing-sdk-php.git",
-                "reference": "a1592326fd45cb3e0f0aa8295cfbb2338de9855b"
+                "reference": "3a5e813284663159f28c452120fabb06f90803bf"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/OneMatrixL1/tracing-sdk-php/zipball/a1592326fd45cb3e0f0aa8295cfbb2338de9855b",
-                "reference": "a1592326fd45cb3e0f0aa8295cfbb2338de9855b",
+                "url": "https://api.github.com/repos/OneMatrixL1/tracing-sdk-php/zipball/3a5e813284663159f28c452120fabb06f90803bf",
+                "reference": "3a5e813284663159f28c452120fabb06f90803bf",
                 "shasum": ""
             },
             "require": {
@@ -48,9 +48,9 @@
             "description": "Tracing SDK: canonicalize (RFC 8785 JSON Canonicalization Scheme, or W3C C14N for XML) and hash (Keccak-256) data-integrity records, then send them to an Indexer service over HTTP.",
             "support": {
                 "issues": "https://github.com/OneMatrixL1/tracing-sdk-php/issues",
-                "source": "https://github.com/OneMatrixL1/tracing-sdk-php/tree/1.1.0"
+                "source": "https://github.com/OneMatrixL1/tracing-sdk-php/tree/1.2.0"
             },
-            "time": "2026-08-20T07:12:02+00:00"
+            "time": "2026-08-21T03:24:50+00:00"
         },
         {
             "name": "opis/json-schema",
