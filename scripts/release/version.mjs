@@ -6,6 +6,7 @@ import {
   collectVersionMismatches,
   parseReleaseVersion,
   readReleaseVersion,
+  readUnitVersions,
   setReleaseVersion,
 } from "./release-model.mjs";
 
@@ -70,6 +71,11 @@ export function runVersionCli(argv, { root = REPOSITORY_ROOT } = {}) {
     if (command.command === "check") {
       const version = readReleaseVersion(root);
       const mismatches = collectVersionMismatches(root, command.tag);
+      // stage, verify and dry-run parse stdout as exactly one JSON line, so the per-unit
+      // "<unit> <version>" lines travel inside that record instead of as extra output lines.
+      const units = mismatches.length === 0
+        ? [...readUnitVersions(root)].map(([id, unitVersion]) => `${id} ${unitVersion}`)
+        : [];
       return {
         exitCode: mismatches.length === 0 ? 0 : 1,
         stdout: jsonLine({
@@ -77,6 +83,7 @@ export function runVersionCli(argv, { root = REPOSITORY_ROOT } = {}) {
           mismatches,
           ok: mismatches.length === 0,
           tag: command.tag ?? null,
+          units,
           version,
         }),
         stderr: "",

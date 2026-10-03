@@ -20,7 +20,9 @@ import { join } from "node:path";
 import test from "node:test";
 
 import {
+  collectUnitVersionMismatches,
   collectVersionMismatches,
+  javaLockstepVersion,
   readReleaseVersion,
   RELEASE_ARTIFACTS,
   RELEASE_STAGE_ARTIFACT_COUNT,
@@ -28,6 +30,7 @@ import {
   parseReleaseVersion,
   setReleaseVersion,
 } from "../release-model.mjs";
+import { RELEASE_UNITS } from "../units.mjs";
 import { parseVersionCommand, runVersionCli } from "../version.mjs";
 
 const EXPECTED_ARTIFACTS = {
@@ -103,6 +106,20 @@ const RELEASE_TEXT_PATHS = [
   "docs/ai-skills.md",
 ];
 
+// Each release-text file with the units whose slots it holds, in slot order, and the slot count per unit.
+const RELEASE_TEXT_UNITS = [
+  ["tests/consumers/java/build.gradle.kts", [["spring-boot-starter", 1]]],
+  ["tests/consumers/java/gradle.lockfile", [["java-core", 1], ["spring-boot-starter", 1]]],
+  ["skills/gauntlet-app-integration/SKILL.md", [["skills", 1]]],
+  ["skills/gauntlet-app-integration/references/node.md", [["protocol", 1], ["typescript-core", 1], ["typescript-node", 1]]],
+  ["skills/gauntlet-app-integration/references/nextjs.md", [["protocol", 1], ["typescript-core", 1], ["next-adapter", 1]]],
+  ["skills/gauntlet-app-integration/references/symfony.md", [["php-core", 1]]],
+  ["skills/gauntlet-app-integration/references/spring.md", [["spring-boot-starter", 3]]],
+  ["skills/gauntlet-app-integration/references/deployment.md", [["gauntlet", 3]]],
+  ["skills/gauntlet-app-integration/references/safety-gates.md", [["gauntlet", 1]]],
+  ["docs/ai-skills.md", [["skills", 3]]],
+];
+
 const EXPECTED_UPDATE_PATHS = [
   "packages/protocol/package.json",
   "packages/dashboard-client/package.json",
@@ -121,7 +138,16 @@ const EXPECTED_UPDATE_PATHS = [
   "tests/consumers/php-core/composer.json",
   "tests/consumers/php-symfony/composer.json",
   ...RELEASE_TEXT_PATHS,
+  "packages/java/core/VERSION",
+  "packages/java/spring-boot-starter/VERSION",
+  "skills/VERSION",
   "VERSION",
+];
+
+const UNIT_VERSION_FILES = [
+  "packages/java/core/VERSION",
+  "packages/java/spring-boot-starter/VERSION",
+  "skills/VERSION",
 ];
 
 const GRADLE_VERSION_DERIVATION = `import java.nio.charset.StandardCharsets
@@ -212,7 +238,7 @@ function writeConsumerJsonFixtures(root, version) {
 
 function createVersionFixture(version = "0.1.0") {
   const root = mkdtempSync(join(tmpdir(), "gauntlet-release-model-"));
-  writeFixtureFile(root, "VERSION", `${version}\n`);
+  for (const path of ["VERSION", ...UNIT_VERSION_FILES]) writeFixtureFile(root, path, `${version}\n`);
   for (const [path, name] of PACKAGE_IDENTITIES) {
     writeFixtureFile(root, path, `${JSON.stringify({ name, version }, null, 2)}\n`);
   }
@@ -415,10 +441,36 @@ test("freezes the fifteen fixed release artifact identities and destinations", (
 test("publishes every release-text file in the frozen version-location inventory", () => {
   const releaseTextLocations = VERSION_LOCATIONS.filter(({ type }) => type === "release-text");
   assert.deepEqual(
-    releaseTextLocations.map(({ path, occurrences }) => [path, occurrences]),
-    RELEASE_TEXT_PATHS.map((path, index) => [path, [1, 2, 1, 3, 3, 1, 3, 3, 1, 3][index]]),
+    releaseTextLocations.map(({ path, unit, occurrences }) => [path, unit, occurrences]),
+    RELEASE_TEXT_UNITS.flatMap(([path, units]) => units.map(([unit, occurrences]) => [path, unit, occurrences])),
   );
+  assert.deepEqual(RELEASE_TEXT_UNITS.map(([path]) => path), RELEASE_TEXT_PATHS);
   assertDeeplyFrozen(VERSION_LOCATIONS);
+});
+
+test("binds every version location to a release unit", () => {
+  const unitIds = new Set(RELEASE_UNITS.map(({ id }) => id));
+  for (const location of VERSION_LOCATIONS) {
+    assert.equal(typeof location.unit, "string", location.path);
+    assert.equal(unitIds.has(location.unit), true, `${location.path} names ${location.unit}`);
+  }
+  const owner = (path, keyPath) =>
+    VERSION_LOCATIONS.find((location) => location.path === path && JSON.stringify(location.keyPath) === JSON.stringify(keyPath))?.unit;
+  assert.equal(owner("packages/protocol/package.json", ["version"]), "protocol");
+  assert.equal(owner("apps/server/package.json", ["version"]), "gauntlet");
+  assert.equal(owner("packages/php/symfony-bundle/composer.json", ["version"]), "symfony-bundle");
+  assert.equal(owner("packages/php/symfony-bundle/composer.json", ["require", "8lines/gauntlet-php-core"]), "php-core");
+  assert.equal(owner("tests/consumers/php-symfony/composer.json", ["require", "8lines/gauntlet-php-core"]), "php-core");
+  assert.equal(owner("tests/consumers/php-symfony/composer.json", ["require", "8lines/gauntlet-symfony-bundle"]), "symfony-bundle");
+  assert.deepEqual(
+    VERSION_LOCATIONS.filter(({ type }) => type === "file").map(({ path, unit }) => [path, unit]),
+    [
+      ["VERSION", "gauntlet"],
+      ["packages/java/core/VERSION", "java-core"],
+      ["packages/java/spring-boot-starter/VERSION", "spring-boot-starter"],
+      ["skills/VERSION", "skills"],
+    ],
+  );
 });
 
 test("reads the canonical VERSION bytes without trimming or fallback", () => {
@@ -444,8 +496,8 @@ test("reports stale and additional versions only in fixed release-text positions
   withVersionFixture((root) => {
     writeReleaseTextFixtures(root, "0.1.1");
 
-    assert.deepEqual(collectVersionMismatches(root), RELEASE_TEXT_PATHS.map(
-      (path) => `${path}: release references must equal VERSION 0.1.0`,
+    assert.deepEqual(collectVersionMismatches(root), RELEASE_TEXT_UNITS.flatMap(([path, units]) =>
+      units.map(([unit]) => `${path}: release references must equal ${unit} 0.1.0`),
     ));
   });
 
@@ -471,7 +523,7 @@ test("reports stale and additional versions only in fixed release-text positions
   });
 });
 
-test("reports every independently drifting version in fixed order", () => {
+test("reports every drifting slot against its own unit in fixed order, then the lockstep guard", () => {
   withVersionFixture((root) => {
     for (const [path, name] of PACKAGE_IDENTITIES) {
       writeFixtureFile(root, path, `${JSON.stringify({ name, version: "0.1.1" })}\n`);
@@ -508,27 +560,27 @@ test("reports every independently drifting version in fixed order", () => {
     writeConsumerJsonFixtures(root, "0.1.1");
     writeReleaseTextFixtures(root, "0.1.1");
 
+    // Everything the fixture rewrote to 0.1.1 is a self-consistent unit. The gauntlet,
+    // java-core, spring-boot-starter and skills units still say 0.1.0 in their own version files.
     assert.deepEqual(collectVersionMismatches(root), [
-      "packages/protocol/package.json: version must equal VERSION 0.1.0",
-      "packages/dashboard-client/package.json: version must equal VERSION 0.1.0",
-      "packages/typescript/core/package.json: version must equal VERSION 0.1.0",
-      "packages/typescript/node/package.json: version must equal VERSION 0.1.0",
-      "packages/typescript/next/package.json: version must equal VERSION 0.1.0",
-      "conformance/runner/package.json: version must equal VERSION 0.1.0",
-      "packages/widget/package.json: version must equal VERSION 0.1.0",
-      "apps/dashboard/package.json: version must equal VERSION 0.1.0",
-      "apps/server/package.json: version must equal VERSION 0.1.0",
-      "packages/php/core/composer.json: version must equal VERSION 0.1.0",
-      "packages/php/symfony-bundle/composer.json: version must equal VERSION 0.1.0",
-      "packages/php/symfony-bundle/composer.json: require.8lines/gauntlet-php-core must equal ^0.1.0",
-      "deploy/helm/gauntlet/Chart.yaml: version must equal VERSION 0.1.0",
-      "deploy/helm/gauntlet/Chart.yaml: appVersion must equal VERSION 0.1.0",
-      "deploy/helm/gauntlet/values.yaml: image.tag must equal VERSION 0.1.0",
+      "apps/dashboard/package.json: version must equal gauntlet 0.1.0",
+      "apps/server/package.json: version must equal gauntlet 0.1.0",
+      "deploy/helm/gauntlet/Chart.yaml: version must equal gauntlet 0.1.0",
+      "deploy/helm/gauntlet/Chart.yaml: appVersion must equal gauntlet 0.1.0",
+      "deploy/helm/gauntlet/values.yaml: image.tag must equal gauntlet 0.1.0",
       "deploy/compose/.env.example: GAUNTLET_IMAGE must equal ghcr.io/8lines/gauntlet:0.1.0",
-      "tests/consumers/php-core/composer.json: require.8lines/gauntlet-php-core must equal VERSION 0.1.0",
-      "tests/consumers/php-symfony/composer.json: require.8lines/gauntlet-php-core must equal VERSION 0.1.0",
-      "tests/consumers/php-symfony/composer.json: require.8lines/gauntlet-symfony-bundle must equal VERSION 0.1.0",
-      ...RELEASE_TEXT_PATHS.map((path) => `${path}: release references must equal VERSION 0.1.0`),
+      "tests/consumers/java/build.gradle.kts: release references must equal spring-boot-starter 0.1.0",
+      "tests/consumers/java/gradle.lockfile: release references must equal java-core 0.1.0",
+      "tests/consumers/java/gradle.lockfile: release references must equal spring-boot-starter 0.1.0",
+      "skills/gauntlet-app-integration/SKILL.md: release references must equal skills 0.1.0",
+      "skills/gauntlet-app-integration/references/spring.md: release references must equal spring-boot-starter 0.1.0",
+      "skills/gauntlet-app-integration/references/deployment.md: release references must equal gauntlet 0.1.0",
+      "skills/gauntlet-app-integration/references/safety-gates.md: release references must equal gauntlet 0.1.0",
+      "docs/ai-skills.md: release references must equal skills 0.1.0",
+      ...[
+        "protocol", "dashboard-client", "typescript-core", "typescript-node", "next-adapter", "conformance-runner",
+        "widget", "php-core", "symfony-bundle",
+      ].map((unit) => `${unit}: version 0.1.1 must equal VERSION 0.1.0 until plan-driven publishing`),
     ]);
   });
 });
@@ -1301,8 +1353,10 @@ test("returns bounded one-line JSON for checks, mismatches, sets, and invalid CL
       mismatches: [],
       ok: true,
       tag: "v0.1.0",
+      units: RELEASE_UNITS.map(({ id }) => `${id} 0.1.0`),
       version: "0.1.0",
     });
+    assert.equal(JSON.parse(checked.stdout).units.length, 13);
 
     writeFixtureFile(
       root,
@@ -1314,9 +1368,10 @@ test("returns bounded one-line JSON for checks, mismatches, sets, and invalid CL
     assert.equal(mismatched.stderr, "");
     assert.deepEqual(JSON.parse(mismatched.stdout), {
       command: "check",
-      mismatches: ["apps/server/package.json: version must equal VERSION 0.1.0"],
+      mismatches: ["apps/server/package.json: version must equal gauntlet 0.1.0"],
       ok: false,
       tag: null,
+      units: [],
       version: "0.1.0",
     });
 
@@ -1346,4 +1401,113 @@ test("returns bounded one-line JSON for checks, mismatches, sets, and invalid CL
   });
   assert.doesNotMatch(invalid.stderr, /SECRET_ROOT/);
   assert.equal(invalid.stderr.split("\n").length, 2);
+});
+
+test("a slot is checked against its own unit", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    writeFixtureFile(
+      root,
+      "packages/php/core/composer.json",
+      `${JSON.stringify({ name: "8lines/gauntlet-php-core", version: "0.1.9", require: { php: ">=8.5" } }, null, 2)}\n`,
+    );
+    const mismatches = collectUnitVersionMismatches(root);
+    assert.ok(mismatches.some((line) =>
+      line.startsWith("tests/consumers/php-core/composer.json") && line.includes("php-core 0.1.9")));
+    assert.ok(mismatches.some((line) =>
+      line === "packages/php/symfony-bundle/composer.json: require.8lines/gauntlet-php-core must equal ^0.1.9"));
+    assert.ok(mismatches.some((line) =>
+      line === "skills/gauntlet-app-integration/references/symfony.md: release references must equal php-core 0.1.9"));
+    assert.ok(!mismatches.some((line) => line.includes("symfony-bundle 0.1.9")));
+    assert.ok(!mismatches.some((line) => line.includes("gauntlet 0.1.9")));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a unit that moves alone is consistent for its own slots and only the lockstep guard objects", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    writeFixtureFile(root, "skills/VERSION", "0.1.9\n");
+    assert.deepEqual(collectUnitVersionMismatches(root), [
+      "skills/gauntlet-app-integration/SKILL.md: release references must equal skills 0.1.9",
+      "docs/ai-skills.md: release references must equal skills 0.1.9",
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the lockstep guard rejects diverged units until plan-driven publishing", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    writeFixtureFile(root, "skills/VERSION", "0.1.9\n");
+    assert.ok(collectVersionMismatches(root).some((line) =>
+      line.startsWith("skills: version 0.1.9 must equal VERSION 0.1.8")));
+    assert.ok(collectVersionMismatches(root).includes(
+      "skills: version 0.1.9 must equal VERSION 0.1.8 until plan-driven publishing",
+    ));
+    writeFixtureFile(root, "skills/VERSION", "0.1.8\n");
+    assert.deepEqual(collectVersionMismatches(root), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("an unreadable unit version file is reported once and does not cascade", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    rmSync(join(root, "packages/java/core/VERSION"));
+    assert.deepEqual(collectVersionMismatches(root), [
+      "packages/java/core/VERSION: canonical release version is missing or invalid",
+    ]);
+    writeFixtureFile(root, "packages/java/core/VERSION", "0.1.8\n");
+    writeFixtureFile(root, "packages/protocol/package.json", `${JSON.stringify({ name: "@8lines/gauntlet-protocol", version: "1.0" })}\n`);
+    assert.deepEqual(collectVersionMismatches(root), [
+      "packages/protocol/package.json: version must be a stable release version",
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("setReleaseVersion moves every unit and the new VERSION files together", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    const result = setReleaseVersion(root, "0.1.9");
+    assert.deepEqual(result.changedPaths, EXPECTED_UPDATE_PATHS);
+    assert.deepEqual(collectVersionMismatches(root, "v0.1.9"), []);
+    for (const path of ["VERSION", ...UNIT_VERSION_FILES]) {
+      assert.equal(readFileSync(join(root, path), "utf8"), "0.1.9\n", path);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("setReleaseVersion refuses a repository whose units have diverged", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    writeFixtureFile(root, "packages/java/core/VERSION", "0.1.9\n");
+    assert.throws(() => setReleaseVersion(root, "0.1.10"), /preflight failed/);
+    assert.equal(readFileSync(join(root, "VERSION"), "utf8"), "0.1.8\n");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("javaLockstepVersion needs both Java VERSION records and rejects a mismatch", () => {
+  const core = "packages/java/core/VERSION";
+  const starter = "packages/java/spring-boot-starter/VERSION";
+  const record = (relativePath, version) => ({ relativePath, bytes: Buffer.from(`${version}\n`, "ascii") });
+  const error = "Release version must be an exact stable ASCII semantic version followed by one LF";
+
+  assert.equal(javaLockstepVersion([record(core, "0.1.8"), record(starter, "0.1.8")]), "0.1.8");
+  assert.throws(() => javaLockstepVersion([record(core, "0.1.8"), record(starter, "0.1.9")]), { message: error });
+  assert.throws(() => javaLockstepVersion([record(core, "0.1.8")]), { message: error });
+  assert.throws(() => javaLockstepVersion([record(starter, "0.1.8")]), { message: error });
+  assert.throws(() => javaLockstepVersion([]), { message: error });
+  assert.throws(() => javaLockstepVersion([record(core, "0.1.8"), { relativePath: starter, bytes: Buffer.from("0.1.8") }]), {
+    message: error,
+  });
 });

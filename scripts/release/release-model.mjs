@@ -379,7 +379,7 @@ function hasGradleVersionContract(source) {
   return requiredFragments.every((fragment) => source.includes(fragment)) && !source.includes("SNAPSHOT") && !/version\s*=\s*"/.test(source);
 }
 
-function pushJsonChecks(mismatches, root, { path, name, version, constraint }) {
+function pushJsonChecks(mismatches, root, { path, name, unit, version, constraint }) {
   let manifest;
   try {
     manifest = parseJsonManifest(root, path);
@@ -391,7 +391,10 @@ function pushJsonChecks(mismatches, root, { path, name, version, constraint }) {
   if (nameNode?.type !== "string" || nameNode.value !== name) mismatches.push(`${path}: name must equal ${name}`);
   const versionNode = jsonNodeAt(manifest.document, ["version"]);
   if (versionNode?.type !== "string") mismatches.push(`${path}: version must be a string`);
-  else if (version !== undefined && versionNode.value !== version) mismatches.push(`${path}: version must equal VERSION ${version}`);
+  else if (version !== undefined && versionNode.value !== version) mismatches.push(`${path}: version must equal ${unit} ${version}`);
+  else if (version === undefined && unitById(unit).version.path === path) {
+    mismatches.push(`${path}: version must be a stable release version`);
+  }
   if (constraint !== undefined) {
     const constraintNode = jsonNodeAt(manifest.document, ["require", "8lines/gauntlet-php-core"]);
     if (constraintNode?.type !== "string" || constraintNode.value !== `^${constraint}`) {
@@ -400,21 +403,43 @@ function pushJsonChecks(mismatches, root, { path, name, version, constraint }) {
   }
 }
 
+// Every JSON manifest that carries its own version, bound to the release unit that owns it.
+const ARTIFACT_UNIT = new Map(RELEASE_UNITS.flatMap(({ id, artifacts }) => artifacts.map((artifact) => [artifact, id])));
+
+function unitForArtifact(name) {
+  const id = ARTIFACT_UNIT.get(name);
+  if (id === undefined) throw new Error("Release artifact has no release unit");
+  return id;
+}
+
+const RELEASE_JSON_MANIFESTS = deeplyFreeze([
+  ...RELEASE_ARTIFACTS.npm.map(({ name, directory }) => ({ path: `${directory}/package.json`, name, unit: unitForArtifact(name) })),
+  { path: "apps/dashboard/package.json", name: "@8lines/gauntlet-dashboard", unit: "gauntlet" },
+  { path: "apps/server/package.json", name: "@8lines/gauntlet-server", unit: "gauntlet" },
+  { path: "packages/php/core/composer.json", name: "8lines/gauntlet-php-core", unit: "php-core" },
+  {
+    path: "packages/php/symfony-bundle/composer.json",
+    name: "8lines/gauntlet-symfony-bundle",
+    unit: "symfony-bundle",
+    constraintUnit: "php-core",
+  },
+]);
+
 const RELEASE_CONSUMER_JSON_FILES = deeplyFreeze([
   {
     path: "tests/consumers/php-core/composer.json",
-    keyPaths: [["require", "8lines/gauntlet-php-core"]],
+    keyPaths: [{ keyPath: ["require", "8lines/gauntlet-php-core"], unit: "php-core" }],
   },
   {
     path: "tests/consumers/php-symfony/composer.json",
     keyPaths: [
-      ["require", "8lines/gauntlet-php-core"],
-      ["require", "8lines/gauntlet-symfony-bundle"],
+      { keyPath: ["require", "8lines/gauntlet-php-core"], unit: "php-core" },
+      { keyPath: ["require", "8lines/gauntlet-symfony-bundle"], unit: "symfony-bundle" },
     ],
   },
 ]);
 
-function pushConsumerJsonChecks(mismatches, root, { path, keyPaths }, version) {
+function pushConsumerJsonChecks(mismatches, root, { path, keyPaths }, versions) {
   let manifest;
   try {
     manifest = parseJsonManifest(root, path);
@@ -422,10 +447,12 @@ function pushConsumerJsonChecks(mismatches, root, { path, keyPaths }, version) {
     mismatches.push(`${path}: release references are missing or malformed`);
     return;
   }
-  for (const keyPath of keyPaths) {
+  for (const { keyPath, unit } of keyPaths) {
+    const version = versions.get(unit);
+    if (version === undefined) continue;
     const node = jsonNodeAt(manifest.document, keyPath);
     if (node?.type !== "string" || node.value !== version) {
-      mismatches.push(`${path}: ${keyPath.join(".")} must equal VERSION ${version}`);
+      mismatches.push(`${path}: ${keyPath.join(".")} must equal ${unit} ${version}`);
     }
   }
 }
@@ -433,75 +460,76 @@ function pushConsumerJsonChecks(mismatches, root, { path, keyPaths }, version) {
 const RELEASE_TEXT_FILES = deeplyFreeze([
   {
     path: "tests/consumers/java/build.gradle.kts",
-    slots: [{ prefix: "implementation(\"dev.eightlines.gauntlet:spring-boot-starter:", suffix: "\")" }],
+    slots: [{ unit: "spring-boot-starter", prefix: "implementation(\"dev.eightlines.gauntlet:spring-boot-starter:", suffix: "\")" }],
   },
   {
     path: "tests/consumers/java/gradle.lockfile",
     slots: [
-      { prefix: "dev.eightlines.gauntlet:core:", suffix: "=" },
-      { prefix: "dev.eightlines.gauntlet:spring-boot-starter:", suffix: "=" },
+      { unit: "java-core", prefix: "dev.eightlines.gauntlet:core:", suffix: "=" },
+      { unit: "spring-boot-starter", prefix: "dev.eightlines.gauntlet:spring-boot-starter:", suffix: "=" },
     ],
   },
   {
     path: "skills/gauntlet-app-integration/SKILL.md",
-    slots: [{ prefix: "Consume exact `", suffix: "` artifacts;" }],
+    slots: [{ unit: "skills", prefix: "Consume exact `", suffix: "` artifacts;" }],
   },
   {
     path: "skills/gauntlet-app-integration/references/node.md",
     slots: [
-      { prefix: "@8lines/gauntlet-protocol@", suffix: " \\\n" },
-      { prefix: "@8lines/gauntlet-typescript-core@", suffix: " \\\n" },
-      { prefix: "@8lines/gauntlet-typescript-node@", suffix: "\n" },
+      { unit: "protocol", prefix: "@8lines/gauntlet-protocol@", suffix: " \\\n" },
+      { unit: "typescript-core", prefix: "@8lines/gauntlet-typescript-core@", suffix: " \\\n" },
+      { unit: "typescript-node", prefix: "@8lines/gauntlet-typescript-node@", suffix: "\n" },
     ],
   },
   {
     path: "skills/gauntlet-app-integration/references/nextjs.md",
     slots: [
-      { prefix: "@8lines/gauntlet-protocol@", suffix: " \\\n" },
-      { prefix: "@8lines/gauntlet-typescript-core@", suffix: " \\\n" },
-      { prefix: "@8lines/gauntlet-next-adapter@", suffix: "\n" },
+      { unit: "protocol", prefix: "@8lines/gauntlet-protocol@", suffix: " \\\n" },
+      { unit: "typescript-core", prefix: "@8lines/gauntlet-typescript-core@", suffix: " \\\n" },
+      { unit: "next-adapter", prefix: "@8lines/gauntlet-next-adapter@", suffix: "\n" },
     ],
   },
   {
     path: "skills/gauntlet-app-integration/references/symfony.md",
-    slots: [{ prefix: "install exact release `", suffix: "` of `8lines/gauntlet-php-core`" }],
+    slots: [{ unit: "php-core", prefix: "install exact release `", suffix: "` of `8lines/gauntlet-php-core`" }],
   },
   {
     path: "skills/gauntlet-app-integration/references/spring.md",
     slots: [
-      { prefix: "implementation(\"dev.eightlines.gauntlet:spring-boot-starter:", suffix: "\")" },
-      { prefix: "Prefer released `", suffix: "` metadata" },
-      { prefix: "reject `", suffix: "-SNAPSHOT` coordinates" },
+      { unit: "spring-boot-starter", prefix: "implementation(\"dev.eightlines.gauntlet:spring-boot-starter:", suffix: "\")" },
+      { unit: "spring-boot-starter", prefix: "Prefer released `", suffix: "` metadata" },
+      { unit: "spring-boot-starter", prefix: "reject `", suffix: "-SNAPSHOT` coordinates" },
     ],
   },
   {
     path: "skills/gauntlet-app-integration/references/deployment.md",
     slots: [
-      { prefix: "Use exact image `ghcr.io/8lines/gauntlet:", suffix: "` or an approved digest." },
+      { unit: "gauntlet", prefix: "Use exact image `ghcr.io/8lines/gauntlet:", suffix: "` or an approved digest." },
       {
+        unit: "gauntlet",
         prefix: "Use exact chart `oci://ghcr.io/8lines/charts/gauntlet` version `",
         suffix: "` and exact image",
       },
-      { prefix: "and exact image `", suffix: "` or a reviewed digest." },
+      { unit: "gauntlet", prefix: "and exact image `", suffix: "` or a reviewed digest." },
     ],
   },
   {
     path: "skills/gauntlet-app-integration/references/safety-gates.md",
-    slots: [{ prefix: "Version `", suffix: "` has no built-in Gauntlet authentication" }],
+    slots: [{ unit: "gauntlet", prefix: "Version `", suffix: "` has no built-in Gauntlet authentication" }],
   },
   {
     path: "docs/ai-skills.md",
     slots: [
-      { prefix: "contains `gauntlet-skills-", suffix: ".tgz` and records" },
-      { prefix: "tar -xzf gauntlet-skills-", suffix: ".tgz -C" },
-      { prefix: "skills_archive_root=\"$skills_unpack/gauntlet-skills-", suffix: "\"" },
+      { unit: "skills", prefix: "contains `gauntlet-skills-", suffix: ".tgz` and records" },
+      { unit: "skills", prefix: "tar -xzf gauntlet-skills-", suffix: ".tgz -C" },
+      { unit: "skills", prefix: "skills_archive_root=\"$skills_unpack/gauntlet-skills-", suffix: "\"" },
     ],
   },
 ]);
 
 function releaseTextSpans(source, slots) {
   const spans = [];
-  for (const { prefix, suffix } of slots) {
+  for (const { unit, prefix, suffix } of slots) {
     const matches = [];
     let searchFrom = 0;
     while (searchFrom < source.length) {
@@ -516,7 +544,7 @@ function releaseTextSpans(source, slots) {
       } catch {
         throw new Error("Release text reference is malformed");
       }
-      matches.push({ start, end, value });
+      matches.push({ start, end, value, unit });
       searchFrom = end + suffix.length;
     }
     if (matches.length !== 1) throw new Error("Release text reference is missing or duplicated");
@@ -530,7 +558,7 @@ function releaseTextSpans(source, slots) {
   return spans;
 }
 
-function pushReleaseTextChecks(mismatches, root, { path, slots }, version) {
+function pushReleaseTextChecks(mismatches, root, { path, slots }, versions) {
   let spans;
   try {
     const manifest = readManifest(root, path);
@@ -539,8 +567,13 @@ function pushReleaseTextChecks(mismatches, root, { path, slots }, version) {
     mismatches.push(`${path}: release references are missing or malformed`);
     return;
   }
-  if (version !== undefined && spans.some(({ value }) => value !== version)) {
-    mismatches.push(`${path}: release references must equal VERSION ${version}`);
+  const reported = new Set();
+  for (const { unit, value } of spans) {
+    const version = versions.get(unit);
+    if (version !== undefined && value !== version && !reported.has(unit)) {
+      reported.add(unit);
+      mismatches.push(`${path}: release references must equal ${unit} ${version}`);
+    }
   }
 }
 
@@ -591,43 +624,38 @@ export function readUnitVersions(root) {
   return new Map(RELEASE_UNITS.map(({ id }) => [id, readUnitVersion(root, id)]));
 }
 
-export function collectVersionMismatches(root, expectedTag) {
+// Until plan-driven publishing exists, every unit is still released at the application version.
+export const LOCKSTEP_RELEASES = true;
+
+function readableUnitVersions(root) {
+  const versions = new Map();
+  for (const { id } of RELEASE_UNITS) {
+    try {
+      versions.set(id, readUnitVersion(root, id));
+    } catch {}
+  }
+  return versions;
+}
+
+function inspectUnitVersions(root) {
   const mismatches = [];
-  let version;
-  try {
-    version = readReleaseVersion(root);
-  } catch {
-    mismatches.push("VERSION: canonical release version is missing or invalid");
+  const versions = readableUnitVersions(root);
+  for (const { id, version } of RELEASE_UNITS) {
+    if (version.type === "file" && !versions.has(id)) {
+      mismatches.push(`${version.path}: canonical release version is missing or invalid`);
+    }
   }
+  const imageVersion = versions.get("gauntlet");
 
-  if (expectedTag !== undefined && expectedTag !== `v${version ?? ""}`) {
-    mismatches.push(`tag: must equal ${version === undefined ? "vVERSION" : `v${version}`}`);
+  for (const { path, name, unit, constraintUnit } of RELEASE_JSON_MANIFESTS) {
+    pushJsonChecks(mismatches, root, {
+      path,
+      name,
+      unit,
+      version: versions.get(unit),
+      constraint: constraintUnit === undefined ? undefined : versions.get(constraintUnit),
+    });
   }
-
-  for (const { name, directory } of RELEASE_ARTIFACTS.npm) {
-    pushJsonChecks(mismatches, root, { path: `${directory}/package.json`, name, version });
-  }
-  pushJsonChecks(mismatches, root, {
-    path: "apps/dashboard/package.json",
-    name: "@8lines/gauntlet-dashboard",
-    version,
-  });
-  pushJsonChecks(mismatches, root, {
-    path: "apps/server/package.json",
-    name: "@8lines/gauntlet-server",
-    version,
-  });
-  pushJsonChecks(mismatches, root, {
-    path: "packages/php/core/composer.json",
-    name: "8lines/gauntlet-php-core",
-    version,
-  });
-  pushJsonChecks(mismatches, root, {
-    path: "packages/php/symfony-bundle/composer.json",
-    name: "8lines/gauntlet-symfony-bundle",
-    version,
-    constraint: version,
-  });
 
   try {
     const gradle = readManifest(root, "packages/java/build.gradle.kts");
@@ -647,12 +675,12 @@ export function collectVersionMismatches(root, expectedTag) {
       mismatches.push("deploy/helm/gauntlet/Chart.yaml: name must equal gauntlet");
     }
     if (chartVersion.type !== "string") mismatches.push("deploy/helm/gauntlet/Chart.yaml: version must be a string");
-    else if (version !== undefined && chartVersion.value !== version) {
-      mismatches.push(`deploy/helm/gauntlet/Chart.yaml: version must equal VERSION ${version}`);
+    else if (imageVersion !== undefined && chartVersion.value !== imageVersion) {
+      mismatches.push(`deploy/helm/gauntlet/Chart.yaml: version must equal gauntlet ${imageVersion}`);
     }
     if (appVersion.type !== "string") mismatches.push("deploy/helm/gauntlet/Chart.yaml: appVersion must be a string");
-    else if (version !== undefined && appVersion.value !== version) {
-      mismatches.push(`deploy/helm/gauntlet/Chart.yaml: appVersion must equal VERSION ${version}`);
+    else if (imageVersion !== undefined && appVersion.value !== imageVersion) {
+      mismatches.push(`deploy/helm/gauntlet/Chart.yaml: appVersion must equal gauntlet ${imageVersion}`);
     }
   } catch {
     mismatches.push("deploy/helm/gauntlet/Chart.yaml: manifest is malformed");
@@ -666,8 +694,8 @@ export function collectVersionMismatches(root, expectedTag) {
       mismatches.push("deploy/helm/gauntlet/values.yaml: image.repository must equal ghcr.io/8lines/gauntlet");
     }
     if (tag.type !== "string") mismatches.push("deploy/helm/gauntlet/values.yaml: image.tag must be a string");
-    else if (version !== undefined && tag.value !== version) {
-      mismatches.push(`deploy/helm/gauntlet/values.yaml: image.tag must equal VERSION ${version}`);
+    else if (imageVersion !== undefined && tag.value !== imageVersion) {
+      mismatches.push(`deploy/helm/gauntlet/values.yaml: image.tag must equal gauntlet ${imageVersion}`);
     }
   } catch {
     mismatches.push("deploy/helm/gauntlet/values.yaml: manifest is malformed");
@@ -675,7 +703,7 @@ export function collectVersionMismatches(root, expectedTag) {
 
   try {
     const compose = parseComposeEnvironment(root);
-    const expectedImage = version === undefined ? undefined : `${RELEASE_ARTIFACTS.image.name}:${version}`;
+    const expectedImage = imageVersion === undefined ? undefined : `${RELEASE_ARTIFACTS.image.name}:${imageVersion}`;
     if (expectedImage !== undefined && compose.image !== expectedImage) {
       mismatches.push(`deploy/compose/.env.example: GAUNTLET_IMAGE must equal ${expectedImage}`);
     }
@@ -683,43 +711,77 @@ export function collectVersionMismatches(root, expectedTag) {
     mismatches.push("deploy/compose/.env.example: manifest is malformed");
   }
 
-  for (const file of RELEASE_CONSUMER_JSON_FILES) pushConsumerJsonChecks(mismatches, root, file, version);
-  for (const file of RELEASE_TEXT_FILES) pushReleaseTextChecks(mismatches, root, file, version);
+  for (const file of RELEASE_CONSUMER_JSON_FILES) pushConsumerJsonChecks(mismatches, root, file, versions);
+  for (const file of RELEASE_TEXT_FILES) pushReleaseTextChecks(mismatches, root, file, versions);
+
+  return { mismatches, versions };
+}
+
+export function collectUnitVersionMismatches(root) {
+  return inspectUnitVersions(root).mismatches;
+}
+
+export function collectVersionMismatches(root, expectedTag) {
+  const { mismatches, versions } = inspectUnitVersions(root);
+  const applicationVersion = versions.get("gauntlet");
+
+  if (expectedTag !== undefined && expectedTag !== `v${applicationVersion ?? ""}`) {
+    mismatches.push(`tag: must equal ${applicationVersion === undefined ? "vVERSION" : `v${applicationVersion}`}`);
+  }
+
+  if (LOCKSTEP_RELEASES && applicationVersion !== undefined) {
+    for (const [id, version] of versions) {
+      if (version !== applicationVersion) {
+        mismatches.push(`${id}: version ${version} must equal VERSION ${applicationVersion} until plan-driven publishing`);
+      }
+    }
+  }
 
   return mismatches;
 }
 
 export const VERSION_LOCATIONS = deeplyFreeze([
-  ...RELEASE_ARTIFACTS.npm.map(({ directory }) => ({ type: "json", path: `${directory}/package.json`, keyPath: ["version"] })),
-  { type: "json", path: "apps/dashboard/package.json", keyPath: ["version"] },
-  { type: "json", path: "apps/server/package.json", keyPath: ["version"] },
-  { type: "json", path: "packages/php/core/composer.json", keyPath: ["version"] },
-  { type: "json", path: "packages/php/symfony-bundle/composer.json", keyPath: ["version"] },
+  ...RELEASE_UNITS.filter(({ version }) => version.type === "file").map(({ id, version }) => ({
+    type: "file",
+    path: version.path,
+    unit: id,
+  })),
+  ...RELEASE_JSON_MANIFESTS.map(({ path, unit }) => ({ type: "json", path, keyPath: ["version"], unit })),
   {
     type: "json-constraint",
     path: "packages/php/symfony-bundle/composer.json",
     keyPath: ["require", "8lines/gauntlet-php-core"],
+    unit: "php-core",
   },
-  { type: "yaml", path: "deploy/helm/gauntlet/Chart.yaml", keyPath: ["version"] },
-  { type: "yaml", path: "deploy/helm/gauntlet/Chart.yaml", keyPath: ["appVersion"] },
-  { type: "yaml", path: "deploy/helm/gauntlet/values.yaml", keyPath: ["image", "tag"] },
-  { type: "dotenv-image", path: "deploy/compose/.env.example", keyPath: ["GAUNTLET_IMAGE"] },
+  { type: "yaml", path: "deploy/helm/gauntlet/Chart.yaml", keyPath: ["version"], unit: "gauntlet" },
+  { type: "yaml", path: "deploy/helm/gauntlet/Chart.yaml", keyPath: ["appVersion"], unit: "gauntlet" },
+  { type: "yaml", path: "deploy/helm/gauntlet/values.yaml", keyPath: ["image", "tag"], unit: "gauntlet" },
+  { type: "dotenv-image", path: "deploy/compose/.env.example", keyPath: ["GAUNTLET_IMAGE"], unit: "gauntlet" },
   ...RELEASE_CONSUMER_JSON_FILES.flatMap(({ path, keyPaths }) =>
-    keyPaths.map((keyPath) => ({ type: "json", path, keyPath }))),
-  ...RELEASE_TEXT_FILES.map(({ path, slots }) => ({ type: "release-text", path, occurrences: slots.length })),
+    keyPaths.map(({ keyPath, unit }) => ({ type: "json", path, keyPath, unit }))),
+  // A text file can mention several units, so it is listed once per unit it mentions.
+  ...RELEASE_TEXT_FILES.flatMap(({ path, slots }) =>
+    [...new Set(slots.map(({ unit }) => unit))].map((unit) => ({
+      type: "release-text",
+      path,
+      unit,
+      occurrences: slots.filter((slot) => slot.unit === unit).length,
+    }))),
 ]);
 
+// Version files owned by units other than the application; VERSION itself is promoted last.
+const UNIT_VERSION_FILE_PATHS = RELEASE_UNITS
+  .filter(({ version }) => version.type === "file" && version.path !== "VERSION")
+  .map(({ version }) => version.path);
+
 const UPDATE_PATHS = [
-  ...RELEASE_ARTIFACTS.npm.map(({ directory }) => `${directory}/package.json`),
-  "apps/dashboard/package.json",
-  "apps/server/package.json",
-  "packages/php/core/composer.json",
-  "packages/php/symfony-bundle/composer.json",
+  ...RELEASE_JSON_MANIFESTS.map(({ path }) => path),
   "deploy/helm/gauntlet/Chart.yaml",
   "deploy/helm/gauntlet/values.yaml",
   "deploy/compose/.env.example",
   ...RELEASE_CONSUMER_JSON_FILES.map(({ path }) => path),
   ...RELEASE_TEXT_FILES.map(({ path }) => path),
+  ...UNIT_VERSION_FILE_PATHS,
   "VERSION",
 ];
 
@@ -861,34 +923,31 @@ function prepareReleaseTextFile(root, { path, slots }, currentVersion, nextVersi
   return { ...manifest, path, nextBytes: Buffer.from(nextSource, "utf8") };
 }
 
-function prepareVersionFile(root, currentVersion, nextVersion) {
-  const manifest = readManifest(root, "VERSION");
+function prepareVersionFile(root, path, currentVersion, nextVersion) {
+  const manifest = readManifest(root, path);
   if (parseReleaseVersion(manifest.bytes) !== currentVersion) throw new Error("Unexpected VERSION scalar");
-  return { ...manifest, path: "VERSION", nextBytes: Buffer.from(`${nextVersion}\n`, "ascii") };
+  return { ...manifest, path, nextBytes: Buffer.from(`${nextVersion}\n`, "ascii") };
 }
 
 function prepareReleaseUpdate(root, currentVersion, nextVersion) {
   const initialSafety = new Map(UPDATE_PATHS.map((path) => [path, assertSafeReleaseFile(root, path)]));
 
   const prepared = [
-    ...RELEASE_ARTIFACTS.npm.map(({ directory }) =>
-      prepareJsonFile(root, `${directory}/package.json`, currentVersion, nextVersion, [{ keyPath: ["version"] }]),
+    ...RELEASE_JSON_MANIFESTS.map(({ path, constraintUnit }) =>
+      prepareJsonFile(root, path, currentVersion, nextVersion, [
+        { keyPath: ["version"] },
+        ...(constraintUnit === undefined ? [] : [{ keyPath: ["require", "8lines/gauntlet-php-core"], constraint: true }]),
+      ]),
     ),
-    prepareJsonFile(root, "apps/dashboard/package.json", currentVersion, nextVersion, [{ keyPath: ["version"] }]),
-    prepareJsonFile(root, "apps/server/package.json", currentVersion, nextVersion, [{ keyPath: ["version"] }]),
-    prepareJsonFile(root, "packages/php/core/composer.json", currentVersion, nextVersion, [{ keyPath: ["version"] }]),
-    prepareJsonFile(root, "packages/php/symfony-bundle/composer.json", currentVersion, nextVersion, [
-      { keyPath: ["version"] },
-      { keyPath: ["require", "8lines/gauntlet-php-core"], constraint: true },
-    ]),
     prepareYamlFile(root, "deploy/helm/gauntlet/Chart.yaml", currentVersion, nextVersion, [["version"], ["appVersion"]]),
     prepareYamlFile(root, "deploy/helm/gauntlet/values.yaml", currentVersion, nextVersion, [["image", "tag"]]),
     prepareComposeFile(root, currentVersion, nextVersion),
     ...RELEASE_CONSUMER_JSON_FILES.map(({ path, keyPaths }) =>
-      prepareJsonFile(root, path, currentVersion, nextVersion, keyPaths.map((keyPath) => ({ keyPath }))),
+      prepareJsonFile(root, path, currentVersion, nextVersion, keyPaths.map(({ keyPath }) => ({ keyPath }))),
     ),
     ...RELEASE_TEXT_FILES.map((file) => prepareReleaseTextFile(root, file, currentVersion, nextVersion)),
-    prepareVersionFile(root, currentVersion, nextVersion),
+    ...UNIT_VERSION_FILE_PATHS.map((path) => prepareVersionFile(root, path, currentVersion, nextVersion)),
+    prepareVersionFile(root, "VERSION", currentVersion, nextVersion),
   ];
 
   if (prepared.map(({ path }) => path).join("\0") !== UPDATE_PATHS.join("\0")) {
