@@ -632,7 +632,9 @@ function readableUnitVersions(root) {
   for (const { id } of RELEASE_UNITS) {
     try {
       versions.set(id, readUnitVersion(root, id));
-    } catch {}
+    } catch {
+      // An unreadable unit is simply absent; inspectUnitVersions reports file-sourced ones once.
+    }
   }
   return versions;
 }

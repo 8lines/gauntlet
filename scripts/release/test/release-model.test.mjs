@@ -1411,15 +1411,27 @@ test("a slot is checked against its own unit", () => {
       "packages/php/core/composer.json",
       `${JSON.stringify({ name: "8lines/gauntlet-php-core", version: "0.1.9", require: { php: ">=8.5" } }, null, 2)}\n`,
     );
-    const mismatches = collectUnitVersionMismatches(root);
-    assert.ok(mismatches.some((line) =>
-      line.startsWith("tests/consumers/php-core/composer.json") && line.includes("php-core 0.1.9")));
-    assert.ok(mismatches.some((line) =>
-      line === "packages/php/symfony-bundle/composer.json: require.8lines/gauntlet-php-core must equal ^0.1.9"));
-    assert.ok(mismatches.some((line) =>
-      line === "skills/gauntlet-app-integration/references/symfony.md: release references must equal php-core 0.1.9"));
-    assert.ok(!mismatches.some((line) => line.includes("symfony-bundle 0.1.9")));
-    assert.ok(!mismatches.some((line) => line.includes("gauntlet 0.1.9")));
+    // Only php-core moved: its three consumers follow it, while the symfony-bundle key in the
+    // php-symfony consumer and the starter/core Java slots stay with their own unit.
+    assert.deepEqual(collectUnitVersionMismatches(root), [
+      "packages/php/symfony-bundle/composer.json: require.8lines/gauntlet-php-core must equal ^0.1.9",
+      "tests/consumers/php-core/composer.json: require.8lines/gauntlet-php-core must equal php-core 0.1.9",
+      "tests/consumers/php-symfony/composer.json: require.8lines/gauntlet-php-core must equal php-core 0.1.9",
+      "skills/gauntlet-app-integration/references/symfony.md: release references must equal php-core 0.1.9",
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a Java core move changes only the lockfile core slot, never the starter slots", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    writeFixtureFile(root, "packages/java/core/VERSION", "0.1.9\n");
+    // The starter slots in build.gradle.kts, gradle.lockfile and spring.md stay bound to spring-boot-starter.
+    assert.deepEqual(collectUnitVersionMismatches(root), [
+      "tests/consumers/java/gradle.lockfile: release references must equal java-core 0.1.9",
+    ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
