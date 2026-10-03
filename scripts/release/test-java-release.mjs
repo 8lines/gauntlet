@@ -17,8 +17,8 @@ import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 
-import { javaLockstepVersion, parseReleaseVersion } from "./release-model.mjs";
-import { MAVEN_TOOLCHAIN, publishMavenLocally } from "./stage-maven.mjs";
+import { parseReleaseVersion } from "./release-model.mjs";
+import { MAVEN_TOOLCHAIN, MAVEN_UNIT_IDS, publishMavenLocally } from "./stage-maven.mjs";
 
 const ROOT = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), "../.."));
 const FAILURE = "Java release verification failed safely";
@@ -58,6 +58,10 @@ const EXPECTED_ARTIFACTS = Object.freeze([
   "dev.eightlines.gauntlet:core",
   "dev.eightlines.gauntlet:spring-boot-starter",
 ]);
+const JAVA_VERSION_PATHS = Object.freeze({
+  "java-core": "packages/java/core/VERSION",
+  "spring-boot-starter": "packages/java/spring-boot-starter/VERSION",
+});
 const DISTRIBUTION_NAME = "gauntlet-published-java-consumer";
 const PRIVATE_MODE = 0o700;
 
@@ -75,7 +79,7 @@ function closedPlanOptions(options) {
       || ![Object.prototype, null].includes(Object.getPrototypeOf(options))) invalidPlan();
   const descriptors = Object.getOwnPropertyDescriptors(options);
   const keys = Reflect.ownKeys(descriptors);
-  const expected = ["sandbox", "version", "uid", "gid"];
+  const expected = ["sandbox", "versions", "uid", "gid"];
   if (keys.length !== expected.length || expected.some((key) => !keys.includes(key))
       || keys.some((key) => typeof key !== "string" || !expected.includes(key)
         || descriptors[key].enumerable !== true || !("value" in descriptors[key]))) invalidPlan();
@@ -148,6 +152,31 @@ function freezeStep(step) {
   return Object.freeze(step);
 }
 
+function validJavaVersions(value) {
+  try {
+    if (value === null || typeof value !== "object" || Array.isArray(value) || utilTypes.isProxy(value)
+        || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) return undefined;
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const keys = Reflect.ownKeys(descriptors);
+    if (keys.length !== MAVEN_UNIT_IDS.length
+        || keys.some((key) => typeof key !== "string" || !MAVEN_UNIT_IDS.includes(key)
+          || descriptors[key].enumerable !== true || !("value" in descriptors[key])
+          || !validReleaseVersion(descriptors[key].value))) return undefined;
+    return Object.freeze(Object.fromEntries(MAVEN_UNIT_IDS.map((id) => [id, descriptors[id].value])));
+  } catch {
+    return undefined;
+  }
+}
+
+// Each Java unit is released at the version in its own VERSION file; the versions may diverge.
+function javaUnitVersions(records) {
+  return Object.freeze(Object.fromEntries(MAVEN_UNIT_IDS.map((id) => {
+    const record = records.find(({ relativePath }) => relativePath === JAVA_VERSION_PATHS[id]);
+    if (record === undefined) fail();
+    return [id, parseReleaseVersion(record.bytes)];
+  })));
+}
+
 function validReleaseVersion(value) {
   if (typeof value !== "string") return false;
   try {
@@ -165,7 +194,7 @@ function closedFixtureOptions(options) {
   if (options === null || typeof options !== "object" || Array.isArray(options)
       || utilTypes.isProxy(options)
       || ![Object.prototype, null].includes(Object.getPrototypeOf(options))) invalidFixture();
-  const expected = ["settings", "build", "lock", "source", "version"];
+  const expected = ["settings", "build", "lock", "source", "versions"];
   const descriptors = Object.getOwnPropertyDescriptors(options);
   const keys = Reflect.ownKeys(descriptors);
   if (keys.length !== expected.length || expected.some((key) => !keys.includes(key))
@@ -175,10 +204,11 @@ function closedFixtureOptions(options) {
 }
 
 export function validateJavaConsumerFixture(options) {
-  const { settings, build, lock, source, version } = closedFixtureOptions(options);
+  const { settings, build, lock, source, versions: candidateVersions } = closedFixtureOptions(options);
+  const versions = validJavaVersions(candidateVersions);
   if (![settings, build, lock, source].every((value) => typeof value === "string"
       && value.length > 0 && value.length <= 1024 * 1024 && value.endsWith("\n")
-      && !value.includes("\0") && !value.includes("\r")) || !validReleaseVersion(version)) invalidFixture();
+      && !value.includes("\0") && !value.includes("\r")) || versions === undefined) invalidFixture();
   const executableInputs = `${settings}\n${build}\n${lock}`;
   const remoteUrls = [...new Set(executableInputs.match(/[a-z][a-z0-9+.-]*:\/\/[^\s"')]+/giu) ?? [])];
   if (JSON.stringify(remoteUrls) !== JSON.stringify([MAVEN_CENTRAL])
@@ -191,7 +221,7 @@ export function validateJavaConsumerFixture(options) {
       || /repositories\s*\{/u.test(build)
       || !/lockAllConfigurations\(\)/u.test(build)
       || !/lockMode\.set\(LockMode\.STRICT\)/u.test(build)
-      || !build.includes(`implementation("dev.eightlines.gauntlet:spring-boot-starter:${version}")`)
+      || !build.includes(`implementation("dev.eightlines.gauntlet:spring-boot-starter:${versions["spring-boot-starter"]}")`)
       || !source.includes("import dev.eightlines.gauntlet.core.model.ProtocolId;")
       || !source.includes("import dev.eightlines.gauntlet.spring.GauntletAutoConfiguration;")
       || !source.includes("import dev.eightlines.gauntlet.spring.GauntletProperties;")
@@ -225,19 +255,20 @@ export function validateJavaConsumerFixture(options) {
   ];
   if (!emptySeen || coordinates.size < 20
       || JSON.stringify([...configurations].sort()) !== JSON.stringify(expectedConfigurations)
-      || coordinates.get("dev.eightlines.gauntlet:core") !== version
-      || coordinates.get("dev.eightlines.gauntlet:spring-boot-starter") !== version
-      || [...coordinates].some(([coordinate, lockedVersion]) => coordinate.startsWith("dev.eightlines.gauntlet:")
-        && lockedVersion !== version)) invalidFixture();
+      || coordinates.get("dev.eightlines.gauntlet:core") !== versions["java-core"]
+      || coordinates.get("dev.eightlines.gauntlet:spring-boot-starter") !== versions["spring-boot-starter"]
+      || [...coordinates.keys()].some((coordinate) => coordinate.startsWith("dev.eightlines.gauntlet:")
+        && !["dev.eightlines.gauntlet:core", "dev.eightlines.gauntlet:spring-boot-starter"].includes(coordinate))) invalidFixture();
   return Object.freeze({ dependencies: coordinates.size, configurations: configurations.size });
 }
 
 export function createJavaReleasePlan(options) {
-  const { sandbox, version, uid, gid } = closedPlanOptions(options);
+  const { sandbox, versions: candidateVersions, uid, gid } = closedPlanOptions(options);
+  const versions = validJavaVersions(candidateVersions);
   if (typeof sandbox !== "string" || sandbox.length < 2 || sandbox.length > 4096
       || !isAbsolute(sandbox) || resolve(sandbox) !== sandbox || sandbox === sep
       || sandbox.includes(",") || /[\u0000-\u001f\u007f]/u.test(sandbox)
-      || !validReleaseVersion(version)
+      || versions === undefined
       || !Number.isSafeInteger(uid) || uid < 0 || uid > 2_147_483_647
       || !Number.isSafeInteger(gid) || gid < 0 || gid > 2_147_483_647) invalidPlan();
 
@@ -324,7 +355,7 @@ export function createJavaReleasePlan(options) {
   }
 
   return Object.freeze({
-    version,
+    versions,
     image: MAVEN_TOOLCHAIN.image,
     platform: MAVEN_TOOLCHAIN.platform,
     sandbox,
@@ -474,7 +505,7 @@ function materializeRecords(destination, records, prefix = "") {
   }
 }
 
-function assertConsumerRecords(records, version) {
+function assertConsumerRecords(records, versions) {
   const actual = records.map(({ relativePath }) => relativePath.slice(CONSUMER_PREFIX.length)).sort();
   if (JSON.stringify(actual) !== JSON.stringify([...CONSUMER_FILES].sort())) fail();
   const byPath = new Map(records.map((record) => [record.relativePath.slice(CONSUMER_PREFIX.length), record.bytes]));
@@ -491,7 +522,7 @@ function assertConsumerRecords(records, version) {
     if (!Buffer.from(value, "utf8").equals(bytes)) fail();
     values[key] = value;
   }
-  validateJavaConsumerFixture({ ...values, version });
+  validateJavaConsumerFixture({ ...values, versions });
 }
 
 function safeFileBytes(filename, maximum = MAX_GIT_FILE_BYTES) {
@@ -506,11 +537,11 @@ function safeFileBytes(filename, maximum = MAX_GIT_FILE_BYTES) {
   }
 }
 
-function assertDistribution(step, repository, version) {
+function assertDistribution(step, repository, versions) {
   const library = resolve(step.project, `build/install/${DISTRIBUTION_NAME}/lib`);
   if (realpathSync(library) !== library) fail();
-  const expected = ["core", "spring-boot-starter"];
-  for (const artifactId of expected) {
+  const expected = [["core", versions["java-core"]], ["spring-boot-starter", versions["spring-boot-starter"]]];
+  for (const [artifactId, version] of expected) {
     const filename = `${artifactId}-${version}.jar`;
     const installed = safeFileBytes(resolve(library, filename));
     const staged = safeFileBytes(resolve(
@@ -528,11 +559,11 @@ function removeConsumerBuild(project, sandbox) {
   rmSync(build, { recursive: true, force: false });
 }
 
-function validateStagedArtifacts(artifacts, repository, version) {
+function validateStagedArtifacts(artifacts, repository, versions) {
   if (!Array.isArray(artifacts) || artifacts.length !== EXPECTED_ARTIFACTS.length
       || JSON.stringify(artifacts.map(({ name }) => name)) !== JSON.stringify(EXPECTED_ARTIFACTS)) fail();
-  for (const artifact of artifacts) {
-    if (artifact.version !== version || typeof artifact.path !== "string"
+  for (const [index, artifact] of artifacts.entries()) {
+    if (artifact.version !== versions[MAVEN_UNIT_IDS[index]] || typeof artifact.path !== "string"
         || !artifact.path.startsWith(`${repository}${sep}`) || realpathSync(artifact.path) !== artifact.path) fail();
   }
 }
@@ -551,12 +582,12 @@ export async function runJavaRelease({ root = ROOT } = {}) {
   try {
     const commit = exactCommittedHead(root, environment);
     const sourceRecords = captureGitFiles(root, commit, SOURCE_INPUTS, environment);
-    const version = javaLockstepVersion(sourceRecords);
+    const versions = javaUnitVersions(sourceRecords);
     const uid = typeof process.getuid === "function" ? process.getuid() : 0;
     const gid = typeof process.getgid === "function" ? process.getgid() : 0;
-    const plan = createJavaReleasePlan({ sandbox, version, uid, gid });
+    const plan = createJavaReleasePlan({ sandbox, versions, uid, gid });
     const consumerRecords = captureGitFiles(root, commit, ["tests/consumers/java"], environment);
-    assertConsumerRecords(consumerRecords, version);
+    assertConsumerRecords(consumerRecords, versions);
 
     for (const directory of [
       resolve(sandbox, "source"),
@@ -579,20 +610,25 @@ export async function runJavaRelease({ root = ROOT } = {}) {
     }
 
     executeDocker(plan.steps[0], root, environment);
-    const artifacts = await publishMavenLocally({ root: plan.steps[1].root, outputDirectory: plan.repository });
-    validateStagedArtifacts(artifacts, plan.repository, version);
+    const artifacts = await publishMavenLocally({
+      root: plan.steps[1].root,
+      outputDirectory: plan.repository,
+      versions,
+      include: MAVEN_UNIT_IDS,
+    });
+    validateStagedArtifacts(artifacts, plan.repository, versions);
 
     for (const mode of ["gradle", "pom"]) {
       const [online, offline, runtime] = plan.steps.filter((step) => step.mode === mode);
       executeDocker(online, root, environment);
-      assertDistribution(online, plan.repository, version);
+      assertDistribution(online, plan.repository, versions);
       removeConsumerBuild(online.project, sandbox);
       executeDocker(offline, root, environment);
-      assertDistribution(offline, plan.repository, version);
+      assertDistribution(offline, plan.repository, versions);
       executeDocker(runtime, root, environment);
     }
     assertHeadStayedCommitted(root, commit, environment);
-    return Object.freeze({ version, artifacts: artifacts.length, consumers: 2, sourceChecks: SOURCE_TASKS.length });
+    return Object.freeze({ versions, artifacts: artifacts.length, consumers: 2, sourceChecks: SOURCE_TASKS.length });
   } catch (error) {
     if (error instanceof TypeError || error?.message === COMMITTED_INPUT_FAILURE) throw error;
     throw new Error(FAILURE);

@@ -34,7 +34,7 @@ import {
 import { COMPOSER_UNIT_IDS, stageComposerPackages } from "./stage-composer.mjs";
 import { packageHelmChart } from "./stage-helm.mjs";
 import { exportImageAndAttestations } from "./stage-image.mjs";
-import { publishMavenLocally } from "./stage-maven.mjs";
+import { MAVEN_UNIT_IDS, publishMavenLocally } from "./stage-maven.mjs";
 import { NPM_UNIT_IDS, stageNpmPackages } from "./stage-npm.mjs";
 import { generateSpdxSbom } from "./stage-sbom.mjs";
 import { packageCanonicalTree } from "./tree-archive.mjs";
@@ -536,7 +536,12 @@ export async function executeReleaseStage(options, dependencyOverrides) {
   const mavenRoot = makePrivateDirectory(join(workDirectory, "maven"));
   const mavenRepository = makePrivateDirectory(join(mavenRoot, "repository"));
   const maven = validateRecordArray(
-    await dependencies.publishMavenLocally({ root, outputDirectory: mavenRepository }),
+    await dependencies.publishMavenLocally({
+      root,
+      outputDirectory: mavenRepository,
+      versions: Object.fromEntries(MAVEN_UNIT_IDS.map((id) => [id, version])),
+      include: MAVEN_UNIT_IDS,
+    }),
     "maven",
     RELEASE_ARTIFACTS.maven,
     version,

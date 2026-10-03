@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
+  existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -15,11 +16,14 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
 
-import { readReleaseVersion } from "../release-model.mjs";
-import { MAVEN_TOOLCHAIN, publishMavenLocally, readMavenStageVersion } from "../stage-maven.mjs";
+import { MAVEN_TOOLCHAIN, MAVEN_UNIT_IDS, publishMavenLocally, readMavenStageVersions } from "../stage-maven.mjs";
 
 const ROOT = realpathSync(resolve(import.meta.dirname, "../../.."));
-const RELEASE_VERSION = readReleaseVersion(ROOT);
+const VERSIONS = readMavenStageVersions(ROOT);
+const COORDINATE_UNITS = new Map([
+  ["dev.eightlines.gauntlet:core", "java-core"],
+  ["dev.eightlines.gauntlet:spring-boot-starter", "spring-boot-starter"],
+]);
 const COORDINATES = [
   "dev.eightlines.gauntlet:core",
   "dev.eightlines.gauntlet:spring-boot-starter",
@@ -41,7 +45,7 @@ test("publishes two closed reproducible Maven version trees from the pinned Java
   const sandbox = realpathSync(mkdtempSync(join(tmpdir(), "gauntlet-stage-maven-test-")));
   const outputDirectory = createOutput(sandbox);
   try {
-    const artifacts = await publishMavenLocally({ root: ROOT, outputDirectory });
+    const artifacts = await publishMavenLocally({ root: ROOT, outputDirectory, versions: VERSIONS, include: MAVEN_UNIT_IDS });
     assert.equal(Object.isFrozen(artifacts), true);
     assert.deepEqual(artifacts.map(({ name }) => name), COORDINATES);
     assert.equal(artifacts.length, 2);
@@ -50,7 +54,7 @@ test("publishes two closed reproducible Maven version trees from the pinned Java
         "kind", "name", "version", "path", "treeSha256", "files",
       ]);
       assert.equal(artifact.kind, "maven");
-      assert.equal(artifact.version, RELEASE_VERSION);
+      assert.equal(artifact.version, VERSIONS[COORDINATE_UNITS.get(artifact.name)]);
       assert.equal(realpathSync(artifact.path), artifact.path);
       assert.match(artifact.treeSha256, /^[a-f0-9]{64}$/u);
       assert.equal(Object.isFrozen(artifact), true);
@@ -109,7 +113,7 @@ test("prepares the pinned toolchain explicitly and never lets docker run pull im
     process.env.PATH = originalPath;
   });
 
-  await assert.rejects(publishMavenLocally({ root: ROOT, outputDirectory: createOutput(sandbox) }), {
+  await assert.rejects(publishMavenLocally({ root: ROOT, outputDirectory: createOutput(sandbox), versions: VERSIONS, include: MAVEN_UNIT_IDS }), {
     message: "Maven package staging failed closed",
   });
   const calls = readFileSync(log, "utf8").trimEnd().split("\n");
@@ -128,7 +132,7 @@ test("rejects unsafe outputs and closed-option violations before running Docker"
   const sandbox = realpathSync(mkdtempSync(join(tmpdir(), "gauntlet-stage-maven-options-")));
   const outputDirectory = createOutput(sandbox);
   let getterCalls = 0;
-  const accessor = { outputDirectory };
+  const accessor = { outputDirectory, versions: VERSIONS, include: MAVEN_UNIT_IDS };
   Object.defineProperty(accessor, "root", {
     enumerable: true,
     get() {
@@ -140,9 +144,10 @@ test("rejects unsafe outputs and closed-option violations before running Docker"
     null,
     [],
     { root: ROOT },
-    { root: ROOT, outputDirectory, extra: true },
+    { root: ROOT, outputDirectory },
+    { root: ROOT, outputDirectory, versions: VERSIONS, include: MAVEN_UNIT_IDS, extra: true },
     accessor,
-    new Proxy({ root: ROOT, outputDirectory }, {}),
+    new Proxy({ root: ROOT, outputDirectory, versions: VERSIONS, include: MAVEN_UNIT_IDS }, {}),
   ];
   try {
     for (const options of cases) {
@@ -153,7 +158,7 @@ test("rejects unsafe outputs and closed-option violations before running Docker"
     }
     assert.equal(getterCalls, 0);
     writeFileSync(join(outputDirectory, "foreign"), "FOREIGN\n", { mode: 0o600 });
-    await assert.rejects(publishMavenLocally({ root: ROOT, outputDirectory }), {
+    await assert.rejects(publishMavenLocally({ root: ROOT, outputDirectory, versions: VERSIONS, include: MAVEN_UNIT_IDS }), {
       message: "Maven package staging failed closed",
     });
     assert.equal(readFileSync(join(outputDirectory, "foreign"), "utf8"), "FOREIGN\n");
@@ -178,32 +183,66 @@ function createJavaFixtureRoot(parent, { core, starter }) {
   return root;
 }
 
-test("reads the Maven staging version from the Java unit files without a root VERSION", () => {
+test("reads each Java unit version from its own VERSION file, including diverged versions", () => {
   const sandbox = realpathSync(mkdtempSync(join(tmpdir(), "gauntlet-stage-maven-version-")));
   try {
-    const root = createJavaFixtureRoot(sandbox, { core: "7.8.9\n", starter: "7.8.9\n" });
+    const root = createJavaFixtureRoot(sandbox, { core: "7.8.9\n", starter: "7.8.10\n" });
     assert.equal(readdirSync(root).includes("VERSION"), false);
-    assert.equal(readMavenStageVersion(root), "7.8.9");
+    assert.deepEqual(readMavenStageVersions(root), { "java-core": "7.8.9", "spring-boot-starter": "7.8.10" });
   } finally {
     rmSync(sandbox, { recursive: true, force: true });
   }
 });
 
-test("rejects diverged, missing or invalid Java unit versions for Maven staging", () => {
+test("rejects missing or invalid Java unit versions for Maven staging", () => {
   const sandbox = realpathSync(mkdtempSync(join(tmpdir(), "gauntlet-stage-maven-version-")));
-  const cases = [
-    { core: "7.8.9\n", starter: "7.8.10\n" },
-    { core: "7.8.9\n" },
-    { starter: "7.8.9\n" },
-    { core: "7.8.9\n", starter: "not-a-version\n" },
-  ];
   try {
-    cases.forEach((versions, index) => {
+    [{ core: "7.8.9\n" }, { starter: "7.8.9\n" }, { core: "7.8.9\n", starter: "not-a-version\n" }].forEach((versions, index) => {
       const root = createJavaFixtureRoot(join(sandbox, String(index)), versions);
-      assert.throws(() => readMavenStageVersion(root), {
+      assert.throws(() => readMavenStageVersions(root), {
         message: "Release version must be an exact stable ASCII semantic version followed by one LF",
       });
     });
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true });
+  }
+});
+
+test("rejects version maps and include lists that do not match the Java units before running Docker", async () => {
+  const sandbox = realpathSync(mkdtempSync(join(tmpdir(), "gauntlet-stage-maven-options-")));
+  try {
+    const versions = readMavenStageVersions(ROOT);
+    let count = 0;
+    for (const [candidate, include] of [
+      [{ ...versions, "java-core": "9.9.9" }, ["java-core"]],
+      [{ "java-core": versions["java-core"] }, ["java-core"]],
+      [{ ...versions, protocol: "1.0.0" }, ["java-core"]],
+      [versions, []],
+      [versions, ["spring-boot-starter", "java-core"]],
+      [versions, ["java-core", "java-core"]],
+      [versions, ["protocol"]],
+    ]) {
+      count += 1;
+      await assert.rejects(publishMavenLocally({
+        root: ROOT, outputDirectory: createOutput(sandbox, `o-${count}`), versions: candidate, include,
+      }), { message: "Maven package staging failed closed" });
+    }
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true });
+  }
+});
+
+test("stages only the included Java unit at its own version", async () => {
+  const sandbox = realpathSync(mkdtempSync(join(tmpdir(), "gauntlet-stage-maven-subset-")));
+  const outputDirectory = createOutput(sandbox);
+  try {
+    const artifacts = await publishMavenLocally({
+      root: ROOT, outputDirectory, versions: VERSIONS, include: ["spring-boot-starter"],
+    });
+    assert.deepEqual(artifacts.map(({ name }) => name), ["dev.eightlines.gauntlet:spring-boot-starter"]);
+    assert.equal(artifacts[0].version, VERSIONS["spring-boot-starter"]);
+    assert.equal(existsSync(join(outputDirectory, "dev/eightlines/gauntlet/core")), false);
+    assert.deepEqual(readdirSync(join(outputDirectory, "dev/eightlines/gauntlet")), ["spring-boot-starter"]);
   } finally {
     rmSync(sandbox, { recursive: true, force: true });
   }

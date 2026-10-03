@@ -28,6 +28,7 @@ import {
 } from "../stage.mjs";
 import * as stageModule from "../stage.mjs";
 import { COMPOSER_UNIT_IDS } from "../stage-composer.mjs";
+import { MAVEN_UNIT_IDS } from "../stage-maven.mjs";
 import { NPM_UNIT_IDS } from "../stage-npm.mjs";
 
 const COMMIT = "0123456789abcdef0123456789abcdef01234567";
@@ -106,8 +107,11 @@ function fakeDependencies(calls, failurePhase) {
         };
       });
     },
-    async publishMavenLocally({ outputDirectory }) {
+    async publishMavenLocally({ outputDirectory, versions, include }) {
       fail("maven");
+      assert.deepEqual(include, MAVEN_UNIT_IDS);
+      assert.deepEqual(Object.keys(versions), MAVEN_UNIT_IDS);
+      for (const id of MAVEN_UNIT_IDS) assert.equal(versions[id], VERSION);
       return RELEASE_ARTIFACTS.maven.map((artifact) => {
         const artifactId = artifact.name.split(":")[1];
         const path = resolve(outputDirectory, "dev/eightlines/gauntlet", artifactId, VERSION);
