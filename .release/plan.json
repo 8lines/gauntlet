@@ -3,13 +3,13 @@
   "units": [
     {
       "id": "gauntlet",
-      "from": "0.1.8",
-      "to": "0.1.9"
+      "from": "0.1.9",
+      "to": "0.2.0"
     },
     {
       "id": "skills",
-      "from": "0.1.9",
-      "to": "0.1.10"
+      "from": "0.1.10",
+      "to": "0.1.11"
     }
   ],
   "order": [
@@ -17,6 +17,6 @@
     "skills"
   ],
   "changes": [
-    "dashboard-exact-timeout.md"
+    "built-in-password-authentication.md"
   ]
 }

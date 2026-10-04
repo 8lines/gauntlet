@@ -21,6 +21,12 @@ changelog: [`protocol`](packages/protocol/CHANGELOG.md),
 
 ## Unreleased
 
+## [0.2.0] - 2026-10-04
+
+### Added
+
+- Gauntlet can require a shared or per-user password and static API tokens for the dashboard, widget, REST API and MCP endpoint.
+
 ## [0.1.9] - 2026-10-04
 
 ### Fixed
