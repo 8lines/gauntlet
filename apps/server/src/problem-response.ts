@@ -210,7 +210,10 @@ export function isSpaNavigation(request: FastifyRequest): boolean {
 
 export function configureProblemResponses(app: FastifyInstance, options: ProblemResponseOptions = {}): void {
   app.addHook("onRequest", async (request, reply) => {
-    if (rawPathname(request).includes("%")) {
+    // Only origin-form targets: the router strips an absolute-form `http://host` prefix, so any
+    // check on the raw path (such as the authentication guard) would otherwise see another path.
+    const pathname = rawPathname(request);
+    if (!pathname.startsWith("/") || pathname.includes("%")) {
       return sendProblem(reply, INVALID_PATH_PROBLEM);
     }
   });

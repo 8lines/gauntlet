@@ -136,3 +136,30 @@ test("without authentication nothing changes", async () => {
     assert.deepEqual((forwarded.at(-1)?.body as { context: unknown }).context, validCreateRunRequest.context);
   });
 });
+
+async function rawRequest(port: number, request: string): Promise<string> {
+  const { connect } = await import("node:net");
+  return await new Promise<string>((resolve, reject) => {
+    const socket = connect({ host: "127.0.0.1", port });
+    const chunks: Buffer[] = [];
+    socket.setTimeout(2_000, () => socket.destroy(new Error("raw HTTP request timed out")));
+    socket.on("connect", () => socket.end(request));
+    socket.on("data", (chunk: Buffer) => chunks.push(chunk));
+    socket.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    socket.on("error", reject);
+  });
+}
+
+test("an absolute-form request target cannot slip past the guard", async () => {
+  await usingApp(passwordAuth(), async (app) => {
+    await app.listen({ host: "127.0.0.1", port: 0 });
+    const address = app.server.address();
+    assert.ok(address !== null && typeof address === "object");
+    for (const target of ["http://gauntlet.test/api/v1/targets", "https://x/api/v1/targets", "http://x/mcp", "*"]) {
+      const response = await rawRequest(address.port, `GET ${target} HTTP/1.1\r\nHost: gauntlet.test\r\nConnection: close\r\n\r\n`);
+      const status = Number(/^HTTP\/1\.1 (\d{3})/.exec(response)?.[1]);
+      assert.ok(status === 400 || status === 401, `${target}: ${response.split("\r\n")[0]}`);
+      assert.equal(response.includes("\"targets\""), false, target);
+    }
+  });
+});

@@ -11,6 +11,8 @@ function rawPathname(request: FastifyRequest): string {
 
 /** The API and MCP need credentials; static assets, probes and the auth routes do not. */
 export function isProtectedPath(pathname: string): boolean {
+  // Anything but an origin-form path is refused earlier; should one get here, it stays protected.
+  if (!pathname.startsWith("/")) return true;
   if (pathname === "/mcp" || pathname.startsWith("/mcp/")) return true;
   if (pathname === "/api" || pathname.startsWith("/api/")) return !pathname.startsWith("/api/v1/auth/");
   return false;
