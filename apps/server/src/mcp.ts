@@ -7,6 +7,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { DataSourceService } from "./data-source-service.js";
 import type { ManifestService } from "./manifest-service.js";
+import { ANONYMOUS, principalActor, principalStorage } from "./auth/principal.js";
 import type { RunProxyService } from "./run-proxy-service.js";
 import { INTERNAL_ERROR_PROBLEM, INVALID_REQUEST_PROBLEM, PAYLOAD_TOO_LARGE_PROBLEM } from "./problem-response.js";
 import { safeProblem } from "./safe-problem.js";
@@ -118,7 +119,12 @@ function createServer(dependencies: McpDependencies): McpServer {
       confirmation: z.strictObject({ operationId: id, operationRevision: revision, impact, extensions: object.optional() }).optional(),
       extensions: object.optional(),
     }) }), annotations: mutation,
-  }, guard(async ({ targetId, operationId, request }) => clientResult(await dependencies.runs.create(targetId, operationId, request))));
+  }, guard(async ({ targetId, operationId, request }) => clientResult(await dependencies.runs.create(
+    targetId,
+    operationId,
+    request,
+    principalActor(principalStorage.getStore() ?? ANONYMOUS),
+  ))));
 
   server.registerTool("gauntlet_get_run", {
     description: "Poll a run known to this Gauntlet process, including runs created through the dashboard. Returns state, progress, output, sanitized Problems, artifacts and follow-up actions. History is lost on server restart.",
