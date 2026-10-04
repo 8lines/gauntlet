@@ -15,6 +15,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    if: github.event_name == 'pull_request'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 10
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24.20.0"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --package-import-method=copy
+      - name: Require a change file for every released unit a pull request touches
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: pnpm release:changes --check --base "$BASE_SHA"
+
   node:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 35

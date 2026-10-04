@@ -100,3 +100,12 @@ test("a JSON unit version must be a stable version string", () => {
   writeFileSync(join(root, "packages", "protocol", "package.json"), '{"version":"1.2.3"}\n');
   assert.equal(readUnitVersion(root, "protocol"), "1.2.3");
 });
+
+test("owned paths are exact files or whole directories, and skills owns only the released skill directories", () => {
+  for (const unit of RELEASE_UNITS) {
+    for (const path of unit.ownedPaths) {
+      assert.match(path, /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*(?:\/\*\*)?$/u, `${unit.id}: ${path}`);
+    }
+  }
+  assert.deepEqual(unitById("skills").ownedPaths, ["skills/gauntlet-app-integration/**", "skills/gauntlet-extension-authoring/**"]);
+});

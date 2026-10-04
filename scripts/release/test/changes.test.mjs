@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
 
-import { computeRelease, nextVersion, parseChangeFile, readChangeFiles } from "../changes.mjs";
+import { computeRelease, isOwnedBy, nextVersion, parseChangeFile, readChangeFiles, runChangesCli } from "../changes.mjs";
+import { createReleasePlan, serializeReleasePlan } from "../plan.mjs";
 import { RELEASE_TEXT_FILES } from "../release-model.mjs";
 import { RELEASE_UNITS, unitById } from "../units.mjs";
 
@@ -39,6 +41,8 @@ test("rejects every malformed change file with the file name and the reason", ()
     ["a.md", body("type: added\nunits:\n  nope: minor"), /unknown release unit nope/u],
     ["a.md", body("type: added\nunits:\n  protocol: huge"), /protocol bump must be one of/u],
     ["a.md", body("type: added\nunits:\n  protocol: minor\n  protocol: patch"), /not valid YAML/u],
+    ["a.md", body("type: added\nunits: &shared\n  protocol: minor\nextra: *shared"), /Change file a\.md: front matter is not valid YAML/u],
+    ["a.md", body("type: added\nunits:\n  protocol: &bump minor\n  widget: *bump"), /Change file a\.md: front matter is not valid YAML/u],
     ["a.md", "---\ntype: added\nunits:\n  protocol: minor\n---\n\n", /changelog sentence/u],
     ["a.md", body("type: added\nunits:\n  protocol: minor", "One.\n\nTwo."), /one paragraph/u],
     ["a.md", body("type: added\nunits:\n  protocol: minor", "Deadlines — optional."), /em dash/u],
@@ -138,4 +142,137 @@ test("every unit pinned by skill text cascades into the skills archive", () => {
   for (const { path, slots } of RELEASE_TEXT_FILES.filter(({ path: file }) => file.startsWith("skills/"))) {
     for (const { unit } of slots) assert.equal(unit === "skills" || dependencies.has(unit), true, `${path} pins ${unit}`);
   }
+});
+
+test("a change file that is not valid UTF-8 is refused instead of decoded with replacement characters", (t) => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "gauntlet-changes-utf8-")));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, ".changes"));
+  writeFileSync(join(root, ".changes/bad.md"), Buffer.concat([
+    Buffer.from("---\ntype: fixed\nunits:\n  widget: patch\n---\nBroken "),
+    Buffer.from([0xff, 0xfe]),
+    Buffer.from(" bytes.\n"),
+  ]));
+  assert.throws(() => readChangeFiles(root), /Change file bad\.md: must be LF-only UTF-8 text/u);
+});
+
+function git(root, ...args) {
+  const result = spawnSync("git", [
+    "-C", root, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false", ...args,
+  ], { encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
+  return result.stdout.trim();
+}
+
+function write(root, path, contents) {
+  mkdirSync(dirname(join(root, path)), { recursive: true });
+  writeFileSync(join(root, path), contents);
+}
+
+function changeSource(units, type = "fixed") {
+  return `---\ntype: ${type}\nunits:\n${Object.entries(units).map(([id, bump]) => `  ${id}: ${bump}`).join("\n")}\n---\nA user-facing sentence.\n`;
+}
+
+function repository(t) {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "gauntlet-changes-check-")));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  git(root, "init", "--initial-branch=main");
+  write(root, "packages/protocol/src/index.ts", "export const a = 1;\n");
+  write(root, "apps/server/package.json", "{}\n");
+  write(root, ".changes/old.md", changeSource({ widget: "patch" }));
+  git(root, "add", "-A");
+  git(root, "commit", "-m", "base");
+  git(root, "switch", "-c", "topic");
+  return root;
+}
+
+function commit(root) {
+  git(root, "add", "-A");
+  git(root, "commit", "-m", "change");
+}
+
+function check(root) {
+  const result = runChangesCli(["--check", "--base", "main"], { root });
+  return { exitCode: result.exitCode, ...JSON.parse(result.stdout === "" ? result.stderr : result.stdout) };
+}
+
+test("ownership follows each unit's released paths and ignores READMEs, changelogs and tests", () => {
+  const owners = (path) => RELEASE_UNITS.filter((unit) => isOwnedBy(unit, path)).map(({ id }) => id);
+  assert.deepEqual(owners("packages/protocol/schemas/v1/run.json"), ["protocol"]);
+  assert.deepEqual(owners("packages/typescript/core/src/index.ts"), ["typescript-core"]);
+  assert.deepEqual(owners("packages/typescript/core/src/index.test.ts"), []);
+  assert.deepEqual(owners("packages/java/core/src/test/java/X.java"), []);
+  assert.deepEqual(owners("deploy/helm/gauntlet/values.yaml"), ["gauntlet"]);
+  assert.deepEqual(owners("deploy/compose/test/wrapper.test.mjs"), []);
+  assert.deepEqual(owners("deploy/compose/README.md"), []);
+  assert.deepEqual(owners("skills/gauntlet-app-integration/references/node.md"), ["skills"]);
+  assert.deepEqual(owners("skills/CHANGELOG.md"), []);
+  assert.deepEqual(owners("skill-evals/gauntlet-app-integration/EVALUATING.md"), []);
+  assert.deepEqual(owners("packages/protocol/srcx/a.ts"), []);
+});
+
+test("a pull request touching released paths needs a change file naming each touched unit", (t) => {
+  const root = repository(t);
+  write(root, "packages/protocol/src/index.ts", "export const a = 2;\n");
+  commit(root);
+  assert.deepEqual(check(root), {
+    exitCode: 1, base: git(root, "rev-parse", "main"), command: "check", covered: [], ok: false, touched: ["protocol"],
+    problems: ['protocol: packages/protocol/src/index.ts changed without a change file naming protocol; add .changes/<name>.md (use "none" when no release is needed)'],
+  });
+  write(root, ".changes/deadline.md", changeSource({ protocol: "minor" }, "added"));
+  commit(root);
+  const covered = check(root);
+  assert.deepEqual([covered.exitCode, covered.covered, covered.problems], [0, ["protocol"], []]);
+});
+
+test("none covers a touched unit, and READMEs, changelogs and tests need no change file", (t) => {
+  const root = repository(t);
+  write(root, "packages/protocol/README.md", "# Protocol\n");
+  write(root, "packages/protocol/CHANGELOG.md", "# Changelog\n");
+  write(root, "packages/protocol/src/index.test.ts", "test\n");
+  commit(root);
+  assert.deepEqual([check(root).exitCode, check(root).touched], [0, []]);
+  write(root, "packages/protocol/src/index.ts", "export const a = 3;\n");
+  write(root, ".changes/refactor.md", changeSource({ protocol: "none" }, "changed"));
+  commit(root);
+  assert.equal(check(root).exitCode, 0);
+});
+
+test("a release pull request covers only its planned units, and deleting a change file covers nothing", (t) => {
+  const deleting = repository(t);
+  write(deleting, "packages/protocol/src/index.ts", "export const a = 4;\n");
+  rmSync(join(deleting, ".changes/old.md"));
+  commit(deleting);
+  assert.deepEqual(check(deleting).touched, ["protocol"]);
+  assert.equal(check(deleting).exitCode, 1);
+
+  const release = repository(t);
+  write(release, ".release/plan.json", serializeReleasePlan(createReleasePlan(
+    [{ id: "gauntlet", from: "0.1.8", to: "0.1.9" }, { id: "skills", from: "0.1.8", to: "0.1.9" }],
+    { changes: ["old.md"] },
+  )));
+  write(release, "apps/server/package.json", '{"version":"0.1.9"}\n');
+  rmSync(join(release, ".changes/old.md"));
+  commit(release);
+  assert.deepEqual([check(release).exitCode, check(release).covered], [0, ["gauntlet", "skills"]]);
+  write(release, "packages/protocol/src/index.ts", "export const a = 5;\n");
+  commit(release);
+  const loophole = check(release);
+  assert.equal(loophole.exitCode, 1);
+  assert.deepEqual(loophole.problems.map((problem) => problem.split(":")[0]), ["protocol"]);
+});
+
+test("an invalid change file fails the check and arguments are closed", (t) => {
+  const root = repository(t);
+  write(root, ".changes/bad.md", "nonsense\n");
+  commit(root);
+  const result = check(root);
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.problems.some((problem) => /Change file bad\.md/u.test(problem)), true);
+  for (const argv of [[], ["--check", "--base"], ["--check", "--base", "-x"], ["--write"]]) {
+    assert.equal(runChangesCli(argv, { root }).exitCode, 2, JSON.stringify(argv));
+  }
+  const missing = runChangesCli(["--check", "--base", "no-such-branch"], { root });
+  assert.equal(missing.exitCode, 1);
+  assert.match(JSON.parse(missing.stderr).error.message, /Cannot find the merge base of no-such-branch and HEAD/u);
 });

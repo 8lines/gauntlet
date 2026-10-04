@@ -101,7 +101,7 @@ const units = [
       "gauntlet", "protocol", "typescript-core", "typescript-node", "next-adapter", "php-core", "symfony-bundle",
       "java-core", "spring-boot-starter",
     ],
-    ownedPaths: ["skills/**", "skill-evals/**"],
+    ownedPaths: ["skills/gauntlet-app-integration/**", "skills/gauntlet-extension-authoring/**"],
     tagPrefix: "skills-v",
     artifacts: ["gauntlet-skills"],
     contracts: {},

@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 
-import { lstatSync, readFileSync, readdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { parseDocument } from "yaml";
 
-import { CHANGE_FILE_NAME } from "./plan.mjs";
+import { CHANGE_FILE_NAME, RELEASE_PLAN_PATH, readReleasePlan } from "./plan.mjs";
 import { parseReleaseVersion } from "./release-model.mjs";
 import { RELEASE_UNITS, dependencyOrder, dependentsOf, unitById } from "./units.mjs";
 
@@ -17,6 +19,17 @@ const FRONT_MATTER = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/u;
 const MAX_CHANGE_BYTES = 16 * 1024;
 const UNIT_IDS = new Set(RELEASE_UNITS.map(({ id }) => id));
 
+const UTF8 = new TextDecoder("utf-8", { fatal: true });
+
+export function readChangeSource(name, path) {
+  try {
+    return UTF8.decode(readFileSync(path));
+  } catch (error) {
+    if (error instanceof TypeError) throw new Error(`Change file ${name}: must be LF-only UTF-8 text`);
+    throw error;
+  }
+}
+
 export function parseChangeFile(name, source) {
   if (typeof name !== "string" || !CHANGE_FILE_NAME.test(name)) {
     throw new Error(`Change file name ${String(name)} must match ${CHANGE_FILE_NAME.source}`);
@@ -27,9 +40,14 @@ export function parseChangeFile(name, source) {
   if (typeof source !== "string" || source.includes("\r") || source.includes("\0")) fail("must be LF-only UTF-8 text");
   const match = FRONT_MATTER.exec(source);
   if (match === null) fail("must start with --- front matter");
-  const document = parseDocument(match[1], { prettyErrors: false, strict: true, uniqueKeys: true });
-  if (document.errors.length > 0 || document.warnings.length > 0) fail("front matter is not valid YAML");
-  const data = document.toJS({ maxAliasCount: 0 });
+  let data;
+  try {
+    const document = parseDocument(match[1], { prettyErrors: false, strict: true, uniqueKeys: true });
+    if (document.errors.length > 0 || document.warnings.length > 0) throw new Error("invalid YAML");
+    data = document.toJS({ maxAliasCount: 0 });
+  } catch {
+    fail("front matter is not valid YAML");
+  }
   if (data === null || typeof data !== "object" || Array.isArray(data)
       || Object.keys(data).sort().join(",") !== "type,units") fail("front matter must contain exactly type and units");
   if (!CHANGE_TYPES.includes(data.type)) fail(`type must be one of ${CHANGE_TYPES.join(", ")}`);
@@ -75,7 +93,7 @@ export function readChangeFiles(root) {
     const path = resolve(directory, entry.name);
     const stat = lstatSync(path);
     if (stat.nlink !== 1 || stat.size > MAX_CHANGE_BYTES) throw new Error(`${label} is not a change file (a regular lowercase-name.md file)`);
-    files.push(parseChangeFile(entry.name, readFileSync(path, "utf8")));
+    files.push(parseChangeFile(entry.name, readChangeSource(entry.name, path)));
   }
   return Object.freeze(files);
 }
@@ -123,4 +141,129 @@ export function computeRelease({ versions, changes }) {
     });
   });
   return Object.freeze({ units: Object.freeze(units), consumed: Object.freeze(changes.map(({ name }) => name).sort()) });
+}
+
+const ROOT = realpathSync(fileURLToPath(new URL("../../", import.meta.url)));
+const USAGE = "Usage: changes.mjs --check [--base REV]";
+const REVISION = /^(?!-)[A-Za-z0-9._/^~-]{1,200}$/u;
+const UNRELEASED_PATHS = Object.freeze([
+  /(?:^|\/)(?:README|CHANGELOG)\.md$/u,
+  /(?:^|\/)(?:test|tests|__tests__)\//u,
+  /\.(?:test|spec)\.[cm]?[jt]sx?$/u,
+]);
+
+export function isOwnedBy(unit, path) {
+  if (UNRELEASED_PATHS.some((pattern) => pattern.test(path))) return false;
+  return unit.ownedPaths.some((owned) => (owned.endsWith("/**") ? path.startsWith(owned.slice(0, -2)) : path === owned));
+}
+
+export function parseNameStatus(output) {
+  const fields = output.split("\0");
+  if (fields.at(-1) === "") fields.pop();
+  if (fields.length % 2 !== 0) throw new Error("git diff output is malformed");
+  const changes = [];
+  for (let index = 0; index < fields.length; index += 2) {
+    if (!/^[ADMT]$/u.test(fields[index])) throw new Error(`Unsupported change status ${fields[index]}`);
+    changes.push(Object.freeze({ status: fields[index], path: fields[index + 1] }));
+  }
+  return Object.freeze(changes);
+}
+
+export function evaluateChangeCoverage({ diff, changeFiles, plan = null }) {
+  const touched = new Map();
+  for (const unit of RELEASE_UNITS) {
+    const owned = diff.find(({ path }) => isOwnedBy(unit, path));
+    if (owned !== undefined) touched.set(unit.id, owned.path);
+  }
+  const covered = new Set(changeFiles.flatMap(({ units }) => Object.keys(units)));
+  for (const { id } of plan?.units ?? []) covered.add(id);
+  const problems = [...touched].filter(([id]) => !covered.has(id)).map(([id, path]) =>
+    `${id}: ${path} changed without a change file naming ${id}; add .changes/<name>.md (use "none" when no release is needed)`);
+  return Object.freeze({
+    touched: Object.freeze([...touched.keys()]),
+    covered: Object.freeze([...dependencyOrder([...covered])]),
+    problems: Object.freeze(problems),
+  });
+}
+
+export function parseChangesArguments(argv) {
+  if (!Array.isArray(argv) || argv.some((value) => typeof value !== "string")) throw new TypeError(USAGE);
+  if (argv.length === 1 && argv[0] === "--check") return Object.freeze({ base: "origin/main" });
+  if (argv.length === 3 && argv[0] === "--check" && argv[1] === "--base" && REVISION.test(argv[2])) {
+    return Object.freeze({ base: argv[2] });
+  }
+  throw new TypeError(USAGE);
+}
+
+function defaultGit(root) {
+  return (args) => {
+    const result = spawnSync("git", ["-C", root, ...args], {
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+      timeout: 60_000,
+      env: { PATH: process.env.PATH, HOME: process.env.HOME ?? "/dev/null", LANG: "C", LC_ALL: "C" },
+    });
+    return { status: result.status ?? 1, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
+  };
+}
+
+function jsonLine(value) {
+  return `${JSON.stringify(value)}\n`;
+}
+
+export function runChangesCli(argv, { root = ROOT, git = defaultGit(root) } = {}) {
+  let options;
+  try {
+    options = parseChangesArguments(argv);
+  } catch {
+    return { exitCode: 2, stdout: "", stderr: jsonLine({ error: { code: "INVALID_ARGUMENTS", message: USAGE }, ok: false }) };
+  }
+  try {
+    const mergeBase = git(["merge-base", options.base, "HEAD"]);
+    const base = mergeBase.stdout.trim();
+    if (mergeBase.status !== 0 || !/^[0-9a-f]{40}$/u.test(base)) {
+      throw new Error(`Cannot find the merge base of ${options.base} and HEAD; fetch the base branch first`);
+    }
+    const listing = git(["diff", "--name-status", "-z", "--no-renames", base, "HEAD"]);
+    if (listing.status !== 0) throw new Error("git diff failed");
+    const diff = parseNameStatus(listing.stdout);
+    const problems = [];
+    try {
+      readChangeFiles(root);
+    } catch (error) {
+      problems.push(error.message);
+    }
+    const changeFiles = [];
+    for (const { status, path } of diff) {
+      if (status === "D" || !path.startsWith(`${CHANGES_DIRECTORY}/`) || path.slice(CHANGES_DIRECTORY.length + 1).includes("/")) continue;
+      const name = path.slice(CHANGES_DIRECTORY.length + 1);
+      try {
+        changeFiles.push(parseChangeFile(name, readChangeSource(name, resolve(root, CHANGES_DIRECTORY, name))));
+      } catch (error) {
+        if (!problems.includes(error.message)) problems.push(error.message);
+      }
+    }
+    const planChanged = diff.some(({ status, path }) => path === RELEASE_PLAN_PATH && status !== "D");
+    const coverage = evaluateChangeCoverage({ diff, changeFiles, plan: planChanged ? readReleasePlan(root) : null });
+    problems.push(...coverage.problems);
+    const ok = problems.length === 0;
+    return {
+      exitCode: ok ? 0 : 1,
+      stdout: jsonLine({ base, command: "check", covered: coverage.covered, ok, problems, touched: coverage.touched }),
+      stderr: "",
+    };
+  } catch (error) {
+    return {
+      exitCode: 1,
+      stdout: "",
+      stderr: jsonLine({ error: { code: "CHANGES_CHECK_FAILED", message: error instanceof Error ? error.message : String(error) }, ok: false }),
+    };
+  }
+}
+
+if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const result = runChangesCli(process.argv.slice(2));
+  if (result.stdout !== "") process.stdout.write(result.stdout);
+  if (result.stderr !== "") process.stderr.write(result.stderr);
+  process.exitCode = result.exitCode;
 }

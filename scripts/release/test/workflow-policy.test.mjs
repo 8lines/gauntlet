@@ -34,7 +34,7 @@ const MULTI_PLATFORM_JOBS = Object.freeze({
   ".github/workflows/release.yml": Object.freeze(["security", "release-metadata", "publish"]),
 });
 const JOBS = [
-  "node", "php", "java", "conformance", "dashboard", "widget", "widget-panel", "deployment", "skills", "security", "release-metadata",
+  "changes", "node", "php", "java", "conformance", "dashboard", "widget", "widget-panel", "deployment", "skills", "security", "release-metadata",
 ];
 
 function readYaml(relativePath) {
@@ -86,6 +86,16 @@ test("CI exposes the bounded, read-only product and release gates", () => {
       assert.doesNotMatch(serialized, /secrets\.|NPM_TOKEN|DEPLOY_KEY|pull_request_target/i);
     }
   }
+
+  assert.equal(workflow.jobs.changes.if, "github.event_name == 'pull_request'");
+  assert.equal(workflow.jobs.changes["timeout-minutes"], 10);
+  const changesCheckout = workflow.jobs.changes.steps.find(({ uses }) => BLACKSMITH_CHECKOUT.test(uses ?? ""));
+  assert.equal(changesCheckout.with["fetch-depth"], 0);
+  const changesStep = workflow.jobs.changes.steps.find(
+    ({ name }) => name === "Require a change file for every released unit a pull request touches",
+  );
+  assert.deepEqual(changesStep.env, { BASE_SHA: "${{ github.event.pull_request.base.sha }}" });
+  assert.equal(changesStep.run, 'pnpm release:changes --check --base "$BASE_SHA"');
   assert.deepEqual(workflow.jobs.skills.strategy, {
     "fail-fast": false,
     matrix: { os: [LINUX_RUNNER, MACOS_RUNNER] },
@@ -326,6 +336,7 @@ test("every workflow-facing gate resolves to one exact local root script", () =>
     "verify:official-adapters": "node scripts/release/verify-official-adapters.mjs",
     "dashboard:test:e2e": "pnpm --filter @8lines/gauntlet-dashboard exec playwright test --reporter=line",
     "release:plan": "node scripts/release/plan.mjs --write",
+    "release:changes": "node scripts/release/changes.mjs",
     "release:tag": "node scripts/release/release-tag.mjs",
     "release:security": "node scripts/release/security.mjs",
     "release:stage": "node scripts/release/stage.mjs",
