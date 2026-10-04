@@ -30,4 +30,9 @@ test("contribution policy requires protocol-first tests and every supported runt
   assert.match(contributing, /Java 21/u);
   assert.match(contributing, /pnpm release:verify/u);
   assert.match(contributing, /arbitrary SQL.*shell.*URL/isu);
+  assert.match(contributing, /## Change files/u);
+  assert.match(contributing, /\.changes\/<name>\.md/u);
+  assert.match(contributing, /`none`/u);
+  assert.match(contributing, /pnpm release:changes --check/u);
+  assert.match(contributing, /breaking change is `minor`/u);
 });

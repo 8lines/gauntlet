@@ -60,6 +60,36 @@ Changes touching a public package also run its clean packed or repository-backed
 
 Never convert a missing tool, registry timeout, skipped scanner, or unavailable environment into a passing result. Record the unresolved check and keep the completion verdict false.
 
+## Change files
+
+A pull request that changes what a release unit publishes adds a change file,
+`.changes/<name>.md`, with a lowercase, hyphenated name:
+
+```md
+---
+type: fixed            # added | changed | fixed | removed | security
+units:
+  gauntlet: patch      # patch | minor | major | none
+---
+The dashboard keeps the sidebar width after a reload.
+```
+
+The body is one changelog sentence for users, in sentence case, without em
+dashes. Name every unit whose released paths the change touches, with the
+semantic version bump it needs; the units are listed in the
+[release runbook](docs/releases/releasing.md#release-units). Before 1.0 a
+breaking change is `minor`. Several change files for one unit resolve to the
+highest bump, and units that depend on a released unit are released with a
+patch automatically.
+
+Use `none`, with the reason as the body, when a change touches a unit's
+released paths but needs no release, for example a refactor with identical
+behaviour. The required `changes` CI check, also available as
+`pnpm release:changes --check`, fails a pull request that touches a unit's
+released paths without a change file naming that unit. Tests, READMEs and
+changelogs never need one. Release preparation turns change files into
+changelog entries, so do not edit `CHANGELOG.md` files by hand.
+
 ## Review and history
 
-Keep commits focused and include test evidence. Update `CHANGELOG.md` for user-visible behavior, security boundaries, public APIs, package requirements, or deployment changes. Add migration and rollback notes before merging a breaking or operational change. Do not rewrite, delete, or overwrite an existing release artifact; publish a new version.
+Keep commits focused and include test evidence. Describe user-visible behavior, security boundaries, public APIs, package requirements, or deployment changes in a [change file](#change-files). Add migration and rollback notes before merging a breaking or operational change. Do not rewrite, delete, or overwrite an existing release artifact; publish a new version.

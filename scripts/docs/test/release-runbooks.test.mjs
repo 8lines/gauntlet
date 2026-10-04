@@ -76,6 +76,30 @@ test("release runbook describes per-unit publication, reruns and recovery withou
   assert.match(verify, /A correction requires a new version of that\s+unit/u);
 });
 
+test("release runbook covers change files, preparation and its prerequisites", () => {
+  const source = read("docs/releases/releasing.md");
+  assert.match(source, /## Change files/u);
+  assert.match(source, /pnpm release:changes --check/u);
+  assert.match(source, /`changes` check/u);
+  assert.match(source, /## Prepare a release/u);
+  assert.match(source, /git fetch --tags origin\ngit switch -c release\/YYYY-MM-DD\npnpm install --frozen-lockfile --package-import-method=copy\npnpm release:prepare\n/u);
+  assert.match(source, /Updated `<unit>` to X\.Y\.Z\./u);
+  assert.match(source, /composer:2/u);
+  assert.match(source, /Re-binding log/u);
+  assert.match(source, /docs\/reference\/compatibility\.md/u);
+  assert.match(source, /restores every tracked file/u);
+  assert.match(source, /pnpm 11\.24/u);
+  assert.match(source, /Run `pnpm build` before any dry run/u);
+  assert.match(source, /builder that can export images/u);
+  assert.match(source, /PLAYWRIGHT_BROWSER_CHANNEL=chromium pnpm release:dry-run --plan \.release\/plan\.json/u);
+  assert.match(source, /compatibility line/u);
+});
+
+test("the upgrade guide no longer names a fixed release", () => {
+  assert.doesNotMatch(read("docs/releases/upgrading.md"), /exact `0\.1\.1` artifacts/u);
+  assert.match(read("docs/releases/upgrading.md"), /installing-packages\.md#current-versions/u);
+});
+
 test("upgrade and rollback retain immutable identities and repeat safety checks", () => {
   const upgrade = read("docs/releases/upgrading.md");
   const rollback = read("docs/releases/rollback.md");

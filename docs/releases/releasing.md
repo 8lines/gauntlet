@@ -8,9 +8,14 @@ the explicit publication trigger.
 ## Preconditions
 
 - `main` contains the reviewed change and has no local modifications;
-- every unit's version slots agree with that unit's own manifest or `VERSION`
-  file (for `gauntlet` also the Helm metadata, image labels, and documentation),
-  and `.release/plan.json` names exactly the units whose version moved;
+- the release pull request prepared by `pnpm release:prepare` is merged, so
+  every unit's version slots agree with that unit's own manifest or `VERSION`
+  file and `.release/plan.json` names exactly the units whose version moved;
+- the release machine has pnpm 11.24 on `PATH` (`corepack enable` selects the
+  version pinned in `package.json`), Docker with a builder that can export images
+  (the docker-container Buildx builder CI configures), and network access for
+  Composer when a PHP unit is released. Run `pnpm build` before any dry run,
+  because the dry run packs the built packages;
 - CI passes the Node.js, PHP/Symfony, Java/Spring, conformance, dashboard,
   widget, widget-panel, deployment, skills, security, package-consumer, and
   documentation gates;
@@ -20,8 +25,9 @@ the explicit publication trigger.
 - GitHub release immutability is enabled for the repository before the tag is
   pushed (the workflow refuses to trust a published release unless GitHub marks
   that individual release immutable);
-- the release operator has reviewed `CHANGELOG.md`, the staged inventory,
-  provenance limitations, SBOMs, and vulnerability reports;
+- the release operator has reviewed the changelog sections of every released
+  unit, the staged inventory, provenance limitations, SBOMs, and vulnerability
+  reports;
 - no target application or deployment is being enabled as part of publishing.
 
 ## Release units
@@ -60,6 +66,76 @@ Push unit tags by name (`git push origin <tag>...`), never with a blanket
 `git push --tags`.
 Only `release-*` tags start the release workflow; unit tags never do.
 
+## Change files
+
+Every pull request that changes what a unit releases carries a change file,
+`.changes/<name>.md`, written as described in
+[CONTRIBUTING.md](../../CONTRIBUTING.md#change-files). The required `changes`
+check runs `pnpm release:changes --check --base <base commit>`: it maps the
+changed paths to the units that release them (tests, READMEs and changelogs
+excluded) and fails when a touched unit is not named by a change file added or
+edited in the same pull request. A release pull request is covered by its
+`.release/plan.json` for the units it plans, and only for those. Run the check
+locally against `origin/main` with `pnpm release:changes --check`.
+
+## Prepare a release
+
+On a branch from an up-to-date `main`, with every change file merged:
+
+```sh
+git switch main
+git pull --ff-only
+git fetch --tags origin
+git switch -c release/YYYY-MM-DD
+pnpm install --frozen-lockfile --package-import-method=copy
+pnpm release:prepare
+```
+
+`pnpm release:prepare` reads every change file, takes the highest bump per unit
+and gives every unit that depends on a released unit at least a patch release,
+whose changelog says "Updated `<unit>` to X.Y.Z." for each released dependency.
+`none` change files release nothing. Then, all or nothing, it:
+
+1. writes every version and version slot with the span-preserving rewriter of
+   `version.mjs --set-unit`: manifests, the Symfony bundle's `^` constraint on
+   PHP Core and the Symfony example's constraints, consumer manifests, the
+   Gradle consumer build and lockfile, documentation, skill references and the
+   [current versions](installing-packages.md#current-versions) table;
+2. re-pins the Composer locks of `packages/php/core`,
+   `packages/php/symfony-bundle` and `examples/symfony` with the pinned
+   `composer:2` image when a PHP unit is released, and accepts the result only
+   when Composer changed nothing but the Gauntlet path packages and the content
+   hash;
+3. inserts a dated section into each released unit's `CHANGELOG.md` below its
+   empty `## Unreleased` heading;
+4. records the released units' contracts in `docs/reference/compatibility.md`;
+5. deletes the consumed change files and writes `.release/plan.json` with the
+   units, their from and to versions, the dependency order and the consumed
+   change files;
+6. re-binds the skill evaluation receipts (`pnpm skills:rebind`) when a bound
+   input changed and adds an entry to the Re-binding log of each affected
+   `EVALUATING.md`: the hashes match the current bytes, without new model
+   samples, which confirms content integrity, not behaviour;
+7. checks the version slots, the plan against manifests and tags, and the skill
+   receipts, and prints one JSON summary.
+
+On any failure it restores every tracked file and removes the files it created,
+so the branch is as it was. It refuses to start on `main`, with modified
+tracked files, with uncommitted change files, without change files, with only
+`none` change files, when a changelog has hand-written entries under
+`## Unreleased`, when a unit is not at its latest tag (fetch the tags, or
+release the plan that is already prepared), and when the plan would release a
+package that implements a contract major the released application does not
+support.
+
+Review `git status`, the changelog sections and `.release/plan.json`, commit
+everything as one release pull request and let CI rehearse it: for a pull
+request that changes `.release/plan.json`, the `release-metadata` job runs
+`node scripts/release/plan.mjs --check` and `pnpm release:dry-run --plan
+.release/plan.json` instead of the all-units rehearsal. To rehearse the same
+plan locally, run `pnpm build` and then
+`PLAYWRIGHT_BROWSER_CHANNEL=chromium pnpm release:dry-run --plan .release/plan.json`.
+
 ## Repository configuration
 
 The `release` workflow (`.github/workflows/release.yml`) publishes from a
@@ -78,6 +154,10 @@ The workflow's own `GITHUB_TOKEN` pushes the image and chart to
 each unit's tag and GitHub Release. npm packages are published without
 provenance: npm accepts provenance attestations only from GitHub-hosted
 runners, and the `publish` job runs on a self-hosted Blacksmith runner. No other job receives a secret.
+
+Branch protection on `main` requires the `changes` check together with the
+other CI jobs, so a pull request that touches a unit's released paths cannot
+merge without a change file.
 
 Outside the repository:
 
@@ -108,6 +188,7 @@ From a clean checkout of the candidate commit:
 corepack enable
 pnpm install --frozen-lockfile
 pnpm exec playwright install chromium
+pnpm build
 PLAYWRIGHT_BROWSER_CHANNEL=chromium pnpm release:dry-run
 ```
 
@@ -118,11 +199,14 @@ The full form is
 `--release-set` names the staged release set; without it the set is
 `local-<first 12 characters of HEAD>`. The release workflow passes the
 `release-*` tag it runs for, so a local rehearsal normally omits the flag.
-CI always rehearses every unit, whatever a committed plan lists: it writes
+CI rehearses every unit, whatever a committed plan lists, unless the pull
+request changes `.release/plan.json`: it writes
 `.artifacts/ci/all-units-plan.json` with
 `node scripts/release/plan.mjs --write-all-units .artifacts/ci/all-units-plan.json`
-and passes that file as `--plan`. The release workflow rehearses exactly its
-`.release/plan.json`.
+and passes that file as `--plan`. A release pull request, which changes
+`.release/plan.json`, rehearses exactly that plan (see
+[Prepare a release](#prepare-a-release)). The release workflow rehearses exactly
+its `.release/plan.json`.
 
 `PLAYWRIGHT_BROWSER_CHANNEL` is deliberately restricted to `chromium` or
 `chrome`. Use `chromium` with the pinned Playwright download above. A machine
@@ -159,9 +243,12 @@ The generated directory is reproducible evidence, not a credential store.
 
 ## Trigger
 
-`pnpm release:plan` compares every unit's version with its latest tag and
-writes `.release/plan.json`. It reads the local tag view, so fetch the remote
-tags first; it refuses to write an empty plan when no unit version moved:
+`pnpm release:prepare` writes `.release/plan.json` (see
+[Prepare a release](#prepare-a-release)). `pnpm release:plan` remains for
+versions moved by hand with `version.mjs --set-unit`: it compares every unit's
+version with its latest tag and writes the plan. It reads the local tag view,
+so fetch the remote tags first; it refuses to write an empty plan when no unit
+version moved:
 
 ```sh
 git fetch --tags origin
@@ -208,6 +295,10 @@ Only the application release (`v<version>`) is marked Latest. Each release
 carries its unit's assets, `release-manifest.json`, `publication-receipt.json`
 and `SHA256SUMS`. The workflow creates unit tags through the GitHub API, and
 those tags do not start another run.
+
+Each release's notes are the unit's changelog section (or generated notes for a
+unit without one), followed by its compatibility line from
+`docs/reference/compatibility.md` and the release set.
 
 The publication job mutates nothing for a unit when all artifacts are already
 byte/commit-identical, and fails closed for a partial release, conflicting
