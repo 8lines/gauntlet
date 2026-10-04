@@ -42,6 +42,7 @@
     "widget:test:e2e": "pnpm --filter @8lines/gauntlet-widget-loader exec playwright test --reporter=line",
     "widget:test:e2e:panel": "pnpm --filter @8lines/gauntlet-dashboard exec playwright test -c playwright.widget.config.ts --reporter=line",
     "skills:validate": "node scripts/skills/validate.mjs",
+    "skills:rebind": "node scripts/skills/rebind.mjs",
     "skills:test-install": "node --test scripts/skills/test/*.test.mjs",
     "skills:test-evals": "node --test --test-concurrency=1 skill-evals/gauntlet-app-integration/test/*.test.mjs skill-evals/gauntlet-extension-authoring/test/*.test.mjs",
     "docs:check": "node scripts/docs/check-docs.mjs && node --test scripts/docs/test/*.test.mjs",

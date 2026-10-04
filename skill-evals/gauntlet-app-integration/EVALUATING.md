@@ -97,3 +97,7 @@ external model attestation. Do not mint `verification.json` until all current
 records reconcile, guided and forward rows pass, evidence claims distinguish
 synthetic execution from customer deployment, and an independent reviewer has
 checked the final bytes.
+
+## Re-binding log
+
+- 2026-10-04: Added the skills:rebind workspace script. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
