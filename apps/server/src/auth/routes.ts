@@ -84,8 +84,11 @@ export function registerAuthRoutes(app: FastifyInstance, authenticator: Authenti
     const body = loginRequest(request.body, usernameRequired);
     if (body === undefined) return sendProblem(reply, INVALID_REQUEST_PROBLEM);
     const now = clock();
-    const userKey = `user:${body.username ?? "shared"}`;
-    const keys = [`ip:${request.ip}`, userKey];
+    // One key per address and login: a burst of failures blocks that pair only, so the rest of a
+    // team keeps signing in. Behind a reverse proxy every address is the proxy's, and the limit
+    // then applies per login.
+    const key = `${request.ip}|${body.username ?? "shared"}`;
+    const keys = [key];
     const retryAfter = limiter.blocked(keys, now);
     if (retryAfter !== undefined) return sendProblem(reply.header("retry-after", String(retryAfter)), RATE_LIMITED_PROBLEM);
     const session = await authenticator.login(body.username, body.password, now);
@@ -93,7 +96,7 @@ export function registerAuthRoutes(app: FastifyInstance, authenticator: Authenti
       limiter.fail(keys, now);
       return sendProblem(reply, INVALID_CREDENTIALS_PROBLEM);
     }
-    limiter.reset([userKey]);
+    limiter.reset(keys);
     const attributes = cookieAttributes(body.surface, secure);
     if (attributes !== undefined) {
       reply.header("set-cookie", `${SESSION_COOKIE}=${session.token}; Max-Age=${configuration.sessionTtlSeconds}; ${attributes}`);

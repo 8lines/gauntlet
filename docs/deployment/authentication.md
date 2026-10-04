@@ -101,9 +101,11 @@ Signing in to MCP through the browser (OAuth) is not available yet.
 - Changing a user's password, removing the user, or switching between `shared`
   and `users` signs that principal out everywhere. Rotating
   `GAUNTLET_AUTH_SECRET` signs everyone out.
-- Ten failed sign-ins within five minutes for one address or one username are
-  refused for the rest of that window. Behind a reverse proxy every request
-  comes from the proxy's address, so the per-username limit is the one that
-  applies.
+- After ten failed sign-ins within five minutes for one username (or the
+  shared password) from one address, that address cannot sign in as that user
+  for the rest of the window; other users and addresses are not affected.
+  Behind a reverse proxy every request comes from the proxy's address, so the
+  limit then applies per username, and repeated failures can lock that username
+  out for five minutes.
 
 [Documentation index](../README.md)

@@ -149,6 +149,20 @@ test("logout clears the cookie and needs the Gauntlet origin when sent with a co
   });
 });
 
+test("failures from one address do not lock out the same login from another address", async () => {
+  await usingApp(passwordAuth(), async (app) => {
+    const attempt = (password: string, remoteAddress: string) => app.inject({
+      method: "POST",
+      url: "/api/v1/auth/login",
+      payload: { password, surface: "dashboard" },
+      remoteAddress,
+    });
+    for (let index = 0; index < 10; index += 1) assert.equal((await attempt("nope", "10.0.0.1")).statusCode, 401);
+    assert.equal((await attempt(passwords.shared, "10.0.0.1")).statusCode, 429);
+    assert.equal((await attempt(passwords.shared, "10.0.0.2")).statusCode, 200);
+  });
+});
+
 test("the rate limiter counts per key within its window and forgets old keys", () => {
   const limiter = createLoginRateLimiter({ limit: 2, windowMs: 1_000, maxKeys: 2 });
   const start = new Date(0);
