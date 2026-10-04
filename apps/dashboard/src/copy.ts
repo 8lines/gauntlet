@@ -33,7 +33,7 @@ export function policyEffects(policy: ExecutionPolicy): readonly PolicyEffect[] 
     : { tone: "wait", text: "Once started, it cannot be cancelled." });
 
   if (policy.timeoutSeconds !== undefined) {
-    effects.push({ tone: "sub", text: `If it takes longer than ${formatDuration(policy.timeoutSeconds)}, it will be stopped.` });
+    effects.push({ tone: "sub", text: `If it takes longer than ${formatElapsed(policy.timeoutSeconds * 1000)}, it will be stopped.` });
   }
 
   if (policy.concurrency === "forbid") {
@@ -47,12 +47,6 @@ export function policyEffects(policy: ExecutionPolicy): readonly PolicyEffect[] 
   }
 
   return effects;
-}
-
-export function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds} s`;
-  const minutes = Math.round(seconds / 60);
-  return minutes === 1 ? "a minute" : `${minutes} min`;
 }
 
 /** Run button label: never "Execute", always the operation name. */

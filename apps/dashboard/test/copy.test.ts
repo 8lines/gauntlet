@@ -81,3 +81,15 @@ test("elapsed milliseconds need both timestamps in order", () => {
   assert.equal(elapsedMilliseconds("2026-09-03T12:00:03Z", "2026-09-03T12:00:01Z"), undefined);
   assert.equal(elapsedMilliseconds("not a date", "2026-09-03T12:00:01Z"), undefined);
 });
+
+test("the timeout sentence states the exact limit instead of rounding it to minutes", () => {
+  const sentence = (timeoutSeconds: number) => policyEffects({
+    impact: "read", dryRunSupported: false, cancellationSupported: true, confirmationRequired: false,
+    concurrency: "allow", idempotency: "none", timeoutSeconds,
+  } as unknown as ExecutionPolicy).find((effect) => effect.text.startsWith("If it takes longer than"))?.text;
+  assert.equal(sentence(45), "If it takes longer than 45 s, it will be stopped.");
+  assert.equal(sentence(60), "If it takes longer than 1 min, it will be stopped.");
+  assert.equal(sentence(89), "If it takes longer than 1 min 29 s, it will be stopped.");
+  assert.equal(sentence(90), "If it takes longer than 1 min 30 s, it will be stopped.");
+  assert.equal(sentence(7200), "If it takes longer than 2 h, it will be stopped.");
+});
