@@ -336,6 +336,7 @@ test("every workflow-facing gate resolves to one exact local root script", () =>
     "verify:official-adapters": "node scripts/release/verify-official-adapters.mjs",
     "dashboard:test:e2e": "pnpm --filter @8lines/gauntlet-dashboard exec playwright test --reporter=line",
     "release:plan": "node scripts/release/plan.mjs --write",
+    "release:prepare": "node scripts/release/prepare.mjs",
     "release:changes": "node scripts/release/changes.mjs",
     "release:tag": "node scripts/release/release-tag.mjs",
     "release:security": "node scripts/release/security.mjs",
