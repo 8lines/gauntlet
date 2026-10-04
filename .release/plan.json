@@ -2,15 +2,21 @@
   "schemaVersion": 1,
   "units": [
     {
-      "id": "skills",
+      "id": "gauntlet",
       "from": "0.1.8",
       "to": "0.1.9"
+    },
+    {
+      "id": "skills",
+      "from": "0.1.9",
+      "to": "0.1.10"
     }
   ],
   "order": [
+    "gauntlet",
     "skills"
   ],
   "changes": [
-    "skills-per-package-versions.md"
+    "dashboard-exact-timeout.md"
   ]
 }

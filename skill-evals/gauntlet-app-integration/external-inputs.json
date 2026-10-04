@@ -11,7 +11,7 @@
     },
     {
       "path": "VERSION",
-      "sha256": "76f81f64ece28d0bcfe39dd35f6d14f3c87fe000b77aee11561e18d1919f607e"
+      "sha256": "e358d84552808a5c0bd6679d690c283b938ebe15c2bd843c898681d093213107"
     },
     {
       "path": "examples/symfony/composer.json",
