@@ -4,6 +4,7 @@ import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { findUnboundPins, listTrackedFiles } from "../release/pins.mjs";
 import { readUnitVersion } from "../release/release-model.mjs";
 import { RELEASE_UNITS } from "../release/units.mjs";
 
@@ -256,7 +257,7 @@ function loadUnitVersions(root) {
   return versions;
 }
 
-export async function checkDocumentation({ root: rawRoot }) {
+export async function checkDocumentation({ root: rawRoot, trackedFiles }) {
   const root = canonicalRoot(rawRoot);
   const manifest = loadManifest(root);
   const errors = [];
@@ -284,12 +285,13 @@ export async function checkDocumentation({ root: rawRoot }) {
       if (error !== undefined) errors.push(error);
     }
   }
+  if (trackedFiles !== undefined) errors.push(...findUnboundPins(root, trackedFiles));
   return Object.freeze({ errors: Object.freeze([...new Set(errors)].sort(compare)) });
 }
 
 async function main() {
   const root = realpathSync(fileURLToPath(new URL("../..", import.meta.url)));
-  const result = await checkDocumentation({ root });
+  const result = await checkDocumentation({ root, trackedFiles: listTrackedFiles(root) });
   if (result.errors.length !== 0) {
     for (const error of result.errors) process.stderr.write(`${error}\n`);
     process.exitCode = 1;

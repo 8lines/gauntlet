@@ -3,15 +3,18 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 
+import { readUnitVersion } from "../../release/release-model.mjs";
+
 const ROOT = resolve(import.meta.dirname, "../../..");
 const read = (path) => readFileSync(resolve(ROOT, path), "utf8");
+const versionPattern = (unit) => readUnitVersion(ROOT, unit).replaceAll(".", "\\.");
 
 test("package installation guide pins every official public destination and avoids literal credentials", () => {
   const source = read("docs/releases/installing-packages.md");
   assert.match(source, /https:\/\/registry\.npmjs\.org/u);
   assert.doesNotMatch(source, /npm\.pkg\.github\.com/u);
   assert.match(source, /Packagist/u);
-  assert.match(source, /composer require 8lines\/gauntlet-symfony-bundle:0\.1\.8/u);
+  assert.match(source, new RegExp(`composer require 8lines/gauntlet-symfony-bundle:${versionPattern("symfony-bundle")}`, "u"));
   assert.doesNotMatch(source, /"type": "vcs"|COMPOSER_AUTH is required/u);
   assert.match(source, /https:\/\/maven\.pkg\.github\.com\/8lines\/gauntlet/u);
   assert.match(source, /read:packages/u);
@@ -87,7 +90,7 @@ test("upgrade and rollback retain immutable identities and repeat safety checks"
 test("AI skill guide documents both safe installation paths and their boundaries", () => {
   const source = read("docs/ai-skills.md");
   assert.match(source, /scripts\/skills\/install\.mjs --destination/u);
-  assert.match(source, /gauntlet-skills-0\.1\.8\.tgz/u);
+  assert.match(source, new RegExp(`gauntlet-skills-${versionPattern("skills")}\\.tgz`, "u"));
   assert.match(source, /exactly one\s+skill per invocation/iu);
   assert.match(source, /\$gauntlet-app-integration/u);
   assert.match(source, /\$gauntlet-extension-authoring/u);
