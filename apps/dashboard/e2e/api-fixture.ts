@@ -35,7 +35,13 @@ export interface ApiFixtureOptions {
   /** When set, every create-run response waits for this promise to settle. */
   readonly createRunGate?: Promise<unknown>;
   /** Password authentication; omitted means authentication is off. */
-  readonly auth?: { readonly password: string; readonly username?: string; readonly logoutStatus?: number };
+  readonly auth?: {
+    readonly password: string;
+    readonly username?: string;
+    readonly logoutStatus?: number;
+    /** Delays the sign-in answer, as a slow CI machine or network would. */
+    readonly loginDelayMs?: number;
+  };
 }
 
 export interface ApiFixtureControl {
@@ -442,6 +448,7 @@ export async function installApiFixture(page: Page, options: ApiFixtureOptions):
       if (body.password !== auth.password || body.username !== auth.username) {
         return json({ type: "urn:gauntlet:problem:invalid-credentials", title: "Invalid credentials", status: 401 }, 401);
       }
+      if (auth.loginDelayMs !== undefined) await new Promise((resolve) => setTimeout(resolve, auth.loginDelayMs));
       signedIn = true;
       // The dashboard keeps its session in the cookie and never reads the token.
       return json({ principal, token: "<fixture session token>", expiresAt: "2026-09-04T00:00:00.000Z" });

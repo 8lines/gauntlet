@@ -4,10 +4,13 @@ import { desktopOperation, installApiFixture } from "./api-fixture.ts";
 const operationPath = `/t/browser-target/o/${desktopOperation.id}`;
 
 async function openNavigation(page: Page) {
+  // The shell mounts once sign-in answers; checking the sidebar before that would toggle an open one closed.
+  const toggle = page.getByRole("button", { name: "Toggle navigation" });
+  await expect(toggle).toBeVisible();
   const reachable = await page.locator("#gauntlet-navigation").evaluateAll(
     (nodes) => nodes.some((node) => !(node as HTMLElement).inert && getComputedStyle(node).display !== "none"),
   );
-  if (!reachable) await page.getByRole("button", { name: "Toggle navigation" }).click();
+  if (!reachable) await toggle.click();
 }
 
 test("a protected Gauntlet asks for the password and keeps the requested page", async ({ page }) => {
@@ -61,7 +64,7 @@ test("an expired session returns to sign-in on the same page", async ({ page }) 
 });
 
 test("log out returns to sign-in", async ({ page }) => {
-  await installApiFixture(page, { operation: desktopOperation, scenario: "desktop", auth: { password: "letmein" } });
+  await installApiFixture(page, { operation: desktopOperation, scenario: "desktop", auth: { password: "letmein", loginDelayMs: 500 } });
   await page.goto("/");
   await page.getByLabel("Password").fill("letmein");
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -82,7 +85,7 @@ test("without authentication there is no sign-in and no log out", async ({ page 
 });
 
 test("a log out the server refuses keeps the user signed in", async ({ page }) => {
-  await installApiFixture(page, { operation: desktopOperation, scenario: "desktop", auth: { password: "letmein", logoutStatus: 403 } });
+  await installApiFixture(page, { operation: desktopOperation, scenario: "desktop", auth: { password: "letmein", logoutStatus: 403, loginDelayMs: 500 } });
   await page.goto("/");
   await page.getByLabel("Password").fill("letmein");
   await page.getByRole("button", { name: "Sign in" }).click();
