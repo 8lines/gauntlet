@@ -48,6 +48,7 @@ stderr; configuration errors use bounded, code-only diagnostics.
 | `GAUNTLET_MCP_ALLOWED_ORIGINS_JSON` | `[]` | Exact HTTP(S) Origin allow-list. Requests without Origin are allowed; other origins receive 403. |
 | `GAUNTLET_DASHBOARD_DIR` | unset | Directory containing a built, regular `index.html` file. Only an unset variable enables API-only mode; an explicit invalid directory fails startup. |
 | `GAUNTLET_WIDGET_DIR` | unset | Directory containing a built, regular `index.html`, `loader.js` and optional `assets/`. Read at startup; required when `widget.enabled` is `true` in the v1 configuration, otherwise ignored. |
+| `GAUNTLET_AUTH_SECRET` | unset | Signing secret for sessions and tokens, hex or base64url, at least 32 bytes. Required when `auth.mode` in the v1 configuration is not `none`, otherwise ignored. Generate one with `node dist/auth-cli.js generate-secret`; rotating it signs everyone out. |
 
 Environment values are read as direct process-owned string values. Invalid or
 hostile values fail with generic diagnostics and are not reflected back to the

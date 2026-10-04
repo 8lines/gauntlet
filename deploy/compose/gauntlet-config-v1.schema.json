@@ -15,6 +15,7 @@
       "additionalProperties": false
     },
     "widget": { "$ref": "#/$defs/widget" },
+    "auth": { "$ref": "#/$defs/auth" },
     "targets": {
       "type": "array",
       "minItems": 1,
@@ -63,6 +64,82 @@
         }
       },
       "additionalProperties": false
+    },
+    "auth": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["mode"],
+          "properties": { "mode": { "const": "none" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["mode", "publicUrl", "password"],
+          "properties": {
+            "mode": { "const": "password" },
+            "publicUrl": {
+              "type": "string",
+              "pattern": "^https?://(?:\\[[0-9A-Fa-f:.]+\\]|[A-Za-z0-9.-]+)(?::[0-9]{1,5})?/?$"
+            },
+            "sessionTtl": { "type": "string", "pattern": "^[1-9][0-9]{0,5}[mhd]$" },
+            "password": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": ["shared"],
+                  "properties": {
+                    "shared": {
+                      "type": "object",
+                      "required": ["hash"],
+                      "properties": { "hash": { "$ref": "#/$defs/passwordHash" } },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": ["users"],
+                  "properties": {
+                    "users": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "object",
+                        "required": ["username", "hash"],
+                        "properties": {
+                          "username": { "$ref": "#/$defs/id" },
+                          "hash": { "$ref": "#/$defs/passwordHash" }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "tokens": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "hash"],
+                "properties": {
+                  "name": { "$ref": "#/$defs/id" },
+                  "hash": { "type": "string", "pattern": "^sha256\\$[A-Za-z0-9_-]{43}$" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "passwordHash": {
+      "type": "string",
+      "pattern": "^scrypt\\$[1-9][0-9]{0,7}\\$[1-9][0-9]?\\$[1-9][0-9]?\\$[A-Za-z0-9_-]{22,}\\$[A-Za-z0-9_-]{43}$"
     },
     "target": {
       "type": "object",

@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { FastifyInstance } from "fastify";
 import { createApp } from "./app.js";
+import { decodeAuthSecret } from "./auth/secret.js";
 import { validateMcpOptions, type McpOptions } from "./mcp.js";
 import { loadServerConfiguration } from "./config.js";
 
@@ -64,6 +65,26 @@ export function mcpConfiguration(environment: Readonly<Record<string, string | u
   }
 }
 
+let authDisabledWarningEmitted = false;
+
+function emitAuthDisabledWarning(): void {
+  if (authDisabledWarningEmitted) return;
+  authDisabledWarningEmitted = true;
+  try {
+    process.emitWarning("Gauntlet authentication is disabled; keep it behind a private network boundary", {
+      code: "GAUNTLET_AUTH_DISABLED",
+    });
+  } catch {
+    // A warning transport must not change startup.
+  }
+}
+
+/** Decoded `GAUNTLET_AUTH_SECRET`, or undefined when unset. */
+export function authSecret(environment: Readonly<Record<string, string | undefined>>): Buffer | undefined {
+  const value = ownEnvironmentString(environment, "GAUNTLET_AUTH_SECRET");
+  return value === undefined ? undefined : decodeAuthSecret(value);
+}
+
 export async function createConfiguredApp(
   environment: Readonly<Record<string, string | undefined>>,
   dependencies: ConfiguredAppDependencies = {},
@@ -71,7 +92,10 @@ export async function createConfiguredApp(
   const configuration = await loadServerConfiguration(environment, dependencies.readConfig ?? readFile);
   const dashboardDir = ownEnvironmentString(environment, "GAUNTLET_DASHBOARD_DIR");
   const widgetDir = ownEnvironmentString(environment, "GAUNTLET_WIDGET_DIR");
+  const secret = configuration.auth.mode === "none" ? undefined : authSecret(environment);
+  if (configuration.auth.mode === "none") emitAuthDisabledWarning();
   return await createApp({
+    auth: { configuration: configuration.auth, ...(secret === undefined ? {} : { secret }) },
     environment: configuration.instance.environment,
     targets: configuration.targets,
     mcp: mcpConfiguration(environment),

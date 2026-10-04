@@ -12,6 +12,7 @@ const mainRuntimeKeys = [
   "GAUNTLET_PORT",
   "GAUNTLET_DASHBOARD_DIR",
   "GAUNTLET_WIDGET_DIR",
+  "GAUNTLET_AUTH_SECRET",
 ] as const;
 const configurationFileKey = "GAUNTLET_CONFIG_FILE";
 const legacySourceKeys = [
@@ -92,6 +93,38 @@ test("the v1 schema accepts the widget switch and exact target origins only", as
   ] as const) {
     assert.equal(validate(withWidget(widget, targetWidget)), false, JSON.stringify([widget, targetWidget]));
   }
+});
+
+test("the v1 schema accepts password authentication and rejects unknown modes", async () => {
+  const schema = JSON.parse(await readFile(schemaUrl, "utf8")) as object;
+  const validate = new Ajv2020({ allErrors: true, strict: true, validateFormats: false }).compile(schema);
+  const base = await document("config.valid.json") as Record<string, unknown>;
+  const salt = Buffer.alloc(16, 1).toString("base64url");
+  const hash = `scrypt$16384$8$1$${salt}$${Buffer.alloc(32, 2).toString("base64url")}`;
+  const tokenHash = `sha256$${Buffer.alloc(32, 4).toString("base64url")}`;
+  const accepted = [
+    { mode: "none" },
+    { mode: "password", publicUrl: "https://gauntlet.qa.internal", password: { shared: { hash } } },
+    {
+      mode: "password",
+      publicUrl: "http://localhost:8080",
+      sessionTtl: "12h",
+      password: { users: [{ username: "anna", hash }] },
+      tokens: [{ name: "ci-nightly", hash: tokenHash }],
+    },
+  ];
+  for (const auth of accepted) assert.equal(validate({ ...base, auth }), true, JSON.stringify(validate.errors));
+  const rejected = [
+    { mode: "oidc" },
+    { mode: "none", publicUrl: "https://gauntlet.qa.internal" },
+    { mode: "password", password: { shared: { hash } } },
+    { mode: "password", publicUrl: "https://gauntlet.qa.internal/base", password: { shared: { hash } } },
+    { mode: "password", publicUrl: "https://gauntlet.qa.internal", password: { shared: { hash }, users: [{ username: "anna", hash }] } },
+    { mode: "password", publicUrl: "https://gauntlet.qa.internal", password: { shared: { hash: "plain" } } },
+    { mode: "password", publicUrl: "https://gauntlet.qa.internal", sessionTtl: "12s", password: { shared: { hash } } },
+    { mode: "password", publicUrl: "https://gauntlet.qa.internal", password: { shared: { hash } }, tokens: [{ name: "ci", hash: "secret" }] },
+  ];
+  for (const auth of rejected) assert.equal(validate({ ...base, auth }), false, JSON.stringify(auth));
 });
 
 test("the Compose schema copy is identical to the canonical configuration schema", async () => {

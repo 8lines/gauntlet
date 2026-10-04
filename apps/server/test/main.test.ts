@@ -119,3 +119,32 @@ test("configured composition refuses an own dashboard accessor without invoking 
   );
   assert.equal(accessed, false);
 });
+
+test("configured composition refuses password authentication without a strong secret", async () => {
+  const salt = Buffer.alloc(16, 1).toString("base64url");
+  const document = {
+    version: 1,
+    instance: { name: "qa", environment: { name: "qa", kind: "qa" } },
+    targets: [{ id: "shop", label: "Shop", adapterUrl: "http://shop:8080", expectedEnvironment: { name: "qa", kind: "qa" } }],
+    auth: {
+      mode: "password",
+      publicUrl: "http://localhost:8080",
+      password: { shared: { hash: `scrypt$16384$8$1$${salt}$${Buffer.alloc(32, 2).toString("base64url")}` } },
+    },
+  };
+  const readConfig = async () => new TextEncoder().encode(JSON.stringify(document));
+  await assert.rejects(createConfiguredApp({ GAUNTLET_CONFIG_FILE: "/c.json" }, { readConfig }), /GAUNTLET_AUTH_SECRET/);
+  await assert.rejects(
+    createConfiguredApp({ GAUNTLET_CONFIG_FILE: "/c.json", GAUNTLET_AUTH_SECRET: "ab".repeat(16) }, { readConfig }),
+    /Invalid authentication secret/,
+  );
+  const app = await createConfiguredApp(
+    { GAUNTLET_CONFIG_FILE: "/c.json", GAUNTLET_AUTH_SECRET: "ab".repeat(32) },
+    { readConfig },
+  );
+  try {
+    assert.equal((await app.inject({ method: "GET", url: "/health" })).statusCode, 200);
+  } finally {
+    await app.close();
+  }
+});
