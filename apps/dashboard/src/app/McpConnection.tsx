@@ -5,6 +5,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+/** Shown in the snippet in place of a real API token, which the dashboard never has. */
+const API_TOKEN_PLACEHOLDER = "<API token>";
+
 function mcpEndpoint(value: string): string | undefined {
   try {
     const url = new URL(value);
@@ -34,7 +37,7 @@ export function McpConnection({ authenticated = false }: { authenticated?: boole
     : JSON.stringify({
         mcpServers: {
           gauntlet: authenticated
-            ? { url: endpoint, headers: { Authorization: "Bearer <API token>" } }
+            ? { url: endpoint, headers: { Authorization: `Bearer ${API_TOKEN_PLACEHOLDER}` } }
             : { url: endpoint },
         },
       }, null, 2);
