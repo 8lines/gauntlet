@@ -9,6 +9,7 @@ import {
   readFileSync,
   readdirSync,
   realpathSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -19,200 +20,91 @@ import test from "node:test";
 
 import {
   checkDraftReleasePublication,
-  checkPublishedDestinations,
   checkReleasePublication,
   collectReleaseEvidence,
-  createPublishedCheckPlan,
-  evaluatePublishedState,
+  createUnitCheckPlan,
+  evaluateUnitState,
   parseImageInspection,
   parseOciLayoutIndex,
   parsePublicationReceipt,
-  parsePublishedArguments,
   parseReleaseAssets,
   probeRemoteDestination,
   parseProbeObservation,
-  PUBLISHED_DESTINATIONS,
+  githubReleaseAssetCatalog,
+  unitDestinations,
+  unitReleaseAssets,
+  unitReleaseManifest,
   writePublicationReceipt,
 } from "../check-published.mjs";
 import { RELEASE_ARTIFACTS } from "../release-model.mjs";
-import { packageCanonicalTree } from "../tree-archive.mjs";
+import { unitById, unitTag } from "../units.mjs";
+import {
+  COMMIT,
+  SET,
+  VERSION,
+  composerSourceFiles,
+  packageFixtureTree,
+  releaseFixture,
+  rewriteManifest,
+  writeFixtureFile,
+} from "./release-fixture.mjs";
 
-const VERSION = "0.1.0";
-const COMMIT = "0123456789abcdef0123456789abcdef01234567";
 const WRONG_COMMIT = "f".repeat(40);
+const GAUNTLET_ONLY = Object.freeze([{ id: "gauntlet", version: VERSION }]);
+const CHECK_PUBLISHED = resolve(import.meta.dirname, "../check-published.mjs");
 
-function releaseAssetNames() {
-  return [
-    `gauntlet-compose-${VERSION}.tar.gz`,
-    `gauntlet-skills-${VERSION}.tgz`,
-    `gauntlet-${VERSION}.tgz`,
-    "release-manifest.json",
-    "publication-receipt.json",
-    "SHA256SUMS",
-    `gauntlet-${VERSION}.provenance.json`,
-    "gauntlet-linux-amd64.spdx.json",
-    "gauntlet-linux-arm64.spdx.json",
-  ];
+function tagOf(unit, version = VERSION) {
+  return unitTag(unitById(unit), version);
 }
 
-function evidence() {
-  return Object.fromEntries(PUBLISHED_DESTINATIONS.map((destination, index) => {
-    if (destination.kind === "npm") return [destination.id, `sha512-${Buffer.alloc(64, index + 1).toString("base64")}`];
-    if (destination.kind === "image") return [destination.id, `sha256:${String(index + 1).padStart(64, "0")}`];
-    if (destination.kind === "composer") {
-      return [destination.id, String(index + 1).padStart(40, "0")];
-    }
-    return [destination.id, String(index + 1).padStart(64, "0")];
+function unitEvidence(unit, version = VERSION) {
+  const ids = [...unitDestinations(unit).map(({ id, kind }) => [id, kind]), [`github:${tagOf(unit, version)}`, "release"]];
+  return Object.fromEntries(ids.map(([id, kind], index) => {
+    if (kind === "npm") return [id, `sha512-${Buffer.alloc(64, index + 1).toString("base64")}`];
+    if (kind === "image") return [id, `sha256:${String(index + 1).padStart(64, "0")}`];
+    if (kind === "composer") return [id, String(index + 1).padStart(40, "0")];
+    return [id, String(index + 1).padStart(64, "0")];
   }));
 }
 
-function writeFixtureFile(root, relativePath, bytes) {
-  const path = resolve(root, relativePath);
-  mkdirSync(resolve(path, ".."), { recursive: true, mode: 0o700 });
-  writeFileSync(path, bytes, { mode: 0o600 });
-  return path;
+function unitPlan(unit, evidence = unitEvidence(unit)) {
+  return createUnitCheckPlan({ unit, version: VERSION, sourceCommit: COMMIT, evidence });
 }
 
-function releaseFixture(t) {
-  const root = realpathSync(mkdtempSync(resolve(tmpdir(), "gauntlet-published-evidence-test-")));
-  chmodSync(root, 0o700);
-  t.after(() => rmSync(root, { recursive: true, force: true }));
-  const artifacts = [];
-  const add = (kind, name, relativePath, bytes = `${kind}:${name}\n`) => {
-    const path = writeFixtureFile(root, relativePath, bytes);
-    artifacts.push({ kind, name, path: relativePath, sha256: createHash("sha256").update(readFileSync(path)).digest("hex") });
-    return path;
+function collectedEvidence(units) {
+  return {
+    releaseSet: SET,
+    units: units.map((id) => ({ id, version: VERSION, tag: tagOf(id), evidence: unitEvidence(id) })),
   };
-  const archiveSourceRoot = resolve(root, ".fixture-archive-sources");
-  mkdirSync(archiveSourceRoot, { mode: 0o700 });
-  chmodSync(archiveSourceRoot, 0o700);
-  const addCanonicalTree = (kind, name, relativePath, expectedPrefix, files) => {
-    const source = resolve(archiveSourceRoot, `${kind}-${expectedPrefix}`);
-    const outputDirectory = resolve(root, relativePath, "..");
-    mkdirSync(source, { mode: 0o700 });
-    mkdirSync(outputDirectory, { recursive: true, mode: 0o700 });
-    chmodSync(outputDirectory, 0o700);
-    for (const [path, bytes] of files) writeFixtureFile(source, path, bytes);
-    const receipt = packageCanonicalTree({
-      sourceDirectory: realpathSync(source),
-      outputDirectory: realpathSync(outputDirectory),
-      filename: relativePath.split("/").at(-1),
-      archivePrefix: expectedPrefix,
-    });
-    artifacts.push({ kind, name, path: relativePath, sha256: receipt.sha256 });
-  };
+}
 
-  for (const artifact of RELEASE_ARTIFACTS.npm) {
-    const basename = artifact.name.replace(/^@/u, "").replaceAll("/", "-");
-    add("npm", artifact.name, `npm/${basename}-${VERSION}.tgz`);
-  }
-  for (const artifact of RELEASE_ARTIFACTS.composer) {
-    const expectedPrefix = `${artifact.name.split("/")[1]}-${VERSION}`;
-    addCanonicalTree(
-      "composer",
-      artifact.name,
-      `composer/artifacts/${expectedPrefix}.tar.gz`,
-      expectedPrefix,
-      [
-        ["composer.json", `${JSON.stringify({ name: artifact.name, version: VERSION })}\n`],
-        [".gauntlet-source.json", `${JSON.stringify({
-          repository: "8lines/gauntlet",
-          commit: COMMIT,
-          path: artifact.directory,
-          version: VERSION,
-        })}\n`],
-        ["src/Fixture.php", `<?php\n// ${artifact.name}\n`],
-      ],
-    );
-  }
-  for (const artifact of RELEASE_ARTIFACTS.maven) {
-    const artifactId = artifact.name.split(":")[1];
-    const expectedPrefix = `gauntlet-${artifactId}-${VERSION}`;
-    addCanonicalTree(
-      "maven",
-      artifact.name,
-      `maven/artifacts/${expectedPrefix}.tar.gz`,
-      expectedPrefix,
-      [[`${artifactId}-${VERSION}.jar`, `jar:${artifact.name}\n`]],
-    );
-  }
-  rmSync(archiveSourceRoot, { recursive: true, force: false });
-  add("compose", RELEASE_ARTIFACTS.compose.name, `compose/gauntlet-compose-${VERSION}.tar.gz`);
-  add("skills", RELEASE_ARTIFACTS.skills.name, `skills/gauntlet-skills-${VERSION}.tgz`);
-  add("helm", RELEASE_ARTIFACTS.chart.name, `helm/gauntlet-${VERSION}.tgz`, "chart\n");
-  add("docker", "gauntlet.local/gauntlet", `image/gauntlet-${VERSION}.docker.tar`);
+function assetNames(unit) {
+  return githubReleaseAssetCatalog(unit, VERSION).map(({ name }) => name);
+}
 
-  const digest = `sha256:${"a".repeat(64)}`;
-  const layout = resolve(root, "layout");
-  mkdirSync(resolve(layout, "blobs"), { recursive: true, mode: 0o700 });
-  writeFixtureFile(layout, "oci-layout", '{"imageLayoutVersion":"1.0.0"}\n');
-  writeFixtureFile(layout, "index.json", `${JSON.stringify({
-    schemaVersion: 2,
-    manifests: [{ mediaType: "application/vnd.oci.image.index.v1+json", digest, size: 123 }],
-  })}\n`);
-  const ociPath = resolve(root, `image/gauntlet-${VERSION}.oci.tar`);
-  const tar = spawnSync("tar", ["-cf", ociPath, "-C", layout, "index.json", "oci-layout", "blobs"], { encoding: "utf8" });
-  assert.equal(tar.status, 0, tar.stderr);
-  artifacts.push({
-    kind: "oci",
-    name: RELEASE_ARTIFACTS.image.name,
-    path: `image/gauntlet-${VERSION}.oci.tar`,
-    sha256: createHash("sha256").update(readFileSync(ociPath)).digest("hex"),
-  });
-  rmSync(layout, { recursive: true, force: true });
-  add(
-    "provenance",
-    `${RELEASE_ARTIFACTS.image.name}@buildkit-unsigned`,
-    `image/gauntlet-${VERSION}.provenance.json`,
-    '{"predicateType":"https://slsa.dev/provenance/v1"}\n',
-  );
-  add("sbom", `${RELEASE_ARTIFACTS.image.name}@linux/amd64`, "sbom/gauntlet-linux-amd64.spdx.json", '{}\n');
-  add("sbom", `${RELEASE_ARTIFACTS.image.name}@linux/arm64`, "sbom/gauntlet-linux-arm64.spdx.json", '{}\n');
-  assert.equal(artifacts.length, 19);
-  writeFixtureFile(root, "release-manifest.json", `${JSON.stringify({
-    schemaVersion: 1,
-    version: VERSION,
-    sourceTag: `v${VERSION}`,
-    sourceCommit: COMMIT,
-    artifacts,
-  })}\n`);
-  return { digest, root };
+function readManifest(root) {
+  return JSON.parse(readFileSync(resolve(root, "release-manifest.json"), "utf8"));
 }
 
 function replaceComposerArchiveCommit(root, artifactName, commit) {
   const artifact = RELEASE_ARTIFACTS.composer.find(({ name }) => name === artifactName);
   assert.notEqual(artifact, undefined);
-  const expectedPrefix = `${artifact.name.split("/")[1]}-${VERSION}`;
-  const relativePath = `composer/artifacts/${expectedPrefix}.tar.gz`;
-  const archivePath = resolve(root, relativePath);
-  const source = resolve(root, ".wrong-composer-provenance");
-  mkdirSync(source, { mode: 0o700 });
-  writeFixtureFile(source, "composer.json", `${JSON.stringify({ name: artifact.name, version: VERSION })}\n`);
-  writeFixtureFile(source, ".gauntlet-source.json", `${JSON.stringify({
-    repository: "8lines/gauntlet",
-    commit,
-    path: artifact.directory,
-    version: VERSION,
-  })}\n`);
-  writeFixtureFile(source, "src/Fixture.php", `<?php\n// ${artifact.name}\n`);
+  const expectedPrefix = `${artifact.repository.split("/").at(-1)}-${VERSION}`;
+  const archivePath = resolve(root, `composer/artifacts/${expectedPrefix}.tar.gz`);
+  const scratch = resolve(root, "..", "wrong-composer-provenance");
+  mkdirSync(scratch, { mode: 0o700 });
   rmSync(archivePath);
-  const receipt = packageCanonicalTree({
-    sourceDirectory: realpathSync(source),
-    outputDirectory: realpathSync(resolve(archivePath, "..")),
-    filename: `${expectedPrefix}.tar.gz`,
-    archivePrefix: expectedPrefix,
+  const sha256 = packageFixtureTree(scratch, archivePath, expectedPrefix, composerSourceFiles(artifact, VERSION, commit));
+  rmSync(scratch, { recursive: true, force: false });
+  rewriteManifest(root, (manifest) => {
+    const record = manifest.artifacts.find(({ kind, name }) => kind === "composer" && name === artifact.name);
+    assert.notEqual(record, undefined);
+    record.sha256 = sha256;
   });
-  rmSync(source, { recursive: true, force: false });
-  const manifestPath = resolve(root, "release-manifest.json");
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-  const record = manifest.artifacts.find(({ kind, name }) => kind === "composer" && name === artifact.name);
-  assert.notEqual(record, undefined);
-  record.sha256 = receipt.sha256;
-  writeFileSync(manifestPath, `${JSON.stringify(manifest)}\n`, { mode: 0o600 });
 }
 
 function withTemporaryDirectory(root, callback) {
-  const temporaryDirectory = resolve(root, "consumer-tmp");
+  const temporaryDirectory = resolve(root, "..", "consumer-tmp");
   mkdirSync(temporaryDirectory, { mode: 0o700 });
   chmodSync(temporaryDirectory, 0o700);
   const previous = process.env.TMPDIR;
@@ -225,168 +117,214 @@ function withTemporaryDirectory(root, callback) {
     });
 }
 
-test("derives registry-comparable evidence from every staged release family", async (t) => {
+async function withEnvironment(values, callback) {
+  const previous = Object.fromEntries(Object.keys(values).map((key) => [key, process.env[key]]));
+  for (const [key, value] of Object.entries(values)) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+  try {
+    return await callback();
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
+async function withFetch(fetch, callback) {
+  const original = globalThis.fetch;
+  globalThis.fetch = fetch;
+  try {
+    return await callback();
+  } finally {
+    globalThis.fetch = original;
+  }
+}
+
+test("derives registry-comparable evidence from every staged release unit", async (t) => {
   const fixture = releaseFixture(t);
   assert.equal(existsSync(resolve(fixture.root, "composer/repositories")), false);
   assert.equal(existsSync(resolve(fixture.root, "maven/repository")), false);
-  const proofs = await collectReleaseEvidence({ releaseDirectory: fixture.root, version: VERSION, sourceCommit: COMMIT });
-  assert.deepEqual(Object.keys(proofs), PUBLISHED_DESTINATIONS.map(({ id }) => id));
-  assert.equal(proofs["image:semantic"], fixture.digest);
-  assert.equal(proofs["image:commit"], fixture.digest);
-  assert.match(proofs["github:release"], /^[0-9a-f]{64}$/u);
-  assert.notEqual(proofs["github:release"], COMMIT);
-  assert.match(proofs["npm:protocol"], /^sha512-/u);
-  assert.match(proofs["maven:core"], /^[0-9a-f]{64}$/u);
-  assert.match(proofs["composer:php-core"], /^[0-9a-f]{40}$/u);
-  assert.notEqual(proofs["composer:php-core"], proofs["composer:symfony-bundle"]);
-
-  process.env.GAUNTLET_EXPECTED_IMAGE_DIGEST = fixture.digest;
-  try {
-    const postflight = await collectReleaseEvidence({ releaseDirectory: fixture.root, version: VERSION, sourceCommit: COMMIT });
-    assert.equal(postflight["image:semantic"], fixture.digest);
-    assert.equal(postflight["image:commit"], fixture.digest);
-    process.env.GAUNTLET_EXPECTED_IMAGE_DIGEST = `sha256:${"c".repeat(64)}`;
-    await assert.rejects(
-      collectReleaseEvidence({ releaseDirectory: fixture.root, version: VERSION, sourceCommit: COMMIT }),
-      /failed closed/u,
-    );
-  } finally {
-    delete process.env.GAUNTLET_EXPECTED_IMAGE_DIGEST;
+  const collected = await collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT });
+  assert.equal(collected.releaseSet, SET);
+  assert.equal(Object.isFrozen(collected), true);
+  assert.equal(collected.units.length, 13);
+  for (const { id, version, tag, evidence } of collected.units) {
+    assert.equal(version, VERSION);
+    assert.equal(tag, tagOf(id));
+    assert.deepEqual(Object.keys(evidence), [...unitDestinations(id).map(({ id: check }) => check), `github:${tag}`]);
+    assert.match(evidence[`github:${tag}`], /^[0-9a-f]{64}$/u);
+    assert.notEqual(evidence[`github:${tag}`], COMMIT);
   }
+  const byId = Object.fromEntries(collected.units.map(({ id, evidence }) => [id, evidence]));
+  assert.equal(byId.gauntlet["image:semantic"], fixture.digest);
+  assert.equal(byId.gauntlet["image:commit"], fixture.digest);
+  assert.equal(byId.gauntlet["chart:semantic"], createHash("sha256").update("chart\n").digest("hex"));
+  assert.match(byId.protocol["npm:protocol"], /^sha512-/u);
+  assert.match(byId["java-core"]["maven:core"], /^[0-9a-f]{64}$/u);
+  assert.match(byId["php-core"]["composer:php-core"], /^[0-9a-f]{40}$/u);
+  assert.notEqual(byId["php-core"]["composer:php-core"], byId["symfony-bundle"]["composer:symfony-bundle"]);
+  assert.equal(new Set(collected.units.map(({ id, tag }) => collected.units.find((unit) => unit.id === id).evidence[`github:${tag}`])).size, 13);
+});
+
+test("the expected image digest cross-check treats an empty value as unset and fails closed on a difference", async (t) => {
+  const fixture = releaseFixture(t, GAUNTLET_ONLY);
+  for (const value of [fixture.digest, ""]) {
+    const collected = await withEnvironment({ GAUNTLET_EXPECTED_IMAGE_DIGEST: value }, () => collectReleaseEvidence({
+      releaseDirectory: fixture.root,
+      sourceCommit: COMMIT,
+    }));
+    assert.equal(collected.units[0].evidence["image:semantic"], fixture.digest);
+    assert.equal(collected.units[0].evidence["image:commit"], fixture.digest);
+  }
+  for (const value of [`sha256:${"c".repeat(64)}`, "sha256:short"]) {
+    await withEnvironment({ GAUNTLET_EXPECTED_IMAGE_DIGEST: value }, () => assert.rejects(
+      collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT }),
+      /failed closed/u,
+    ));
+  }
+  await withEnvironment({ GAUNTLET_EXPECTED_CHART_DIGEST: "" }, async () => {
+    const collected = await collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT });
+    assert.match(collected.units[0].evidence["github:v0.1.0"], /^[0-9a-f]{64}$/u);
+  });
 
   writeFileSync(resolve(fixture.root, `image/gauntlet-${VERSION}.provenance.json`), "tampered\n");
-  await assert.rejects(
-    collectReleaseEvidence({ releaseDirectory: fixture.root, version: VERSION, sourceCommit: COMMIT }),
-    /failed closed/u,
-  );
+  await assert.rejects(collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT }), /failed closed/u);
 });
 
 test("release evidence materializes archive consumers into owned temporary trees and removes them", async (t) => {
-  const fixture = releaseFixture(t);
+  const fixture = releaseFixture(t, [{ id: "php-core", version: VERSION }, { id: "java-core", version: "0.2.0" }]);
   await withTemporaryDirectory(fixture.root, async (temporaryDirectory) => {
-    const proofs = await collectReleaseEvidence({
-      releaseDirectory: fixture.root,
-      version: VERSION,
-      sourceCommit: COMMIT,
-    });
-    assert.match(proofs["maven:core"], /^[0-9a-f]{64}$/u);
-    assert.match(proofs["composer:php-core"], /^[0-9a-f]{40}$/u);
+    const collected = await collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT });
+    assert.deepEqual(collected.units.map(({ id, version, tag }) => [id, version, tag]), [
+      ["php-core", VERSION, "php-core-v0.1.0"],
+      ["java-core", "0.2.0", "java-core-v0.2.0"],
+    ]);
+    assert.match(collected.units[0].evidence["composer:php-core"], /^[0-9a-f]{40}$/u);
+    assert.equal(
+      collected.units[1].evidence["maven:core"],
+      createHash("sha256").update("jar:dev.eightlines.gauntlet:core\n").digest("hex"),
+    );
     assert.deepEqual(readdirSync(temporaryDirectory), []);
   });
 });
 
 test("release evidence rejects a rehashed non-canonical consumer archive", async (t) => {
-  const fixture = releaseFixture(t);
-  const manifestPath = resolve(fixture.root, "release-manifest.json");
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-  const artifact = manifest.artifacts.find(({ kind, name }) => (
-    kind === "maven" && name === "dev.eightlines.gauntlet:core"
-  ));
-  assert.notEqual(artifact, undefined);
-  const archivePath = resolve(fixture.root, artifact.path);
+  const fixture = releaseFixture(t, [{ id: "java-core", version: VERSION }]);
+  const archivePath = resolve(fixture.root, `maven/artifacts/gauntlet-core-${VERSION}.tar.gz`);
   writeFileSync(archivePath, "not a canonical tree archive\n", { mode: 0o600 });
-  artifact.sha256 = createHash("sha256").update(readFileSync(archivePath)).digest("hex");
-  writeFileSync(manifestPath, `${JSON.stringify(manifest)}\n`, { mode: 0o600 });
+  rewriteManifest(fixture.root, (manifest) => {
+    manifest.artifacts[0].sha256 = createHash("sha256").update(readFileSync(archivePath)).digest("hex");
+  });
   await withTemporaryDirectory(fixture.root, async (temporaryDirectory) => {
-    await assert.rejects(collectReleaseEvidence({
-      releaseDirectory: fixture.root,
-      version: VERSION,
-      sourceCommit: COMMIT,
-    }), /failed closed/u);
+    await assert.rejects(collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT }), /failed closed/u);
     assert.deepEqual(readdirSync(temporaryDirectory), []);
   });
 });
 
 test("release evidence rejects a rehashed Composer archive for a different source commit", async (t) => {
-  const fixture = releaseFixture(t);
+  const fixture = releaseFixture(t, [{ id: "php-core", version: VERSION }, { id: "symfony-bundle", version: VERSION }]);
   replaceComposerArchiveCommit(fixture.root, "8lines/gauntlet-symfony-bundle", WRONG_COMMIT);
-  await assert.rejects(collectReleaseEvidence({
-    releaseDirectory: fixture.root,
-    version: VERSION,
-    sourceCommit: COMMIT,
-  }), /failed closed/u);
+  await assert.rejects(collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT }), /failed closed/u);
 });
 
-test("rejects missing, unknown, or legacy-path staged artifacts before probing", async (t) => {
+test("rejects missing, unknown, foreign or legacy-path staged artifacts before probing", async (t) => {
+  const units = [{ id: "gauntlet", version: VERSION }, { id: "skills", version: VERSION }];
   const mutations = [
-    {
-      name: "missing",
-      apply(manifest) { manifest.artifacts.pop(); },
-    },
+    { name: "missing", apply(manifest) { manifest.artifacts.pop(); } },
     {
       name: "unknown",
-      apply(manifest) { manifest.artifacts[0] = { ...manifest.artifacts[0], name: "@8lines/not-in-the-release-catalog" }; },
+      apply(manifest) {
+        const record = manifest.artifacts.find(({ kind }) => kind === "skills");
+        record.name = "8lines/not-in-the-release-catalog";
+      },
+    },
+    {
+      name: "artifact of another unit",
+      apply(manifest) { manifest.artifacts.find(({ kind }) => kind === "skills").unit = "gauntlet"; },
     },
     {
       name: "legacy single SBOM",
       apply(manifest, root) {
         const artifact = manifest.artifacts.find(({ kind, name }) => kind === "sbom" && name.endsWith("@linux/amd64"));
-        assert.notEqual(artifact, undefined);
         const bytes = readFileSync(resolve(root, artifact.path));
         artifact.path = "sbom/gauntlet.spdx.json";
         writeFixtureFile(root, artifact.path, bytes);
-        artifact.sha256 = createHash("sha256").update(bytes).digest("hex");
       },
     },
+    {
+      name: "unit version without its artifacts",
+      apply(manifest) { manifest.units[1].version = "0.1.1"; delete manifest.units[1].tag; },
+    },
   ];
-
   for (const mutation of mutations) {
     await t.test(mutation.name, async (t) => {
-      const fixture = releaseFixture(t);
-      const manifestPath = resolve(fixture.root, "release-manifest.json");
-      const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-      mutation.apply(manifest, fixture.root);
-      writeFileSync(manifestPath, `${JSON.stringify(manifest)}\n`);
-      await assert.rejects(
-        collectReleaseEvidence({ releaseDirectory: fixture.root, version: VERSION, sourceCommit: COMMIT }),
-        /failed closed/u,
-      );
+      const fixture = releaseFixture(t, units);
+      rewriteManifest(fixture.root, (manifest) => mutation.apply(manifest, fixture.root));
+      await assert.rejects(collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT }), /failed closed/u);
     });
   }
   await t.test("duplicate manifest field", async (t) => {
-    const fixture = releaseFixture(t);
+    const fixture = releaseFixture(t, units);
     const manifestPath = resolve(fixture.root, "release-manifest.json");
     const source = readFileSync(manifestPath, "utf8");
-    writeFileSync(manifestPath, source.replace('"schemaVersion":1', '"schemaVersion":1,"schemaVersion":1'));
-    await assert.rejects(
-      collectReleaseEvidence({ releaseDirectory: fixture.root, version: VERSION, sourceCommit: COMMIT }),
-      /failed closed/u,
-    );
+    writeFileSync(manifestPath, source.replace('"schemaVersion": 2,', '"schemaVersion": 2,\n  "schemaVersion": 2,'));
+    await assert.rejects(collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT }), /failed closed/u);
+  });
+  await t.test("non-canonical manifest bytes", async (t) => {
+    const fixture = releaseFixture(t, units);
+    const manifestPath = resolve(fixture.root, "release-manifest.json");
+    writeFileSync(manifestPath, `${JSON.stringify(JSON.parse(readFileSync(manifestPath, "utf8")))}\n`);
+    await assert.rejects(collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT }), /failed closed/u);
+  });
+  await t.test("different source commit", async (t) => {
+    const fixture = releaseFixture(t, units);
+    await assert.rejects(collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: WRONG_COMMIT }), /failed closed/u);
+  });
+  await t.test("release directory named after another release set", async (t) => {
+    const fixture = releaseFixture(t, units);
+    const moved = resolve(fixture.root, "..", "release-2026-10-03.2");
+    renameSync(fixture.root, moved);
+    await assert.rejects(collectReleaseEvidence({ releaseDirectory: moved, sourceCommit: COMMIT }), /failed closed/u);
   });
 });
 
-test("derives finalized GitHub Release evidence from the exact local receipt and checksums", async (t) => {
-  const fixture = releaseFixture(t);
+test("derives finalized GitHub Release evidence from the exact local unit receipt and checksums", async (t) => {
+  const fixture = releaseFixture(t, [{ id: "gauntlet", version: VERSION }, { id: "skills", version: VERSION }]);
+  const before = await collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT });
+  writePublicationReceipt({ releaseDirectory: fixture.root, unit: "skills", imageDigest: null, chartDigest: null });
   writePublicationReceipt({
     releaseDirectory: fixture.root,
+    unit: "gauntlet",
     imageDigest: fixture.digest,
     chartDigest: `sha256:${"b".repeat(64)}`,
   });
-  const proofs = await collectReleaseEvidence({
-    releaseDirectory: fixture.root,
-    version: VERSION,
-    sourceCommit: COMMIT,
-  });
-  assert.match(proofs["github:release"], /^[0-9a-f]{64}$/u);
-  writeFileSync(resolve(fixture.root, "SHA256SUMS"), "tampered under the same name\n");
-  await assert.rejects(collectReleaseEvidence({
-    releaseDirectory: fixture.root,
-    version: VERSION,
-    sourceCommit: COMMIT,
-  }), /failed closed/u);
-});
+  const after = await collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT });
+  // The predicted skills receipt equals the finalized one; the gauntlet chart digest comes from the push.
+  assert.equal(after.units[1].evidence["github:skills-v0.1.0"], before.units[1].evidence["github:skills-v0.1.0"]);
+  assert.notEqual(after.units[0].evidence["github:v0.1.0"], before.units[0].evidence["github:v0.1.0"]);
 
-test("builds an immutable check plan only for the fixed release catalog destinations", () => {
-  const plan = createPublishedCheckPlan({ version: VERSION, sourceCommit: COMMIT, evidence: evidence() });
-  assert.equal(plan.length, 15);
-  assert.deepEqual(plan.map(({ id }) => id), PUBLISHED_DESTINATIONS.map(({ id }) => id));
-  assert.equal(new Set(plan.map(({ destination }) => destination)).size, 15);
-  assert.equal(Object.isFrozen(plan), true);
-  assert.equal(plan.every(Object.isFrozen), true);
-  assert.match(plan.find(({ id }) => id === "image:semantic").destination, /ghcr\.io\/8lines\/gauntlet:0\.1\.0/u);
-  assert.match(plan.find(({ id }) => id === "image:commit").destination, /:sha-0123456789ab$/u);
-  assert.equal(plan.find(({ id }) => id === "composer:php-core").destination, "https://github.com/8lines/gauntlet-php-core.git#v0.1.0");
-  assert.equal(plan.at(-1).destination, "https://github.com/8lines/gauntlet/releases/tag/v0.1.0");
+  for (const path of ["units/gauntlet/SHA256SUMS", "units/gauntlet/release-manifest.json"]) {
+    await t.test(`tampered ${path}`, async () => {
+      const original = readFileSync(resolve(fixture.root, path));
+      writeFileSync(resolve(fixture.root, path), "tampered under the same name\n");
+      try {
+        await assert.rejects(collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT }), /failed closed/u);
+      } finally {
+        writeFileSync(resolve(fixture.root, path), original);
+      }
+    });
+  }
+  await withEnvironment({ GAUNTLET_EXPECTED_CHART_DIGEST: `sha256:${"c".repeat(64)}` }, () => assert.rejects(
+    collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT }),
+    /failed closed/u,
+  ));
+  await withEnvironment({ GAUNTLET_EXPECTED_CHART_DIGEST: `sha256:${"b".repeat(64)}` }, async () => {
+    const collected = await collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT });
+    assert.equal(collected.units[0].evidence["github:v0.1.0"], after.units[0].evidence["github:v0.1.0"]);
+  });
 });
 
 test("parses only an exact OCI index descriptor and a single registry digest", () => {
@@ -408,56 +346,66 @@ test("parses only an exact OCI index descriptor and a single registry digest", (
   assert.throws(() => parseImageInspection(`Digest: ${digest}\nDigest: ${digest}\n`), /image inspection failed closed/u);
 });
 
-test("accepts only a receipt bound to the exact staged manifest and source", () => {
+test("accepts only a unit receipt bound to the exact unit manifest, release set and source", () => {
   const manifestSha256 = "d".repeat(64);
-  const receipt = {
-    schemaVersion: 1,
-    version: VERSION,
-    sourceCommit: COMMIT,
+  const expected = { releaseSet: SET, unit: "skills", version: VERSION, sourceCommit: COMMIT, manifestSha256 };
+  const receipt = { schemaVersion: 2, releaseSet: SET, unit: "skills", version: VERSION, sourceCommit: COMMIT, manifestSha256 };
+  const canonical = `${JSON.stringify(receipt, null, 2)}\n`;
+  assert.deepEqual(parsePublicationReceipt(canonical, expected), receipt);
+  const gauntlet = {
+    ...receipt,
+    unit: "gauntlet",
     imageDigest: `sha256:${"a".repeat(64)}`,
     chartDigest: `sha256:${"b".repeat(64)}`,
-    manifestSha256,
   };
-  const canonical = `${JSON.stringify(receipt, null, 2)}\n`;
-  assert.deepEqual(parsePublicationReceipt(canonical, { version: VERSION, sourceCommit: COMMIT, manifestSha256 }), receipt);
-  for (const invalid of [
-    { ...receipt, sourceCommit: "f".repeat(40) },
-    { ...receipt, manifestSha256: "e".repeat(64) },
-    { ...receipt, extra: true },
-  ]) assert.throws(
-    () => parsePublicationReceipt(`${JSON.stringify(invalid)}\n`, { version: VERSION, sourceCommit: COMMIT, manifestSha256 }),
-    /publication receipt failed closed/u,
-  );
+  assert.deepEqual(parsePublicationReceipt(`${JSON.stringify(gauntlet, null, 2)}\n`, { ...expected, unit: "gauntlet" }), gauntlet);
+  for (const [invalid, expectation] of [
+    [{ ...receipt, sourceCommit: WRONG_COMMIT }, expected],
+    [{ ...receipt, manifestSha256: "e".repeat(64) }, expected],
+    [{ ...receipt, releaseSet: "release-2026-10-03.2" }, expected],
+    [{ ...receipt, unit: "protocol" }, expected],
+    [{ ...receipt, version: "0.1.1" }, expected],
+    [{ ...receipt, schemaVersion: 1 }, expected],
+    [{ ...receipt, extra: true }, expected],
+    [{ ...receipt, imageDigest: gauntlet.imageDigest, chartDigest: gauntlet.chartDigest }, expected],
+    [receipt, { ...expected, unit: "gauntlet" }],
+    [{ ...gauntlet, chartDigest: "sha256:short" }, { ...expected, unit: "gauntlet" }],
+    [{ ...gauntlet, imageDigest: null }, { ...expected, unit: "gauntlet" }],
+  ]) {
+    assert.throws(
+      () => parsePublicationReceipt(`${JSON.stringify(invalid, null, 2)}\n`, expectation),
+      /publication receipt failed closed/u,
+    );
+  }
   assert.throws(
-    () => parsePublicationReceipt(
-      `${JSON.stringify(receipt).replace('"schemaVersion":1', '"schemaVersion":1,"schemaVersion":1')}\n`,
-      { version: VERSION, sourceCommit: COMMIT, manifestSha256 },
-    ),
+    () => parsePublicationReceipt(canonical.replace('"schemaVersion": 2,', '"schemaVersion": 2,\n  "schemaVersion": 2,'), expected),
     /publication receipt failed closed/u,
   );
-  assert.throws(
-    () => parsePublicationReceipt(`${JSON.stringify(receipt)}\n`, { version: VERSION, sourceCommit: COMMIT, manifestSha256 }),
-    /publication receipt failed closed/u,
-  );
+  assert.throws(() => parsePublicationReceipt(`${JSON.stringify(receipt)}\n`, expected), /publication receipt failed closed/u);
+  assert.throws(() => parsePublicationReceipt(canonical, { ...expected, extra: true }), /publication receipt failed closed/u);
 });
 
-test("accepts only the complete fixed GitHub Release asset catalog", () => {
-  const names = releaseAssetNames();
+test("accepts only the complete per-unit GitHub Release asset catalog", () => {
+  const names = assetNames("gauntlet");
+  assert.equal(names.length, 8);
   const assets = names.map((name, index) => ({ id: index + 1, name }));
-  const parsed = parseReleaseAssets(assets, VERSION);
+  const parsed = parseReleaseAssets(assets, "gauntlet", VERSION);
   assert.deepEqual(Object.keys(parsed), names);
-  assert.equal(parsed["publication-receipt.json"], 5);
-  assert.throws(() => parseReleaseAssets(assets.slice(1), VERSION), /Release assets failed closed/u);
+  assert.equal(parsed["publication-receipt.json"], 7);
+  assert.throws(() => parseReleaseAssets(assets.slice(1), "gauntlet", VERSION), /Release assets failed closed/u);
   assert.throws(
-    () => parseReleaseAssets(assets.filter(({ name }) => name !== `gauntlet-skills-${VERSION}.tgz`), VERSION),
+    () => parseReleaseAssets(assets.filter(({ name }) => name !== `gauntlet-compose-${VERSION}.tar.gz`), "gauntlet", VERSION),
     /Release assets failed closed/u,
   );
   assert.throws(
-    () => parseReleaseAssets(assets.filter(({ name }) => name !== `gauntlet-compose-${VERSION}.tar.gz`), VERSION),
+    () => parseReleaseAssets([...assets, { id: 99, name: `gauntlet-${VERSION}.oci.tar` }], "gauntlet", VERSION),
     /Release assets failed closed/u,
   );
-  assert.throws(() => parseReleaseAssets([...assets, { id: 99, name: "unexpected.txt" }], VERSION), /Release assets failed closed/u);
-  assert.throws(() => parseReleaseAssets([...assets.slice(0, -1), assets[0]], VERSION), /Release assets failed closed/u);
+  assert.throws(() => parseReleaseAssets([...assets.slice(0, -1), assets[0]], "gauntlet", VERSION), /Release assets failed closed/u);
+  assert.throws(() => parseReleaseAssets(assets, "skills", VERSION), /Release assets failed closed/u);
+  assert.throws(() => parseReleaseAssets(assets, "gauntlet", "0.1.1"), /Release assets failed closed/u);
+  const skills = assetNames("skills").map((name, index) => ({ id: index + 1, name }));
+  assert.deepEqual(Object.keys(parseReleaseAssets(skills, "skills", VERSION)), assetNames("skills"));
 });
 
 function responseJson(value, status = 200) {
@@ -468,6 +416,7 @@ function responseJson(value, status = 200) {
 }
 
 function githubReleaseFetch({
+  tag = "v0.1.0",
   assets,
   bytesByName,
   immutable,
@@ -478,25 +427,22 @@ function githubReleaseFetch({
 }) {
   const calls = [];
   const byId = new Map(assets.map(({ id, name }) => [id, name]));
+  const release = () => ({ tag_name: tag, draft, prerelease: false, immutable, assets });
   const fetch = async (input, options = {}) => {
     const url = new URL(input);
     calls.push({ url: url.href, options });
     if (url.origin === "https://api.github.com" && url.pathname === "/repos/8lines/gauntlet") {
       return responseJson({ id: 1, private: true });
     }
-    if (url.origin === "https://api.github.com"
-        && url.pathname === `/repos/8lines/gauntlet/releases/tags/v${VERSION}`) {
-      if (releaseAbsent || draft) return new Response(null, { status: 404 });
-      return responseJson({ tag_name: `v${VERSION}`, draft, prerelease: false, immutable, assets });
+    const byTag = /^\/repos\/8lines\/gauntlet\/releases\/tags\/([^/]+)$/u.exec(url.pathname);
+    if (url.origin === "https://api.github.com" && byTag !== null) {
+      if (byTag[1] !== tag || releaseAbsent || draft) return new Response(null, { status: 404 });
+      return responseJson(release());
     }
-    if (url.origin === "https://api.github.com"
-        && url.pathname === "/repos/8lines/gauntlet/releases") {
-      return responseJson(draft
-        ? [{ tag_name: `v${VERSION}`, draft, prerelease: false, immutable, assets }]
-        : []);
+    if (url.origin === "https://api.github.com" && url.pathname === "/repos/8lines/gauntlet/releases") {
+      return responseJson(draft ? [{ tag_name: "v9.9.9", draft: true }, release()] : []);
     }
-    if (url.origin === "https://api.github.com"
-        && url.pathname === `/repos/8lines/gauntlet/git/ref/tags/v${VERSION}`) {
+    if (url.origin === "https://api.github.com" && url.pathname === `/repos/8lines/gauntlet/git/ref/tags/${tag}`) {
       return responseJson({ object: { type: "commit", sha: COMMIT } });
     }
     const assetMatch = /^\/repos\/8lines\/gauntlet\/releases\/assets\/([1-9][0-9]*)$/u.exec(url.pathname);
@@ -522,336 +468,251 @@ function githubReleaseFetch({
   return { calls, fetch };
 }
 
-function canonicalReceiptBytes(root, imageDigest, chartDigest) {
-  const manifest = readFileSync(resolve(root, "release-manifest.json"));
+function canonicalReceiptBytes(root, unit, digests = {}) {
+  const manifest = readManifest(root);
+  const unitManifest = Buffer.from(`${JSON.stringify(unitReleaseManifest(manifest, unit), null, 2)}\n`);
+  const entry = manifest.units.find(({ id }) => id === unit);
   return Buffer.from(`${JSON.stringify({
-    schemaVersion: 1,
-    version: VERSION,
-    sourceCommit: COMMIT,
-    imageDigest,
-    chartDigest,
-    manifestSha256: createHash("sha256").update(manifest).digest("hex"),
+    schemaVersion: 2,
+    releaseSet: manifest.releaseSet,
+    unit,
+    version: entry.version,
+    sourceCommit: manifest.sourceCommit,
+    manifestSha256: createHash("sha256").update(unitManifest).digest("hex"),
+    ...digests,
   }, null, 2)}\n`);
 }
 
-test("uses a canonical remote receipt only as the missing-local rerun fallback", async (t) => {
-  const fixture = releaseFixture(t);
-  const names = releaseAssetNames();
-  const assets = names.map((name, index) => ({ id: index + 1, name }));
-  const chartDigest = `sha256:${"b".repeat(64)}`;
-  const bytesByName = new Map(names.map((name) => [name, Buffer.from(`exact:${name}\n`)]));
-  bytesByName.set("publication-receipt.json", canonicalReceiptBytes(fixture.root, fixture.digest, chartDigest));
+function remoteAssets(unit, label) {
+  const names = assetNames(unit);
+  return {
+    names,
+    assets: names.map((name, index) => ({ id: index + 1, name })),
+    bytesByName: new Map(names.map((name) => [name, Buffer.from(`${label}:${name}\n`)])),
+  };
+}
+
+const REMOTE = Object.freeze({ GH_TOKEN: "test-token-for-release-assets", GAUNTLET_USE_REMOTE_RECEIPT: "true" });
+
+test("uses a canonical remote unit receipt only as the missing-local rerun fallback", async (t) => {
+  const fixture = releaseFixture(t, GAUNTLET_ONLY);
+  const { assets, bytesByName } = remoteAssets("gauntlet", "exact");
+  bytesByName.set("publication-receipt.json", canonicalReceiptBytes(fixture.root, "gauntlet", {
+    imageDigest: fixture.digest,
+    chartDigest: `sha256:${"b".repeat(64)}`,
+  }));
   const remote = githubReleaseFetch({ assets, bytesByName, immutable: true });
-  const originalFetch = globalThis.fetch;
-  const originalToken = process.env.GH_TOKEN;
-  const originalMode = process.env.GAUNTLET_USE_REMOTE_RECEIPT;
-  try {
-    globalThis.fetch = remote.fetch;
-    process.env.GH_TOKEN = "test-token-for-release-assets";
-    process.env.GAUNTLET_USE_REMOTE_RECEIPT = "true";
-    const proofs = await collectReleaseEvidence({
-      releaseDirectory: fixture.root,
-      version: VERSION,
-      sourceCommit: COMMIT,
-    });
-    assert.equal(proofs["image:semantic"], fixture.digest);
-    assert.match(proofs["github:release"], /^[0-9a-f]{64}$/u);
-    assert.equal(remote.calls.filter(({ url }) => url.includes("/releases/assets/")).length, 1);
-  } finally {
-    globalThis.fetch = originalFetch;
-    if (originalToken === undefined) delete process.env.GH_TOKEN;
-    else process.env.GH_TOKEN = originalToken;
-    if (originalMode === undefined) delete process.env.GAUNTLET_USE_REMOTE_RECEIPT;
-    else process.env.GAUNTLET_USE_REMOTE_RECEIPT = originalMode;
-  }
+  const collected = await withEnvironment(REMOTE, () => withFetch(remote.fetch, () => collectReleaseEvidence({
+    releaseDirectory: fixture.root,
+    sourceCommit: COMMIT,
+  })));
+  assert.equal(collected.units[0].evidence["image:semantic"], fixture.digest);
+  assert.match(collected.units[0].evidence["github:v0.1.0"], /^[0-9a-f]{64}$/u);
+  assert.equal(remote.calls.filter(({ url }) => url.includes("/releases/assets/")).length, 1);
+  assert.equal(remote.calls.some(({ url }) => url.endsWith("/releases/tags/v0.1.0")), true);
+
+  const predicted = await collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT });
+  assert.notEqual(predicted.units[0].evidence["github:v0.1.0"], collected.units[0].evidence["github:v0.1.0"]);
+});
+
+test("a remote receipt is looked up under each unit's own tag", async (t) => {
+  const fixture = releaseFixture(t, [{ id: "gauntlet", version: VERSION }, { id: "skills", version: VERSION }]);
+  const { assets, bytesByName } = remoteAssets("skills", "exact");
+  bytesByName.set("publication-receipt.json", canonicalReceiptBytes(fixture.root, "skills"));
+  const remote = githubReleaseFetch({ tag: "skills-v0.1.0", assets, bytesByName, immutable: true });
+  const collected = await withEnvironment(REMOTE, () => withFetch(remote.fetch, () => collectReleaseEvidence({
+    releaseDirectory: fixture.root,
+    sourceCommit: COMMIT,
+  })));
+  assert.deepEqual(collected.units.map(({ id }) => id), ["gauntlet", "skills"]);
+  assert.deepEqual(
+    remote.calls.map(({ url }) => new URL(url).pathname).filter((path) => path.includes("/releases/tags/")).sort(),
+    ["/repos/8lines/gauntlet/releases/tags/skills-v0.1.0", "/repos/8lines/gauntlet/releases/tags/v0.1.0"],
+  );
+
+  bytesByName.set("publication-receipt.json", canonicalReceiptBytes(fixture.root, "gauntlet", {
+    imageDigest: fixture.digest,
+    chartDigest: fixture.digest,
+  }));
+  const foreign = githubReleaseFetch({ tag: "skills-v0.1.0", assets, bytesByName, immutable: true });
+  await withEnvironment(REMOTE, () => withFetch(foreign.fetch, () => assert.rejects(
+    collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT }),
+    /failed closed/u,
+  )));
 });
 
 test("rejects a coordinated remote receipt and image replacement even when the release is immutable", async (t) => {
-  const fixture = releaseFixture(t);
-  const names = releaseAssetNames();
-  const assets = names.map((name, index) => ({ id: index + 1, name }));
-  const replacementImage = `sha256:${"c".repeat(64)}`;
-  const bytesByName = new Map(names.map((name) => [name, Buffer.from(`replacement:${name}\n`)]));
-  bytesByName.set(
-    "publication-receipt.json",
-    canonicalReceiptBytes(fixture.root, replacementImage, `sha256:${"d".repeat(64)}`),
-  );
+  const fixture = releaseFixture(t, GAUNTLET_ONLY);
+  const { assets, bytesByName } = remoteAssets("gauntlet", "replacement");
+  bytesByName.set("publication-receipt.json", canonicalReceiptBytes(fixture.root, "gauntlet", {
+    imageDigest: `sha256:${"c".repeat(64)}`,
+    chartDigest: `sha256:${"d".repeat(64)}`,
+  }));
   const remote = githubReleaseFetch({ assets, bytesByName, immutable: true });
-  const originalFetch = globalThis.fetch;
-  const originalToken = process.env.GH_TOKEN;
-  const originalMode = process.env.GAUNTLET_USE_REMOTE_RECEIPT;
-  try {
-    globalThis.fetch = remote.fetch;
-    process.env.GH_TOKEN = "test-token-for-release-assets";
-    process.env.GAUNTLET_USE_REMOTE_RECEIPT = "true";
-    await assert.rejects(collectReleaseEvidence({
-      releaseDirectory: fixture.root,
-      version: VERSION,
-      sourceCommit: COMMIT,
-    }), /failed closed/u);
-  } finally {
-    globalThis.fetch = originalFetch;
-    if (originalToken === undefined) delete process.env.GH_TOKEN;
-    else process.env.GH_TOKEN = originalToken;
-    if (originalMode === undefined) delete process.env.GAUNTLET_USE_REMOTE_RECEIPT;
-    else process.env.GAUNTLET_USE_REMOTE_RECEIPT = originalMode;
-  }
+  await withEnvironment(REMOTE, () => withFetch(remote.fetch, () => assert.rejects(
+    collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT }),
+    /failed closed/u,
+  )));
 });
 
-test("rejects a remote receipt from a mutable public release", async (t) => {
-  const fixture = releaseFixture(t);
-  const names = releaseAssetNames();
-  const assets = names.map((name, index) => ({ id: index + 1, name }));
-  const bytesByName = new Map(names.map((name) => [name, Buffer.from(`exact:${name}\n`)]));
-  bytesByName.set(
-    "publication-receipt.json",
-    canonicalReceiptBytes(fixture.root, fixture.digest, `sha256:${"b".repeat(64)}`),
-  );
-  const remote = githubReleaseFetch({
-    assets,
-    bytesByName,
-    immutable: false,
-  });
-  const originalFetch = globalThis.fetch;
-  const originalToken = process.env.GH_TOKEN;
-  const originalMode = process.env.GAUNTLET_USE_REMOTE_RECEIPT;
-  try {
-    globalThis.fetch = remote.fetch;
-    process.env.GH_TOKEN = "test-token-for-release-assets";
-    process.env.GAUNTLET_USE_REMOTE_RECEIPT = "true";
-    await assert.rejects(collectReleaseEvidence({
-      releaseDirectory: fixture.root,
-      version: VERSION,
-      sourceCommit: COMMIT,
-    }), /failed closed/u);
-  } finally {
-    globalThis.fetch = originalFetch;
-    if (originalToken === undefined) delete process.env.GH_TOKEN;
-    else process.env.GH_TOKEN = originalToken;
-    if (originalMode === undefined) delete process.env.GAUNTLET_USE_REMOTE_RECEIPT;
-    else process.env.GAUNTLET_USE_REMOTE_RECEIPT = originalMode;
-  }
+test("rejects a remote receipt from a mutable public release or one with a foreign asset list", async (t) => {
+  const fixture = releaseFixture(t, GAUNTLET_ONLY);
+  const { assets, bytesByName } = remoteAssets("gauntlet", "exact");
+  bytesByName.set("publication-receipt.json", canonicalReceiptBytes(fixture.root, "gauntlet", {
+    imageDigest: fixture.digest,
+    chartDigest: `sha256:${"b".repeat(64)}`,
+  }));
+  const mutable = githubReleaseFetch({ assets, bytesByName, immutable: false });
+  await withEnvironment(REMOTE, () => withFetch(mutable.fetch, () => assert.rejects(
+    collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT }),
+    /failed closed/u,
+  )));
+  const foreignAssets = githubReleaseFetch({ assets: assets.slice(1), bytesByName, immutable: true });
+  await withEnvironment(REMOTE, () => withFetch(foreignAssets.fetch, () => assert.rejects(
+    collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT }),
+    /failed closed/u,
+  )));
 });
 
 test("post-finalize evidence binds remote receipt bytes and the published chart digest to local bytes", async (t) => {
-  const fixture = releaseFixture(t);
-  const localChartDigest = `sha256:${"b".repeat(64)}`;
+  const fixture = releaseFixture(t, GAUNTLET_ONLY);
   writePublicationReceipt({
     releaseDirectory: fixture.root,
-    imageDigest: fixture.digest,
-    chartDigest: localChartDigest,
-  });
-  const names = releaseAssetNames();
-  const assets = names.map((name, index) => ({ id: index + 1, name }));
-  const bytesByName = new Map(names.map((name) => [name, Buffer.from(`exact:${name}\n`)]));
-  bytesByName.set(
-    "publication-receipt.json",
-    canonicalReceiptBytes(fixture.root, fixture.digest, `sha256:${"c".repeat(64)}`),
-  );
-  const remote = githubReleaseFetch({ assets, bytesByName, immutable: true });
-  const originalFetch = globalThis.fetch;
-  const originalToken = process.env.GH_TOKEN;
-  const originalMode = process.env.GAUNTLET_USE_REMOTE_RECEIPT;
-  const originalChart = process.env.GAUNTLET_EXPECTED_CHART_DIGEST;
-  try {
-    globalThis.fetch = remote.fetch;
-    process.env.GH_TOKEN = "test-token-for-release-assets";
-    process.env.GAUNTLET_USE_REMOTE_RECEIPT = "true";
-    await assert.rejects(collectReleaseEvidence({
-      releaseDirectory: fixture.root,
-      version: VERSION,
-      sourceCommit: COMMIT,
-    }), /failed closed/u);
-
-    delete process.env.GAUNTLET_USE_REMOTE_RECEIPT;
-    process.env.GAUNTLET_EXPECTED_CHART_DIGEST = `sha256:${"c".repeat(64)}`;
-    await assert.rejects(collectReleaseEvidence({
-      releaseDirectory: fixture.root,
-      version: VERSION,
-      sourceCommit: COMMIT,
-    }), /failed closed/u);
-  } finally {
-    globalThis.fetch = originalFetch;
-    if (originalToken === undefined) delete process.env.GH_TOKEN;
-    else process.env.GH_TOKEN = originalToken;
-    if (originalMode === undefined) delete process.env.GAUNTLET_USE_REMOTE_RECEIPT;
-    else process.env.GAUNTLET_USE_REMOTE_RECEIPT = originalMode;
-    if (originalChart === undefined) delete process.env.GAUNTLET_EXPECTED_CHART_DIGEST;
-    else process.env.GAUNTLET_EXPECTED_CHART_DIGEST = originalChart;
-  }
-});
-
-test("draft verification compares all nine uploaded bytes to the local finalized release", async (t) => {
-  const fixture = releaseFixture(t);
-  writePublicationReceipt({
-    releaseDirectory: fixture.root,
+    unit: "gauntlet",
     imageDigest: fixture.digest,
     chartDigest: `sha256:${"b".repeat(64)}`,
   });
-  const names = releaseAssetNames();
-  const assets = names.map((name, index) => ({ id: index + 1, name }));
-  const paths = new Map([
-    [`gauntlet-compose-${VERSION}.tar.gz`, `compose/gauntlet-compose-${VERSION}.tar.gz`],
-    [`gauntlet-skills-${VERSION}.tgz`, `skills/gauntlet-skills-${VERSION}.tgz`],
-    [`gauntlet-${VERSION}.tgz`, `helm/gauntlet-${VERSION}.tgz`],
-    ["release-manifest.json", "release-manifest.json"],
-    ["publication-receipt.json", "publication-receipt.json"],
-    ["SHA256SUMS", "SHA256SUMS"],
-    [`gauntlet-${VERSION}.provenance.json`, `image/gauntlet-${VERSION}.provenance.json`],
-    ["gauntlet-linux-amd64.spdx.json", "sbom/gauntlet-linux-amd64.spdx.json"],
-    ["gauntlet-linux-arm64.spdx.json", "sbom/gauntlet-linux-arm64.spdx.json"],
-  ]);
-  const bytesByName = new Map([...paths].map(([name, path]) => [name, readFileSync(resolve(fixture.root, path))]));
-  const originalFetch = globalThis.fetch;
-  const originalToken = process.env.GH_TOKEN;
-  try {
-    process.env.GH_TOKEN = "test-token-for-release-assets";
-    const exact = githubReleaseFetch({ assets, bytesByName, draft: true, immutable: false });
-    globalThis.fetch = exact.fetch;
-    assert.equal(await checkDraftReleasePublication({
-      releaseDirectory: fixture.root,
-      version: VERSION,
-      sourceCommit: COMMIT,
-    }), "draft-identical");
-
-    bytesByName.set(`gauntlet-compose-${VERSION}.tar.gz`, Buffer.from("tampered draft upload\n"));
-    const tampered = githubReleaseFetch({ assets, bytesByName, draft: true, immutable: false });
-    globalThis.fetch = tampered.fetch;
-    await assert.rejects(checkDraftReleasePublication({
-      releaseDirectory: fixture.root,
-      version: VERSION,
-      sourceCommit: COMMIT,
-    }), /failed closed/u);
-  } finally {
-    globalThis.fetch = originalFetch;
-    if (originalToken === undefined) delete process.env.GH_TOKEN;
-    else process.env.GH_TOKEN = originalToken;
-  }
+  const { assets, bytesByName } = remoteAssets("gauntlet", "exact");
+  bytesByName.set("publication-receipt.json", canonicalReceiptBytes(fixture.root, "gauntlet", {
+    imageDigest: fixture.digest,
+    chartDigest: `sha256:${"c".repeat(64)}`,
+  }));
+  const remote = githubReleaseFetch({ assets, bytesByName, immutable: true });
+  await withEnvironment(REMOTE, () => withFetch(remote.fetch, () => assert.rejects(
+    collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT }),
+    /failed closed/u,
+  )));
+  await withEnvironment({ GAUNTLET_EXPECTED_CHART_DIGEST: `sha256:${"c".repeat(64)}` }, () => assert.rejects(
+    collectReleaseEvidence({ releaseDirectory: fixture.root, sourceCommit: COMMIT }),
+    /failed closed/u,
+  ));
+  bytesByName.set("publication-receipt.json", readFileSync(resolve(fixture.root, "units/gauntlet/publication-receipt.json")));
+  const identical = githubReleaseFetch({ assets, bytesByName, immutable: true });
+  const collected = await withEnvironment(REMOTE, () => withFetch(identical.fetch, () => collectReleaseEvidence({
+    releaseDirectory: fixture.root,
+    sourceCommit: COMMIT,
+  })));
+  assert.match(collected.units[0].evidence["github:v0.1.0"], /^[0-9a-f]{64}$/u);
 });
 
-test("GitHub Release probing hashes every exact asset byte and rejects same-name tampering", async () => {
-  const names = releaseAssetNames();
-  const assets = names.map((name, index) => ({ id: index + 1, name }));
-  const bytesByName = new Map(names.map((name) => [name, Buffer.from(`exact:${name}\n`)]));
-  const originalFetch = globalThis.fetch;
-  const originalToken = process.env.GH_TOKEN;
-  try {
-    process.env.GH_TOKEN = "test-token-for-release-assets";
-    const firstRemote = githubReleaseFetch({ assets, bytesByName, immutable: true });
-    globalThis.fetch = firstRemote.fetch;
-    const seedPlan = createPublishedCheckPlan({ version: VERSION, sourceCommit: COMMIT, evidence: evidence() });
-    const seedRelease = seedPlan.find(({ id }) => id === "github:release");
-    const original = await probeRemoteDestination(seedRelease);
-    assert.match(original.evidence, /^[0-9a-f]{64}$/u);
-    assert.equal(firstRemote.calls.filter(({ url }) => url.includes("/releases/assets/")).length, 9);
-    assert.equal(
-      firstRemote.calls.filter(({ url }) => url.startsWith("https://objects.githubusercontent.com/")).length,
-      9,
-    );
-    assert.equal(firstRemote.calls.filter(({ url }) => url.startsWith("https://objects.githubusercontent.com/"))
-      .every(({ options }) => options.headers.Authorization === undefined), true);
+function finalizedDraftAssets(root, unit) {
+  const assets = unitReleaseAssets(readManifest(root), unit);
+  return {
+    assets: assets.map(({ name }, index) => ({ id: index + 1, name })),
+    bytesByName: new Map(assets.map(({ name, path }) => [name, readFileSync(resolve(root, path))])),
+  };
+}
 
-    const matchingEvidence = { ...evidence(), "github:release": original.evidence };
-    const matchingPlan = createPublishedCheckPlan({ version: VERSION, sourceCommit: COMMIT, evidence: matchingEvidence });
+test("draft verification compares every uploaded unit asset to the local finalized unit", async (t) => {
+  const fixture = releaseFixture(t, [{ id: "gauntlet", version: VERSION }, { id: "skills", version: VERSION }]);
+  await assert.rejects(checkDraftReleasePublication({ releaseDirectory: fixture.root, sourceCommit: COMMIT, unit: "skills" }), /failed closed/u);
+  writePublicationReceipt({ releaseDirectory: fixture.root, unit: "gauntlet", imageDigest: fixture.digest, chartDigest: `sha256:${"b".repeat(64)}` });
+  writePublicationReceipt({ releaseDirectory: fixture.root, unit: "skills", imageDigest: null, chartDigest: null });
+  await withEnvironment({ GH_TOKEN: REMOTE.GH_TOKEN }, async () => {
+    for (const [unit, tag] of [["gauntlet", "v0.1.0"], ["skills", "skills-v0.1.0"]]) {
+      const { assets, bytesByName } = finalizedDraftAssets(fixture.root, unit);
+      const exact = githubReleaseFetch({ tag, assets, bytesByName, draft: true, immutable: false });
+      assert.equal(await withFetch(exact.fetch, () => checkDraftReleasePublication({
+        releaseDirectory: fixture.root,
+        sourceCommit: COMMIT,
+        unit,
+      })), "draft-identical");
+      assert.equal(exact.calls.filter(({ url }) => url.startsWith("https://objects.githubusercontent.com/")).length, assets.length);
+
+      bytesByName.set(assets[0].name, Buffer.from("tampered draft upload\n"));
+      const tampered = githubReleaseFetch({ tag, assets, bytesByName, draft: true, immutable: false });
+      await withFetch(tampered.fetch, () => assert.rejects(checkDraftReleasePublication({
+        releaseDirectory: fixture.root,
+        sourceCommit: COMMIT,
+        unit,
+      }), /failed closed/u));
+    }
+    const { assets, bytesByName } = finalizedDraftAssets(fixture.root, "skills");
+    const wrongTag = githubReleaseFetch({ tag: "v0.1.0", assets, bytesByName, draft: true, immutable: false });
+    await withFetch(wrongTag.fetch, () => assert.rejects(checkDraftReleasePublication({
+      releaseDirectory: fixture.root,
+      sourceCommit: COMMIT,
+      unit: "skills",
+    }), /failed closed/u));
+  });
+  await assert.rejects(checkDraftReleasePublication({ releaseDirectory: fixture.root, sourceCommit: COMMIT, unit: "protocol" }), /failed closed/u);
+});
+
+test("GitHub Release probing hashes every exact unit asset byte and rejects same-name tampering", async () => {
+  const { assets, bytesByName } = remoteAssets("gauntlet", "exact");
+  await withEnvironment({ GH_TOKEN: REMOTE.GH_TOKEN }, async () => {
+    const firstRemote = githubReleaseFetch({ assets, bytesByName, immutable: true });
+    const seedRelease = unitPlan("gauntlet").find(({ kind }) => kind === "release");
+    const original = await withFetch(firstRemote.fetch, () => probeRemoteDestination(seedRelease));
+    assert.match(original.evidence, /^[0-9a-f]{64}$/u);
+    assert.equal(firstRemote.calls.filter(({ url }) => url.includes("/releases/assets/")).length, 8);
+    assert.equal(firstRemote.calls.some(({ url }) => url.endsWith("/git/ref/tags/v0.1.0")), true);
+    const downloads = firstRemote.calls.filter(({ url }) => url.startsWith("https://objects.githubusercontent.com/"));
+    assert.equal(downloads.length, 8);
+    assert.equal(downloads.every(({ options }) => options.headers.Authorization === undefined), true);
+
+    const matchingPlan = unitPlan("gauntlet", { ...unitEvidence("gauntlet"), "github:v0.1.0": original.evidence });
     bytesByName.set(`gauntlet-compose-${VERSION}.tar.gz`, Buffer.from("tampered under the same name\n"));
     const secondRemote = githubReleaseFetch({ assets, bytesByName, immutable: true });
-    globalThis.fetch = secondRemote.fetch;
-    const releaseCheck = matchingPlan.find(({ id }) => id === "github:release");
-    const tampered = await probeRemoteDestination(releaseCheck);
+    const tampered = await withFetch(secondRemote.fetch, () => probeRemoteDestination(matchingPlan.at(-1)));
     assert.notEqual(tampered.evidence, original.evidence);
-    const observations = matchingPlan.map(({ id, expectedEvidence }) => id === "github:release"
+    const observations = matchingPlan.map(({ id, expectedEvidence }) => id === "github:v0.1.0"
       ? tampered
       : { id, state: "present", evidence: expectedEvidence });
-    assert.throws(() => evaluatePublishedState(matchingPlan, observations), /different evidence/u);
-  } finally {
-    globalThis.fetch = originalFetch;
-    if (originalToken === undefined) delete process.env.GH_TOKEN;
-    else process.env.GH_TOKEN = originalToken;
-  }
+    assert.throws(() => evaluateUnitState(matchingPlan, observations), /different evidence/u);
+
+    const skills = remoteAssets("skills", "exact");
+    const skillsRemote = githubReleaseFetch({ tag: "skills-v0.1.0", ...skills, immutable: true });
+    const skillsRelease = await withFetch(skillsRemote.fetch, () => probeRemoteDestination(unitPlan("skills")[0]));
+    assert.equal(skillsRelease.state, "present");
+    assert.equal(skillsRemote.calls.filter(({ url }) => url.includes("/releases/assets/")).length, 4);
+    const absent = await withFetch(skillsRemote.fetch, () => probeRemoteDestination(unitPlan("protocol").at(-1)));
+    assert.deepEqual(absent, { id: "github:protocol-v0.1.0", state: "absent" });
+  });
 });
 
 test("GitHub Release asset downloads reject untrusted redirects and declared oversize before reading bytes", async () => {
-  const names = releaseAssetNames();
-  const assets = names.map((name, index) => ({ id: index + 1, name }));
-  const bytesByName = new Map(names.map((name) => [name, Buffer.from(`exact:${name}\n`)]));
-  const releaseCheck = createPublishedCheckPlan({
-    version: VERSION,
-    sourceCommit: COMMIT,
-    evidence: evidence(),
-  }).find(({ id }) => id === "github:release");
-  const originalFetch = globalThis.fetch;
-  const originalToken = process.env.GH_TOKEN;
-  try {
-    process.env.GH_TOKEN = "test-token-for-release-assets";
+  const { names, assets, bytesByName } = remoteAssets("gauntlet", "exact");
+  const releaseCheck = unitPlan("gauntlet").at(-1);
+  await withEnvironment({ GH_TOKEN: REMOTE.GH_TOKEN }, async () => {
     const untrusted = githubReleaseFetch({ assets, bytesByName, immutable: true, redirectHost: "evil.invalid" });
-    globalThis.fetch = untrusted.fetch;
-    await assert.rejects(probeRemoteDestination(releaseCheck), /failed closed/u);
+    await withFetch(untrusted.fetch, () => assert.rejects(probeRemoteDestination(releaseCheck), /failed closed/u));
     assert.equal(untrusted.calls.some(({ url }) => url.startsWith("https://evil.invalid/")), false);
 
     const oversized = githubReleaseFetch({ assets, bytesByName, immutable: true, oversizedName: names[0] });
-    globalThis.fetch = oversized.fetch;
-    await assert.rejects(probeRemoteDestination(releaseCheck), /failed closed/u);
-  } finally {
-    globalThis.fetch = originalFetch;
-    if (originalToken === undefined) delete process.env.GH_TOKEN;
-    else process.env.GH_TOKEN = originalToken;
-  }
-});
+    await withFetch(oversized.fetch, () => assert.rejects(probeRemoteDestination(releaseCheck), /failed closed/u));
 
-test("accepts only wholly absent or wholly byte-identical remote state", () => {
-  const plan = createPublishedCheckPlan({ version: VERSION, sourceCommit: COMMIT, evidence: evidence() });
-  assert.equal(evaluatePublishedState(plan, plan.map(({ id }) => ({ id, state: "absent" }))), "clean");
-  assert.equal(evaluatePublishedState(
-    plan,
-    plan.map(({ id, expectedEvidence }) => ({ id, state: "present", evidence: expectedEvidence })),
-  ), "already-identical");
-
-  const mixed = plan.map(({ id }, index) => index === 0
-    ? { id, state: "present", evidence: plan[index].expectedEvidence }
-    : { id, state: "absent" });
-  assert.throws(() => evaluatePublishedState(plan, mixed), /mixed published state/u);
-
-  const different = plan.map(({ id, expectedEvidence }) => ({ id, state: "present", evidence: expectedEvidence }));
-  different[3] = { ...different[3], evidence: "f".repeat(64) };
-  assert.throws(() => evaluatePublishedState(plan, different), /different evidence/u);
-  assert.throws(() => evaluatePublishedState(plan, different.slice(1)), /complete observation set/u);
-  assert.throws(
-    () => evaluatePublishedState(plan, plan.map(({ id }) => ({ id, state: "unknown" }))),
-    /invalid observation/u,
-  );
-});
-
-test("runs every read-only injected probe before evaluating global state", async () => {
-  const plan = createPublishedCheckPlan({ version: VERSION, sourceCommit: COMMIT, evidence: evidence() });
-  const calls = [];
-  const result = await checkPublishedDestinations({
-    plan,
-    probe: async (check) => {
-      calls.push(check.id);
-      return { id: check.id, state: "absent" };
-    },
+    const mutable = githubReleaseFetch({ assets, bytesByName, immutable: false });
+    await withFetch(mutable.fetch, () => assert.rejects(probeRemoteDestination(releaseCheck), /failed closed/u));
   });
-  assert.equal(result, "clean");
-  assert.deepEqual(calls, plan.map(({ id }) => id));
-
-  const failingCalls = [];
-  await assert.rejects(checkPublishedDestinations({
-    plan,
-    probe: async (check) => {
-      failingCalls.push(check.id);
-      if (check.id === "chart:semantic") throw new Error("registry unavailable");
-      return { id: check.id, state: "absent" };
-    },
-  }), /registry unavailable/u);
-  assert.deepEqual(failingCalls, plan.map(({ id }) => id));
 });
 
-test("the concrete probe rejects an arbitrary destination before any network call", async () => {
-  const plan = createPublishedCheckPlan({ version: VERSION, sourceCommit: COMMIT, evidence: evidence() });
-  await assert.rejects(
-    probeRemoteDestination(Object.freeze({ ...plan[0], destination: "https://example.invalid/foreign" })),
-    /Remote probe check is invalid/u,
-  );
+test("the concrete probe rejects an arbitrary or foreign check before any network call", async () => {
+  const calls = [];
+  await withFetch(async (input) => { calls.push(input); throw new Error("network"); }, async () => {
+    const npm = unitPlan("protocol")[0];
+    for (const check of [
+      Object.freeze({ ...npm, destination: "https://example.invalid/foreign" }),
+      Object.freeze({ ...npm, unit: "dashboard-client" }),
+      Object.freeze({ ...npm, tag: "protocol-v0.1.1" }),
+      Object.freeze({ ...npm, id: "npm:dashboard-client" }),
+      Object.freeze({ ...npm, expectedEvidence: "f".repeat(64) }),
+      Object.freeze({ ...unitPlan("skills")[0], destination: "https://github.com/8lines/gauntlet/releases/tag/v0.1.0" }),
+      (({ tag, ...rest }) => Object.freeze(rest))(npm),
+      Object.freeze({ ...npm, version: "v0.1.0" }),
+    ]) await assert.rejects(probeRemoteDestination(check), /Remote probe check is invalid/u);
+  });
+  assert.deepEqual(calls, []);
 });
 
 test("chart probing preserves a replacement workspace instead of recursively deleting it", async (t) => {
@@ -884,11 +745,7 @@ printf 'preserve\n' > "$destination/sentinel.txt"
     else process.env.TMPDIR = originalTemporaryDirectory;
     rmSync(root, { recursive: true, force: true });
   });
-  const chart = createPublishedCheckPlan({
-    version: VERSION,
-    sourceCommit: COMMIT,
-    evidence: evidence(),
-  }).find(({ id }) => id === "chart:semantic");
+  const chart = unitPlan("gauntlet").find(({ id }) => id === "chart:semantic");
 
   await assert.rejects(probeRemoteDestination(chart), /cleanup failed closed/u);
   const sentinel = readdirSync(temporaryDirectory)
@@ -898,12 +755,13 @@ printf 'preserve\n' > "$destination/sentinel.txt"
   assert.equal(readFileSync(sentinel, "utf8"), "preserve\n");
 });
 
-test("release preflight derives evidence before probing and can require an identical rerun", async () => {
+test("release preflight derives evidence before probing and reports a state per unit", async () => {
   const calls = [];
-  const proofs = evidence();
+  const proofs = collectedEvidence(["gauntlet", "protocol", "skills"]);
+  const options = { releaseDirectory: "/safe/release-2026-10-03.1", sourceCommit: COMMIT };
   const dependencies = {
-    async collectEvidence(options) {
-      calls.push(["evidence", options]);
+    async collectEvidence(received) {
+      calls.push(["evidence", received]);
       return proofs;
     },
     async probe(check) {
@@ -911,53 +769,92 @@ test("release preflight derives evidence before probing and can require an ident
       return { id: check.id, state: "present", evidence: check.expectedEvidence };
     },
   };
-  assert.equal(await checkReleasePublication({
-    releaseDirectory: "/safe/staged-release",
-    version: VERSION,
-    sourceCommit: COMMIT,
-    requireIdentical: true,
-  }, dependencies), "already-identical");
-  assert.deepEqual(calls[0], ["evidence", {
-    releaseDirectory: "/safe/staged-release",
-    version: VERSION,
-    sourceCommit: COMMIT,
-  }]);
-  assert.equal(calls.filter(([kind]) => kind === "probe").length, 15);
+  const identical = await checkReleasePublication({ ...options, requireIdentical: true, unit: null }, dependencies);
+  assert.deepEqual(calls[0], ["evidence", options]);
+  assert.equal(calls.filter(([kind]) => kind === "probe").length, 7);
+  assert.deepEqual(identical, {
+    releaseSet: SET,
+    units: [
+      { id: "gauntlet", kind: "application", version: VERSION, tag: "v0.1.0", state: "already-identical" },
+      { id: "protocol", kind: "npm", version: VERSION, tag: "protocol-v0.1.0", state: "already-identical" },
+      { id: "skills", kind: "skills", version: VERSION, tag: "skills-v0.1.0", state: "already-identical" },
+    ],
+  });
+  assert.equal(Object.isFrozen(identical), true);
+  assert.equal(identical.units.every(Object.isFrozen), true);
 
-  assert.equal(await checkReleasePublication({
-    releaseDirectory: "/safe/staged-release",
-    version: VERSION,
-    sourceCommit: COMMIT,
-    requireIdentical: true,
-  }, {
+  const mixed = await checkReleasePublication({ ...options, requireIdentical: true, unit: null }, {
     collectEvidence: async () => proofs,
-    probe: async (check) => check.kind === "release"
+    probe: async (check) => check.kind === "release" && check.unit !== "protocol"
       ? { id: check.id, state: "absent" }
       : { id: check.id, state: "present", evidence: check.expectedEvidence },
-  }), "published-artifacts-identical");
+  });
+  assert.deepEqual(mixed.units.map(({ id, state }) => [id, state]), [
+    ["gauntlet", "published-artifacts-identical"],
+    ["protocol", "already-identical"],
+    ["skills", "published-artifacts-identical"],
+  ]);
 
-  await assert.rejects(checkReleasePublication({
-    releaseDirectory: "/safe/staged-release",
-    version: VERSION,
-    sourceCommit: COMMIT,
-    requireIdentical: true,
-  }, {
+  const preflight = await checkReleasePublication({ ...options, requireIdentical: false, unit: null }, {
     collectEvidence: async () => proofs,
+    probe: async (check) => check.unit === "protocol"
+      ? { id: check.id, state: "present", evidence: check.expectedEvidence }
+      : { id: check.id, state: "absent" },
+  });
+  assert.deepEqual(preflight.units.map(({ id, state }) => [id, state]), [
+    ["gauntlet", "clean"], ["protocol", "already-identical"], ["skills", "clean"],
+  ]);
+
+  const probed = [];
+  const one = await checkReleasePublication({ ...options, requireIdentical: false, unit: "protocol" }, {
+    collectEvidence: async () => proofs,
+    probe: async (check) => { probed.push(check.id); return { id: check.id, state: "absent" }; },
+  });
+  assert.deepEqual(one.units.map(({ id, state }) => [id, state]), [["protocol", "clean"]]);
+  assert.deepEqual(probed, ["npm:protocol", "github:protocol-v0.1.0"]);
+
+  await assert.rejects(checkReleasePublication({ ...options, requireIdentical: false, unit: null }, {
+    collectEvidence: async () => proofs,
+    probe: async (check) => check.id === "image:commit"
+      ? { id: check.id, state: "present", evidence: check.expectedEvidence }
+      : { id: check.id, state: "absent" },
+  }), /Release unit gauntlet is partially published/u);
+
+  await assert.rejects(checkReleasePublication({ ...options, requireIdentical: true, unit: null }, {
+    collectEvidence: async () => collectedEvidence(["gauntlet", "protocol"]),
     probe: async ({ id }) => ({ id, state: "absent" }),
     sleep: async () => {},
   }), /required every destination to be identical/u);
 });
 
+test("release preflight rejects malformed options and collected evidence", async () => {
+  const options = { releaseDirectory: "/safe/release-2026-10-03.1", sourceCommit: COMMIT, requireIdentical: false, unit: null };
+  const probe = async ({ id }) => ({ id, state: "absent" });
+  const proofs = collectedEvidence(["protocol", "skills"]);
+  for (const invalid of [
+    { ...options, version: VERSION },
+    (({ unit, ...rest }) => rest)(options),
+    { ...options, requireIdentical: "yes" },
+    { ...options, unit: 7 },
+    { ...options, releaseDirectory: "relative" },
+    { ...options, sourceCommit: "abc" },
+  ]) await assert.rejects(checkReleasePublication(invalid, { collectEvidence: async () => proofs, probe }), TypeError);
+  for (const collected of [
+    { ...proofs, units: [] },
+    { ...proofs, releaseSet: "not-a-set" },
+    { ...proofs, extra: true },
+    { ...proofs, units: [proofs.units[0], proofs.units[0]] },
+    { ...proofs, units: [{ ...proofs.units[0], tag: "protocol-v0.1.1" }] },
+    { ...proofs, units: [{ ...proofs.units[0], evidence: {} }] },
+  ]) await assert.rejects(checkReleasePublication(options, { collectEvidence: async () => collected, probe }));
+});
+
 test("post-publication verification retries missing destinations and fails immediately on conflicting evidence", async () => {
-  const proofs = evidence();
+  const proofs = collectedEvidence(["protocol", "skills"]);
+  const options = { releaseDirectory: "/safe/release-2026-10-03.1", sourceCommit: COMMIT, requireIdentical: true, unit: null };
   let npmProbeCount = 0;
   let sleepCount = 0;
-  assert.equal(await checkReleasePublication({
-    releaseDirectory: "/safe/staged-release",
-    version: VERSION,
-    sourceCommit: COMMIT,
-    requireIdentical: true,
-  }, {
+  const result = await checkReleasePublication(options, {
     collectEvidence: async () => proofs,
     probe: async (check) => {
       if (check.kind === "release") return { id: check.id, state: "absent" };
@@ -968,102 +865,126 @@ test("post-publication verification retries missing destinations and fails immed
       assert.equal(milliseconds, 15_000);
       sleepCount += 1;
     },
-  }), "published-artifacts-identical");
+  });
+  assert.deepEqual(result.units.map(({ state }) => state), ["published-artifacts-identical", "published-artifacts-identical"]);
   assert.equal(sleepCount, 1);
 
   let slept = false;
-  await assert.rejects(checkReleasePublication({
-    releaseDirectory: "/safe/staged-release",
-    version: VERSION,
-    sourceCommit: COMMIT,
-    requireIdentical: true,
-  }, {
+  await assert.rejects(checkReleasePublication(options, {
     collectEvidence: async () => proofs,
     probe: async (check) => check.kind === "release"
       ? { id: check.id, state: "absent" }
-      : { id: check.id, state: "present", evidence: check.id === "npm:protocol" ? `sha512-${"A".repeat(86)}==` : check.expectedEvidence },
+      : { id: check.id, state: "present", evidence: `sha512-${"A".repeat(86)}==` },
     sleep: async () => { slept = true; },
   }), /different evidence/u);
   assert.equal(slept, false);
+
+  await assert.rejects(checkReleasePublication(options, {
+    collectEvidence: async () => proofs,
+    probe: async (check) => check.kind === "release"
+      ? { id: check.id, state: "present", evidence: "f".repeat(64) }
+      : { id: check.id, state: "present", evidence: check.expectedEvidence },
+    sleep: async () => {},
+  }), /invalid GitHub Release state/u);
 });
 
-test("writes an atomic closed publication receipt without mutating deterministic inventory", (t) => {
-  const { root } = releaseFixture(t);
+test("writes an atomic closed per-unit publication receipt without mutating the staged inventory", (t) => {
+  const { root, digest } = releaseFixture(t, [{ id: "gauntlet", version: VERSION }, { id: "skills", version: VERSION }]);
   writeFixtureFile(root, "internal/not-distributed.txt", "internal\n");
-  writeFileSync(resolve(root, "SHA256SUMS"), "stale\n", { mode: 0o600 });
-
   const manifestBefore = readFileSync(resolve(root, "release-manifest.json"));
-  const result = writePublicationReceipt({
-    releaseDirectory: root,
-    imageDigest: `sha256:${"a".repeat(64)}`,
-    chartDigest: `sha256:${"b".repeat(64)}`,
-  });
-  assert.equal(result.files, 21);
+  const sumsBefore = readFileSync(resolve(root, "SHA256SUMS"));
+  const chartDigest = `sha256:${"b".repeat(64)}`;
+  const result = writePublicationReceipt({ releaseDirectory: root, unit: "gauntlet", imageDigest: digest, chartDigest });
+  assert.deepEqual(result, { unit: "gauntlet", files: 9 });
+  assert.equal(Object.isFrozen(result), true);
   assert.deepEqual(readFileSync(resolve(root, "release-manifest.json")), manifestBefore);
-  const receipt = JSON.parse(readFileSync(resolve(root, "publication-receipt.json"), "utf8"));
-  assert.deepEqual(receipt, {
-    schemaVersion: 1,
+  assert.deepEqual(readFileSync(resolve(root, "SHA256SUMS")), sumsBefore);
+  assert.deepEqual(readdirSync(resolve(root, "units")), ["gauntlet"]);
+  assert.deepEqual(readdirSync(resolve(root, "units/gauntlet")).sort(), ["SHA256SUMS", "publication-receipt.json", "release-manifest.json"]);
+  const unitManifest = readFileSync(resolve(root, "units/gauntlet/release-manifest.json"));
+  assert.deepEqual(JSON.parse(readFileSync(resolve(root, "units/gauntlet/publication-receipt.json"), "utf8")), {
+    schemaVersion: 2,
+    releaseSet: SET,
+    unit: "gauntlet",
     version: VERSION,
     sourceCommit: COMMIT,
-    imageDigest: `sha256:${"a".repeat(64)}`,
-    chartDigest: `sha256:${"b".repeat(64)}`,
-    manifestSha256: createHash("sha256").update(manifestBefore).digest("hex"),
+    manifestSha256: createHash("sha256").update(unitManifest).digest("hex"),
+    imageDigest: digest,
+    chartDigest,
   });
-  const sums = readFileSync(resolve(root, "SHA256SUMS"), "utf8");
+  const sums = readFileSync(resolve(root, "units/gauntlet/SHA256SUMS"), "utf8");
   assert.match(sums, /^[0-9a-f]{64}  helm\/gauntlet-0\.1\.0\.tgz$/mu);
-  assert.match(sums, /^[0-9a-f]{64}  skills\/gauntlet-skills-0\.1\.0\.tgz$/mu);
+  assert.match(sums, /^[0-9a-f]{64}  image\/gauntlet-0\.1\.0\.docker\.tar$/mu);
+  assert.match(sums, /^[0-9a-f]{64}  image\/gauntlet-0\.1\.0\.oci\.tar$/mu);
   assert.match(sums, /^[0-9a-f]{64}  release-manifest\.json$/mu);
   assert.match(sums, /^[0-9a-f]{64}  publication-receipt\.json$/mu);
-  assert.doesNotMatch(sums, /SHA256SUMS/u);
-  assert.doesNotMatch(sums, /internal\/not-distributed/u);
+  assert.doesNotMatch(sums, /skills|SHA256SUMS|internal\/not-distributed/u);
 
-  assert.deepEqual(writePublicationReceipt({
-    releaseDirectory: root,
-    imageDigest: `sha256:${"a".repeat(64)}`,
-    chartDigest: `sha256:${"b".repeat(64)}`,
-  }), result);
-  const receiptBeforeCollision = readFileSync(resolve(root, "publication-receipt.json"));
+  assert.deepEqual(writePublicationReceipt({ releaseDirectory: root, unit: "gauntlet", imageDigest: digest, chartDigest }), result);
+  const receiptBeforeCollision = readFileSync(resolve(root, "units/gauntlet/publication-receipt.json"));
   assert.throws(() => writePublicationReceipt({
     releaseDirectory: root,
+    unit: "gauntlet",
     imageDigest: `sha256:${"c".repeat(64)}`,
-    chartDigest: `sha256:${"b".repeat(64)}`,
+    chartDigest,
   }), /failed closed/u);
-  assert.deepEqual(readFileSync(resolve(root, "publication-receipt.json")), receiptBeforeCollision);
+  assert.deepEqual(readFileSync(resolve(root, "units/gauntlet/publication-receipt.json")), receiptBeforeCollision);
+  writeFileSync(resolve(root, "units/gauntlet/release-manifest.json"), "foreign\n");
+  assert.throws(() => writePublicationReceipt({ releaseDirectory: root, unit: "gauntlet", imageDigest: digest, chartDigest }), /failed closed/u);
+  for (const invalid of [
+    { releaseDirectory: root, unit: "protocol", imageDigest: null, chartDigest: null },
+    { releaseDirectory: root, unit: "nope", imageDigest: null, chartDigest: null },
+    { releaseDirectory: root, unit: "gauntlet", imageDigest: digest, chartDigest: null },
+    { releaseDirectory: root, unit: "gauntlet", imageDigest: "sha256:short", chartDigest },
+    { releaseDirectory: root, unit: "skills", imageDigest: null },
+  ]) assert.throws(() => writePublicationReceipt(invalid));
 });
 
-test("publication receipt creation refuses a pre-existing symlink", (t) => {
-  const { root } = releaseFixture(t);
-  writeFixtureFile(root, "foreign.json", "FOREIGN\n");
-  symlinkSync("foreign.json", resolve(root, "publication-receipt.json"));
-  assert.throws(() => writePublicationReceipt({
-    releaseDirectory: root,
-    imageDigest: `sha256:${"a".repeat(64)}`,
-    chartDigest: `sha256:${"b".repeat(64)}`,
-  }), /failed closed/u);
-  assert.equal(readFileSync(resolve(root, "foreign.json"), "utf8"), "FOREIGN\n");
+test("publication receipt creation refuses pre-existing symlinks and non-directories", async (t) => {
+  await t.test("receipt symlink", (t) => {
+    const { root } = releaseFixture(t, [{ id: "skills", version: VERSION }]);
+    writeFixtureFile(root, "foreign.json", "FOREIGN\n");
+    mkdirSync(resolve(root, "units/skills"), { recursive: true, mode: 0o700 });
+    symlinkSync("../../foreign.json", resolve(root, "units/skills/publication-receipt.json"));
+    assert.throws(() => writePublicationReceipt({ releaseDirectory: root, unit: "skills", imageDigest: null, chartDigest: null }), /failed closed/u);
+    assert.equal(readFileSync(resolve(root, "foreign.json"), "utf8"), "FOREIGN\n");
+  });
+  await t.test("units directory symlink", (t) => {
+    const { root } = releaseFixture(t, [{ id: "skills", version: VERSION }]);
+    const elsewhere = resolve(root, "..", "elsewhere");
+    mkdirSync(elsewhere, { mode: 0o700 });
+    symlinkSync(elsewhere, resolve(root, "units"));
+    assert.throws(() => writePublicationReceipt({ releaseDirectory: root, unit: "skills", imageDigest: null, chartDigest: null }), /failed closed/u);
+    assert.deepEqual(readdirSync(elsewhere), []);
+  });
+  await t.test("unit path is a file", (t) => {
+    const { root } = releaseFixture(t, [{ id: "skills", version: VERSION }]);
+    writeFixtureFile(root, "units/skills", "not a directory\n");
+    assert.throws(() => writePublicationReceipt({ releaseDirectory: root, unit: "skills", imageDigest: null, chartDigest: null }), /failed closed/u);
+  });
 });
 
 test("publication receipt creation rejects an incomplete release inventory", (t) => {
-  const root = realpathSync(mkdtempSync(resolve(tmpdir(), "gauntlet-published-incomplete-receipt-test-")));
-  chmodSync(root, 0o700);
-  t.after(() => rmSync(root, { recursive: true, force: true }));
-  writeFixtureFile(root, "release-manifest.json", `${JSON.stringify({
-    schemaVersion: 1,
-    version: VERSION,
-    sourceTag: `v${VERSION}`,
-    sourceCommit: COMMIT,
-    artifacts: [],
-  })}\n`);
-  assert.throws(() => writePublicationReceipt({
-    releaseDirectory: root,
-    imageDigest: `sha256:${"a".repeat(64)}`,
-    chartDigest: `sha256:${"b".repeat(64)}`,
-  }), /failed closed/u);
+  const { root } = releaseFixture(t, [{ id: "gauntlet", version: VERSION }, { id: "skills", version: VERSION }]);
+  rewriteManifest(root, (manifest) => {
+    manifest.artifacts = manifest.artifacts.filter(({ kind }) => kind !== "sbom");
+  });
+  assert.throws(() => writePublicationReceipt({ releaseDirectory: root, unit: "skills", imageDigest: null, chartDigest: null }), /failed closed/u);
+  assert.equal(existsSync(resolve(root, "units")), false);
+});
+
+test("the finalize CLI writes one unit and prints its file count", (t) => {
+  const { root } = releaseFixture(t, [{ id: "skills", version: VERSION }]);
+  const finalized = spawnSync(process.execPath, [CHECK_PUBLISHED, "--finalize", root, "--unit", "skills"], { encoding: "utf8" });
+  assert.equal(finalized.status, 0, finalized.stderr);
+  assert.equal(finalized.stdout, `${JSON.stringify({ command: "finalize", unit: "skills", files: 3 })}\n`);
+  const rejected = spawnSync(process.execPath, [CHECK_PUBLISHED, "--finalize", root, "--unit", "gauntlet"], { encoding: "utf8" });
+  assert.equal(rejected.status, 1);
+  assert.match(rejected.stderr, /Usage: check-published\.mjs/u);
 });
 
 test("parses a bounded exact observation receipt and fails closed on ambiguous output", () => {
-  const plan = createPublishedCheckPlan({ version: VERSION, sourceCommit: COMMIT, evidence: evidence() });
-  const check = plan[0];
+  const check = unitPlan("protocol")[0];
   assert.deepEqual(parseProbeObservation(`${JSON.stringify({ id: check.id, state: "absent" })}\n`, check), {
     id: check.id,
     state: "absent",
@@ -1086,45 +1007,8 @@ test("parses a bounded exact observation receipt and fails closed on ambiguous o
   ]) assert.throws(() => parseProbeObservation(output, check), /probe observation failed closed/u);
 });
 
-test("CLI accepts only the fixed preflight, postflight, and local finalization shapes", () => {
-  const releaseDirectory = "/tmp/gauntlet-release-0.1.0";
-  assert.deepEqual(parsePublishedArguments([
-    "--release-directory", releaseDirectory,
-    "--version", VERSION,
-    "--source-commit", COMMIT,
-  ]), { command: "check", releaseDirectory, version: VERSION, sourceCommit: COMMIT, requireIdentical: false });
-  assert.deepEqual(parsePublishedArguments([
-    "--release-directory", releaseDirectory,
-    "--version", VERSION,
-    "--source-commit", COMMIT,
-    "--require-identical",
-  ]), { command: "check", releaseDirectory, version: VERSION, sourceCommit: COMMIT, requireIdentical: true });
-  assert.deepEqual(parsePublishedArguments([
-    "--release-directory", releaseDirectory,
-    "--version", VERSION,
-    "--source-commit", COMMIT,
-    "--require-draft-identical",
-  ]), { command: "verify-draft", releaseDirectory, version: VERSION, sourceCommit: COMMIT });
-  assert.deepEqual(parsePublishedArguments([
-    "--finalize", releaseDirectory,
-    "--image-digest", `sha256:${"a".repeat(64)}`,
-    "--chart-digest", `sha256:${"b".repeat(64)}`,
-  ]), {
-    command: "finalize",
-    releaseDirectory,
-    imageDigest: `sha256:${"a".repeat(64)}`,
-    chartDigest: `sha256:${"b".repeat(64)}`,
-  });
-  for (const args of [
-    [],
-    ["--release-directory", "relative", "--version", VERSION, "--source-commit", COMMIT],
-    ["--release-directory", releaseDirectory, "--version", "v0.1.0", "--source-commit", COMMIT],
-    ["--release-directory", releaseDirectory, "--version", VERSION, "--source-commit", COMMIT, "--unknown"],
-  ]) assert.throws(() => parsePublishedArguments(args), /Usage:/u);
-});
-
 test("the preflight implementation itself has no publication primitive", () => {
-  const source = readFileSync(resolve(import.meta.dirname, "../check-published.mjs"), "utf8");
+  const source = readFileSync(CHECK_PUBLISHED, "utf8");
   for (const forbidden of [
     /npm\s+publish/u,
     /helm\s+push/u,

@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 
 import {
-  checkUnitDestinations, createUnitCheckPlan, evaluateReleaseSetState, evaluateUnitState, unitDestinations,
+  checkReleasePublication, checkUnitDestinations, collectReleaseEvidence, createUnitCheckPlan, evaluateReleaseSetState,
+  evaluateUnitState, githubReleaseAssetCatalog, parsePublishedArguments, unitDestinations, unitReleaseAssets,
+  unitReleaseManifest, writePublicationReceipt,
 } from "../check-published.mjs";
+import { releaseFixture } from "./release-fixture.mjs";
 
 const COMMIT = "0123456789abcdef0123456789abcdef01234567";
 
@@ -129,4 +135,173 @@ test("every probe of every unit runs before the set is evaluated", async () => {
     return { id: check.id, state: "absent" };
   } }), /registry unavailable/u);
   assert.equal(failing.length, 3);
+});
+
+test("a unit check plan is accepted only in its exact frozen created shape", () => {
+  const checks = plan("protocol", "0.2.0", "protocol-v0.2.0");
+  const observations = absent(checks);
+  assert.equal(evaluateUnitState(checks, observations), "clean");
+  const variants = [
+    new Proxy(checks, {}),
+    [...checks],
+    checks.map((check) => Object.freeze({ ...check, unit: "nope" })),
+    checks.map((check) => Object.freeze({ ...check, unit: "dashboard-client" })),
+    checks.map((check, index) => Object.freeze({ ...check, kind: index === 0 ? "maven" : check.kind })),
+    checks.map((check, index) => Object.freeze({ ...check, destination: index === 0 ? "https://example.invalid/foreign" : check.destination })),
+    checks.map((check) => Object.freeze({ ...check, extra: true })),
+    checks.map(({ tag, ...check }) => Object.freeze(check)),
+    checks.map((check) => Object.freeze({ ...check, tag: "protocol-v0.2.1" })),
+    checks.map((check, index) => Object.freeze({ ...check, expectedEvidence: index === 0 ? "f".repeat(64) : check.expectedEvidence })),
+    Object.freeze([checks[1], checks[0]]),
+    Object.freeze(checks.slice(0, 1)),
+    Object.freeze([...checks, ...plan("skills", "0.1.9", "skills-v0.1.9")]),
+    Object.freeze([...checks].map((check) => new Proxy(check, {}))),
+  ];
+  for (const variant of variants) {
+    assert.throws(() => evaluateUnitState(variant, observations), /Published unit check plan is invalid/u);
+  }
+});
+
+test("a release set with the same unit twice fails before any probe runs", async () => {
+  const protocol = plan("protocol", "0.2.0", "protocol-v0.2.0");
+  const calls = [];
+  const probe = async (check) => { calls.push(check.id); return { id: check.id, state: "absent" }; };
+  await assert.rejects(checkUnitDestinations({ plans: [protocol, protocol], probe }), /Published unit check plan is invalid/u);
+  await assert.rejects(checkUnitDestinations({ plans: [protocol, plan("protocol", "0.2.1", "protocol-v0.2.1")], probe }), /Published unit check plan is invalid/u);
+  await assert.rejects(checkUnitDestinations({ plans: [], probe }), /Published unit check plan is invalid/u);
+  await assert.rejects(checkUnitDestinations({ plans: new Proxy([protocol], {}), probe }), /Published unit check plan is invalid/u);
+  assert.deepEqual(calls, []);
+});
+
+test("release asset catalogs are per unit and never attach image archives", () => {
+  assert.deepEqual(githubReleaseAssetCatalog("gauntlet", "0.1.9").map(({ name }) => name), [
+    "gauntlet-compose-0.1.9.tar.gz", "gauntlet-0.1.9.tgz", "gauntlet-0.1.9.provenance.json",
+    "gauntlet-linux-amd64.spdx.json", "gauntlet-linux-arm64.spdx.json",
+    "release-manifest.json", "publication-receipt.json", "SHA256SUMS",
+  ]);
+  assert.deepEqual(githubReleaseAssetCatalog("skills", "0.1.9").map(({ name }) => name), [
+    "gauntlet-skills-0.1.9.tgz", "release-manifest.json", "publication-receipt.json", "SHA256SUMS",
+  ]);
+  assert.deepEqual(githubReleaseAssetCatalog("protocol", "0.2.0").map(({ name }) => name)[0], "8lines-gauntlet-protocol-0.2.0.tgz");
+  assert.deepEqual(githubReleaseAssetCatalog("php-core", "0.1.9").map(({ name }) => name)[0], "gauntlet-php-core-0.1.9.tar.gz");
+  assert.deepEqual(githubReleaseAssetCatalog("java-core", "0.1.9").map(({ name }) => name)[0], "gauntlet-core-0.1.9.tar.gz");
+  const mib = 1024 * 1024;
+  assert.deepEqual(githubReleaseAssetCatalog("gauntlet", "0.1.9").map(({ maximumBytes }) => maximumBytes), [
+    512 * mib, 64 * mib, 16 * mib, 128 * mib, 128 * mib, mib, 64 * 1024, mib,
+  ]);
+  assert.equal(githubReleaseAssetCatalog("java-core", "0.1.9")[0].maximumBytes, 512 * mib);
+  assert.equal(Object.isFrozen(githubReleaseAssetCatalog("skills", "0.1.9")), true);
+  assert.equal(githubReleaseAssetCatalog("skills", "0.1.9").every(Object.isFrozen), true);
+  assert.throws(() => githubReleaseAssetCatalog("nope", "0.1.9"));
+  assert.throws(() => githubReleaseAssetCatalog("skills", "v0.1.9"));
+});
+
+test("finalization writes one manifest, receipt and checksum file per unit", async (t) => {
+  const units = [{ id: "gauntlet", version: "0.1.0" }, { id: "skills", version: "0.1.0" }];
+  const { root, digest } = releaseFixture(t, units);
+  assert.throws(() => writePublicationReceipt({ releaseDirectory: root, unit: "skills", imageDigest: digest, chartDigest: digest }));
+  assert.deepEqual(writePublicationReceipt({ releaseDirectory: root, unit: "skills", imageDigest: null, chartDigest: null }), { unit: "skills", files: 3 });
+  const manifest = JSON.parse(readFileSync(resolve(root, "release-manifest.json"), "utf8"));
+  const unitManifestBytes = readFileSync(resolve(root, "units/skills/release-manifest.json"));
+  assert.equal(unitManifestBytes.toString("utf8"), `${JSON.stringify(unitReleaseManifest(manifest, "skills"), null, 2)}\n`);
+  const receipt = JSON.parse(readFileSync(resolve(root, "units/skills/publication-receipt.json"), "utf8"));
+  assert.deepEqual(Object.keys(receipt), ["schemaVersion", "releaseSet", "unit", "version", "sourceCommit", "manifestSha256"]);
+  assert.equal(receipt.manifestSha256, createHash("sha256").update(unitManifestBytes).digest("hex"));
+  assert.deepEqual(readFileSync(resolve(root, "units/skills/SHA256SUMS"), "utf8").trimEnd().split("\n").map((line) => line.split("  ")[1]), [
+    "publication-receipt.json", "release-manifest.json", "skills/gauntlet-skills-0.1.0.tgz",
+  ]);
+  assert.throws(() => writePublicationReceipt({ releaseDirectory: root, unit: "gauntlet", imageDigest: null, chartDigest: null }));
+  assert.equal(writePublicationReceipt({ releaseDirectory: root, unit: "gauntlet", imageDigest: digest, chartDigest: digest }).files, 9);
+  assert.deepEqual(Object.keys(JSON.parse(readFileSync(resolve(root, "units/gauntlet/publication-receipt.json"), "utf8"))).slice(-2), ["imageDigest", "chartDigest"]);
+});
+
+test("a unit manifest and its release assets come only from that unit of the staged manifest", async (t) => {
+  const units = [{ id: "gauntlet", version: "0.1.0" }, { id: "skills", version: "0.1.0" }];
+  const { root } = releaseFixture(t, units);
+  const manifest = JSON.parse(readFileSync(resolve(root, "release-manifest.json"), "utf8"));
+  const skills = unitReleaseManifest(manifest, "skills");
+  assert.deepEqual(Object.keys(skills), ["schemaVersion", "releaseSet", "sourceCommit", "units", "artifacts"]);
+  assert.deepEqual(skills.units, [{ id: "skills", version: "0.1.0", tag: "skills-v0.1.0" }]);
+  assert.deepEqual(skills.artifacts.map(({ path }) => path), ["skills/gauntlet-skills-0.1.0.tgz"]);
+  assert.equal(Object.isFrozen(skills), true);
+  assert.equal(unitReleaseManifest(manifest, "gauntlet").artifacts.length, 7);
+  assert.throws(() => unitReleaseManifest(manifest, "protocol"));
+  assert.deepEqual(unitReleaseAssets(manifest, "gauntlet").map(({ name, path }) => [name, path]), [
+    ["gauntlet-compose-0.1.0.tar.gz", "compose/gauntlet-compose-0.1.0.tar.gz"],
+    ["gauntlet-0.1.0.tgz", "helm/gauntlet-0.1.0.tgz"],
+    ["gauntlet-0.1.0.provenance.json", "image/gauntlet-0.1.0.provenance.json"],
+    ["gauntlet-linux-amd64.spdx.json", "sbom/gauntlet-linux-amd64.spdx.json"],
+    ["gauntlet-linux-arm64.spdx.json", "sbom/gauntlet-linux-arm64.spdx.json"],
+    ["release-manifest.json", "units/gauntlet/release-manifest.json"],
+    ["publication-receipt.json", "units/gauntlet/publication-receipt.json"],
+    ["SHA256SUMS", "units/gauntlet/SHA256SUMS"],
+  ]);
+  assert.deepEqual(
+    unitReleaseAssets(manifest, "skills").map(({ name, maximumBytes }) => ({ name, maximumBytes })),
+    githubReleaseAssetCatalog("skills", "0.1.0"),
+  );
+  assert.throws(() => unitReleaseAssets(manifest, "protocol"));
+});
+
+test("evidence and preflight are per unit and allow a mix of identical and clean units", async (t) => {
+  const units = [{ id: "protocol", version: "0.1.0" }, { id: "skills", version: "0.1.0" }];
+  const { root } = releaseFixture(t, units);
+  const evidence = await collectReleaseEvidence({ releaseDirectory: root, sourceCommit: COMMIT });
+  assert.deepEqual(evidence.units.map(({ id, tag, evidence: values }) => [id, tag, Object.keys(values)]), [
+    ["protocol", "protocol-v0.1.0", ["npm:protocol", "github:protocol-v0.1.0"]],
+    ["skills", "skills-v0.1.0", ["github:skills-v0.1.0"]],
+  ]);
+  assert.equal(evidence.releaseSet, "release-2026-10-03.1");
+  assert.match(evidence.units[0].evidence["npm:protocol"], /^sha512-/u);
+  const probe = async (check) => check.unit === "protocol"
+    ? { id: check.id, state: "present", evidence: check.expectedEvidence }
+    : { id: check.id, state: "absent" };
+  const result = await checkReleasePublication(
+    { releaseDirectory: root, sourceCommit: COMMIT, requireIdentical: false, unit: null },
+    { collectEvidence: collectReleaseEvidence, probe },
+  );
+  assert.deepEqual(result.units.map(({ id, kind, state }) => [id, kind, state]), [
+    ["protocol", "npm", "already-identical"], ["skills", "skills", "clean"],
+  ]);
+  const one = await checkReleasePublication(
+    { releaseDirectory: root, sourceCommit: COMMIT, requireIdentical: false, unit: "skills" },
+    { collectEvidence: collectReleaseEvidence, probe },
+  );
+  assert.deepEqual(one.units.map(({ id }) => id), ["skills"]);
+  await assert.rejects(checkReleasePublication(
+    { releaseDirectory: root, sourceCommit: COMMIT, requireIdentical: false, unit: "gauntlet" },
+    { collectEvidence: collectReleaseEvidence, probe },
+  ), TypeError);
+  await assert.rejects(checkReleasePublication(
+    { releaseDirectory: root, sourceCommit: COMMIT, requireIdentical: false, unit: "nope" },
+    { collectEvidence: collectReleaseEvidence, probe },
+  ), TypeError);
+});
+
+test("the CLI accepts only per-unit preflight, verification and finalization shapes", () => {
+  const directory = "/workspace/.artifacts/release/release-2026-10-03.1";
+  assert.deepEqual(parsePublishedArguments(["--release-directory", directory, "--source-commit", COMMIT]),
+    { command: "check", releaseDirectory: directory, sourceCommit: COMMIT, unit: null, requireIdentical: false });
+  assert.deepEqual(parsePublishedArguments(["--release-directory", directory, "--source-commit", COMMIT, "--unit", "skills", "--require-identical"]),
+    { command: "check", releaseDirectory: directory, sourceCommit: COMMIT, unit: "skills", requireIdentical: true });
+  assert.deepEqual(parsePublishedArguments(["--release-directory", directory, "--source-commit", COMMIT, "--require-identical"]),
+    { command: "check", releaseDirectory: directory, sourceCommit: COMMIT, unit: null, requireIdentical: true });
+  assert.deepEqual(parsePublishedArguments(["--release-directory", directory, "--source-commit", COMMIT, "--unit", "skills", "--require-draft-identical"]),
+    { command: "verify-draft", releaseDirectory: directory, sourceCommit: COMMIT, unit: "skills" });
+  assert.deepEqual(parsePublishedArguments(["--finalize", directory, "--unit", "skills"]),
+    { command: "finalize", releaseDirectory: directory, unit: "skills", imageDigest: null, chartDigest: null });
+  assert.deepEqual(parsePublishedArguments(["--finalize", directory, "--unit", "gauntlet", "--image-digest", `sha256:${"a".repeat(64)}`, "--chart-digest", `sha256:${"b".repeat(64)}`]),
+    { command: "finalize", releaseDirectory: directory, unit: "gauntlet", imageDigest: `sha256:${"a".repeat(64)}`, chartDigest: `sha256:${"b".repeat(64)}` });
+  for (const argv of [
+    [],
+    ["--release-directory", directory, "--source-commit", COMMIT, "--require-draft-identical"],
+    ["--release-directory", directory, "--version", "0.1.0", "--source-commit", COMMIT],
+    ["--finalize", directory, "--unit", "gauntlet"],
+    ["--finalize", directory],
+    ["--finalize", directory, "--unit", "skills", "--image-digest", `sha256:${"a".repeat(64)}`, "--chart-digest", `sha256:${"a".repeat(64)}`],
+    ["--release-directory", directory, "--source-commit", COMMIT, "--unit", "nope"],
+    ["--release-directory", "relative", "--source-commit", COMMIT],
+    ["--release-directory", directory, "--source-commit", COMMIT, "--require-identical", "--require-draft-identical"],
+    ["--release-directory", directory, "--source-commit", COMMIT, "--unknown"],
+  ]) assert.throws(() => parsePublishedArguments(argv), /Usage: check-published\.mjs/u);
 });
