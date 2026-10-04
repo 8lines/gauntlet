@@ -382,6 +382,23 @@ test("inventory rejects an artifact of an unplanned unit and a missing applicati
   }
 });
 
+test("inventory verification rejects an artifact labelled with another planned unit", async () => {
+  const root = sandbox();
+  try {
+    const units = [{ id: "gauntlet", version: "0.1.9" }, { id: "skills", version: "0.1.9" }];
+    const artifacts = stageFiles(root, units)
+      .map((record) => record.kind === "helm" ? { ...record, unit: "skills" } : record);
+    const manifest = await writeReleaseInventory({ outputDirectory: root, releaseSet: SET, sourceCommit: COMMIT, units, artifacts });
+    assert.equal(manifest.artifacts.find(({ kind }) => kind === "helm").unit, "skills");
+    assert.throws(
+      () => verifyReleaseInventory({ outputDirectory: root, releaseSet: SET, sourceCommit: COMMIT }),
+      { message: "Release inventory verification failed closed" },
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("inventory verification rejects wrong counts, incomplete checksum identity, changed artifacts and extra files", async () => {
   for (const mutation of ["count", "checksums", "artifact", "extra"]) {
     const root = sandbox();

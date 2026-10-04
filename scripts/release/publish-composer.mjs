@@ -598,15 +598,39 @@ export function createComposerPublicationPlan(options) {
   });
 }
 
-if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+function stagedUnitVersion(releaseDirectory, unit) {
+  let staged;
   try {
-    const options = parseCli(process.argv.slice(2));
-    const results = await publishComposerRepositories(options);
-    const staged = readReleaseManifest(options.releaseDirectory).manifest.units.find(({ id }) => id === options.unit);
-    if (staged === undefined) failClosed();
-    process.stdout.write(`${JSON.stringify({ results, unit: options.unit, version: staged.version })}\n`);
-  } catch (error) {
-    process.stderr.write(`${error instanceof Error ? error.message : FAILURE}\n`);
-    process.exitCode = 1;
+    staged = readReleaseManifest(releaseDirectory).manifest.units.find(({ id }) => id === unit);
+  } catch {
+    failClosed();
   }
+  if (staged === undefined) failClosed();
+  return staged.version;
+}
+
+// The unit version is resolved before anything is published, and publication must use exactly that
+// version, so a successful push is never followed by a failing manifest read.
+export async function runPublishComposerCli(argv, dependencyOverrides) {
+  try {
+    const options = parseCli(argv);
+    const { publishPackage } = publicationDependencies(dependencyOverrides);
+    const version = stagedUnitVersion(options.releaseDirectory, options.unit);
+    const results = await publishComposerRepositories(options, {
+      publishPackage: (publication) => {
+        if (publication.version !== version) failClosed();
+        return publishPackage(publication);
+      },
+    });
+    return { exitCode: 0, stdout: `${JSON.stringify({ results, unit: options.unit, version })}\n`, stderr: "" };
+  } catch (error) {
+    return { exitCode: 1, stdout: "", stderr: `${error instanceof Error ? error.message : FAILURE}\n` };
+  }
+}
+
+if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const result = await runPublishComposerCli(process.argv.slice(2));
+  if (result.stdout !== "") process.stdout.write(result.stdout);
+  if (result.stderr !== "") process.stderr.write(result.stderr);
+  process.exitCode = result.exitCode;
 }

@@ -767,6 +767,17 @@ test("stageRelease rejects an empty, disagreeing or foreign-set plan before crea
   await assert.rejects(stageRelease({ ...base, releaseSet: "local-ffffffffffff" }, planLifecycle()), /Release set id/u);
   await assert.rejects(stageRelease({ ...base, releaseSet: "0.1.0" }, planLifecycle()), /Release set id/u);
   await assert.rejects(stageRelease({ ...base, extra: true }, planLifecycle()), /closed data object/u);
+  for (const [name, releaseSet] of [[SET, null], ["local-ffffffffffff", null], ["release-2026-10-03.2", SET]]) {
+    let verified = false;
+    await assert.rejects(
+      stageRelease({ ...base, outputDirectory: resolve(files.root, "nested", name), releaseSet }, planLifecycle({
+        async verifySource() { verified = true; },
+      })),
+      /^Error: Release staging output does not match the release set$/u,
+      name,
+    );
+    assert.equal(verified, false, name);
+  }
   assert.throws(() => lstatSync(resolve(files.root, "nested")), { code: "ENOENT" });
   assert.deepEqual(readdirSync(files.root).sort(), ["repository", "work"]);
 });
@@ -984,8 +995,15 @@ test("a protocol cascade stages its npm units at their own versions with the app
   const npmCall = calls.find(([phase]) => phase === "npm");
   assert.deepEqual(npmCall[1], ["protocol", "dashboard-client", "typescript-core", "typescript-node", "next-adapter", "conformance-runner"]);
   assert.deepEqual(Object.keys(npmCall[2]), NPM_UNIT_IDS);
-  assert.equal(npmCall[2].protocol, "0.2.0");
-  assert.equal(npmCall[2].widget, "0.1.8");
+  assert.deepEqual(npmCall[2], {
+    protocol: "0.2.0",
+    "dashboard-client": "0.1.9",
+    "typescript-core": "0.1.9",
+    "typescript-node": "0.1.9",
+    "next-adapter": "0.1.9",
+    "conformance-runner": "0.1.9",
+    widget: "0.1.8",
+  });
   assert.equal(report.artifacts, 14);
 });
 
@@ -1016,13 +1034,31 @@ test("staging rejects units out of dependency order, inconsistent versions and u
   const { repository, work } = sandbox(t);
   const versions = { ...BASE_VERSIONS, gauntlet: "0.1.9", skills: "0.1.9" };
   const base = { root: repository, sourceCommit: COMMIT, releaseSet: SET, versions, workDirectory: work };
-  await assert.rejects(executeReleaseStage({ ...base, units: [{ id: "skills", version: "0.1.9" }, { id: "gauntlet", version: "0.1.9" }] }, planDependencies([], "0.1.9")));
-  await assert.rejects(executeReleaseStage({ ...base, units: [{ id: "gauntlet", version: "0.2.0" }] }, planDependencies([], "0.2.0")));
-  await assert.rejects(executeReleaseStage({ ...base, releaseSet: "local-ffffffffffff", units: [{ id: "skills", version: "0.1.9" }] }, planDependencies([], "0.1.9")));
-  await assert.rejects(executeReleaseStage({ ...base, units: [] }, planDependencies([], "0.1.9")));
-  await assert.rejects(executeReleaseStage({ ...base, units: [{ id: "nope", version: "0.1.9" }] }, planDependencies([], "0.1.9")));
+  await assert.rejects(
+    executeReleaseStage({ ...base, units: [{ id: "skills", version: "0.1.9" }, { id: "gauntlet", version: "0.1.9" }] }, planDependencies([], "0.1.9")),
+    /^TypeError: Release staging units must be distinct and in dependency order$/u,
+  );
+  await assert.rejects(
+    executeReleaseStage({ ...base, units: [{ id: "gauntlet", version: "0.2.0" }] }, planDependencies([], "0.2.0")),
+    /^Error: Release staging failed closed$/u,
+  );
+  await assert.rejects(
+    executeReleaseStage({ ...base, releaseSet: "local-ffffffffffff", units: [{ id: "skills", version: "0.1.9" }] }, planDependencies([], "0.1.9")),
+    /^TypeError: Release staging release set is invalid$/u,
+  );
+  await assert.rejects(
+    executeReleaseStage({ ...base, units: [] }, planDependencies([], "0.1.9")),
+    /^TypeError: Release staging units must be a non-empty array$/u,
+  );
+  await assert.rejects(
+    executeReleaseStage({ ...base, units: [{ id: "nope", version: "0.1.9" }] }, planDependencies([], "0.1.9")),
+    /^TypeError: Release staging unit is unknown$/u,
+  );
   const { gauntlet: _omitted, ...partial } = versions;
-  await assert.rejects(executeReleaseStage({ ...base, versions: partial, units: [{ id: "skills", version: "0.1.9" }] }, planDependencies([], "0.1.9")));
+  await assert.rejects(
+    executeReleaseStage({ ...base, versions: partial, units: [{ id: "skills", version: "0.1.9" }] }, planDependencies([], "0.1.9")),
+    /^TypeError: Release staging unit versions must be a closed data object$/u,
+  );
   assert.deepEqual(readdirSync(work), []);
 
   const dependencies = planDependencies([], "0.1.9");

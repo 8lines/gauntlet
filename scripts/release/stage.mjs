@@ -18,7 +18,7 @@ import {
   rmdirSync,
   unlinkSync,
 } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify, types as utilTypes } from "node:util";
 
@@ -860,6 +860,9 @@ export async function stageRelease(options, lifecycleOverrides) {
     throw new TypeError("Release staging plan path must be a string or null");
   }
   const releaseSet = parseReleaseSetId(values.releaseSet ?? localReleaseSetId(sourceCommit), sourceCommit);
+  if (isReleaseSetName(basename(outputDirectory)) && basename(outputDirectory) !== releaseSet) {
+    throw new Error("Release staging output does not match the release set");
+  }
   assertAbsent(outputDirectory);
   await lifecycle.verifySource(root, sourceCommit);
   const { plan } = lifecycle.resolvePlan(root, values.planPath);
@@ -895,7 +898,7 @@ function safeArgumentPath(value) {
   return value.split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
 }
 
-function validReleaseSet(value) {
+function isReleaseSetName(value) {
   try {
     parseReleaseSetId(value);
     return true;
@@ -914,7 +917,7 @@ export function parseStageArguments(argv) {
   for (let index = 2; index < argv.length; index += 2) {
     const [flag, value] = [argv[index], argv[index + 1]];
     if (flag === "--plan" && planPath === null && safeArgumentPath(value)) planPath = value;
-    else if (flag === "--release-set" && releaseSet === null && validReleaseSet(value)) releaseSet = value;
+    else if (flag === "--release-set" && releaseSet === null && isReleaseSetName(value)) releaseSet = value;
     else throw new TypeError(USAGE);
   }
   return { outputDirectory, planPath, releaseSet };

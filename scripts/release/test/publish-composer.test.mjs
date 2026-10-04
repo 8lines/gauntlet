@@ -26,6 +26,7 @@ import {
   publishComposerPackage,
   publishComposerRepositories,
   readDeployKey,
+  runPublishComposerCli,
   withDeployKeyFiles,
 } from "../publish-composer.mjs";
 import { createReleaseManifest, writeReleaseInventory } from "../inventory.mjs";
@@ -457,6 +458,49 @@ test("CLI publication never recursively removes a replacement inside its materia
     assert.notEqual(replacement, undefined);
     assert.equal(readFileSync(replacement, "utf8"), "do not remove recursively\n");
   });
+});
+
+test("the publication CLI resolves the unit version before publishing and never rereads the manifest afterwards", async (t) => {
+  const files = await releaseFixture(t);
+  const argv = ["--release-directory", files.releaseDirectory, "--source-commit", COMMIT, "--unit", "symfony-bundle"];
+  await withTemporaryDirectory(files.root, async () => {
+    const published = [];
+    const result = await runPublishComposerCli(argv, {
+      publishPackage: async ({ version }) => {
+        published.push(version);
+        rmSync(resolve(files.releaseDirectory, "release-manifest.json"));
+        return "published";
+      },
+    });
+    assert.deepEqual(published, ["0.1.1"]);
+    assert.deepEqual(result, {
+      exitCode: 0,
+      stdout: '{"results":[{"name":"8lines/gauntlet-symfony-bundle","status":"published"}],"unit":"symfony-bundle","version":"0.1.1"}\n',
+      stderr: "",
+    });
+  });
+});
+
+test("the publication CLI publishes nothing when the staged manifest cannot be read", async (t) => {
+  const files = await releaseFixture(t);
+  const manifestPath = resolve(files.releaseDirectory, "release-manifest.json");
+  writeFileSync(manifestPath, JSON.stringify(JSON.parse(readFileSync(manifestPath, "utf8"))));
+  let calls = 0;
+  const result = await runPublishComposerCli(
+    ["--release-directory", files.releaseDirectory, "--source-commit", COMMIT, "--unit", "php-core"],
+    { publishPackage: async () => { calls += 1; return "published"; } },
+  );
+  assert.equal(calls, 0);
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /failed closed/u);
+
+  const usage = await runPublishComposerCli(["--release-directory", files.releaseDirectory, "--version", "0.1.0"], {
+    publishPackage: async () => { calls += 1; return "published"; },
+  });
+  assert.equal(calls, 0);
+  assert.equal(usage.exitCode, 1);
+  assert.match(usage.stderr, /^Usage: publish-composer\.mjs --release-directory ABSOLUTE_PATH --source-commit SHA --unit php-core\|symfony-bundle\n$/u);
 });
 
 test("pins exactly GitHub's published SSH host keys", () => {
