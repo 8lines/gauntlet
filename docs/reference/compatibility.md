@@ -9,7 +9,8 @@ with its profiles and capabilities (`tc-*@1`), and the widget channel
 and the contract majors it implements; the `gauntlet` row records the majors
 the application supports. A package works with an application release that
 supports every major the package implements. Release preparation rewrites the
-rows of the units it releases and rejects a plan that would break this rule.
+rows of the units it releases and rejects a plan that would break this rule;
+moving a unit's version by hand moves its version cell here too.
 
 | Unit | Version | Implements | Supports |
 | --- | --- | --- | --- |

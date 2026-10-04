@@ -17,6 +17,7 @@ import { TextDecoder, types as utilTypes } from "node:util";
 
 import { isScalar, parseDocument } from "yaml";
 
+import { COMPATIBILITY_PATH, COMPATIBILITY_VERSION_SUFFIX, compatibilityRowPrefix } from "./compatibility.mjs";
 import { RELEASE_UNITS, unitById } from "./units.mjs";
 
 const VERSION_ERROR = "Release version must be an exact stable ASCII semantic version followed by one LF";
@@ -627,6 +628,12 @@ export const RELEASE_TEXT_FILES = deeplyFreeze([
       { unit: "protocol", prefix: "8lines-gauntlet-protocol-", suffix: ".tgz", count: 2 },
       { unit: "typescript-core", prefix: "8lines-gauntlet-typescript-core-", suffix: ".tgz" },
     ],
+  },
+  {
+    // The compatibility ledger records every unit's version; release preparation regenerates the
+    // whole document, and a hand version move (version.mjs --set-unit) moves the unit's cell here.
+    path: COMPATIBILITY_PATH,
+    slots: RELEASE_UNITS.map(({ id }) => ({ unit: id, prefix: compatibilityRowPrefix(id), suffix: COMPATIBILITY_VERSION_SUFFIX })),
   },
 ]);
 

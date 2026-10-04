@@ -6,7 +6,9 @@ import { lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFile
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { COMPATIBILITY_PATH, compatibilityProblems, readCompatibilityDocument } from "./compatibility.mjs";
+import {
+  COMPATIBILITY_MISSING, COMPATIBILITY_PATH, compatibilityLedgerProblems, compatibilityProblems, readCompatibilityDocument,
+} from "./compatibility.mjs";
 import { parseReleaseVersion, readUnitVersions } from "./release-model.mjs";
 import { RELEASE_UNITS, dependencyOrder, unitById, unitTag } from "./units.mjs";
 
@@ -239,6 +241,19 @@ export function validatePlanAgainstTags(plan, { versions, tags, commit = null })
   return problems;
 }
 
+// The ledger must record every unit at its manifest version and admit the plan; checked before a
+// release-set tag is created and before the release workflow publishes anything.
+export function planCompatibilityProblems(plan, versions, readRecorded) {
+  try {
+    const recorded = readRecorded();
+    return [...compatibilityLedgerProblems(recorded, versions), ...compatibilityProblems(plan, recorded)];
+  } catch (error) {
+    return [error?.message === COMPATIBILITY_MISSING
+      ? `${COMPATIBILITY_PATH} is missing or unsafe`
+      : `${COMPATIBILITY_PATH} is not a generated compatibility document`];
+  }
+}
+
 export function planGates(plan) {
   const wanted = new Set(plan.units.flatMap(({ id }) => unitById(id).gates));
   return RELEASE_GATES.filter((gate) => wanted.has(gate));
@@ -375,12 +390,7 @@ export function runPlanCli(argv, {
       };
     }
     const plan = readReleasePlan(root);
-    let compatibility;
-    try {
-      compatibility = compatibilityProblems(plan, readCompatibility(root));
-    } catch {
-      compatibility = [`compatibility: ${COMPATIBILITY_PATH} is missing or invalid`];
-    }
+    const compatibility = planCompatibilityProblems(plan, versions, () => readCompatibility(root));
     const problems = [
       ...(plan.units.length === 0 ? ["release plan has no units"] : []),
       ...validatePlanAgainstManifests(plan, versions),

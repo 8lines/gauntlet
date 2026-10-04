@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
+import { catalogEntries } from "../compatibility.mjs";
 import { buildReleasePlan, createReleasePlan, serializeReleasePlan } from "../plan.mjs";
 import { nextReleaseTag, releaseTagMessage, runReleaseTagCli } from "../release-tag.mjs";
 import { RELEASE_UNITS, unitTag } from "../units.mjs";
@@ -53,6 +54,8 @@ function fakeGit({ dirty = false, inMain = true } = {}) {
 
 const DASHBOARD = { gauntlet: "0.1.9", skills: "0.1.9" };
 const dashboardPlan = () => buildReleasePlan(versionsAt("0.1.8", DASHBOARD), baselineTags());
+// The ledger as version.mjs --set-unit leaves it: every unit recorded at its manifest version.
+const dashboardLedger = () => catalogEntries(versionsAt("0.1.8", DASHBOARD));
 
 test("numbers release-set tags per UTC day", () => {
   const tags = new Map([["release-2026-10-03.1", COMMIT], ["release-2026-10-03.2", COMMIT], ["release-2026-10-02.7", COMMIT]]);
@@ -66,7 +69,9 @@ test("creates one local annotated tag on a clean main commit for a releasable pl
   const root = fixture(t, dashboardPlan());
   const { calls, created, git } = fakeGit();
   const tags = baselineTags().set("release-2026-10-03.1", COMMIT);
-  const result = runReleaseTagCli([], { root, now: NOW, git, readVersions: () => versionsAt("0.1.8", DASHBOARD), readTags: () => tags });
+  const result = runReleaseTagCli([], {
+    root, now: NOW, git, readVersions: () => versionsAt("0.1.8", DASHBOARD), readTags: () => tags, readCompatibility: dashboardLedger,
+  });
   assert.equal(result.exitCode, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), {
     command: "tag", created: true, tag: "release-2026-10-03.2", commit: COMMIT,
@@ -80,7 +85,9 @@ test("creates one local annotated tag on a clean main commit for a releasable pl
 test("dry run reports without creating a tag", (t) => {
   const root = fixture(t, dashboardPlan());
   const { created, git } = fakeGit();
-  const result = runReleaseTagCli(["--dry-run"], { root, now: NOW, git, readVersions: () => versionsAt("0.1.8", DASHBOARD), readTags: baselineTags });
+  const result = runReleaseTagCli(["--dry-run"], {
+    root, now: NOW, git, readVersions: () => versionsAt("0.1.8", DASHBOARD), readTags: baselineTags, readCompatibility: dashboardLedger,
+  });
   assert.equal(result.exitCode, 0, result.stderr);
   assert.equal(JSON.parse(result.stdout).created, false);
   assert.equal(created.size, 0);
@@ -99,10 +106,25 @@ test("refuses dirty trees, commits outside main, missing or empty plans, drift a
       /skills: tag skills-v0.1.9 already exists/u],
   ];
   for (const [root, { created, git }, versions, tags, message] of cases) {
-    const result = runReleaseTagCli([], { root, now: NOW, git, readVersions: versions, readTags: tags });
+    const result = runReleaseTagCli([], { root, now: NOW, git, readVersions: versions, readTags: tags, readCompatibility: dashboardLedger });
     assert.equal(result.exitCode, 1);
     assert.match(JSON.parse(result.stderr).error.message, message);
     assert.equal(created.size, 0);
   }
   assert.equal(runReleaseTagCli(["--push"], { root: fixture(t), now: NOW }).exitCode, 2);
+});
+
+test("refuses a plan whose compatibility ledger is stale or missing before creating a tag", (t) => {
+  const readVersions = () => versionsAt("0.1.8", DASHBOARD);
+  const stale = () => catalogEntries(versionsAt("0.1.8", { skills: "0.1.9" }));
+  for (const [readCompatibility, message] of [
+    [stale, /^Release plan is not releasable: docs\/reference\/compatibility\.md: gauntlet is recorded at 0\.1\.8 but its manifest version is 0\.1\.9$/u],
+    [undefined, /^Release plan is not releasable: docs\/reference\/compatibility\.md is missing or unsafe$/u],
+  ]) {
+    const { created, git } = fakeGit();
+    const result = runReleaseTagCli([], { root: fixture(t, dashboardPlan()), now: NOW, git, readVersions, readTags: baselineTags, readCompatibility });
+    assert.equal(result.exitCode, 1);
+    assert.match(JSON.parse(result.stderr).error.message, message);
+    assert.equal(created.size, 0);
+  }
 });

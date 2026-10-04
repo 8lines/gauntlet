@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { catalogEntries } from "../compatibility.mjs";
+import { COMPATIBILITY_PATH, catalogEntries, renderCompatibilityDocument } from "../compatibility.mjs";
 import {
   RELEASE_GATES, allUnitsPlan, buildReleasePlan, compareVersions, createReleasePlan, isReleaseTagName,
   latestUnitVersion, localReleaseSetId, parseReleasePlan, parseReleaseSetId, parseTagListing, planGates,
@@ -200,7 +200,8 @@ test("the plan CLI writes the computed plan and checks a committed one", (t) => 
   });
   assert.equal(readFileSync(join(root, ".release/plan.json"), "utf8"), serializeReleasePlan(buildReleasePlan(readVersions(), readTags())));
 
-  const readCompatibility = () => catalogEntries(versionsAt("0.1.8"));
+  // A ledger that records every unit at its manifest version, as version.mjs --set-unit leaves it.
+  const readCompatibility = () => catalogEntries(readVersions());
   const checked = runPlanCli(["--check", "--release-set", "release-2026-10-03.1", "--commit", COMMIT], { root, readVersions, readTags, readCompatibility });
   assert.equal(checked.exitCode, 0, checked.stderr);
   assert.deepEqual(JSON.parse(checked.stdout), {
@@ -208,8 +209,9 @@ test("the plan CLI writes the computed plan and checks a committed one", (t) => 
     gates: DASHBOARD_GATES, problems: [],
   });
 
+  const driftedVersions = () => versionsAt("0.1.8", { gauntlet: "0.1.10", skills: "0.1.9" });
   const drifted = runPlanCli(["--check"], {
-    root, readVersions: () => versionsAt("0.1.8", { gauntlet: "0.1.10", skills: "0.1.9" }), readTags, readCompatibility,
+    root, readVersions: driftedVersions, readTags, readCompatibility: () => catalogEntries(driftedVersions()),
   });
   assert.equal(drifted.exitCode, 1);
   assert.deepEqual(JSON.parse(drifted.stdout).problems, [
@@ -218,7 +220,9 @@ test("the plan CLI writes the computed plan and checks a committed one", (t) => 
   ]);
 
   writeFileSync(join(root, ".release/plan.json"), serializeReleasePlan(createReleasePlan([])));
-  const empty = runPlanCli(["--check"], { root, readVersions: () => versionsAt("0.1.8"), readTags, readCompatibility });
+  const empty = runPlanCli(["--check"], {
+    root, readVersions: () => versionsAt("0.1.8"), readTags, readCompatibility: () => catalogEntries(versionsAt("0.1.8")),
+  });
   assert.equal(empty.exitCode, 1);
   assert.deepEqual(JSON.parse(empty.stdout).problems, ["release plan has no units"]);
 
@@ -233,7 +237,7 @@ test("plan --check rejects a plan the released application cannot serve, and a m
   mkdirSync(join(root, ".release"));
   writeFileSync(join(root, ".release/plan.json"), serializeReleasePlan(createReleasePlan([{ id: "typescript-core", from: "0.1.8", to: "0.1.9" }])));
   const options = { root, readVersions: () => versionsAt("0.1.8", { "typescript-core": "0.1.9" }), readTags: () => baselineTags() };
-  const narrowed = () => catalogEntries(versionsAt("0.1.8")).map((entry) => (entry.id === "gauntlet"
+  const narrowed = () => catalogEntries(options.readVersions()).map((entry) => (entry.id === "gauntlet"
     ? { ...entry, supports: { protocol: [2], widgetChannel: [1] } } : entry));
   const rejected = runPlanCli(["--check"], { ...options, readCompatibility: narrowed });
   assert.equal(rejected.exitCode, 1);
@@ -245,8 +249,40 @@ test("plan --check rejects a plan the released application cannot serve, and a m
       "php-core", "symfony-bundle", "java-core", "spring-boot-starter"]
       .map((id) => `${id}: implements protocol 1, which gauntlet 0.1.8 does not support`),
   ]);
-  const missing = runPlanCli(["--check"], { ...options, readCompatibility: () => { throw new Error("absent"); } });
-  assert.deepEqual(JSON.parse(missing.stdout).problems, ["compatibility: docs/reference/compatibility.md is missing or invalid"]);
+  const broken = runPlanCli(["--check"], { ...options, readCompatibility: () => { throw new Error("absent"); } });
+  assert.deepEqual(JSON.parse(broken.stdout).problems, ["docs/reference/compatibility.md is not a generated compatibility document"]);
+});
+
+test("plan --check fails on a ledger that does not record every unit at its manifest version", (t) => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "gauntlet-plan-ledger-")));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, ".release"));
+  mkdirSync(join(root, "docs/reference"), { recursive: true });
+  writeFileSync(join(root, ".release/plan.json"), serializeReleasePlan(createReleasePlan([{ id: "widget", from: "0.1.8", to: "0.1.9" }])));
+  const versions = versionsAt("0.1.8", { widget: "0.1.9" });
+  const check = () => runPlanCli(["--check"], { root, readVersions: () => versions, readTags: () => baselineTags() });
+  const ledger = renderCompatibilityDocument(catalogEntries(versions));
+
+  writeFileSync(join(root, COMPATIBILITY_PATH), ledger);
+  assert.deepEqual([check().exitCode, JSON.parse(check().stdout).problems], [0, []]);
+
+  // Moved by hand without moving the ledger: the release would otherwise fail only after publishing.
+  writeFileSync(join(root, COMPATIBILITY_PATH), ledger.replace("| `widget` | 0.1.9 |", "| `widget` | 0.1.8 |"));
+  const stale = check();
+  assert.equal(stale.exitCode, 1);
+  assert.deepEqual(JSON.parse(stale.stdout).problems, [
+    "docs/reference/compatibility.md: widget is recorded at 0.1.8 but its manifest version is 0.1.9",
+  ]);
+
+  writeFileSync(join(root, COMPATIBILITY_PATH), "# Compatibility\n");
+  assert.deepEqual(JSON.parse(check().stdout).problems, ["docs/reference/compatibility.md is not a generated compatibility document"]);
+
+  rmSync(join(root, COMPATIBILITY_PATH));
+  assert.deepEqual(JSON.parse(check().stdout).problems, ["docs/reference/compatibility.md is missing or unsafe"]);
+
+  writeFileSync(join(root, "ledger.md"), ledger);
+  symlinkSync(join(root, "ledger.md"), join(root, COMPATIBILITY_PATH));
+  assert.deepEqual(JSON.parse(check().stdout).problems, ["docs/reference/compatibility.md is missing or unsafe"]);
 });
 
 test("the plan CLI refuses to write an empty plan and keeps the previous one", (t) => {

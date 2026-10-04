@@ -5,6 +5,7 @@ import { RELEASE_UNITS } from "./units.mjs";
 
 export const COMPATIBILITY_PATH = "docs/reference/compatibility.md";
 const INVALID = "Compatibility document is invalid";
+export const COMPATIBILITY_MISSING = "Compatibility document is missing or unsafe";
 const MAX_BYTES = 256 * 1024;
 const CONTRACT_NAMES = Object.freeze({ protocol: "adapter protocol", widgetChannel: "widget channel" });
 const HEADER = Object.freeze([
@@ -19,7 +20,8 @@ const HEADER = Object.freeze([
   "and the contract majors it implements; the `gauntlet` row records the majors",
   "the application supports. A package works with an application release that",
   "supports every major the package implements. Release preparation rewrites the",
-  "rows of the units it releases and rejects a plan that would break this rule.",
+  "rows of the units it releases and rejects a plan that would break this rule;",
+  "moving a unit's version by hand moves its version cell here too.",
   "",
   "| Unit | Version | Implements | Supports |",
   "| --- | --- | --- | --- |",
@@ -56,9 +58,16 @@ function parseCell(cell, multiple) {
   }));
 }
 
+// The text before a unit's version cell; release-model.mjs binds the cell as that unit's version slot.
+export function compatibilityRowPrefix(id) {
+  return `| \`${id}\` | `;
+}
+
+export const COMPATIBILITY_VERSION_SUFFIX = " | ";
+
 export function renderCompatibilityDocument(entries) {
   const rows = entries.map(({ id, version, implements: implemented, supports }) =>
-    `| \`${id}\` | ${version} | ${formatImplements(implemented)} | ${formatSupports(supports)} |`);
+    `${compatibilityRowPrefix(id)}${version}${COMPATIBILITY_VERSION_SUFFIX}${formatImplements(implemented)} | ${formatSupports(supports)} |`);
   return `${HEADER}\n${rows.join("\n")}\n`;
 }
 
@@ -80,9 +89,15 @@ export function parseCompatibilityDocument(source) {
 
 export function readCompatibilityDocument(root) {
   const path = resolve(root, COMPATIBILITY_PATH);
-  const stat = lstatSync(path);
-  if (!stat.isFile() || stat.size > MAX_BYTES) throw new Error(INVALID);
-  return parseCompatibilityDocument(readFileSync(path, "utf8"));
+  let source;
+  try {
+    const stat = lstatSync(path);
+    if (!stat.isFile() || stat.size > MAX_BYTES) throw new Error(COMPATIBILITY_MISSING);
+    source = readFileSync(path, "utf8");
+  } catch {
+    throw new Error(COMPATIBILITY_MISSING);
+  }
+  return parseCompatibilityDocument(source);
 }
 
 export function updateCompatibilityEntries(recorded, plan, catalog = RELEASE_UNITS) {
@@ -141,6 +156,13 @@ export function compatibilityLine(unitId, entries) {
   return `Compatibility: ${unitId} ${entry.version} implements ${implemented.join(" and ")}; Gauntlet ${application.version} supports ${supported}.`;
 }
 
+// Every unit's recorded version must equal its manifest version; a stale row would otherwise
+// surface only when a release's notes are generated, after its artifacts were published.
+export function compatibilityLedgerProblems(entries, versions) {
+  return entries.filter(({ id, version }) => versions.get(id) !== version)
+    .map(({ id, version }) => `${COMPATIBILITY_PATH}: ${id} is recorded at ${version} but its manifest version is ${versions.get(id)}`);
+}
+
 export function compatibilityDocumentProblems(source, versions) {
   let entries;
   try {
@@ -148,6 +170,5 @@ export function compatibilityDocumentProblems(source, versions) {
   } catch {
     return [`${COMPATIBILITY_PATH} is not a generated compatibility document`];
   }
-  return entries.filter(({ id, version }) => versions.get(id) !== version)
-    .map(({ id, version }) => `${COMPATIBILITY_PATH}: ${id} is recorded at ${version} but its manifest version is ${versions.get(id)}`);
+  return compatibilityLedgerProblems(entries, versions);
 }

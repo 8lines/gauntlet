@@ -35,6 +35,9 @@ import {
   setReleaseVersion,
   setUnitVersions,
 } from "../release-model.mjs";
+import {
+  COMPATIBILITY_PATH, catalogEntries, compatibilityDocumentProblems, renderCompatibilityDocument,
+} from "../compatibility.mjs";
 import { createReleasePlan, serializeReleasePlan } from "../plan.mjs";
 import { RELEASE_UNITS } from "../units.mjs";
 import { parseVersionCommand, runVersionCli } from "../version.mjs";
@@ -404,6 +407,10 @@ test("reports every drifting slot against its own unit in fixed order", () => {
       "packages/java/README.md: release references must equal spring-boot-starter 0.1.0",
       "packages/java/core/README.md: release references must equal java-core 0.1.0",
       "packages/java/spring-boot-starter/README.md: release references must equal spring-boot-starter 0.1.0",
+      "docs/reference/compatibility.md: release references must equal gauntlet 0.1.0",
+      "docs/reference/compatibility.md: release references must equal java-core 0.1.0",
+      "docs/reference/compatibility.md: release references must equal spring-boot-starter 0.1.0",
+      "docs/reference/compatibility.md: release references must equal skills 0.1.0",
     ]);
   });
 });
@@ -1265,6 +1272,7 @@ test("a slot is checked against its own unit", () => {
       "docs/releases/installing-packages.md: release references must equal php-core 0.1.9",
       "docs/integrations/index.md: release references must equal php-core 0.1.9",
       "packages/php/symfony-bundle/README.md: release references must equal php-core 0.1.9",
+      "docs/reference/compatibility.md: release references must equal php-core 0.1.9",
     ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -1283,6 +1291,7 @@ test("the Symfony reference names each PHP package's own exact version", () => {
       "docs/releases/installing-packages.md",
       "docs/integrations/index.md",
       "packages/php/symfony-bundle/README.md",
+      "docs/reference/compatibility.md",
     ]);
     assert.deepEqual(collectUnitVersionMismatches(root), []);
     assert.match(
@@ -1305,6 +1314,7 @@ test("a Java core move reports only java-core slots, never the starter slots", (
       "docs/integrations/index.md: release references must equal java-core 0.1.9",
       "packages/java/README.md: release references must equal java-core 0.1.9",
       "packages/java/core/README.md: release references must equal java-core 0.1.9",
+      "docs/reference/compatibility.md: release references must equal java-core 0.1.9",
     ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -1318,6 +1328,7 @@ test("a unit that moves alone reports only its own slots", () => {
     assert.deepEqual(collectUnitVersionMismatches(root), [
       "docs/ai-skills.md: release references must equal skills 0.1.9",
       "docs/releases/installing-packages.md: release references must equal skills 0.1.9",
+      "docs/reference/compatibility.md: release references must equal skills 0.1.9",
     ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -1446,6 +1457,7 @@ test("setUnitVersions moves one unit and every slot bound to it, and nothing els
         "docs/releases/installing-packages.md",
         "docs/integrations/index.md",
         "packages/php/symfony-bundle/README.md",
+        "docs/reference/compatibility.md",
       ],
     });
     assert.deepEqual(collectUnitVersionMismatches(root), []);
@@ -1473,11 +1485,13 @@ test("setUnitVersions moves the application and the skills archive slots indepen
       "skills/gauntlet-app-integration/references/safety-gates.md",
       "deploy/helm/README.md",
       "docs/releases/installing-packages.md",
+      "docs/reference/compatibility.md",
       "VERSION",
     ]);
     assert.deepEqual(setUnitVersions(root, { skills: "0.1.9" }).changedPaths, [
       "docs/ai-skills.md",
       "docs/releases/installing-packages.md",
+      "docs/reference/compatibility.md",
       "skills/VERSION",
     ]);
     assert.deepEqual(collectUnitVersionMismatches(root), []);
@@ -1513,11 +1527,47 @@ test("the version CLI sets one unit", () => {
     const result = runVersionCli(["--set-unit", "widget", "0.2.0"], { root });
     assert.equal(result.exitCode, 0, result.stderr);
     assert.deepEqual(JSON.parse(result.stdout), {
-      changedPaths: ["packages/widget/package.json", "docs/releases/installing-packages.md", "docs/integrations/widget.md"], command: "set-unit", ok: true, unit: "widget", version: "0.2.0",
+      changedPaths: [
+        "packages/widget/package.json", "docs/releases/installing-packages.md", "docs/integrations/widget.md", "docs/reference/compatibility.md",
+      ],
+      command: "set-unit", ok: true, unit: "widget", version: "0.2.0",
     });
     for (const argv of [["--set-unit", "nope", "0.2.0"], ["--set-unit", "widget"], ["--set-unit", "widget", "v0.2.0"]]) {
       assert.equal(runVersionCli(argv, { root }).exitCode, 2, argv.join(" "));
     }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("--set-unit moves the compatibility ledger's version cell and keeps the recorded contracts", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    // A ledger whose recorded widget contracts differ from the catalog: slots move versions only.
+    const recorded = catalogEntries(readUnitVersions(root)).map((entry) => (entry.id === "widget"
+      ? { ...entry, implements: { widgetChannel: 1 } } : entry));
+    writeFixtureFile(root, COMPATIBILITY_PATH, renderCompatibilityDocument(recorded));
+    const result = runVersionCli(["--set-unit", "widget", "0.1.9"], { root });
+    assert.equal(result.exitCode, 0, result.stderr);
+    assert.equal(JSON.parse(result.stdout).changedPaths.includes(COMPATIBILITY_PATH), true);
+    const ledger = readFileSync(join(root, COMPATIBILITY_PATH), "utf8");
+    assert.equal(ledger, renderCompatibilityDocument(recorded.map((entry) => (entry.id === "widget" ? { ...entry, version: "0.1.9" } : entry))));
+    assert.deepEqual(compatibilityDocumentProblems(ledger, readUnitVersions(root)), []);
+    assert.deepEqual(JSON.parse(runVersionCli(["--check"], { root }).stdout).mismatches, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a hand-stale compatibility ledger fails the version check with the unit it records wrongly", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    const ledger = readFileSync(join(root, COMPATIBILITY_PATH), "utf8");
+    writeFixtureFile(root, COMPATIBILITY_PATH, ledger.replace("| `widget` | 0.1.8 |", "| `widget` | 0.1.7 |"));
+    const stale = runVersionCli(["--check"], { root });
+    assert.equal(stale.exitCode, 1);
+    assert.deepEqual(JSON.parse(stale.stdout).mismatches, ["docs/reference/compatibility.md: release references must equal widget 0.1.8"]);
+    assert.throws(() => setUnitVersions(root, { widget: "0.1.9" }), /preflight failed/u);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

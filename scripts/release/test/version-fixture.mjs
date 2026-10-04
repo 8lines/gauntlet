@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { COMPATIBILITY_PATH, catalogEntries, renderCompatibilityDocument } from "../compatibility.mjs";
 import { renderUnitVersionTable } from "../release-model.mjs";
 import { RELEASE_UNITS } from "../units.mjs";
 
@@ -25,6 +26,7 @@ export const RELEASE_TEXT_PATHS = [
   "packages/java/spring-boot-starter/README.md",
   "packages/php/symfony-bundle/README.md",
   "packages/typescript/core/README.md",
+  COMPATIBILITY_PATH,
 ];
 
 // Each release-text file with the units whose slots it holds, in first-appearance order, and the slot count per unit.
@@ -55,6 +57,7 @@ export const RELEASE_TEXT_UNITS = [
   ["packages/java/spring-boot-starter/README.md", [["spring-boot-starter", 2]]],
   ["packages/php/symfony-bundle/README.md", [["php-core", 1], ["symfony-bundle", 1]]],
   ["packages/typescript/core/README.md", [["protocol", 3], ["typescript-core", 2]]],
+  [COMPATIBILITY_PATH, RELEASE_UNITS.map(({ id }) => [id, 1])],
 ];
 
 export const EXPECTED_UPDATE_PATHS = [
@@ -226,6 +229,7 @@ export function releaseTextFixtures(version) {
         + `"@8lines/gauntlet-typescript-core": "file:/tmp/gauntlet-packages/8lines-gauntlet-typescript-core-${version}.tgz"\n`
         + `'@8lines/gauntlet-protocol': 'file:/tmp/gauntlet-packages/8lines-gauntlet-protocol-${version}.tgz'\n`,
     ],
+    [COMPATIBILITY_PATH, renderCompatibilityDocument(catalogEntries(new Map(RELEASE_UNITS.map(({ id }) => [id, version]))))],
   ]);
 }
 
