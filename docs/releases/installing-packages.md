@@ -101,11 +101,11 @@ The image and the Helm chart are public, so pulling them needs no
 
 ```sh
 docker pull ghcr.io/8lines/gauntlet:0.1.9
-helm pull oci://ghcr.io/8lines/charts/gauntlet --version 0.1.8
+helm pull oci://ghcr.io/8lines/charts/gauntlet --version 0.1.9
 ```
 
 Prefer an image digest in an operator-managed deployment. Pull the Helm chart
-at exact version `0.1.8`, render that local archive, and install the same bytes.
+at exact version `0.1.9`, render that local archive, and install the same bytes.
 A cluster that must pull through an authenticated mirror can still set the
 chart's optional `imagePullSecrets` value; the chart never creates that Secret.
 When a private mirror does need credentials, supply them without a token
