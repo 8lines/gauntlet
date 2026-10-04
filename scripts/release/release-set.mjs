@@ -1,12 +1,16 @@
 import { createHash } from "node:crypto";
 import { closeSync, constants, fstatSync, lstatSync, openSync, readSync, realpathSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, resolve, sep } from "node:path";
+import { isAbsolute, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { changelogPath, changelogSection } from "./changelog.mjs";
 import { unitReleaseAssets } from "./check-published.mjs";
+import { compatibilityLine, readCompatibilityDocument } from "./compatibility.mjs";
 import { readReleaseManifest } from "./inventory.mjs";
 import { RELEASE_GATES, readReleasePlan } from "./plan.mjs";
 import { dependencyOrder, unitById, unitTag } from "./units.mjs";
+
+export { changelogPath, changelogSection } from "./changelog.mjs";
 
 const ROOT = realpathSync(fileURLToPath(new URL("../../", import.meta.url)));
 const PUBLISHABLE_STATES = Object.freeze(["clean", "already-identical"]);
@@ -162,25 +166,11 @@ export function unitAssetPaths(releaseDirectory, manifest, unitId) {
   return Object.freeze(unitReleaseAssets(manifest, unitId).map(({ path }) => stagedFile(releaseDirectory, path)));
 }
 
-export function changelogPath(unitId) {
-  const unit = unitById(unitId);
-  return unit.id === "gauntlet" ? "CHANGELOG.md" : `${dirname(unit.version.path)}/CHANGELOG.md`;
-}
-
-export function changelogSection(source, version) {
-  const lines = source.split("\n");
-  const start = lines.findIndex((line) => line === `## [${version}]` || line.startsWith(`## [${version}] `));
-  if (start < 0) return null;
-  const end = lines.findIndex((line, index) => index > start && line.startsWith("## "));
-  const body = lines.slice(start + 1, end < 0 ? lines.length : end).join("\n").trim();
-  return body === "" ? null : body;
-}
-
-export function releaseNotes({ changelog, releaseSet }) {
-  const line = `Release set \`${releaseSet}\`.`;
+export function releaseNotes({ changelog, compatibility, releaseSet }) {
+  const tail = `${compatibility}\n\nRelease set \`${releaseSet}\`.\n`;
   return changelog === null
-    ? Object.freeze({ mode: "generated", text: `${line}\n` })
-    : Object.freeze({ mode: "changelog", text: `${changelog}\n\n${line}\n` });
+    ? Object.freeze({ mode: "generated", text: tail })
+    : Object.freeze({ mode: "changelog", text: `${changelog}\n\n${tail}` });
 }
 
 export function requireUnitState(result, unitId, state) {
@@ -232,6 +222,18 @@ function unitChangelog(root, unitId, version) {
   if (!real.startsWith(`${root}${sep}`)) throw new Error(READ_FAILURE);
   const source = readRegularFile(absolute, { optional: true });
   return source === null ? null : changelogSection(source, version);
+}
+
+function unitCompatibility(root, unitId, version) {
+  let entries;
+  try {
+    entries = readCompatibilityDocument(root);
+  } catch {
+    throw new Error(READ_FAILURE);
+  }
+  const entry = entries.find(({ id }) => id === unitId);
+  if (entry.version !== version) throw new Error(`Compatibility document records ${unitId} ${entry.version}, not the released ${version}`);
+  return compatibilityLine(unitId, entries);
 }
 
 function parseCli(argv) {
@@ -288,8 +290,10 @@ export function runReleaseSetCli(argv, { root = ROOT } = {}) {
       } else if (command === "assets") {
         stdout = unitAssetPaths(releaseDirectory, manifest, unitId).map((path) => `${path}\n`).join("");
       } else {
+        const { version } = manifestUnit(manifest, unitId);
         const notes = releaseNotes({
-          changelog: unitChangelog(root, unitId, manifestUnit(manifest, unitId).version),
+          changelog: unitChangelog(root, unitId, version),
+          compatibility: unitCompatibility(root, unitId, version),
           releaseSet: manifest.releaseSet,
         });
         writeFileSync(values["--output"], notes.text, { flag: "wx", mode: 0o644 });

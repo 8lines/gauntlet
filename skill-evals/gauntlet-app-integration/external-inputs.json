@@ -23,7 +23,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "3c6b253e9be3f7ae90b63ca4b63b50b1f3a773dd9e592f28c3134a296d8b0dc3"
+      "sha256": "4e3c2b21fdfe25bd262a977240605c2196b8e203c438ce7cd892061a95eef187"
     },
     {
       "path": "pnpm-lock.yaml",
@@ -35,15 +35,15 @@
     },
     {
       "path": "scripts/release/release-model.mjs",
-      "sha256": "f388a30a614bd34c3b6af3f43b659f10db22cce75e2eb7f7076289a4facae696"
+      "sha256": "73dc192bf5ffa235bc0f2a0cb4748008c5097802cca4b2580dd65735b4cc4391"
     },
     {
       "path": "scripts/release/stage-composer.mjs",
-      "sha256": "d738ddf377833a4c5ab677e396408d0dfb573487e11851d5e2c3f337b538aded"
+      "sha256": "956a012757ab9901e4706e7aa7661c9d6959befd9bf6073ffbebb3a8a579e83f"
     },
     {
       "path": "scripts/release/units.mjs",
-      "sha256": "679902b84a30ed9422bd88edac46e966dee011ab7f46a2ac71cfa7eea380f91b"
+      "sha256": "da91703cc02e3b9e1957cd12888646614f254178c0616e573aa71a2457666efc"
     },
     {
       "path": "tsconfig.base.json",
@@ -57,7 +57,7 @@
         "dist",
         "node_modules"
       ],
-      "sha256": "daf961c7ec36501a32f157478e699b50b56d107152aa2ea0df03cda591162a55"
+      "sha256": "8f45f5f4f595371164625689a5054379451d61797f780337f93c0ae39fd2c74e"
     },
     {
       "path": "packages/php/core",
@@ -65,7 +65,7 @@
         ".phpunit.result.cache",
         "vendor"
       ],
-      "sha256": "f1dee2a282e7bbd225fc4f9cd9b42bc270dbc01a8def5b5e20411999cc8c0713"
+      "sha256": "dfdea01fd45305414ceed2cb91b348a5ab0322a70a44dc2373759b29efaa36b7"
     },
     {
       "path": "packages/php/symfony-bundle",
@@ -73,7 +73,7 @@
         ".phpunit.result.cache",
         "vendor"
       ],
-      "sha256": "0bb6b6c7a2034891ab4c9aa0d0e8447c83d68181a037e79178d1275b3106a83b"
+      "sha256": "b0fc5d8674a1338f940a5019f0cb62ebf699a7e47c1510ffc8f9c34679f58689"
     },
     {
       "path": "packages/protocol",
@@ -81,7 +81,7 @@
         "dist",
         "node_modules"
       ],
-      "sha256": "77dc0fcdc1ff3a5c2b53fdab42238f389918e17bd92ef5d1badb1a5b8ffa2d9c"
+      "sha256": "5c3359059b5049b12e5150d975b26ee39cd4b281d00896a5950f76ef23c317d2"
     },
     {
       "path": "packages/typescript/core",
@@ -89,7 +89,7 @@
         "dist",
         "node_modules"
       ],
-      "sha256": "84a041d66e7075b1bb88f0b3879c4a8edb6e53e7fa6eb9cd2c1a5edada3ad3ac"
+      "sha256": "5699f7d5d4cfd0138eb3f0bce13cc125230d8bebaf1ab5ea4c0e9fc1174d97bd"
     },
     {
       "path": "packages/typescript/node",
@@ -97,7 +97,7 @@
         "dist",
         "node_modules"
       ],
-      "sha256": "70ab2abd2f72edb2ab5a13a330ac235001b9f9f0f7b9b46b72ea8976776789fa"
+      "sha256": "682bd96e6a9e9e123b2339db17c1daef8d27634b60fc9fa0b5b730a7e947cd91"
     }
   ],
   "linkedRuntimeTrees": [

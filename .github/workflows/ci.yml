@@ -15,6 +15,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    if: github.event_name == 'pull_request'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 10
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24.20.0"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --package-import-method=copy
+      - name: Require a change file for every released unit a pull request touches
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: pnpm release:changes --check --base "$BASE_SHA"
+
   node:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 35
@@ -402,14 +422,29 @@ jobs:
         shell: bash
         env:
           PLAYWRIGHT_BROWSER_CHANNEL: chromium
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
           node scripts/release/version.mjs --check
           if [ -e .release/plan.json ]; then node scripts/release/version.mjs --check --plan .release/plan.json; fi
-          # Rehearse every unit whatever a committed .release/plan.json releases: after a partial
-          # release that plan names only old units. The tag workflow rehearses its plan instead.
-          node scripts/release/plan.mjs --write-all-units .artifacts/ci/all-units-plan.json
-          pnpm release:dry-run --plan .artifacts/ci/all-units-plan.json
+          # A release pull request changes .release/plan.json: it rehearses exactly that plan and checks it
+          # against the tags and the compatibility ledger. Every other run rehearses every unit, because the
+          # committed plan of an earlier release may name only already released units.
+          # The diff runs in a command substitution, so a failure (missing base commit, empty BASE_SHA)
+          # aborts the step instead of silently choosing a branch.
+          plan_changed=false
+          if [ "$EVENT_NAME" = "pull_request" ] && [ -e .release/plan.json ]; then
+            plan_diff="$(git diff --name-only "$BASE_SHA" HEAD -- .release/plan.json)"
+            if [ -n "$plan_diff" ]; then plan_changed=true; fi
+          fi
+          if [ "$plan_changed" = true ]; then
+            node scripts/release/plan.mjs --check
+            pnpm release:dry-run --plan .release/plan.json
+          else
+            node scripts/release/plan.mjs --write-all-units .artifacts/ci/all-units-plan.json
+            pnpm release:dry-run --plan .artifacts/ci/all-units-plan.json
+          fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-dry-run

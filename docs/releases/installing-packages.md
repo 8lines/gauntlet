@@ -19,6 +19,30 @@ authenticating reverse proxy, keep every adapter route internal, and never
 enable an adapter in production. See the
 [non-production boundary](../safety/non-production-boundary.md).
 
+## Current versions
+
+Each release unit has its own version. `pnpm release:prepare` keeps this table
+current. Which package versions work with which application release is listed in
+[compatibility](../reference/compatibility.md).
+
+<!-- gauntlet:unit-versions:start -->
+| Unit | Published as | Version |
+| --- | --- | --- |
+| `gauntlet` | `ghcr.io/8lines/gauntlet`, `gauntlet`, `gauntlet-compose` | 0.1.8 |
+| `protocol` | `@8lines/gauntlet-protocol` | 0.1.8 |
+| `dashboard-client` | `@8lines/gauntlet-dashboard-client` | 0.1.8 |
+| `typescript-core` | `@8lines/gauntlet-typescript-core` | 0.1.8 |
+| `typescript-node` | `@8lines/gauntlet-typescript-node` | 0.1.8 |
+| `next-adapter` | `@8lines/gauntlet-next-adapter` | 0.1.8 |
+| `conformance-runner` | `@8lines/gauntlet-conformance-runner` | 0.1.8 |
+| `widget` | `@8lines/gauntlet-widget` | 0.1.8 |
+| `php-core` | `8lines/gauntlet-php-core` | 0.1.8 |
+| `symfony-bundle` | `8lines/gauntlet-symfony-bundle` | 0.1.8 |
+| `java-core` | `dev.eightlines.gauntlet:core` | 0.1.8 |
+| `spring-boot-starter` | `dev.eightlines.gauntlet:spring-boot-starter` | 0.1.8 |
+| `skills` | `gauntlet-skills` | 0.1.8 |
+<!-- gauntlet:unit-versions:end -->
+
 ## npm
 
 Install exact versions from the public registry. No `.npmrc` scope mapping or
@@ -44,8 +68,8 @@ runners, and the release job runs on a self-hosted runner. Ensure the lockfile r
 
 The PHP packages are published on Packagist from the public split repositories
 `8lines/gauntlet-php-core` and `8lines/gauntlet-symfony-bundle`, each tagged
-with an annotated `v0.1.8`. No custom `repositories` entry, `auth.json`, or
-`COMPOSER_AUTH` is needed:
+with an annotated `v<version>` for that package's own version. No custom
+`repositories` entry, `auth.json`, or `COMPOSER_AUTH` is needed:
 
 ```sh
 composer require 8lines/gauntlet-symfony-bundle:0.1.8

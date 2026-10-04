@@ -34,7 +34,7 @@ const MULTI_PLATFORM_JOBS = Object.freeze({
   ".github/workflows/release.yml": Object.freeze(["security", "release-metadata", "publish"]),
 });
 const JOBS = [
-  "node", "php", "java", "conformance", "dashboard", "widget", "widget-panel", "deployment", "skills", "security", "release-metadata",
+  "changes", "node", "php", "java", "conformance", "dashboard", "widget", "widget-panel", "deployment", "skills", "security", "release-metadata",
 ];
 
 function readYaml(relativePath) {
@@ -86,6 +86,16 @@ test("CI exposes the bounded, read-only product and release gates", () => {
       assert.doesNotMatch(serialized, /secrets\.|NPM_TOKEN|DEPLOY_KEY|pull_request_target/i);
     }
   }
+
+  assert.equal(workflow.jobs.changes.if, "github.event_name == 'pull_request'");
+  assert.equal(workflow.jobs.changes["timeout-minutes"], 10);
+  const changesCheckout = workflow.jobs.changes.steps.find(({ uses }) => BLACKSMITH_CHECKOUT.test(uses ?? ""));
+  assert.equal(changesCheckout.with["fetch-depth"], 0);
+  const changesStep = workflow.jobs.changes.steps.find(
+    ({ name }) => name === "Require a change file for every released unit a pull request touches",
+  );
+  assert.deepEqual(changesStep.env, { BASE_SHA: "${{ github.event.pull_request.base.sha }}" });
+  assert.equal(changesStep.run, 'pnpm release:changes --check --base "$BASE_SHA"');
   assert.deepEqual(workflow.jobs.skills.strategy, {
     "fail-fast": false,
     matrix: { os: [LINUX_RUNNER, MACOS_RUNNER] },
@@ -156,18 +166,32 @@ test("CI exposes the bounded, read-only product and release gates", () => {
   assert.doesNotMatch(commands.security, /--source-only/u);
   assert.match(commands["release-metadata"], /playwright install --with-deps chromium/);
   assert.match(commands["release-metadata"], /pnpm release:dry-run/);
-  // CI always rehearses every unit, not a committed plan that may name only already released units.
+  // CI rehearses every unit, except that a release pull request rehearses exactly its committed plan.
   const rehearsal = workflow.jobs["release-metadata"].steps.find(({ name }) => name === "Reproduce the complete release without publishing");
   assert.equal(rehearsal.shell, "bash");
-  assert.equal(rehearsal.env?.PLAYWRIGHT_BROWSER_CHANNEL, "chromium");
+  assert.deepEqual(rehearsal.env, {
+    PLAYWRIGHT_BROWSER_CHANNEL: "chromium",
+    EVENT_NAME: "${{ github.event_name }}",
+    BASE_SHA: "${{ github.event.pull_request.base.sha }}",
+  });
   assert.deepEqual(rehearsal.run.split("\n").filter((line) => line !== "" && !line.trimStart().startsWith("#")), [
     "set -euo pipefail",
     "node scripts/release/version.mjs --check",
     "if [ -e .release/plan.json ]; then node scripts/release/version.mjs --check --plan .release/plan.json; fi",
-    "node scripts/release/plan.mjs --write-all-units .artifacts/ci/all-units-plan.json",
-    "pnpm release:dry-run --plan .artifacts/ci/all-units-plan.json",
+    "plan_changed=false",
+    'if [ "$EVENT_NAME" = "pull_request" ] && [ -e .release/plan.json ]; then',
+    '  plan_diff="$(git diff --name-only "$BASE_SHA" HEAD -- .release/plan.json)"',
+    '  if [ -n "$plan_diff" ]; then plan_changed=true; fi',
+    "fi",
+    'if [ "$plan_changed" = true ]; then',
+    "  node scripts/release/plan.mjs --check",
+    "  pnpm release:dry-run --plan .release/plan.json",
+    "else",
+    "  node scripts/release/plan.mjs --write-all-units .artifacts/ci/all-units-plan.json",
+    "  pnpm release:dry-run --plan .artifacts/ci/all-units-plan.json",
+    "fi",
   ]);
-  assert.equal(commands["release-metadata"].match(/pnpm release:dry-run/gu).length, 1);
+  assert.equal(commands["release-metadata"].match(/pnpm release:dry-run/gu).length, 2);
   const metadataSteps = workflow.jobs["release-metadata"].steps;
   const metadataBuild = metadataSteps.findIndex(({ run }) => run === "pnpm build");
   const metadataPreload = metadataSteps.findIndex(({ run }) => run === "node scripts/prepare-ci-images.mjs");
@@ -326,6 +350,8 @@ test("every workflow-facing gate resolves to one exact local root script", () =>
     "verify:official-adapters": "node scripts/release/verify-official-adapters.mjs",
     "dashboard:test:e2e": "pnpm --filter @8lines/gauntlet-dashboard exec playwright test --reporter=line",
     "release:plan": "node scripts/release/plan.mjs --write",
+    "release:prepare": "node scripts/release/prepare.mjs",
+    "release:changes": "node scripts/release/changes.mjs",
     "release:tag": "node scripts/release/release-tag.mjs",
     "release:security": "node scripts/release/security.mjs",
     "release:stage": "node scripts/release/stage.mjs",

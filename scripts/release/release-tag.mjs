@@ -5,8 +5,10 @@ import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { readCompatibilityDocument } from "./compatibility.mjs";
 import {
-  RELEASE_PLAN_PATH, readReleasePlan, readRepositoryTags, validatePlanAgainstManifests, validatePlanAgainstTags,
+  RELEASE_PLAN_PATH, planCompatibilityProblems, readReleasePlan, readRepositoryTags, validatePlanAgainstManifests,
+  validatePlanAgainstTags,
 } from "./plan.mjs";
 import { readUnitVersions } from "./release-model.mjs";
 
@@ -48,7 +50,7 @@ function defaultGit(root) {
   };
 }
 
-export function prepareReleaseTag({ root, now, git, readVersions, readTags }) {
+export function prepareReleaseTag({ root, now, git, readVersions, readTags, readCompatibility = readCompatibilityDocument }) {
   const status = git(["status", "--porcelain=v1", "--untracked-files=all"]);
   if (status.status !== 0 || status.stdout !== "") throw new Error("Working tree is not clean");
   const head = git(["rev-parse", "--verify", "HEAD^{commit}"]);
@@ -61,7 +63,11 @@ export function prepareReleaseTag({ root, now, git, readVersions, readTags }) {
   if (plan.units.length === 0) throw new Error("Release plan has no units");
   const versions = readVersions(root);
   const tags = readTags(root);
-  const problems = [...validatePlanAgainstManifests(plan, versions), ...validatePlanAgainstTags(plan, { versions, tags })];
+  const problems = [
+    ...validatePlanAgainstManifests(plan, versions),
+    ...validatePlanAgainstTags(plan, { versions, tags }),
+    ...planCompatibilityProblems(plan, versions, () => readCompatibility(root)),
+  ];
   if (problems.length > 0) throw new Error(`Release plan is not releasable: ${problems.join("; ")}`);
   const tag = nextReleaseTag(now, tags);
   return Object.freeze({ tag, commit, plan, message: releaseTagMessage(tag, plan) });
@@ -73,12 +79,13 @@ export function runReleaseTagCli(argv, {
   git = defaultGit(root),
   readVersions = readUnitVersions,
   readTags = readRepositoryTags,
+  readCompatibility = readCompatibilityDocument,
 } = {}) {
   if (!Array.isArray(argv) || !(argv.length === 0 || (argv.length === 1 && argv[0] === "--dry-run"))) {
     return { exitCode: 2, stdout: "", stderr: jsonLine({ error: { code: "INVALID_ARGUMENTS", message: USAGE }, ok: false }) };
   }
   try {
-    const prepared = prepareReleaseTag({ root, now, git, readVersions, readTags });
+    const prepared = prepareReleaseTag({ root, now, git, readVersions, readTags, readCompatibility });
     const dryRun = argv.length === 1;
     if (!dryRun) {
       const created = git(["tag", "--annotate", prepared.tag, "--message", prepared.message, prepared.commit]);

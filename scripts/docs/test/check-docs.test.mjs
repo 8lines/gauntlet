@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import { checkDocumentation } from "../check-docs.mjs";
@@ -321,5 +324,19 @@ test("compares Maven and Composer coordinates with their own release units", asy
   assert.deepEqual((await checkDocumentation({ root: rejected })).errors, [
     "packages/java/README.md contains a non-exact Java consumer coordinate",
     "packages/php/symfony-bundle/README.md contains a non-exact Composer consumer coordinate",
+  ]);
+});
+
+test("reports a tracked pin that no release slot covers", async (t) => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "gauntlet-docs-pins-")));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  writeFileSync(join(root, "docs/documentation-manifest.json"), `${JSON.stringify({
+    schemaVersion: 1, requiredFiles: ["README.md"], forbiddenPhrases: [], requiredPhrases: [],
+  })}\n`);
+  writeFileSync(join(root, "README.md"), "Run `pnpm dlx --package @8lines/gauntlet-conformance-runner@0.1.1 gauntlet-conformance`.\n");
+  assert.deepEqual((await checkDocumentation({ root })).errors, []);
+  assert.deepEqual((await checkDocumentation({ root, trackedFiles: ["README.md"] })).errors, [
+    "README.md:1: @8lines/gauntlet-conformance-runner@0.1.1 is not a release version slot",
   ]);
 });

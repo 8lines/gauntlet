@@ -30,4 +30,22 @@ test("contribution policy requires protocol-first tests and every supported runt
   assert.match(contributing, /Java 21/u);
   assert.match(contributing, /pnpm release:verify/u);
   assert.match(contributing, /arbitrary SQL.*shell.*URL/isu);
+  assert.match(contributing, /## Change files/u);
+  assert.match(contributing, /\.changes\/<name>\.md/u);
+  assert.match(contributing, /`none`/u);
+  assert.match(contributing, /pnpm release:changes --check/u);
+  assert.match(contributing, /breaking change is `minor`/u);
+  assert.match(contributing, /commit your change files and run\s+`git fetch origin main`/u);
+  assert.match(contributing, /does not see uncommitted change\s+files/u);
+  assert.match(contributing, /Dependabot/u);
+  assert.match(contributing, /`patch` when the dependency change ships[^.]*`none` with the reason/su);
+});
+
+test("contribution policy says when and how to re-bind skill evaluation receipts", () => {
+  const contributing = read("CONTRIBUTING.md");
+  assert.match(contributing, /## Skill evaluation receipts/u);
+  assert.match(contributing, /skill-evals\/\*\/external-inputs\.json/u);
+  assert.match(contributing, /skill\s+text under `skills\/`/u);
+  assert.match(contributing, /pnpm skills:rebind --reason "/u);
+  assert.match(contributing, /commit them with the change/u);
 });

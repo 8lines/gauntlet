@@ -6,6 +6,9 @@ import { lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFile
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  COMPATIBILITY_MISSING, COMPATIBILITY_PATH, compatibilityLedgerProblems, compatibilityProblems, readCompatibilityDocument,
+} from "./compatibility.mjs";
 import { parseReleaseVersion, readUnitVersions } from "./release-model.mjs";
 import { RELEASE_UNITS, dependencyOrder, unitById, unitTag } from "./units.mjs";
 
@@ -88,15 +91,25 @@ function planEntry(entry) {
   return Object.freeze({ id: unit.id, from: entry.from, to });
 }
 
-export function createReleasePlan(entries) {
+export const CHANGE_FILE_NAME = /^[a-z0-9][a-z0-9-]{0,63}\.md$/u;
+
+function planChanges(changes) {
+  if (!Array.isArray(changes) || changes.some((name) => typeof name !== "string" || !CHANGE_FILE_NAME.test(name))
+      || new Set(changes).size !== changes.length) throw new Error(PLAN_FAILURE);
+  return Object.freeze([...changes].sort());
+}
+
+export function createReleasePlan(entries, { changes = [] } = {}) {
   const list = [...entries].map(planEntry);
   const byId = new Map(list.map((entry) => [entry.id, entry]));
   if (byId.size !== list.length) throw new Error(PLAN_FAILURE);
   const order = dependencyOrder([...byId.keys()]);
+  const consumed = planChanges(changes);
   return Object.freeze({
     schemaVersion: 1,
     units: Object.freeze(order.map((id) => byId.get(id))),
     order: Object.freeze([...order]),
+    ...(consumed.length > 0 ? { changes: consumed } : {}),
   });
 }
 
@@ -105,6 +118,7 @@ export function serializeReleasePlan(plan) {
     schemaVersion: 1,
     units: plan.units.map(({ id, from, to }) => ({ id, from, to })),
     order: [...plan.order],
+    ...(plan.changes?.length > 0 ? { changes: [...plan.changes] } : {}),
   }, null, 2)}\n`;
 }
 
@@ -118,7 +132,7 @@ export function parseReleasePlan(source) {
   }
   if (value === null || typeof value !== "object" || Array.isArray(value) || value.schemaVersion !== 1
       || !Array.isArray(value.units) || !Array.isArray(value.order)) throw new Error(PLAN_FAILURE);
-  const plan = createReleasePlan(value.units);
+  const plan = createReleasePlan(value.units, { changes: value.changes ?? [] });
   if (serializeReleasePlan(plan) !== source) throw new Error(PLAN_FAILURE);
   return plan;
 }
@@ -227,6 +241,19 @@ export function validatePlanAgainstTags(plan, { versions, tags, commit = null })
   return problems;
 }
 
+// The ledger must record every unit at its manifest version and admit the plan; checked before a
+// release-set tag is created and before the release workflow publishes anything.
+export function planCompatibilityProblems(plan, versions, readRecorded) {
+  try {
+    const recorded = readRecorded();
+    return [...compatibilityLedgerProblems(recorded, versions), ...compatibilityProblems(plan, recorded)];
+  } catch (error) {
+    return [error?.message === COMPATIBILITY_MISSING
+      ? `${COMPATIBILITY_PATH} is missing or unsafe`
+      : `${COMPATIBILITY_PATH} is not a generated compatibility document`];
+  }
+}
+
 export function planGates(plan) {
   const wanted = new Set(plan.units.flatMap(({ id }) => unitById(id).gates));
   return RELEASE_GATES.filter((gate) => wanted.has(gate));
@@ -332,7 +359,9 @@ function jsonLine(value) {
   return `${JSON.stringify(value)}\n`;
 }
 
-export function runPlanCli(argv, { root = REPOSITORY_ROOT, readVersions = readUnitVersions, readTags = readRepositoryTags } = {}) {
+export function runPlanCli(argv, {
+  root = REPOSITORY_ROOT, readVersions = readUnitVersions, readTags = readRepositoryTags, readCompatibility = readCompatibilityDocument,
+} = {}) {
   let command;
   try {
     command = parsePlanArguments(argv);
@@ -361,10 +390,12 @@ export function runPlanCli(argv, { root = REPOSITORY_ROOT, readVersions = readUn
       };
     }
     const plan = readReleasePlan(root);
+    const compatibility = planCompatibilityProblems(plan, versions, () => readCompatibility(root));
     const problems = [
       ...(plan.units.length === 0 ? ["release plan has no units"] : []),
       ...validatePlanAgainstManifests(plan, versions),
       ...validatePlanAgainstTags(plan, { versions, tags, commit: command.commit }),
+      ...compatibility,
     ];
     return {
       exitCode: problems.length === 0 ? 0 : 1,

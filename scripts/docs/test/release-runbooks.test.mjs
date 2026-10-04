@@ -3,15 +3,18 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 
+import { readUnitVersion } from "../../release/release-model.mjs";
+
 const ROOT = resolve(import.meta.dirname, "../../..");
 const read = (path) => readFileSync(resolve(ROOT, path), "utf8");
+const versionPattern = (unit) => readUnitVersion(ROOT, unit).replaceAll(".", "\\.");
 
 test("package installation guide pins every official public destination and avoids literal credentials", () => {
   const source = read("docs/releases/installing-packages.md");
   assert.match(source, /https:\/\/registry\.npmjs\.org/u);
   assert.doesNotMatch(source, /npm\.pkg\.github\.com/u);
   assert.match(source, /Packagist/u);
-  assert.match(source, /composer require 8lines\/gauntlet-symfony-bundle:0\.1\.8/u);
+  assert.match(source, new RegExp(`composer require 8lines/gauntlet-symfony-bundle:${versionPattern("symfony-bundle")}`, "u"));
   assert.doesNotMatch(source, /"type": "vcs"|COMPOSER_AUTH is required/u);
   assert.match(source, /https:\/\/maven\.pkg\.github\.com\/8lines\/gauntlet/u);
   assert.match(source, /read:packages/u);
@@ -73,6 +76,53 @@ test("release runbook describes per-unit publication, reruns and recovery withou
   assert.match(verify, /A correction requires a new version of that\s+unit/u);
 });
 
+test("release runbook covers change files, preparation and its prerequisites", () => {
+  const source = read("docs/releases/releasing.md");
+  assert.match(source, /## Change files/u);
+  assert.match(source, /pnpm release:changes --check/u);
+  assert.match(source, /`changes` check/u);
+  assert.match(source, /## Prepare a release/u);
+  assert.match(source, /git fetch --tags origin\ngit switch -c release\/YYYY-MM-DD\npnpm install --frozen-lockfile --package-import-method=copy\npnpm release:prepare\n/u);
+  assert.match(source, /Updated `<unit>` to X\.Y\.Z\./u);
+  assert.match(source, /composer:2/u);
+  assert.match(source, /Re-binding log/u);
+  assert.match(source, /docs\/reference\/compatibility\.md/u);
+  assert.match(source, /restores every tracked file/u);
+  assert.match(source, /pnpm 11\.24/u);
+  assert.match(source, /Run `pnpm build` before any dry run/u);
+  assert.match(source, /builder that can export images/u);
+  assert.match(source, /PLAYWRIGHT_BROWSER_CHANNEL=chromium pnpm release:dry-run --plan \.release\/plan\.json/u);
+  assert.match(source, /compatibility line/u);
+  assert.match(source, /on `main` or a detached\s+`HEAD`/u);
+  assert.match(source, /every changelog is checked before anything is written or Docker runs/u);
+});
+
+test("release runbook asks for branch protection instead of claiming it", () => {
+  const source = read("docs/releases/releasing.md");
+  const configuration = source.slice(source.indexOf("## Repository configuration"), source.indexOf("## Local rehearsal"));
+  assert.doesNotMatch(source, /Branch protection on `main` requires/u);
+  assert.match(configuration, /Configure a ruleset or branch protection rule on `main` that requires the\s+`changes` check and the other CI jobs/u);
+});
+
+test("release runbook explains the local change check, dependency updates, re-binding and the ledger slots", () => {
+  const source = read("docs/releases/releasing.md");
+  const changes = source.slice(source.indexOf("## Change files"), source.indexOf("## Prepare a release"));
+  assert.match(changes, /git fetch origin main/u);
+  assert.match(changes, /committed `HEAD` with your local\s+`origin\/main`/u);
+  assert.match(changes, /Dependabot/u);
+  assert.match(changes, /`patch`[^.]*`none` with the reason/su);
+  const units = source.slice(source.indexOf("## Release units"), source.indexOf("## Change files"));
+  assert.match(units, /version cell in\s+`docs\/reference\/compatibility\.md`/u);
+  assert.match(units, /pnpm skills:rebind --reason/u);
+  assert.match(units, /skill-evals\/\*\/external-inputs\.json/u);
+  assert.match(source, /`pnpm release:tag`[^]*?refuses a plan[^]*?compatibility\.md` that does not record every unit/u);
+});
+
+test("the upgrade guide no longer names a fixed release", () => {
+  assert.doesNotMatch(read("docs/releases/upgrading.md"), /exact `0\.1\.1` artifacts/u);
+  assert.match(read("docs/releases/upgrading.md"), /installing-packages\.md#current-versions/u);
+});
+
 test("upgrade and rollback retain immutable identities and repeat safety checks", () => {
   const upgrade = read("docs/releases/upgrading.md");
   const rollback = read("docs/releases/rollback.md");
@@ -87,7 +137,7 @@ test("upgrade and rollback retain immutable identities and repeat safety checks"
 test("AI skill guide documents both safe installation paths and their boundaries", () => {
   const source = read("docs/ai-skills.md");
   assert.match(source, /scripts\/skills\/install\.mjs --destination/u);
-  assert.match(source, /gauntlet-skills-0\.1\.8\.tgz/u);
+  assert.match(source, new RegExp(`gauntlet-skills-${versionPattern("skills")}\\.tgz`, "u"));
   assert.match(source, /exactly one\s+skill per invocation/iu);
   assert.match(source, /\$gauntlet-app-integration/u);
   assert.match(source, /\$gauntlet-extension-authoring/u);

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
+import { COMPATIBILITY_PATH, catalogEntries, renderCompatibilityDocument } from "../compatibility.mjs";
 import {
   RELEASE_GATES, allUnitsPlan, buildReleasePlan, compareVersions, createReleasePlan, isReleaseTagName,
   latestUnitVersion, localReleaseSetId, parseReleasePlan, parseReleaseSetId, parseTagListing, planGates,
@@ -199,15 +200,18 @@ test("the plan CLI writes the computed plan and checks a committed one", (t) => 
   });
   assert.equal(readFileSync(join(root, ".release/plan.json"), "utf8"), serializeReleasePlan(buildReleasePlan(readVersions(), readTags())));
 
-  const checked = runPlanCli(["--check", "--release-set", "release-2026-10-03.1", "--commit", COMMIT], { root, readVersions, readTags });
+  // A ledger that records every unit at its manifest version, as version.mjs --set-unit leaves it.
+  const readCompatibility = () => catalogEntries(readVersions());
+  const checked = runPlanCli(["--check", "--release-set", "release-2026-10-03.1", "--commit", COMMIT], { root, readVersions, readTags, readCompatibility });
   assert.equal(checked.exitCode, 0, checked.stderr);
   assert.deepEqual(JSON.parse(checked.stdout), {
     command: "check", ok: true, releaseSet: "release-2026-10-03.1", units, order: ["gauntlet", "skills"],
     gates: DASHBOARD_GATES, problems: [],
   });
 
+  const driftedVersions = () => versionsAt("0.1.8", { gauntlet: "0.1.10", skills: "0.1.9" });
   const drifted = runPlanCli(["--check"], {
-    root, readVersions: () => versionsAt("0.1.8", { gauntlet: "0.1.10", skills: "0.1.9" }), readTags,
+    root, readVersions: driftedVersions, readTags, readCompatibility: () => catalogEntries(driftedVersions()),
   });
   assert.equal(drifted.exitCode, 1);
   assert.deepEqual(JSON.parse(drifted.stdout).problems, [
@@ -216,13 +220,69 @@ test("the plan CLI writes the computed plan and checks a committed one", (t) => 
   ]);
 
   writeFileSync(join(root, ".release/plan.json"), serializeReleasePlan(createReleasePlan([])));
-  const empty = runPlanCli(["--check"], { root, readVersions: () => versionsAt("0.1.8"), readTags });
+  const empty = runPlanCli(["--check"], {
+    root, readVersions: () => versionsAt("0.1.8"), readTags, readCompatibility: () => catalogEntries(versionsAt("0.1.8")),
+  });
   assert.equal(empty.exitCode, 1);
   assert.deepEqual(JSON.parse(empty.stdout).problems, ["release plan has no units"]);
 
   for (const argv of [["--check", "--release-set", "v0.1.9"], ["--check", "--commit", "short"], ["--bogus"]]) {
     assert.equal(runPlanCli(argv, { root, readVersions, readTags }).exitCode, 2, argv.join(" "));
   }
+});
+
+test("plan --check rejects a plan the released application cannot serve, and a missing ledger", (t) => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "gauntlet-plan-compatibility-")));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, ".release"));
+  writeFileSync(join(root, ".release/plan.json"), serializeReleasePlan(createReleasePlan([{ id: "typescript-core", from: "0.1.8", to: "0.1.9" }])));
+  const options = { root, readVersions: () => versionsAt("0.1.8", { "typescript-core": "0.1.9" }), readTags: () => baselineTags() };
+  const narrowed = () => catalogEntries(options.readVersions()).map((entry) => (entry.id === "gauntlet"
+    ? { ...entry, supports: { protocol: [2], widgetChannel: [1] } } : entry));
+  const rejected = runPlanCli(["--check"], { ...options, readCompatibility: narrowed });
+  assert.equal(rejected.exitCode, 1);
+  // The released application (its recorded row, since gauntlet is not planned) supports only protocol 2,
+  // so the planned typescript-core and every recorded protocol 1 package are rejected, in catalog order.
+  assert.deepEqual(JSON.parse(rejected.stdout).problems, [
+    "gauntlet: its supported contracts changed without a gauntlet release",
+    ...["protocol", "dashboard-client", "typescript-core", "typescript-node", "next-adapter", "conformance-runner",
+      "php-core", "symfony-bundle", "java-core", "spring-boot-starter"]
+      .map((id) => `${id}: implements protocol 1, which gauntlet 0.1.8 does not support`),
+  ]);
+  const broken = runPlanCli(["--check"], { ...options, readCompatibility: () => { throw new Error("absent"); } });
+  assert.deepEqual(JSON.parse(broken.stdout).problems, ["docs/reference/compatibility.md is not a generated compatibility document"]);
+});
+
+test("plan --check fails on a ledger that does not record every unit at its manifest version", (t) => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "gauntlet-plan-ledger-")));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, ".release"));
+  mkdirSync(join(root, "docs/reference"), { recursive: true });
+  writeFileSync(join(root, ".release/plan.json"), serializeReleasePlan(createReleasePlan([{ id: "widget", from: "0.1.8", to: "0.1.9" }])));
+  const versions = versionsAt("0.1.8", { widget: "0.1.9" });
+  const check = () => runPlanCli(["--check"], { root, readVersions: () => versions, readTags: () => baselineTags() });
+  const ledger = renderCompatibilityDocument(catalogEntries(versions));
+
+  writeFileSync(join(root, COMPATIBILITY_PATH), ledger);
+  assert.deepEqual([check().exitCode, JSON.parse(check().stdout).problems], [0, []]);
+
+  // Moved by hand without moving the ledger: the release would otherwise fail only after publishing.
+  writeFileSync(join(root, COMPATIBILITY_PATH), ledger.replace("| `widget` | 0.1.9 |", "| `widget` | 0.1.8 |"));
+  const stale = check();
+  assert.equal(stale.exitCode, 1);
+  assert.deepEqual(JSON.parse(stale.stdout).problems, [
+    "docs/reference/compatibility.md: widget is recorded at 0.1.8 but its manifest version is 0.1.9",
+  ]);
+
+  writeFileSync(join(root, COMPATIBILITY_PATH), "# Compatibility\n");
+  assert.deepEqual(JSON.parse(check().stdout).problems, ["docs/reference/compatibility.md is not a generated compatibility document"]);
+
+  rmSync(join(root, COMPATIBILITY_PATH));
+  assert.deepEqual(JSON.parse(check().stdout).problems, ["docs/reference/compatibility.md is missing or unsafe"]);
+
+  writeFileSync(join(root, "ledger.md"), ledger);
+  symlinkSync(join(root, "ledger.md"), join(root, COMPATIBILITY_PATH));
+  assert.deepEqual(JSON.parse(check().stdout).problems, ["docs/reference/compatibility.md is missing or unsafe"]);
 });
 
 test("the plan CLI refuses to write an empty plan and keeps the previous one", (t) => {
@@ -284,4 +344,19 @@ test("the plan CLI writes an all-units plan only below the ignored artifacts tre
   const linked = runPlanCli(["--write-all-units", ".artifacts/linked/plan.json"], { root, readVersions, readTags });
   assert.equal(linked.exitCode, 1);
   assert.equal(readFileSync(join(root, ".release/plan.json"), "utf8"), committed);
+});
+
+test("a plan records the change files it consumed, sorted, only when there are any", () => {
+  const units = [{ id: "gauntlet", from: "0.1.8", to: "0.1.9" }, { id: "skills", from: "0.1.8", to: "0.1.9" }];
+  const plan = createReleasePlan(units, { changes: ["sidebar.md", "colors.md"] });
+  assert.deepEqual(plan.changes, ["colors.md", "sidebar.md"]);
+  const source = serializeReleasePlan(plan);
+  assert.equal(source, `${JSON.stringify({ schemaVersion: 1, units, order: ["gauntlet", "skills"], changes: ["colors.md", "sidebar.md"] }, null, 2)}\n`);
+  assert.deepEqual(parseReleasePlan(source), plan);
+  assert.equal(Object.hasOwn(createReleasePlan(units), "changes"), false);
+  const toSource = (changes) => `${JSON.stringify({ schemaVersion: 1, units, order: ["gauntlet", "skills"], changes }, null, 2)}\n`;
+  for (const changes of [[], ["sidebar.md", "colors.md"], ["../x.md"], ["a.md", "a.md"], "a.md"]) {
+    assert.throws(() => parseReleasePlan(toSource(changes)), /Release plan is invalid/u, JSON.stringify(changes));
+  }
+  assert.throws(() => createReleasePlan(units, { changes: ["Upper.md"] }), /Release plan is invalid/u);
 });
