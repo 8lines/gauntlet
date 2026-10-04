@@ -299,6 +299,8 @@ test("search lists recent runs of the current environment and opens one", async 
     ]));
   }, desktopOperation.id);
   await page.goto("/t/browser-target");
+  // The shell, and with it the shortcut, mounts once the session check answers.
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await page.keyboard.press("Control+k");
   const dialog = page.getByRole("dialog", { name: "Search operations" });
   const runs = dialog.getByRole("group", { name: "Recent runs" });

@@ -20,7 +20,7 @@ function mcpEndpoint(value: string): string | undefined {
   }
 }
 
-export function McpConnection() {
+export function McpConnection({ authenticated = false }: { authenticated?: boolean }) {
   const [url, setUrl] = useState(() => import.meta.env.DEV
     ? __GAUNTLET_DEV_MCP_URL__
     : new URL("/mcp", globalThis.location.href).href);
@@ -31,7 +31,13 @@ export function McpConnection() {
   const endpoint = mcpEndpoint(url);
   const configuration = endpoint === undefined
     ? undefined
-    : JSON.stringify({ mcpServers: { gauntlet: { url: endpoint } } }, null, 2);
+    : JSON.stringify({
+        mcpServers: {
+          gauntlet: authenticated
+            ? { url: endpoint, headers: { Authorization: "Bearer <API token>" } }
+            : { url: endpoint },
+        },
+      }, null, 2);
 
   const copyConfiguration = async () => {
     if (configuration === undefined) return;
@@ -91,6 +97,11 @@ export function McpConnection() {
         <p className="text-[13px]/[18px] text-muted-foreground">
           Paste this into clients that use <code className="font-mono text-xs/4 text-foreground">mcpServers</code> JSON. In other clients, enter the URL above and select Streamable HTTP.
         </p>
+        {authenticated && (
+          <p className="text-[13px]/[18px] text-muted-foreground">
+            This Gauntlet requires authentication. Replace <code className="font-mono text-xs/4 text-foreground">&lt;API token&gt;</code> with a token from the <code className="font-mono text-xs/4 text-foreground">auth.tokens</code> configuration; create one with <code className="font-mono text-xs/4 text-foreground">node dist/auth-cli.js create-token</code>.
+          </p>
+        )}
         <p role="status" className="min-h-[18px] text-[13px]/[18px] text-muted-foreground">{copyMessage}</p>
       </div>
 

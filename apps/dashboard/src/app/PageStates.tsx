@@ -45,3 +45,20 @@ export function LoadFailed({ problem, refreshing = false, onRetry }: {
     </div>
   );
 }
+
+export function SessionLoading() {
+  return <div role="status" aria-label="Loading Gauntlet" className="min-h-svh bg-background" />;
+}
+
+export function SessionLoadFailed({ problem, onRetry }: { problem: Problem; onRetry: () => void }) {
+  return (
+    <main className="min-h-svh bg-background">
+      <div className={PAGE}>
+        <ProblemAlert problem={problem} title="Could not connect to Gauntlet" />
+        <div>
+          <Button variant="outline" onClick={onRetry}>Try again</Button>
+        </div>
+      </div>
+    </main>
+  );
+}

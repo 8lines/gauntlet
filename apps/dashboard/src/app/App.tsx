@@ -11,13 +11,25 @@ import { AppHeader, type BreadcrumbEntry } from "./AppHeader.tsx";
 import { AppSidebar } from "./AppSidebar.tsx";
 import { CommandSearch } from "./CommandSearch.tsx";
 import { SettingsDialog } from "./SettingsDialog.tsx";
-import { LoadFailed, LoadingState, NoEnvironments } from "./PageStates.tsx";
+import { LoadFailed, LoadingState, NoEnvironments, SessionLoadFailed, SessionLoading } from "./PageStates.tsx";
+import { LoginScreen } from "./LoginScreen.tsx";
+import { needsSignIn, useAuthSession } from "./useAuthSession.ts";
+import type { AuthSession } from "../auth.ts";
 import { ChunkErrorBoundary } from "@/components/gauntlet/ChunkErrorBoundary";
 import { OperationLoading } from "@/components/gauntlet/OperationLoading";
 
 const OperationScreen = lazy(() => import("../screens/OperationScreen.tsx").then((m) => ({ default: m.OperationScreen })));
 
 export function App() {
+  const auth = useAuthSession();
+  if (auth.state.status === "loading") return <SessionLoading />;
+  if (auth.state.status === "failed") return <SessionLoadFailed problem={auth.state.problem} onRetry={auth.retry} />;
+  if (needsSignIn(auth.state.session)) return <LoginScreen session={auth.state.session} onSignedIn={auth.signedIn} />;
+  return <AuthenticatedApp session={auth.state.session} onSignOut={auth.signOut} />;
+}
+
+/** The dashboard itself; it mounts only once Gauntlet accepts the session, so nothing loads before sign-in. */
+function AuthenticatedApp({ session, onSignOut }: { session: AuthSession; onSignOut: () => Promise<void> }) {
   const route = useRoute();
   const { targets, problem, refreshing, refresh } = useTargets();
   const { preferences, updatePreferences, saved } = usePreferences();
@@ -83,6 +95,8 @@ export function App() {
         selected={selected}
         route={route}
         navigationToggle={navigationToggle}
+        principal={session.mode === "none" ? undefined : session.principal ?? undefined}
+        onSignOut={onSignOut}
         onOpenSettings={(opener) => {
           settingsOpener.current = opener;
           setSettingsOpen(true);
@@ -152,6 +166,7 @@ export function App() {
         preferences={preferences}
         onChange={updatePreferences}
         saved={saved}
+        authenticated={session.mode !== "none"}
       />
     </SidebarProvider>
   );

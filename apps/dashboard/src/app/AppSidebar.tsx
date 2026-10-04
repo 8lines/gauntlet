@@ -1,7 +1,8 @@
 import { useId, type RefObject } from "react";
-import { Settings } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import type { OperationSummary } from "@8lines/gauntlet-protocol";
 import type { TargetSnapshot } from "../api.ts";
+import type { AuthPrincipal } from "../auth.ts";
 import { navigate, type Route } from "../route.ts";
 import { GauntletMark } from "@/components/gauntlet/GauntletMark";
 import {
@@ -20,8 +21,11 @@ import {
 } from "@/components/ui/sidebar";
 import { EnvironmentSwitcher } from "./EnvironmentSwitcher.tsx";
 
-export function AppSidebar({ targets, selected, route, onOpenSettings, navigationToggle }: {
+export function AppSidebar({ targets, selected, route, onOpenSettings, navigationToggle, principal, onSignOut }: {
   targets: readonly TargetSnapshot[] | undefined;
+  /** The signed-in principal; undefined when authentication is off. */
+  principal?: AuthPrincipal | undefined;
+  onSignOut?: () => Promise<void>;
   selected: TargetSnapshot | undefined;
   route: Route;
   /** `opener` is the element that should get focus back when Settings closes. */
@@ -116,7 +120,26 @@ export function AppSidebar({ targets, selected, route, onOpenSettings, navigatio
               <span>Settings</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          {principal !== undefined && onSignOut !== undefined && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                className="text-sm/5"
+                onClick={() => {
+                  closeOnMobile();
+                  void onSignOut();
+                }}
+              >
+                <LogOut aria-hidden="true" className="text-muted-foreground" />
+                <span>Log out</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
+        {principal !== undefined && (
+          <p className="truncate px-2 pt-1 text-xs/4 text-muted-foreground">
+            Signed in as <span className="text-foreground">{principal.displayName}</span>
+          </p>
+        )}
         <p className="px-2 py-1 font-mono text-xs/4 text-muted-foreground">Gauntlet v{__GAUNTLET_VERSION__}</p>
       </SidebarFooter>
     </Sidebar>

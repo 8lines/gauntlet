@@ -9,6 +9,7 @@ import type {
   TargetState,
   UploadResponse,
 } from "@8lines/gauntlet-protocol";
+import { authTokenStore, notifyUnauthenticated, type AuthSession, type LoginResult } from "./auth.ts";
 
 /** Shape returned by `GET /api/v1/targets` (see apps/server/src/manifest-service.ts). */
 export interface TargetSnapshot {
@@ -43,11 +44,16 @@ function problemFromResponse(status: number, body: unknown): Problem {
   });
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<Result<T>> {
+const UNAUTHENTICATED = "urn:gauntlet:problem:unauthenticated";
+
+/** `cookieOnly` leaves the stored bearer token out, to find out whether the cookie alone is enough. */
+async function request<T>(path: string, init?: RequestInit, options: { readonly cookieOnly?: boolean } = {}): Promise<Result<T>> {
   let response: Response;
+  const token = options.cookieOnly === true ? undefined : authTokenStore().read();
   try {
     const headers = new Headers(init?.headers);
     headers.set("accept", "application/json");
+    if (token !== undefined) headers.set("authorization", `Bearer ${token}`);
     if (typeof init?.body === "string" && !headers.has("content-type")) {
       headers.set("content-type", "application/json");
     }
@@ -67,11 +73,26 @@ async function request<T>(path: string, init?: RequestInit): Promise<Result<T>> 
     return { ok: false, problem: problemFromResponse(response.status, undefined) };
   }
 
-  if (!response.ok) return { ok: false, problem: problemFromResponse(response.status, body) };
+  if (!response.ok) {
+    const problem = problemFromResponse(response.status, body);
+    if (response.status === 401 && problem.type === UNAUTHENTICATED) {
+      if (token !== undefined) authTokenStore().clear();
+      notifyUnauthenticated();
+    }
+    return { ok: false, problem };
+  }
   return { ok: true, data: body as T };
 }
 
 export const api = {
+  session: (options: { readonly cookieOnly?: boolean } = {}): Promise<Result<AuthSession>> =>
+    request("/api/v1/auth/session", undefined, options),
+
+  login: (body: { readonly username?: string; readonly password: string; readonly surface: "dashboard" | "widget" }): Promise<Result<LoginResult>> =>
+    request("/api/v1/auth/login", { method: "POST", body: JSON.stringify(body) }),
+
+  logout: (): Promise<Result<undefined>> => request("/api/v1/auth/logout", { method: "POST" }),
+
   targets: async (): Promise<Result<readonly TargetSnapshot[]>> => {
     const result = await request<{ readonly targets: readonly TargetSnapshot[] }>("/api/v1/targets");
     return result.ok ? { ok: true, data: result.data.targets } : result;
