@@ -143,7 +143,7 @@ test("CI exposes the bounded, read-only product and release gates", () => {
   assert.match(commands.skills, /pnpm docs:check/);
   assert.match(commands.skills, /apt-get install --yes --no-install-recommends acl/u);
   assert.match(commands.security, /SET="local-\$\(git rev-parse HEAD \| cut -c1-12\)"/u);
-  assert.match(commands.security, /pnpm release:stage --output "\$PWD\/\.artifacts\/release\/\$SET"/u);
+  assert.match(commands.security, /pnpm release:stage --output "\$PWD\/\.artifacts\/release\/\$SET" --release-set "\$SET"$/mu);
   assert.match(
     commands.security,
     /pnpm release:security --image-archive "\.artifacts\/release\/\$SET\/image\/gauntlet-\$VERSION\.docker\.tar"/u,
@@ -228,7 +228,16 @@ test("release workflows use pnpm's direct option forwarding contract", () => {
     const workflow = readYaml(path);
     const installSteps = Object.values(workflow.jobs).flatMap((job) => job.steps)
       .filter(({ run }) => typeof run === "string" && run.startsWith("pnpm install "));
+    // Every job installs the locked workspace, including the release workflow's plan job.
     assert.equal(installSteps.length, Object.keys(workflow.jobs).length, `${path} install coverage`);
+    if (path.endsWith("release.yml")) {
+      assert.equal(Object.hasOwn(workflow.jobs, "plan"), true, `${path} plan job`);
+      assert.equal(
+        workflow.jobs.plan.steps.some(({ run }) => run === "pnpm install --frozen-lockfile --package-import-method=copy"),
+        true,
+        `${path} plan install`,
+      );
+    }
     for (const step of installSteps) {
       assert.equal(
         step.run,

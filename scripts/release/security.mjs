@@ -812,13 +812,11 @@ function exactFileDigest(path, maximumBytes) {
 
 const STAGED_IMAGE_ARCHIVE = /^\.artifacts\/release\/([A-Za-z0-9.-]+)\/image\/gauntlet-((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))\.docker\.tar$/u;
 
-// The release directory is either a release-set id or, until the release workflow moves to release
-// sets, the gauntlet version itself; the archive name always carries the gauntlet version.
+// The release directory is always a release-set id; the archive name carries the gauntlet version.
 function stagedImageArchivePath(relativePath) {
   const match = typeof relativePath === "string" ? STAGED_IMAGE_ARCHIVE.exec(relativePath) : null;
   if (match === null) return null;
   const [, directory, version] = match;
-  if (directory === version) return Object.freeze({ directory, version });
   try {
     parseReleaseSetId(directory);
   } catch {

@@ -1,8 +1,10 @@
 name: release
 
+# One release-set tag (release-YYYY-MM-DD.N, created by pnpm release:tag on a commit in main)
+# publishes the units listed in .release/plan.json. Unit tags never start this workflow.
 on:
   push:
-    tags: ["v*.*.*"]
+    tags: ["release-*"]
 
 permissions:
   contents: read
@@ -13,7 +15,42 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  plan:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    outputs:
+      gates: ${{ steps.plan.outputs.gates }}
+      units: ${{ steps.plan.outputs.units }}
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24.20.0"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --package-import-method=copy
+      - name: Verify the release-set tag and plan
+        id: plan
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq .object.type)" = "tag"
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          node scripts/release/version.mjs --check
+          RESULT="$RUNNER_TEMP/gauntlet-release-plan.json"
+          node scripts/release/plan.mjs --check --release-set "$GITHUB_REF_NAME" --commit "$GITHUB_SHA" > "$RESULT"
+          node scripts/release/release-set.mjs outputs --plan-result "$RESULT" >> "$GITHUB_OUTPUT"
+
   node:
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.gates), 'node')
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 40
     strategy:
@@ -43,6 +80,8 @@ jobs:
       - run: pnpm verify:protocol-sdk --node-only
 
   php:
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.gates), 'php')
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 90
     steps:
@@ -68,6 +107,8 @@ jobs:
       - run: pnpm test:php:compatibility
 
   java:
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.gates), 'java')
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 70
     steps:
@@ -97,6 +138,8 @@ jobs:
       - run: pnpm test:java:release
 
   conformance:
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.gates), 'conformance')
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 90
     steps:
@@ -121,7 +164,105 @@ jobs:
       - run: pnpm install --frozen-lockfile --package-import-method=copy
       - run: pnpm verify:official-adapters
 
+  dashboard:
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.gates), 'dashboard')
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 30
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24.20.0"
+          cache: pnpm
+      - name: Pin pnpm's store and copy import method in its global config
+        # The skill-evaluation fixtures accept only regular files with one link, and
+        # release verification strips the environment (including the variables that
+        # locate the store), so both settings live in pnpm's global config.
+        run: |
+          store="$(pnpm store path)"
+          for directory in "$HOME/.config/pnpm" "${XDG_CONFIG_HOME:-$HOME/.config}/pnpm"; do
+            mkdir -p "$directory"
+            printf 'packageImportMethod: copy\nstoreDir: %s\n' "$store" > "$directory/config.yaml"
+          done
+      - run: pnpm install --frozen-lockfile --package-import-method=copy
+      - run: pnpm --filter @8lines/gauntlet-dashboard exec playwright install --with-deps chromium
+      - run: pnpm --filter "@8lines/gauntlet-dashboard..." build
+      - name: Verify the responsive dashboard in a real browser
+        env:
+          PLAYWRIGHT_BROWSER_CHANNEL: chromium
+        run: pnpm dashboard:test:e2e
+
+  widget:
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.gates), 'widget')
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 30
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24.20.0"
+          cache: pnpm
+      - name: Pin pnpm's store and copy import method in its global config
+        # The skill-evaluation fixtures accept only regular files with one link, and
+        # release verification strips the environment (including the variables that
+        # locate the store), so both settings live in pnpm's global config.
+        run: |
+          store="$(pnpm store path)"
+          for directory in "$HOME/.config/pnpm" "${XDG_CONFIG_HOME:-$HOME/.config}/pnpm"; do
+            mkdir -p "$directory"
+            printf 'packageImportMethod: copy\nstoreDir: %s\n' "$store" > "$directory/config.yaml"
+          done
+      - run: pnpm install --frozen-lockfile --package-import-method=copy
+      - run: pnpm --filter @8lines/gauntlet-widget-loader exec playwright install --with-deps chromium
+      - run: pnpm --filter "@8lines/gauntlet-widget-loader..." build
+      - name: Verify the widget loader in a real browser
+        env:
+          PLAYWRIGHT_BROWSER_CHANNEL: chromium
+        run: pnpm widget:test:e2e
+
+  widget-panel:
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.gates), 'widget-panel')
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 30
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24.20.0"
+          cache: pnpm
+      - name: Pin pnpm's store and copy import method in its global config
+        # The skill-evaluation fixtures accept only regular files with one link, and
+        # release verification strips the environment (including the variables that
+        # locate the store), so both settings live in pnpm's global config.
+        run: |
+          store="$(pnpm store path)"
+          for directory in "$HOME/.config/pnpm" "${XDG_CONFIG_HOME:-$HOME/.config}/pnpm"; do
+            mkdir -p "$directory"
+            printf 'packageImportMethod: copy\nstoreDir: %s\n' "$store" > "$directory/config.yaml"
+          done
+      - run: pnpm install --frozen-lockfile --package-import-method=copy
+      - run: pnpm --filter @8lines/gauntlet-dashboard exec playwright install --with-deps chromium
+      - run: pnpm --filter "@8lines/gauntlet-dashboard..." --filter "@8lines/gauntlet-server..." --filter "@8lines/gauntlet-node-example..." build
+      - name: Verify the widget end to end across two origins
+        env:
+          PLAYWRIGHT_BROWSER_CHANNEL: chromium
+        run: pnpm widget:test:e2e:panel
+
   deployment:
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.gates), 'deployment')
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 90
     permissions:
@@ -158,7 +299,50 @@ jobs:
       - run: pnpm smoke:compose
       - run: pnpm test:helm
 
+  skills:
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.gates), 'skills')
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [blacksmith-4vcpu-ubuntu-2404, blacksmith-6vcpu-macos-15]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24.20.0"
+          cache: pnpm
+      - name: Install Linux ACL test utility
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends acl
+      - name: Pin pnpm's store and copy import method in its global config
+        # The skill-evaluation fixtures accept only regular files with one link, and
+        # release verification strips the environment (including the variables that
+        # locate the store), so both settings live in pnpm's global config.
+        run: |
+          store="$(pnpm store path)"
+          for directory in "$HOME/.config/pnpm" "${XDG_CONFIG_HOME:-$HOME/.config}/pnpm"; do
+            mkdir -p "$directory"
+            printf 'packageImportMethod: copy\nstoreDir: %s\n' "$store" > "$directory/config.yaml"
+          done
+      - run: pnpm install --frozen-lockfile --package-import-method=copy
+      - name: Verify portable skill receipts and safe installer
+        run: pnpm skills:test-install && pnpm skills:validate
+      - name: Verify Docker-backed skill evaluation fixtures
+        if: runner.os == 'Linux'
+        run: pnpm skills:test-evals && pnpm skills:validate
+      - name: Verify operator and release documentation
+        run: pnpm docs:check
+
   security:
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.gates), 'security')
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 90
     permissions:
@@ -208,14 +392,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="$(tr -d '\n' < VERSION)"
-          pnpm release:stage --output "$PWD/.artifacts/release/$VERSION"
+          pnpm release:stage --output "$PWD/.artifacts/release/$GITHUB_REF_NAME" --plan .release/plan.json --release-set "$GITHUB_REF_NAME"
       - name: Run the full release security gate
         shell: bash
         run: |
           set -euo pipefail
           VERSION="$(tr -d '\n' < VERSION)"
-          pnpm release:security --image-archive ".artifacts/release/$VERSION/image/gauntlet-$VERSION.docker.tar"
+          pnpm release:security --image-archive ".artifacts/release/$GITHUB_REF_NAME/image/gauntlet-$VERSION.docker.tar"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
@@ -225,6 +408,7 @@ jobs:
           retention-days: 30
 
   release-metadata:
+    needs: plan
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 90
     permissions:
@@ -274,20 +458,34 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="$(tr -d '\n' < VERSION)"
-          test "$GITHUB_REF_NAME" = "v$VERSION"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
-          node scripts/release/version.mjs --check --tag "$GITHUB_REF_NAME"
+          node scripts/release/version.mjs --check
+          node scripts/release/plan.mjs --check --release-set "$GITHUB_REF_NAME" --commit "$GITHUB_SHA"
       - name: Build release package inputs
         run: pnpm build
-      - run: pnpm release:dry-run
+      - run: pnpm release:dry-run --plan .release/plan.json --release-set "$GITHUB_REF_NAME"
         env:
           PLAYWRIGHT_BROWSER_CHANNEL: chromium
 
   publish:
-    needs: [node, php, java, conformance, deployment, security, release-metadata]
+    needs: [plan, node, php, java, conformance, dashboard, widget, widget-panel, deployment, skills, security, release-metadata]
+    if: >-
+      ${{ !cancelled()
+      && needs.plan.result == 'success'
+      && needs.release-metadata.result == 'success'
+      && ((contains(fromJSON(needs.plan.outputs.gates), 'node') && needs.node.result == 'success') || (!contains(fromJSON(needs.plan.outputs.gates), 'node') && needs.node.result == 'skipped'))
+      && ((contains(fromJSON(needs.plan.outputs.gates), 'php') && needs.php.result == 'success') || (!contains(fromJSON(needs.plan.outputs.gates), 'php') && needs.php.result == 'skipped'))
+      && ((contains(fromJSON(needs.plan.outputs.gates), 'java') && needs.java.result == 'success') || (!contains(fromJSON(needs.plan.outputs.gates), 'java') && needs.java.result == 'skipped'))
+      && ((contains(fromJSON(needs.plan.outputs.gates), 'conformance') && needs.conformance.result == 'success') || (!contains(fromJSON(needs.plan.outputs.gates), 'conformance') && needs.conformance.result == 'skipped'))
+      && ((contains(fromJSON(needs.plan.outputs.gates), 'dashboard') && needs.dashboard.result == 'success') || (!contains(fromJSON(needs.plan.outputs.gates), 'dashboard') && needs.dashboard.result == 'skipped'))
+      && ((contains(fromJSON(needs.plan.outputs.gates), 'widget') && needs.widget.result == 'success') || (!contains(fromJSON(needs.plan.outputs.gates), 'widget') && needs.widget.result == 'skipped'))
+      && ((contains(fromJSON(needs.plan.outputs.gates), 'widget-panel') && needs.widget-panel.result == 'success') || (!contains(fromJSON(needs.plan.outputs.gates), 'widget-panel') && needs.widget-panel.result == 'skipped'))
+      && ((contains(fromJSON(needs.plan.outputs.gates), 'deployment') && needs.deployment.result == 'success') || (!contains(fromJSON(needs.plan.outputs.gates), 'deployment') && needs.deployment.result == 'skipped'))
+      && ((contains(fromJSON(needs.plan.outputs.gates), 'skills') && needs.skills.result == 'success') || (!contains(fromJSON(needs.plan.outputs.gates), 'skills') && needs.skills.result == 'skipped'))
+      && ((contains(fromJSON(needs.plan.outputs.gates), 'security') && needs.security.result == 'success') || (!contains(fromJSON(needs.plan.outputs.gates), 'security') && needs.security.result == 'skipped'))
+      }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 90
     environment: release
@@ -348,13 +546,12 @@ jobs:
           PLAYWRIGHT_BROWSER_CHANNEL: chromium
         run: |
           set -euo pipefail
-          VERSION="$(tr -d '\n' < VERSION)"
-          test "$GITHUB_REF_NAME" = "v$VERSION"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
-          node scripts/release/version.mjs --check --tag "$GITHUB_REF_NAME"
-          pnpm release:dry-run
+          node scripts/release/version.mjs --check
+          node scripts/release/plan.mjs --check --release-set "$GITHUB_REF_NAME" --commit "$GITHUB_SHA"
+          pnpm release:dry-run --plan .release/plan.json --release-set "$GITHUB_REF_NAME"
       - name: Authenticate GitHub container registry pushes
         shell: bash
         env:
@@ -371,23 +568,26 @@ jobs:
           GAUNTLET_USE_REMOTE_RECEIPT: "true"
         run: |
           set -euo pipefail
-          VERSION="$(tr -d '\n' < VERSION)"
           RESULT="$RUNNER_TEMP/gauntlet-published-state.json"
           node scripts/release/check-published.mjs \
-            --release-directory "$PWD/.artifacts/release/$VERSION" \
-            --version "$VERSION" \
+            --release-directory "$PWD/.artifacts/release/$GITHUB_REF_NAME" \
             --source-commit "$GITHUB_SHA" > "$RESULT"
-          STATE="$(node -e 'const fs=require("node:fs");const value=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));if(!["clean","already-identical"].includes(value.state))process.exit(1);process.stdout.write(value.state)' "$RESULT")"
-          printf 'state=%s\n' "$STATE" >> "$GITHUB_OUTPUT"
+          node scripts/release/release-set.mjs preflight-outputs --state-file "$RESULT" >> "$GITHUB_OUTPUT"
+      # Every unit is clean or already identical; a partially published unit fails the preflight.
+      # Only clean units are published. The commit-tagged image push and its Trivy scan run first
+      # because they are not public releases. Public destinations then follow dependency order:
+      # npm, Maven and Composer, then the semantic image tag and the chart, which depend on the
+      # protocol and dashboard-client units. Units are finally tagged and released in plan order.
+      # Tags created through the API with GITHUB_TOKEN do not start workflows.
       - name: Publish commit-tagged image with attestations
-        if: steps.preflight.outputs.state == 'clean'
+        if: steps.preflight.outputs.gauntlet == 'true'
         id: image-copy
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="$(tr -d '\n' < VERSION)"
+          RELEASE_DIRECTORY="$PWD/.artifacts/release/$GITHUB_REF_NAME"
+          VERSION="$(node scripts/release/release-set.mjs field --release-directory "$RELEASE_DIRECTORY" --unit gauntlet --field version)"
           SHORT_SHA="${GITHUB_SHA:0:12}"
-          RELEASE_DIRECTORY="$PWD/.artifacts/release/$VERSION"
           SKOPEO_IMAGE="quay.io/skopeo/stable:v1.20.0@sha256:47853bb9fb24202af9110531ebd6e43c5f97701254ca290596640290d17942f4"
           DIGEST_DIRECTORY="$(mktemp -d "$RUNNER_TEMP/gauntlet-image-copy.XXXXXXXX")"
           DIGEST_FILE="$DIGEST_DIRECTORY/digest"
@@ -414,7 +614,7 @@ jobs:
           rmdir -- "$DIGEST_DIRECTORY"
           printf 'digest=%s\n' "$DIGEST" >> "$GITHUB_OUTPUT"
       - name: Verify pushed image and attestations
-        if: steps.preflight.outputs.state == 'clean'
+        if: steps.preflight.outputs.gauntlet == 'true'
         id: image
         shell: bash
         run: |
@@ -444,150 +644,132 @@ jobs:
               "ghcr.io/8lines/gauntlet@$DIGEST"
           done
           printf 'digest=%s\n' "$DIGEST" >> "$GITHUB_OUTPUT"
-      - name: Promote image digest to the semantic tag
-        if: steps.preflight.outputs.state == 'clean'
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="$(tr -d '\n' < VERSION)"
-          docker buildx imagetools create \
-            --tag "ghcr.io/8lines/gauntlet:$VERSION" \
-            "ghcr.io/8lines/gauntlet@${{ steps.image.outputs.digest }}"
-      - name: Publish Helm chart
-        if: steps.preflight.outputs.state == 'clean'
-        id: chart
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="$(tr -d '\n' < VERSION)"
-          HELM_RESULT="$RUNNER_TEMP/gauntlet-helm-push.txt"
-          # Helm reports "Pushed:" and "Digest:" on stderr.
-          helm push ".artifacts/release/$VERSION/helm/gauntlet-$VERSION.tgz" oci://ghcr.io/8lines/charts 2>&1 | tee "$HELM_RESULT"
-          DIGEST="$(sed -n 's/^Digest:[[:space:]]*//p' "$HELM_RESULT" | tail -n 1)"
-          test "${DIGEST#sha256:}" != "$DIGEST"
-          test "${#DIGEST}" -eq 71
-          printf 'digest=%s\n' "$DIGEST" >> "$GITHUB_OUTPUT"
       - name: Publish staged npm packages
-        if: steps.preflight.outputs.state == 'clean'
+        if: steps.preflight.outputs.npm != ''
         shell: bash
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_UNITS: ${{ steps.preflight.outputs.npm }}
         run: |
           set -euo pipefail
-          VERSION="$(tr -d '\n' < VERSION)"
-          for PACKAGE in ".artifacts/release/$VERSION/npm/"*.tgz; do
+          RELEASE_DIRECTORY="$PWD/.artifacts/release/$GITHUB_REF_NAME"
+          for UNIT in $NPM_UNITS; do
+            PACKAGE="$(node scripts/release/release-set.mjs artifact --release-directory "$RELEASE_DIRECTORY" --unit "$UNIT")"
             npm publish "$PACKAGE" --registry=https://registry.npmjs.org/ --access public
           done
       - name: Publish staged Maven packages
-        if: steps.preflight.outputs.state == 'clean'
+        if: steps.preflight.outputs.maven != ''
         shell: bash
         env:
           ORG_GRADLE_PROJECT_gauntletRemotePublishing: "true"
           ORG_GRADLE_PROJECT_gauntletRemoteUsername: ${{ github.actor }}
           ORG_GRADLE_PROJECT_gauntletRemotePassword: ${{ github.token }}
+          MAVEN_UNITS: ${{ steps.preflight.outputs.maven }}
         run: |
           set -euo pipefail
+          TASKS=()
+          for UNIT in $MAVEN_UNITS; do
+            case "$UNIT" in
+              java-core) TASKS+=(":core:publish") ;;
+              spring-boot-starter) TASKS+=(":spring-boot-starter:publish") ;;
+              *) exit 1 ;;
+            esac
+          done
           packages/java/gradlew --no-daemon --no-configuration-cache --console=plain \
-            -p packages/java :core:publish :spring-boot-starter:publish
+            -p packages/java "${TASKS[@]}"
       - name: Publish Composer split repositories
-        if: steps.preflight.outputs.state == 'clean'
+        if: steps.preflight.outputs.composer != ''
         shell: bash
         env:
           COMPOSER_SPLIT_CORE_DEPLOY_KEY: ${{ secrets.COMPOSER_SPLIT_CORE_DEPLOY_KEY }}
           COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY: ${{ secrets.COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY }}
+          COMPOSER_UNITS: ${{ steps.preflight.outputs.composer }}
         run: |
           set -euo pipefail
-          VERSION="$(tr -d '\n' < VERSION)"
-          node scripts/release/publish-composer.mjs \
-            --release-directory "$PWD/.artifacts/release/$VERSION" \
-            --version "$VERSION" \
-            --source-commit "$GITHUB_SHA"
+          for UNIT in $COMPOSER_UNITS; do
+            node scripts/release/publish-composer.mjs \
+              --release-directory "$PWD/.artifacts/release/$GITHUB_REF_NAME" \
+              --source-commit "$GITHUB_SHA" \
+              --unit "$UNIT"
+          done
+      - name: Promote image digest to the semantic tag
+        if: steps.preflight.outputs.gauntlet == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          RELEASE_DIRECTORY="$PWD/.artifacts/release/$GITHUB_REF_NAME"
+          VERSION="$(node scripts/release/release-set.mjs field --release-directory "$RELEASE_DIRECTORY" --unit gauntlet --field version)"
+          docker buildx imagetools create \
+            --tag "ghcr.io/8lines/gauntlet:$VERSION" \
+            "ghcr.io/8lines/gauntlet@${{ steps.image.outputs.digest }}"
+      - name: Publish Helm chart
+        if: steps.preflight.outputs.gauntlet == 'true'
+        id: chart
+        shell: bash
+        run: |
+          set -euo pipefail
+          RELEASE_DIRECTORY="$PWD/.artifacts/release/$GITHUB_REF_NAME"
+          VERSION="$(node scripts/release/release-set.mjs field --release-directory "$RELEASE_DIRECTORY" --unit gauntlet --field version)"
+          HELM_RESULT="$RUNNER_TEMP/gauntlet-helm-push.txt"
+          # Helm reports "Pushed:" and "Digest:" on stderr.
+          helm push ".artifacts/release/$GITHUB_REF_NAME/helm/gauntlet-$VERSION.tgz" oci://ghcr.io/8lines/charts 2>&1 | tee "$HELM_RESULT"
+          DIGEST="$(sed -n 's/^Digest:[[:space:]]*//p' "$HELM_RESULT" | tail -n 1)"
+          test "${DIGEST#sha256:}" != "$DIGEST"
+          test "${#DIGEST}" -eq 71
+          printf 'digest=%s\n' "$DIGEST" >> "$GITHUB_OUTPUT"
       - name: Verify every published artifact
-        if: steps.preflight.outputs.state == 'clean'
+        if: steps.preflight.outputs.clean != '[]'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           GAUNTLET_EXPECTED_IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
         run: |
           set -euo pipefail
-          VERSION="$(tr -d '\n' < VERSION)"
           node scripts/release/check-published.mjs \
-            --release-directory "$PWD/.artifacts/release/$VERSION" \
-            --version "$VERSION" \
+            --release-directory "$PWD/.artifacts/release/$GITHUB_REF_NAME" \
             --source-commit "$GITHUB_SHA" \
             --require-identical
-      - name: Write publication receipt and checksums
-        if: steps.preflight.outputs.state == 'clean'
+      - name: Tag and release each unit
+        if: steps.preflight.outputs.clean != '[]'
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
+          CLEAN_UNITS: ${{ steps.preflight.outputs.clean_units }}
           IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
           CHART_DIGEST: ${{ steps.chart.outputs.digest }}
         run: |
           set -euo pipefail
-          VERSION="$(tr -d '\n' < VERSION)"
-          RELEASE_DIRECTORY="$PWD/.artifacts/release/$VERSION"
-          node scripts/release/check-published.mjs \
-            --finalize "$RELEASE_DIRECTORY" \
-            --image-digest "$IMAGE_DIGEST" \
-            --chart-digest "$CHART_DIGEST"
-      - name: Create draft GitHub Release
-        if: steps.preflight.outputs.state == 'clean'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          VERSION="$(tr -d '\n' < VERSION)"
-          RELEASE_DIRECTORY="$PWD/.artifacts/release/$VERSION"
-          gh release create "v$VERSION" \
-            --draft \
-            --verify-tag \
-            --title "Gauntlet v$VERSION" \
-            --generate-notes \
-            "$RELEASE_DIRECTORY/compose/gauntlet-compose-$VERSION.tar.gz" \
-            "$RELEASE_DIRECTORY/release-manifest.json" \
-            "$RELEASE_DIRECTORY/publication-receipt.json" \
-            "$RELEASE_DIRECTORY/SHA256SUMS" \
-            "$RELEASE_DIRECTORY/skills/gauntlet-skills-$VERSION.tgz" \
-            "$RELEASE_DIRECTORY/helm/gauntlet-$VERSION.tgz" \
-            "$RELEASE_DIRECTORY/image/gauntlet-$VERSION.provenance.json" \
-            "$RELEASE_DIRECTORY/sbom/gauntlet-linux-amd64.spdx.json" \
-            "$RELEASE_DIRECTORY/sbom/gauntlet-linux-arm64.spdx.json"
-      - name: Verify draft GitHub Release assets byte-for-byte
-        if: steps.preflight.outputs.state == 'clean'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          VERSION="$(tr -d '\n' < VERSION)"
-          node scripts/release/check-published.mjs \
-            --release-directory "$PWD/.artifacts/release/$VERSION" \
-            --version "$VERSION" \
-            --source-commit "$GITHUB_SHA" \
-            --require-draft-identical
-      - name: Publish verified GitHub Release
-        if: steps.preflight.outputs.state == 'clean'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          VERSION="$(tr -d '\n' < VERSION)"
-          gh release edit "v$VERSION" --draft=false
-      - name: Verify immutable GitHub Release assets byte-for-byte
-        if: steps.preflight.outputs.state == 'clean'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GAUNTLET_EXPECTED_IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
-          GAUNTLET_EXPECTED_CHART_DIGEST: ${{ steps.chart.outputs.digest }}
-          GAUNTLET_USE_REMOTE_RECEIPT: "true"
-        run: |
-          set -euo pipefail
-          VERSION="$(tr -d '\n' < VERSION)"
-          node scripts/release/check-published.mjs \
-            --release-directory "$PWD/.artifacts/release/$VERSION" \
-            --version "$VERSION" \
-            --source-commit "$GITHUB_SHA" \
-            --require-identical
+          RELEASE_DIRECTORY="$PWD/.artifacts/release/$GITHUB_REF_NAME"
+          for UNIT in $CLEAN_UNITS; do
+            TAG="$(node scripts/release/release-set.mjs field --release-directory "$RELEASE_DIRECTORY" --unit "$UNIT" --field tag)"
+            TITLE="$(node scripts/release/release-set.mjs field --release-directory "$RELEASE_DIRECTORY" --unit "$UNIT" --field title)"
+            LATEST="--latest=false"
+            if [ "$UNIT" = "gauntlet" ]; then
+              node scripts/release/check-published.mjs --finalize "$RELEASE_DIRECTORY" --unit "$UNIT" \
+                --image-digest "$IMAGE_DIGEST" --chart-digest "$CHART_DIGEST"
+              LATEST="--latest"
+            else
+              node scripts/release/check-published.mjs --finalize "$RELEASE_DIRECTORY" --unit "$UNIT"
+            fi
+            if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+              test "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$GITHUB_SHA"
+            else
+              TAG_OBJECT="$(gh api "repos/$GITHUB_REPOSITORY/git/tags" -f tag="$TAG" -f message="$TITLE" -f object="$GITHUB_SHA" -f type=commit --jq .sha)"
+              gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$TAG_OBJECT" > /dev/null
+            fi
+            NOTES="$RUNNER_TEMP/release-notes-$UNIT.md"
+            NOTES_MODE="$(node scripts/release/release-set.mjs notes --release-directory "$RELEASE_DIRECTORY" --unit "$UNIT" --output "$NOTES")"
+            NOTES_ARGS=(--notes-file "$NOTES")
+            if [ "$NOTES_MODE" = "generated" ]; then NOTES_ARGS+=(--generate-notes); fi
+            node scripts/release/release-set.mjs assets --release-directory "$RELEASE_DIRECTORY" --unit "$UNIT" > "$RUNNER_TEMP/assets-$UNIT.txt"
+            mapfile -t ASSETS < "$RUNNER_TEMP/assets-$UNIT.txt"
+            test "${#ASSETS[@]}" -ge 4
+            gh release create "$TAG" --draft --verify-tag --title "$TITLE" "$LATEST" "${NOTES_ARGS[@]}" "${ASSETS[@]}"
+            node scripts/release/check-published.mjs --release-directory "$RELEASE_DIRECTORY" \
+              --source-commit "$GITHUB_SHA" --unit "$UNIT" --require-draft-identical
+            gh release edit "$TAG" --draft=false
+            GAUNTLET_EXPECTED_IMAGE_DIGEST="$IMAGE_DIGEST" GAUNTLET_EXPECTED_CHART_DIGEST="$CHART_DIGEST" GAUNTLET_USE_REMOTE_RECEIPT=true \
+              node scripts/release/check-published.mjs --release-directory "$RELEASE_DIRECTORY" \
+              --source-commit "$GITHUB_SHA" --unit "$UNIT" --require-identical > "$RUNNER_TEMP/released-$UNIT.json"
+            node scripts/release/release-set.mjs require-state --state-file "$RUNNER_TEMP/released-$UNIT.json" --unit "$UNIT" --state already-identical
+          done
