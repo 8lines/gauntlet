@@ -179,6 +179,8 @@ function repository(t) {
   git(root, "init", "--initial-branch=main");
   write(root, "packages/protocol/src/index.ts", "export const a = 1;\n");
   write(root, "apps/server/package.json", "{}\n");
+  write(root, "VERSION", "0.1.8\n");
+  write(root, "skills/VERSION", "0.1.8\n");
   write(root, ".changes/old.md", changeSource({ widget: "patch" }));
   git(root, "add", "-A");
   git(root, "commit", "-m", "base");
@@ -252,6 +254,8 @@ test("a release pull request covers only its planned units, and deleting a chang
     { changes: ["old.md"] },
   )));
   write(release, "apps/server/package.json", '{"version":"0.1.9"}\n');
+  write(release, "VERSION", "0.1.9\n");
+  write(release, "skills/VERSION", "0.1.9\n");
   rmSync(join(release, ".changes/old.md"));
   commit(release);
   assert.deepEqual([check(release).exitCode, check(release).covered], [0, ["gauntlet", "skills"]]);
@@ -275,4 +279,57 @@ test("an invalid change file fails the check and arguments are closed", (t) => {
   const missing = runChangesCli(["--check", "--base", "no-such-branch"], { root });
   assert.equal(missing.exitCode, 1);
   assert.match(JSON.parse(missing.stderr).error.message, /Cannot find the merge base of no-such-branch and HEAD/u);
+});
+
+function planSource(units, changes = ["old.md"]) {
+  return serializeReleasePlan(createReleasePlan(units.map(([id, from, to]) => ({ id, from, to })), { changes }));
+}
+
+test("a release plan covers only the units whose versions it moves in the same diff", (t) => {
+  const everything = repository(t);
+  write(everything, "packages/protocol/src/index.ts", "export const a = 6;\n");
+  write(everything, ".release/plan.json", planSource(RELEASE_UNITS.map(({ id }) => [id, null, "0.1.8"]), []));
+  commit(everything);
+  const unmoved = check(everything);
+  assert.equal(unmoved.exitCode, 1);
+  assert.deepEqual([unmoved.covered, unmoved.touched], [[], ["protocol"]]);
+
+  const wrongTarget = repository(t);
+  write(wrongTarget, "apps/server/package.json", '{"version":"0.1.9"}\n');
+  write(wrongTarget, "VERSION", "0.1.9\n");
+  write(wrongTarget, ".release/plan.json", planSource([["gauntlet", "0.1.8", "0.1.10"]]));
+  commit(wrongTarget);
+  assert.deepEqual([check(wrongTarget).exitCode, check(wrongTarget).covered], [1, []]);
+
+  const planOnly = repository(t);
+  write(planOnly, "apps/server/package.json", '{"version":"0.1.9"}\n');
+  write(planOnly, ".release/plan.json", planSource([["gauntlet", "0.1.8", "0.1.9"]]));
+  commit(planOnly);
+  assert.deepEqual([check(planOnly).exitCode, check(planOnly).covered], [1, []]);
+
+  const malformed = repository(t);
+  write(malformed, "apps/server/package.json", '{"version":"0.1.9"}\n');
+  write(malformed, "VERSION", "not a version\n");
+  write(malformed, ".release/plan.json", planSource([["gauntlet", "0.1.8", "0.1.9"]]));
+  commit(malformed);
+  const broken = check(malformed);
+  assert.deepEqual([broken.exitCode, broken.covered], [1, []]);
+  assert.equal(JSON.stringify(broken).includes(malformed), false);
+});
+
+test("a symlinked change file is refused without being read, and a BOM-prefixed one is not parsed", (t) => {
+  const linked = repository(t);
+  symlinkSync("/dev/zero", join(linked, ".changes/zero.md"));
+  commit(linked);
+  const refused = check(linked);
+  assert.equal(refused.exitCode, 1);
+  assert.deepEqual(refused.problems, [".changes/zero.md is not a change file (a regular lowercase-name.md file)"]);
+
+  const bom = repository(t);
+  write(bom, ".changes/bom.md", `\uFEFF${changeSource({ protocol: "patch" })}`);
+  commit(bom);
+  const result = check(bom);
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.problems.some((problem) => /Change file bom\.md: must start with --- front matter/u.test(problem)), true);
+  assert.equal(JSON.stringify(result.problems).includes(bom), false);
 });

@@ -17,16 +17,22 @@ export const BUMPS = Object.freeze(["none", "patch", "minor", "major"]);
 const RANK = Object.freeze({ none: 0, patch: 1, minor: 2, major: 3 });
 const FRONT_MATTER = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/u;
 const MAX_CHANGE_BYTES = 16 * 1024;
+const MAX_MANIFEST_BYTES = 1024 * 1024;
 const UNIT_IDS = new Set(RELEASE_UNITS.map(({ id }) => id));
 
-const UTF8 = new TextDecoder("utf-8", { fatal: true });
+const UTF8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
 export function readChangeSource(name, path) {
+  let bytes;
   try {
-    return UTF8.decode(readFileSync(path));
-  } catch (error) {
-    if (error instanceof TypeError) throw new Error(`Change file ${name}: must be LF-only UTF-8 text`);
-    throw error;
+    bytes = readFileSync(path);
+  } catch {
+    throw new Error(`Change file ${name}: cannot be read`);
+  }
+  try {
+    return UTF8.decode(bytes);
+  } catch {
+    throw new Error(`Change file ${name}: must be LF-only UTF-8 text`);
   }
 }
 
@@ -73,7 +79,24 @@ export function parseChangeFile(name, source) {
   });
 }
 
-export function readChangeFiles(root) {
+function notAChangeFile(name) {
+  return new Error(`${CHANGES_DIRECTORY}/${name} is not a change file (a regular lowercase-name.md file)`);
+}
+
+function readChangeFile(directory, name) {
+  if (!CHANGE_FILE_NAME.test(name)) throw notAChangeFile(name);
+  const path = resolve(directory, name);
+  let stat;
+  try {
+    stat = lstatSync(path);
+  } catch {
+    throw notAChangeFile(name);
+  }
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || stat.size > MAX_CHANGE_BYTES) throw notAChangeFile(name);
+  return parseChangeFile(name, readChangeSource(name, path));
+}
+
+function listChangeEntries(root) {
   const directory = resolve(root, CHANGES_DIRECTORY);
   let entries;
   try {
@@ -81,21 +104,37 @@ export function readChangeFiles(root) {
     if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error(`${CHANGES_DIRECTORY} must be a directory`);
     entries = readdirSync(directory, { withFileTypes: true });
   } catch (error) {
-    if (error?.code === "ENOENT") return Object.freeze([]);
-    throw error;
+    if (error?.code === "ENOENT") return { directory, names: [] };
+    if (error instanceof Error && error.message === `${CHANGES_DIRECTORY} must be a directory`) throw error;
+    throw new Error(`${CHANGES_DIRECTORY} cannot be read`);
   }
-  const files = [];
-  for (const entry of entries.sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0))) {
-    const label = `${CHANGES_DIRECTORY}/${entry.name}`;
-    if (!entry.isFile() || !CHANGE_FILE_NAME.test(entry.name)) {
-      throw new Error(`${label} is not a change file (a regular lowercase-name.md file)`);
+  const names = entries.map(({ name }) => name).sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
+  return { directory, names };
+}
+
+export function readChangeFiles(root) {
+  const { directory, names } = listChangeEntries(root);
+  return Object.freeze(names.map((name) => readChangeFile(directory, name)));
+}
+
+// Reads every entry of .changes once with the same guards as readChangeFiles, collecting each failure.
+function inspectChangeFiles(root) {
+  const problems = [];
+  const files = new Map();
+  let listing;
+  try {
+    listing = listChangeEntries(root);
+  } catch (error) {
+    return { files, problems: [error.message] };
+  }
+  for (const name of listing.names) {
+    try {
+      files.set(name, readChangeFile(listing.directory, name));
+    } catch (error) {
+      problems.push(error.message);
     }
-    const path = resolve(directory, entry.name);
-    const stat = lstatSync(path);
-    if (stat.nlink !== 1 || stat.size > MAX_CHANGE_BYTES) throw new Error(`${label} is not a change file (a regular lowercase-name.md file)`);
-    files.push(parseChangeFile(entry.name, readChangeSource(entry.name, path)));
   }
-  return Object.freeze(files);
+  return { files, problems };
 }
 
 export function nextVersion(version, bump) {
@@ -169,14 +208,42 @@ export function parseNameStatus(output) {
   return Object.freeze(changes);
 }
 
-export function evaluateChangeCoverage({ diff, changeFiles, plan = null }) {
+function versionFromManifest(unit, source) {
+  if (unit.version.type === "file") return parseReleaseVersion(Buffer.from(source, "utf8"));
+  let node = JSON.parse(source);
+  for (const key of unit.version.keyPath) {
+    if (node === null || typeof node !== "object" || Array.isArray(node) || !Object.hasOwn(node, key)) throw new Error("missing");
+    node = node[key];
+  }
+  if (typeof node !== "string") throw new Error("missing");
+  return parseReleaseVersion(Buffer.from(`${node}\n`, "utf8"));
+}
+
+// A planned unit counts only when this diff really moved its version to the planned one.
+export function movedPlannedUnits({ plan, diff, readBase, readHead }) {
+  const moved = new Set();
+  for (const { id, to } of plan?.units ?? []) {
+    try {
+      const unit = unitById(id);
+      if (!diff.some(({ status, path }) => status === "M" && path === unit.version.path)) continue;
+      const head = versionFromManifest(unit, readHead(unit.version.path));
+      const base = versionFromManifest(unit, readBase(unit.version.path));
+      if (head === to && base !== to) moved.add(id);
+    } catch {
+      // An unreadable or malformed version never covers a unit.
+    }
+  }
+  return moved;
+}
+
+export function evaluateChangeCoverage({ diff, changeFiles, plan = null, movedUnits = new Set() }) {
   const touched = new Map();
   for (const unit of RELEASE_UNITS) {
     const owned = diff.find(({ path }) => isOwnedBy(unit, path));
     if (owned !== undefined) touched.set(unit.id, owned.path);
   }
   const covered = new Set(changeFiles.flatMap(({ units }) => Object.keys(units)));
-  for (const { id } of plan?.units ?? []) covered.add(id);
+  for (const { id } of plan?.units ?? []) if (movedUnits.has(id)) covered.add(id);
   const problems = [...touched].filter(([id]) => !covered.has(id)).map(([id, path]) =>
     `${id}: ${path} changed without a change file naming ${id}; add .changes/<name>.md (use "none" when no release is needed)`);
   return Object.freeze({
@@ -227,24 +294,32 @@ export function runChangesCli(argv, { root = ROOT, git = defaultGit(root) } = {}
     const listing = git(["diff", "--name-status", "-z", "--no-renames", base, "HEAD"]);
     if (listing.status !== 0) throw new Error("git diff failed");
     const diff = parseNameStatus(listing.stdout);
-    const problems = [];
-    try {
-      readChangeFiles(root);
-    } catch (error) {
-      problems.push(error.message);
-    }
+    const inspected = inspectChangeFiles(root);
+    const problems = [...inspected.problems];
     const changeFiles = [];
     for (const { status, path } of diff) {
-      if (status === "D" || !path.startsWith(`${CHANGES_DIRECTORY}/`) || path.slice(CHANGES_DIRECTORY.length + 1).includes("/")) continue;
-      const name = path.slice(CHANGES_DIRECTORY.length + 1);
-      try {
-        changeFiles.push(parseChangeFile(name, readChangeSource(name, resolve(root, CHANGES_DIRECTORY, name))));
-      } catch (error) {
-        if (!problems.includes(error.message)) problems.push(error.message);
-      }
+      if (status === "D" || !path.startsWith(`${CHANGES_DIRECTORY}/`)) continue;
+      const file = inspected.files.get(path.slice(CHANGES_DIRECTORY.length + 1));
+      if (file !== undefined) changeFiles.push(file);
     }
     const planChanged = diff.some(({ status, path }) => path === RELEASE_PLAN_PATH && status !== "D");
-    const coverage = evaluateChangeCoverage({ diff, changeFiles, plan: planChanged ? readReleasePlan(root) : null });
+    const plan = planChanged ? readReleasePlan(root) : null;
+    const movedUnits = movedPlannedUnits({
+      plan,
+      diff,
+      readBase: (path) => {
+        const shown = git(["show", `${base}:${path}`]);
+        if (shown.status !== 0) throw new Error("missing");
+        return shown.stdout;
+      },
+      readHead: (path) => {
+        const absolute = resolve(root, path);
+        const stat = lstatSync(absolute);
+        if (!stat.isFile() || stat.nlink !== 1 || stat.size > MAX_MANIFEST_BYTES) throw new Error("unreadable");
+        return readFileSync(absolute, "utf8");
+      },
+    });
+    const coverage = evaluateChangeCoverage({ diff, changeFiles, plan, movedUnits });
     problems.push(...coverage.problems);
     const ok = problems.length === 0;
     return {
