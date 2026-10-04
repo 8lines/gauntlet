@@ -6,6 +6,7 @@ import test from "node:test";
 import { parseDocument } from "yaml";
 
 import { RELEASE_GATES } from "../plan.mjs";
+import { scanRepositoryFiles } from "../security.mjs";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
 const GATE_JOBS = RELEASE_GATES;
@@ -31,6 +32,20 @@ const PUBLICATION_STEPS = Object.freeze([
 
 function releaseScript() {
   return readFileSync(resolve(ROOT, RELEASE_SCRIPT), "utf8");
+}
+
+const PACKAGE_SCRIPT = "scripts/release/publish-package-units.sh";
+const PACKAGE_STEP_RUN = "exec env -u NPM_PUBLISH_TOKEN -u CORE_DEPLOY_KEY -u BUNDLE_DEPLOY_KEY"
+  + ' bash scripts/release/publish-package-units.sh "$PWD/.artifacts/release/$GITHUB_REF_NAME"'
+  + ` 3< <(printf '%s' "$NPM_PUBLISH_TOKEN") 4< <(printf '%s' "$CORE_DEPLOY_KEY") 5< <(printf '%s' "$BUNDLE_DEPLOY_KEY")`;
+
+function packageScript() {
+  return readFileSync(resolve(ROOT, PACKAGE_SCRIPT), "utf8");
+}
+
+// What a step runs, with the package publication script inlined where the step executes it.
+function effectiveRun({ run }) {
+  return (run ?? "").includes(PACKAGE_SCRIPT) ? `${run}\n${packageScript()}` : run ?? "";
 }
 
 // Requires every pattern to match after the previous one; returns the offset after the last match.
@@ -140,12 +155,26 @@ test("each unit is published, verified and released before the next unit is publ
   // Package units: one loop in dependency order; each unit's single destination, then its own
   // verification, then its tag and release, before the next unit starts.
   const packages = step("Publish and release package units");
-  assert.equal(packages.env.PACKAGE_UNITS, "${{ steps.preflight.outputs.packages }}");
-  assert.equal(packages.env.GAUNTLET_USE_REMOTE_RECEIPT, "true");
-  const loop = packages.run.slice(packages.run.indexOf("for UNIT in $PACKAGE_UNITS; do"));
-  assert.equal((packages.run.match(/\bfor UNIT in\b/gu) ?? []).length, 1);
+  assert.deepEqual(packages.env, {
+    GH_TOKEN: "${{ github.token }}",
+    GAUNTLET_USE_REMOTE_RECEIPT: "true",
+    PACKAGE_UNITS: "${{ steps.preflight.outputs.packages }}",
+    NPM_UNITS: "${{ steps.preflight.outputs.npm }}",
+    MAVEN_UNITS: "${{ steps.preflight.outputs.maven }}",
+    COMPOSER_UNITS: "${{ steps.preflight.outputs.composer }}",
+    NPM_PUBLISH_TOKEN: "${{ secrets.NPM_TOKEN }}",
+    CORE_DEPLOY_KEY: "${{ secrets.COMPOSER_SPLIT_CORE_DEPLOY_KEY }}",
+    BUNDLE_DEPLOY_KEY: "${{ secrets.COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY }}",
+  });
+  assert.equal(packages.run, PACKAGE_STEP_RUN);
+  const script = packageScript();
+  assert.match(script, /^#!\/usr\/bin\/env bash\n/u);
+  assert.match(script, /^set -euo pipefail$/mu);
+  assert.match(script, /^RELEASE_DIRECTORY="\$1"$/mu);
+  const loop = script.slice(script.indexOf("for UNIT in $PACKAGE_UNITS; do"));
+  assert.equal((script.match(/\bfor UNIT in\b/gu) ?? []).length, 1);
   for (const command of [/release-unit\.sh/gu, /check-published\.mjs/gu, /require-state/gu, /npm publish/gu, /gradlew/gu]) {
-    assert.equal((packages.run.match(command) ?? []).length, 1, String(command));
+    assert.equal((loop.match(command) ?? []).length, 1, String(command));
   }
   const end = assertOrdered(loop, [
     /^for UNIT in \$PACKAGE_UNITS; do\n/u,
@@ -162,13 +191,12 @@ test("each unit is published, verified and released before the next unit is publ
     /else\n\s*exit 1\n\s*fi\n/u,
     /check-published\.mjs --release-directory "\$RELEASE_DIRECTORY" \\\n\s*--source-commit "\$GITHUB_SHA" --unit "\$UNIT" --require-identical > "\$RUNNER_TEMP\/published-\$UNIT\.json"\n/u,
     /release-set\.mjs require-state --state-file "\$RUNNER_TEMP\/published-\$UNIT\.json" --unit "\$UNIT" --state published-artifacts-identical\n/u,
-    /^\s*bash scripts\/release\/release-unit\.sh "\$RELEASE_DIRECTORY" "\$UNIT"\n\s*done$/mu,
+    /^\s*bash scripts\/release\/release-unit\.sh "\$RELEASE_DIRECTORY" "\$UNIT"\ndone\n$/mu,
   ]);
-  assert.equal(loop.slice(end).trim(), "");
+  assert.equal(loop.slice(end), "");
   // The loop body publishes before it verifies, and releases only after verification.
-  const body = loop.slice(0, end);
-  assert.equal(body.search(PUBLISH_COMMAND) < body.search(/--require-identical/u), true);
-  assert.doesNotMatch(body.slice(body.search(/--require-identical/u)), PUBLISH_COMMAND);
+  assert.equal(loop.search(PUBLISH_COMMAND) < loop.search(/--require-identical/u), true);
+  assert.doesNotMatch(loop.slice(loop.search(/--require-identical/u)), PUBLISH_COMMAND);
 
   // The application: its destinations, its verification with the pushed digests, then its release.
   assert.deepEqual(step("Verify the published application").env, {
@@ -194,8 +222,8 @@ test("each unit is published, verified and released before the next unit is publ
     /^bash scripts\/release\/release-unit\.sh "\$PWD\/\.artifacts\/release\/\$GITHUB_REF_NAME" skills$/mu);
 
   // No step publishes a unit after a later unit's release.
-  const releasing = steps.map(({ run }) => /release-unit\.sh/u.test(run ?? ""));
-  const publishing = steps.map(({ run }) => PUBLISH_COMMAND.test(run ?? ""));
+  const releasing = steps.map((candidate) => /release-unit\.sh/u.test(effectiveRun(candidate)));
+  const publishing = steps.map((candidate) => PUBLISH_COMMAND.test(effectiveRun(candidate)));
   assert.deepEqual(steps.filter((_, index) => releasing[index]).map(({ name }) => name),
     ["Publish and release package units", "Tag and release the application", "Tag and release the skills"]);
   const applicationRelease = names.indexOf("Tag and release the application");
@@ -361,14 +389,26 @@ test("release security scans the staged image and dry-runs install Chromium", ()
   }
 });
 
-// A secret moves from the step environment into an unexported shell variable before anything runs,
-// and reaches only the command lines named here, as a per-command environment assignment.
-function assertCommandScopedSecret(run, { variable, shell, uses }) {
-  const head = run.slice(0, run.indexOf("for UNIT in"));
-  assert.match(head, new RegExp(`^\\s*${shell}="\\$${variable}"$`, "mu"), `${variable} copied`);
-  assert.match(head, new RegExp(`^\\s*unset [A-Z_ ]*\\b${variable}\\b`, "mu"), `${variable} unset`);
-  assert.equal((run.match(new RegExp(`\\$${variable}\\b`, "gu")) ?? []).length, 1, `${variable} read once`);
-  const lines = run.split("\n").filter((line) => line.includes(`"$${shell}"`));
+// The package step replaces its shell, whose initial environment holds the secrets, with the package
+// script through `exec env -u …`, handing each secret over on its own file descriptor only. The script
+// reads every descriptor before it spawns anything, closes it, never exports the value, and gives it
+// to the command lines named here alone, as a per-command assignment without GH_TOKEN.
+function assertDescriptorScopedSecret({ variable, descriptor, shell, uses }) {
+  const { workflow } = releaseWorkflow();
+  const run = workflow.jobs.publish.steps.find(({ name }) => name === "Publish and release package units").run;
+  assert.equal(run.includes("\n"), false, "the step runs one exec line");
+  assert.match(run, new RegExp(`^exec env (?:-u [A-Z_]+ )*-u ${variable} `, "u"), `${variable} removed from the environment`);
+  assert.equal(run.includes(` ${descriptor}< <(printf '%s' "$${variable}")`), true, `${variable} on descriptor ${descriptor}`);
+  assert.equal((run.match(new RegExp(`\\b${variable}\\b`, "gu")) ?? []).length, 2, `${variable} named only by exec`);
+  const script = packageScript();
+  assert.doesNotMatch(script, new RegExp(`\\b${variable}\\b`, "u"), `${variable} never read from the environment`);
+  const read = `IFS= read -r -d '' ${shell} <&${descriptor} || true\nexec ${descriptor}<&-\n`;
+  assert.equal(script.includes(read), true, `${shell} read and descriptor closed`);
+  // Every descriptor is read and closed before the first command runs.
+  const firstCommand = script.search(/^(?:if|:|cd|for) /mu);
+  assert.equal(script.indexOf(read) < firstCommand, true, `${shell} read first`);
+  assert.doesNotMatch(script, /\bexport\b|set -a|set -x|declare -x|\/proc\//u);
+  const lines = script.split("\n").filter((line) => line.includes(`$${shell}`));
   assert.equal(lines.length, uses.length, `${shell} uses`);
   for (const [index, pattern] of uses.entries()) assert.match(lines[index], pattern, `${shell} use ${index}`);
 }
@@ -385,13 +425,13 @@ test("npm publishes publicly without provenance and only its command receives th
   const consumers = steps.filter((step) => JSON.stringify(step).includes(npmToken));
   assert.deepEqual(consumers.map(({ name }) => name), ["Publish and release package units"]);
   assert.equal(consumers[0].env.NPM_PUBLISH_TOKEN, npmToken);
-  assert.doesNotMatch(consumers[0].run, /\bexport\b|set -a|set -x/u);
-  assertCommandScopedSecret(consumers[0].run, {
+  assertDescriptorScopedSecret({
     variable: "NPM_PUBLISH_TOKEN",
+    descriptor: 3,
     shell: "NPM_SECRET",
-    uses: [/^\s*NODE_AUTH_TOKEN="\$NPM_SECRET" npm publish "\$PACKAGE" --registry=https:\/\/registry\.npmjs\.org\/ --access public$/u],
+    uses: [/^\s*NODE_AUTH_TOKEN="\$NPM_SECRET" env -u GH_TOKEN npm publish "\$PACKAGE" --registry=https:\/\/registry\.npmjs\.org\/ --access public$/u],
   });
-  assert.doesNotMatch(consumers[0].run, /--provenance/u);
+  assert.doesNotMatch(packageScript(), /--provenance/u);
   for (const step of steps) assert.equal(step.env?.NODE_AUTH_TOKEN, undefined, `${step.name} npm token`);
 });
 
@@ -405,18 +445,21 @@ test("each Composer deploy key reaches only its own split publication command", 
   assert.equal(env.CORE_DEPLOY_KEY, "${{ secrets.COMPOSER_SPLIT_CORE_DEPLOY_KEY }}");
   assert.equal(env.BUNDLE_DEPLOY_KEY, "${{ secrets.COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY }}");
   assert.equal(Object.keys(env).some((name) => name.startsWith("COMPOSER_SPLIT_")), false);
-  assertCommandScopedSecret(run, {
+  assert.equal(run, PACKAGE_STEP_RUN);
+  assertDescriptorScopedSecret({
     variable: "CORE_DEPLOY_KEY",
+    descriptor: 4,
     shell: "CORE_KEY",
-    uses: [/^\s*php-core\) COMPOSER_SPLIT_CORE_DEPLOY_KEY="\$CORE_KEY" node scripts\/release\/publish-composer\.mjs \\$/u],
+    uses: [/^\s*php-core\) COMPOSER_SPLIT_CORE_DEPLOY_KEY="\$CORE_KEY" env -u GH_TOKEN node scripts\/release\/publish-composer\.mjs \\$/u],
   });
-  assertCommandScopedSecret(run, {
+  assertDescriptorScopedSecret({
     variable: "BUNDLE_DEPLOY_KEY",
+    descriptor: 5,
     shell: "BUNDLE_KEY",
-    uses: [/^\s*symfony-bundle\) COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY="\$BUNDLE_KEY" node scripts\/release\/publish-composer\.mjs \\$/u],
+    uses: [/^\s*symfony-bundle\) COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY="\$BUNDLE_KEY" env -u GH_TOKEN node scripts\/release\/publish-composer\.mjs \\$/u],
   });
   // The Maven credentials are the job token, given to the Gradle command line only.
-  assert.match(run, /ORG_GRADLE_PROJECT_gauntletRemotePublishing=true \\\n\s*ORG_GRADLE_PROJECT_gauntletRemoteUsername="\$GITHUB_ACTOR" \\\n\s*ORG_GRADLE_PROJECT_gauntletRemotePassword="\$GH_TOKEN" \\\n\s*packages\/java\/gradlew /u);
+  assert.match(packageScript(), /ORG_GRADLE_PROJECT_gauntletRemotePublishing=true \\\n\s*ORG_GRADLE_PROJECT_gauntletRemoteUsername="\$GITHUB_ACTOR" \\\n\s*ORG_GRADLE_PROJECT_gauntletRemotePassword="\$GH_TOKEN" \\\n\s*packages\/java\/gradlew /u);
   for (const step of steps) {
     assert.equal(Object.keys(step.env ?? {}).some((name) => name.startsWith("ORG_GRADLE_PROJECT_")), false, `${step.name} Gradle env`);
   }
@@ -429,4 +472,12 @@ test("each Composer deploy key reaches only its own split publication command", 
     "COMPOSER_SPLIT_CORE_DEPLOY_KEY",
     "NPM_TOKEN",
   ]);
+});
+
+test("the release workflows and publication scripts pass the credential-material scan", () => {
+  const result = scanRepositoryFiles({
+    root: ROOT,
+    paths: [".github/workflows/ci.yml", ".github/workflows/release.yml", PACKAGE_SCRIPT, RELEASE_SCRIPT],
+  });
+  assert.deepEqual(result.credentials, []);
 });

@@ -579,8 +579,9 @@ jobs:
       # registry artifacts are published and verified, so a later failure never leaves an earlier unit
       # published without its release. Package units (npm, Maven, Composer) go first, in dependency
       # order; none of them depends on the application or the skills. The application follows, then
-      # the skills, which have no registry destination. Each release is created by
-      # scripts/release/release-unit.sh. Tags created through the API with GITHUB_TOKEN do not start workflows.
+      # the skills, which have no registry destination. scripts/release/publish-package-units.sh runs the
+      # package loop; each release is created by scripts/release/release-unit.sh. Tags created through the
+      # API with GITHUB_TOKEN do not start workflows.
       - name: Publish and release package units
         if: steps.preflight.outputs.packages != ''
         shell: bash
@@ -595,45 +596,14 @@ jobs:
           NPM_PUBLISH_TOKEN: ${{ secrets.NPM_TOKEN }}
           CORE_DEPLOY_KEY: ${{ secrets.COMPOSER_SPLIT_CORE_DEPLOY_KEY }}
           BUNDLE_DEPLOY_KEY: ${{ secrets.COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY }}
-        run: |
-          set -euo pipefail
-          # Each publish command alone receives its credential: the secrets move into unexported shell
-          # variables, so verification, tagging and releasing never see them.
-          NPM_SECRET="$NPM_PUBLISH_TOKEN"
-          CORE_KEY="$CORE_DEPLOY_KEY"
-          BUNDLE_KEY="$BUNDLE_DEPLOY_KEY"
-          unset NPM_PUBLISH_TOKEN CORE_DEPLOY_KEY BUNDLE_DEPLOY_KEY
-          RELEASE_DIRECTORY="$PWD/.artifacts/release/$GITHUB_REF_NAME"
-          for UNIT in $PACKAGE_UNITS; do
-            if [[ " $NPM_UNITS " == *" $UNIT "* ]]; then
-              PACKAGE="$(node scripts/release/release-set.mjs artifact --release-directory "$RELEASE_DIRECTORY" --unit "$UNIT")"
-              NODE_AUTH_TOKEN="$NPM_SECRET" npm publish "$PACKAGE" --registry=https://registry.npmjs.org/ --access public
-            elif [[ " $MAVEN_UNITS " == *" $UNIT "* ]]; then
-              case "$UNIT" in
-                java-core) TASK=":core:publish" ;;
-                spring-boot-starter) TASK=":spring-boot-starter:publish" ;;
-                *) exit 1 ;;
-              esac
-              ORG_GRADLE_PROJECT_gauntletRemotePublishing=true \
-                ORG_GRADLE_PROJECT_gauntletRemoteUsername="$GITHUB_ACTOR" \
-                ORG_GRADLE_PROJECT_gauntletRemotePassword="$GH_TOKEN" \
-                packages/java/gradlew --no-daemon --no-configuration-cache --console=plain -p packages/java "$TASK"
-            elif [[ " $COMPOSER_UNITS " == *" $UNIT "* ]]; then
-              case "$UNIT" in
-                php-core) COMPOSER_SPLIT_CORE_DEPLOY_KEY="$CORE_KEY" node scripts/release/publish-composer.mjs \
-                  --release-directory "$RELEASE_DIRECTORY" --source-commit "$GITHUB_SHA" --unit "$UNIT" ;;
-                symfony-bundle) COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY="$BUNDLE_KEY" node scripts/release/publish-composer.mjs \
-                  --release-directory "$RELEASE_DIRECTORY" --source-commit "$GITHUB_SHA" --unit "$UNIT" ;;
-                *) exit 1 ;;
-              esac
-            else
-              exit 1
-            fi
-            node scripts/release/check-published.mjs --release-directory "$RELEASE_DIRECTORY" \
-              --source-commit "$GITHUB_SHA" --unit "$UNIT" --require-identical > "$RUNNER_TEMP/published-$UNIT.json"
-            node scripts/release/release-set.mjs require-state --state-file "$RUNNER_TEMP/published-$UNIT.json" --unit "$UNIT" --state published-artifacts-identical
-            bash scripts/release/release-unit.sh "$RELEASE_DIRECTORY" "$UNIT"
-          done
+        # The secrets reach the script only on file descriptors: exec replaces this shell, whose
+        # initial environment holds them, with the script, whose environment does not.
+        run: >-
+          exec env -u NPM_PUBLISH_TOKEN -u CORE_DEPLOY_KEY -u BUNDLE_DEPLOY_KEY
+          bash scripts/release/publish-package-units.sh "$PWD/.artifacts/release/$GITHUB_REF_NAME"
+          3< <(printf '%s' "$NPM_PUBLISH_TOKEN")
+          4< <(printf '%s' "$CORE_DEPLOY_KEY")
+          5< <(printf '%s' "$BUNDLE_DEPLOY_KEY")
       # The commit-tagged image push and its Trivy scan precede the application's public destinations.
       - name: Publish commit-tagged image with attestations
         if: steps.preflight.outputs.gauntlet == 'true'
