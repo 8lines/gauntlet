@@ -15,11 +15,11 @@
     },
     {
       "path": "examples/symfony/composer.json",
-      "sha256": "3e9aca4defd4d88bfe2232d40799c6b108c469adc49a49553236ca2b28c8fa9e"
+      "sha256": "4374a971ba02dc0869b6058551349f8adfeeafb9252fcadd19acec1bd8638f77"
     },
     {
       "path": "examples/symfony/composer.lock",
-      "sha256": "1a541bb43ab5ed751ea50b9d98d2cebc0218014d69e76d109df0311c07ff252d"
+      "sha256": "c5cb936438a86042c13cf7513b617a5417fe7bd7ee1f2b2d9daad1ea6a8aba84"
     },
     {
       "path": "package.json",
@@ -65,7 +65,7 @@
         ".phpunit.result.cache",
         "vendor"
       ],
-      "sha256": "dfdea01fd45305414ceed2cb91b348a5ab0322a70a44dc2373759b29efaa36b7"
+      "sha256": "27d2190b266790bf35f48cdf65a67d95ea7a78c4e9a7bd9211f14a3a8836c149"
     },
     {
       "path": "packages/php/symfony-bundle",
@@ -73,7 +73,7 @@
         ".phpunit.result.cache",
         "vendor"
       ],
-      "sha256": "b0fc5d8674a1338f940a5019f0cb62ebf699a7e47c1510ffc8f9c34679f58689"
+      "sha256": "bda2ca748bcfb6d2ba3b3e86aaddc9d8be905690a66417f13760d23f026f67d5"
     },
     {
       "path": "packages/protocol",

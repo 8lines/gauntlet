@@ -4,15 +4,15 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "0176ac1688cc8136e45579848516cc6c",
+    "content-hash": "f9569c0a7d1d17b8c15ec6a21a2e46e2",
     "packages": [
         {
             "name": "8lines/gauntlet-php-core",
-            "version": "0.1.8",
+            "version": "0.1.9",
             "dist": {
                 "type": "path",
                 "url": "../../packages/php/core",
-                "reference": "f3929e7f06b8077e2e5dcacdd941e749dba17fca"
+                "reference": "78d018cefb45d6c2bbb2860c38f321359d513dc2"
             },
             "require": {
                 "ext-curl": "*",
@@ -55,14 +55,14 @@
         },
         {
             "name": "8lines/gauntlet-symfony-bundle",
-            "version": "0.1.8",
+            "version": "0.1.9",
             "dist": {
                 "type": "path",
                 "url": "../../packages/php/symfony-bundle",
-                "reference": "c604e4a5e984e9e6e4a60f10b98ee2b87f5fb9d8"
+                "reference": "bf35078b69e8d9e4ed0594aebf8edd438b911971"
             },
             "require": {
-                "8lines/gauntlet-php-core": "^0.1.8",
+                "8lines/gauntlet-php-core": "^0.1.9",
                 "php": ">=8.3",
                 "symfony/config": "^7.4 || ^8.0",
                 "symfony/dependency-injection": "^7.4 || ^8.0",

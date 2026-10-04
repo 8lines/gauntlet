@@ -36,11 +36,11 @@ current. Which package versions work with which application release is listed in
 | `next-adapter` | `@8lines/gauntlet-next-adapter` | 0.1.8 |
 | `conformance-runner` | `@8lines/gauntlet-conformance-runner` | 0.1.8 |
 | `widget` | `@8lines/gauntlet-widget` | 0.1.8 |
-| `php-core` | `8lines/gauntlet-php-core` | 0.1.8 |
-| `symfony-bundle` | `8lines/gauntlet-symfony-bundle` | 0.1.8 |
+| `php-core` | `8lines/gauntlet-php-core` | 0.1.9 |
+| `symfony-bundle` | `8lines/gauntlet-symfony-bundle` | 0.1.9 |
 | `java-core` | `dev.eightlines.gauntlet:core` | 0.1.8 |
 | `spring-boot-starter` | `dev.eightlines.gauntlet:spring-boot-starter` | 0.1.8 |
-| `skills` | `gauntlet-skills` | 0.1.8 |
+| `skills` | `gauntlet-skills` | 0.1.9 |
 <!-- gauntlet:unit-versions:end -->
 
 ## npm
@@ -72,12 +72,12 @@ with an annotated `v<version>` for that package's own version. No custom
 `repositories` entry, `auth.json`, or `COMPOSER_AUTH` is needed:
 
 ```sh
-composer require 8lines/gauntlet-symfony-bundle:0.1.8
+composer require 8lines/gauntlet-symfony-bundle:0.1.9
 ```
 
 The bundle requires the matching `8lines/gauntlet-php-core` release, which
 Composer installs automatically. For a framework-neutral integration, require
-`8lines/gauntlet-php-core:0.1.8` alone. Verify that `composer.lock` records the
+`8lines/gauntlet-php-core:0.1.9` alone. Verify that `composer.lock` records the
 expected package versions and source commits.
 
 The split repositories are read-only release mirrors of

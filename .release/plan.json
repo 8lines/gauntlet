@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "units": [
+    {
+      "id": "php-core",
+      "from": "0.1.8",
+      "to": "0.1.9"
+    },
+    {
+      "id": "symfony-bundle",
+      "from": "0.1.8",
+      "to": "0.1.9"
+    },
+    {
+      "id": "skills",
+      "from": "0.1.8",
+      "to": "0.1.9"
+    }
+  ],
+  "order": [
+    "php-core",
+    "symfony-bundle",
+    "skills"
+  ],
+  "changes": [
+    "rehearsal-php-core.md"
+  ]
+}

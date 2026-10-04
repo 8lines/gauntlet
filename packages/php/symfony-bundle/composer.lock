@@ -4,15 +4,15 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6c39bdbf3ccabf80d5dfb0c2d7bc1335",
+    "content-hash": "8ecc040ef7a4113cc9f54e8f24173328",
     "packages": [
         {
             "name": "8lines/gauntlet-php-core",
-            "version": "0.1.8",
+            "version": "0.1.9",
             "dist": {
                 "type": "path",
                 "url": "../core",
-                "reference": "f3929e7f06b8077e2e5dcacdd941e749dba17fca"
+                "reference": "78d018cefb45d6c2bbb2860c38f321359d513dc2"
             },
             "require": {
                 "ext-curl": "*",

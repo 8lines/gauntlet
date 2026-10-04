@@ -21,8 +21,8 @@ rows of the units it releases and rejects a plan that would break this rule.
 | `next-adapter` | 0.1.8 | protocol 1 | none |
 | `conformance-runner` | 0.1.8 | protocol 1 | none |
 | `widget` | 0.1.8 | none | none |
-| `php-core` | 0.1.8 | protocol 1 | none |
-| `symfony-bundle` | 0.1.8 | protocol 1 | none |
+| `php-core` | 0.1.9 | protocol 1 | none |
+| `symfony-bundle` | 0.1.9 | protocol 1 | none |
 | `java-core` | 0.1.8 | protocol 1 | none |
 | `spring-boot-starter` | 0.1.8 | protocol 1 | none |
-| `skills` | 0.1.8 | none | none |
+| `skills` | 0.1.9 | none | none |

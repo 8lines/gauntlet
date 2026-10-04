@@ -1,6 +1,6 @@
 # Symfony
 
-Support PHP 8.3+ with Symfony 7.4, or PHP 8.4+ with Symfony 8.x. From Packagist, install exact release `0.1.8` of `8lines/gauntlet-php-core` and exact release `0.1.8` of `8lines/gauntlet-symfony-bundle`; do not add custom `repositories` entries, `auth.json`, tokens, or credential-bearing URLs.
+Support PHP 8.3+ with Symfony 7.4, or PHP 8.4+ with Symfony 8.x. From Packagist, install exact release `0.1.9` of `8lines/gauntlet-php-core` and exact release `0.1.9` of `8lines/gauntlet-symfony-bundle`; do not add custom `repositories` entries, `auth.json`, tokens, or credential-bearing URLs.
 
 Register `EightLines\Gauntlet\SymfonyBundle\GauntletBundle` only for explicit non-production environments in `config/bundles.php`. Put its configuration and route import in environment-scoped directories such as `config/packages/staging/` and `config/routes/staging/`. Import `@GauntletBundle/config/routes.php` exactly once with `type: php` and no extra prefix; the bundle already owns `/_gauntlet/v1`.
 
