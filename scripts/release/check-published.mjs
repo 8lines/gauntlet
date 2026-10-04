@@ -27,6 +27,7 @@ import { parseDocument } from "yaml";
 import { withMaterializedCanonicalTree, withOwnedTemporaryWorkspace } from "./archive-consumer.mjs";
 import { parseReleaseVersion, RELEASE_ARTIFACTS } from "./release-model.mjs";
 import { publishComposerPackage } from "./publish-composer.mjs";
+import { unitById, unitTag } from "./units.mjs";
 
 const execFileAsync = promisify(execFile);
 const ROOT = realpathSync(fileURLToPath(new URL("../../", import.meta.url)));
@@ -144,6 +145,10 @@ const publishedDestinations = [
 
 export const PUBLISHED_DESTINATIONS = deeplyFreeze(publishedDestinations);
 
+function evidencePattern(kind) {
+  return kind === "npm" ? NPM_INTEGRITY : kind === "image" ? OCI_DIGEST : kind === "composer" ? COMMIT : SHA256;
+}
+
 function ownData(value, keys, label) {
   if (value === null || typeof value !== "object" || Array.isArray(value) || utilTypes.isProxy(value)
       || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
@@ -191,11 +196,7 @@ function exactEvidence(evidence, source) {
   const result = Object.create(null);
   for (const destination of PUBLISHED_DESTINATIONS) {
     const value = descriptors[destination.id].value;
-    const accepted = destination.kind === "npm" ? NPM_INTEGRITY
-      : destination.kind === "image" ? OCI_DIGEST
-      : destination.kind === "composer" ? COMMIT
-        : SHA256;
-    if (typeof value !== "string" || !accepted.test(value)) {
+    if (typeof value !== "string" || !evidencePattern(destination.kind).test(value)) {
       throw new TypeError(`Published evidence for ${destination.id} is invalid`);
     }
     result[destination.id] = value;
@@ -328,6 +329,63 @@ export function createPublishedCheckPlan(options) {
   return Object.freeze(plan);
 }
 
+const GITHUB_RELEASES = "https://github.com/8lines/gauntlet/releases/tag";
+
+export function unitDestinations(unitId) {
+  const unit = unitById(unitId);
+  const name = unit.artifacts[0];
+  const records = unit.kind === "npm" ? [{ id: `npm:${name.slice("@8lines/gauntlet-".length)}`, kind: "npm", target: name }]
+    : unit.kind === "composer" ? [{
+      id: `composer:${name.slice("8lines/gauntlet-".length)}`,
+      kind: "composer",
+      target: RELEASE_ARTIFACTS.composer.find((artifact) => artifact.name === name).repositoryUrl,
+    }]
+      : unit.kind === "maven" ? [{ id: `maven:${name.split(":")[1]}`, kind: "maven", target: name }]
+        : unit.kind === "application" ? [
+          { id: "image:semantic", kind: "image", target: RELEASE_ARTIFACTS.image.name },
+          { id: "image:commit", kind: "image", target: RELEASE_ARTIFACTS.image.name },
+          { id: "chart:semantic", kind: "chart", target: RELEASE_ARTIFACTS.chart.repository },
+        ]
+          : [];
+  return Object.freeze(records.map((record) => Object.freeze(record)));
+}
+
+function unitTemplates(unitId, tag) {
+  return [...unitDestinations(unitId), Object.freeze({ id: `github:${tag}`, kind: "release", target: GITHUB_RELEASES })];
+}
+
+function unitDestinationUrl(template, version, commit, tag) {
+  return template.kind === "release" ? `${template.target}/${tag}` : destinationUrl(template, version, commit);
+}
+
+export function createUnitCheckPlan(options) {
+  const values = ownData(options, ["unit", "version", "sourceCommit", "evidence"], "Unit check plan options");
+  const unit = unitById(values.unit);
+  const version = stableVersion(values.version);
+  const commit = sourceCommit(values.sourceCommit);
+  const tag = unitTag(unit, version);
+  const templates = unitTemplates(unit.id, tag);
+  const evidence = ownData(values.evidence, templates.map(({ id }) => id), "Unit evidence");
+  return Object.freeze(templates.map((template) => {
+    const expectedEvidence = evidence[template.id];
+    if (typeof expectedEvidence !== "string" || !evidencePattern(template.kind).test(expectedEvidence)) {
+      throw new TypeError(`Published evidence for ${template.id} is invalid`);
+    }
+    return Object.freeze({
+      id: template.id, unit: unit.id, kind: template.kind,
+      destination: unitDestinationUrl(template, version, commit, tag), expectedEvidence, version, tag,
+    });
+  }));
+}
+
+function assertUnitChecks(checks) {
+  if (!Array.isArray(checks) || checks.length === 0 || checks.some((check) => !Object.isFrozen(check)
+      || typeof check.id !== "string" || check.unit !== checks[0].unit || typeof check.expectedEvidence !== "string")) {
+    throw new TypeError("Published unit check plan is invalid");
+  }
+  return checks;
+}
+
 function assertPlan(plan) {
   if (!Array.isArray(plan) || utilTypes.isProxy(plan) || plan.length !== PUBLISHED_DESTINATIONS.length) {
     throw new TypeError("Published check plan is invalid");
@@ -387,6 +445,53 @@ export function evaluatePublishedState(plan, observations) {
     }
   }
   return "already-identical";
+}
+
+export function evaluateUnitState(checks, observations) {
+  assertUnitChecks(checks);
+  if (!Array.isArray(observations) || utilTypes.isProxy(observations) || observations.length !== checks.length) {
+    throw new Error("Remote probes did not return a complete observation set");
+  }
+  const byId = new Map();
+  for (const candidate of observations) {
+    const expected = checks.find((check) => check.id === candidate?.id);
+    if (expected === undefined || byId.has(expected.id)) throw new Error("Remote probes did not return a complete observation set");
+    byId.set(expected.id, observationValue(candidate, expected));
+  }
+  const ordered = checks.map(({ id }) => byId.get(id));
+  const present = ordered.filter(({ state }) => state === "present");
+  if (present.length === 0) return "clean";
+  for (const [index, observation] of ordered.entries()) {
+    if (observation.state === "present" && observation.evidence !== checks[index].expectedEvidence) {
+      throw new Error(`Remote destination ${observation.id} has different evidence`);
+    }
+  }
+  if (present.length !== checks.length) throw new Error(`Release unit ${checks[0].unit} is partially published`);
+  return "already-identical";
+}
+
+export function evaluateReleaseSetState(plans, observations) {
+  if (!Array.isArray(plans) || plans.length === 0 || !Array.isArray(observations) || utilTypes.isProxy(observations)
+      || observations.length !== plans.reduce((total, checks) => total + assertUnitChecks(checks).length, 0)
+      || new Set(plans.map((checks) => checks[0].unit)).size !== plans.length) {
+    throw new Error("Remote probes did not return a complete observation set");
+  }
+  return Object.freeze(plans.map((checks) => {
+    const ids = new Set(checks.map(({ id }) => id));
+    const state = evaluateUnitState(checks, observations.filter((observation) => ids.has(observation?.id)));
+    return Object.freeze({ id: checks[0].unit, state });
+  }));
+}
+
+export async function checkUnitDestinations(options) {
+  const values = ownData(options, ["plans", "probe"], "Published unit check options");
+  if (typeof values.probe !== "function") throw new TypeError("Published destination probe must be a function");
+  if (!Array.isArray(values.plans)) throw new TypeError("Published unit check plan is invalid");
+  const checks = values.plans.flatMap((checksOfUnit) => assertUnitChecks(checksOfUnit));
+  const settled = await Promise.allSettled(checks.map((check) => Promise.resolve().then(() => values.probe(check))));
+  const failure = settled.find(({ status }) => status === "rejected");
+  if (failure !== undefined) throw failure.reason;
+  return evaluateReleaseSetState(values.plans, settled.map(({ value }) => value));
 }
 
 export async function checkPublishedDestinations(options) {
