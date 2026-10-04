@@ -39,6 +39,26 @@ export const METHOD_NOT_ALLOWED_PROBLEM: Problem = Object.freeze({
   title: "Method not allowed",
   status: 405,
 });
+export const UNAUTHENTICATED_PROBLEM: Problem = Object.freeze({
+  type: "urn:gauntlet:problem:unauthenticated",
+  title: "Authentication required",
+  status: 401,
+});
+export const INVALID_CREDENTIALS_PROBLEM: Problem = Object.freeze({
+  type: "urn:gauntlet:problem:invalid-credentials",
+  title: "Invalid credentials",
+  status: 401,
+});
+export const RATE_LIMITED_PROBLEM: Problem = Object.freeze({
+  type: "urn:gauntlet:problem:rate-limited",
+  title: "Too many attempts",
+  status: 429,
+});
+export const CROSS_SITE_REQUEST_PROBLEM: Problem = Object.freeze({
+  type: "urn:gauntlet:problem:cross-site-request",
+  title: "Cross-site request rejected",
+  status: 403,
+});
 export const INTERNAL_ERROR_PROBLEM: Problem = Object.freeze({
   type: "urn:gauntlet:problem:internal-error",
   title: "Internal server error",
