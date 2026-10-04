@@ -4,6 +4,7 @@ import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { COMPATIBILITY_PATH, compatibilityDocumentProblems } from "../release/compatibility.mjs";
 import { findUnboundPins, listTrackedFiles } from "../release/pins.mjs";
 import { readUnitVersion } from "../release/release-model.mjs";
 import { RELEASE_UNITS } from "../release/units.mjs";
@@ -284,6 +285,9 @@ export async function checkDocumentation({ root: rawRoot, trackedFiles }) {
       const error = localLinkError(root, owner, target);
       if (error !== undefined) errors.push(error);
     }
+  }
+  if (versions !== undefined && versions.size === RELEASE_UNITS.length && documents.has(COMPATIBILITY_PATH)) {
+    errors.push(...compatibilityDocumentProblems(documents.get(COMPATIBILITY_PATH), versions));
   }
   if (trackedFiles !== undefined) errors.push(...findUnboundPins(root, trackedFiles));
   return Object.freeze({ errors: Object.freeze([...new Set(errors)].sort(compare)) });

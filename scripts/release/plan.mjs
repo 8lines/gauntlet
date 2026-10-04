@@ -6,6 +6,7 @@ import { lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFile
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { COMPATIBILITY_PATH, compatibilityProblems, readCompatibilityDocument } from "./compatibility.mjs";
 import { parseReleaseVersion, readUnitVersions } from "./release-model.mjs";
 import { RELEASE_UNITS, dependencyOrder, unitById, unitTag } from "./units.mjs";
 
@@ -343,7 +344,9 @@ function jsonLine(value) {
   return `${JSON.stringify(value)}\n`;
 }
 
-export function runPlanCli(argv, { root = REPOSITORY_ROOT, readVersions = readUnitVersions, readTags = readRepositoryTags } = {}) {
+export function runPlanCli(argv, {
+  root = REPOSITORY_ROOT, readVersions = readUnitVersions, readTags = readRepositoryTags, readCompatibility = readCompatibilityDocument,
+} = {}) {
   let command;
   try {
     command = parsePlanArguments(argv);
@@ -372,10 +375,17 @@ export function runPlanCli(argv, { root = REPOSITORY_ROOT, readVersions = readUn
       };
     }
     const plan = readReleasePlan(root);
+    let compatibility;
+    try {
+      compatibility = compatibilityProblems(plan, readCompatibility(root));
+    } catch {
+      compatibility = [`compatibility: ${COMPATIBILITY_PATH} is missing or invalid`];
+    }
     const problems = [
       ...(plan.units.length === 0 ? ["release plan has no units"] : []),
       ...validatePlanAgainstManifests(plan, versions),
       ...validatePlanAgainstTags(plan, { versions, tags, commit: command.commit }),
+      ...compatibility,
     ];
     return {
       exitCode: problems.length === 0 ? 0 : 1,

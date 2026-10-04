@@ -22,7 +22,8 @@ enable an adapter in production. See the
 ## Current versions
 
 Each release unit has its own version. `pnpm release:prepare` keeps this table
-current.
+current. Which package versions work with which application release is listed in
+[compatibility](../reference/compatibility.md).
 
 <!-- gauntlet:unit-versions:start -->
 | Unit | Published as | Version |

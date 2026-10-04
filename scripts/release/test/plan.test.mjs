@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
+import { catalogEntries } from "../compatibility.mjs";
 import {
   RELEASE_GATES, allUnitsPlan, buildReleasePlan, compareVersions, createReleasePlan, isReleaseTagName,
   latestUnitVersion, localReleaseSetId, parseReleasePlan, parseReleaseSetId, parseTagListing, planGates,
@@ -199,7 +200,8 @@ test("the plan CLI writes the computed plan and checks a committed one", (t) => 
   });
   assert.equal(readFileSync(join(root, ".release/plan.json"), "utf8"), serializeReleasePlan(buildReleasePlan(readVersions(), readTags())));
 
-  const checked = runPlanCli(["--check", "--release-set", "release-2026-10-03.1", "--commit", COMMIT], { root, readVersions, readTags });
+  const readCompatibility = () => catalogEntries(versionsAt("0.1.8"));
+  const checked = runPlanCli(["--check", "--release-set", "release-2026-10-03.1", "--commit", COMMIT], { root, readVersions, readTags, readCompatibility });
   assert.equal(checked.exitCode, 0, checked.stderr);
   assert.deepEqual(JSON.parse(checked.stdout), {
     command: "check", ok: true, releaseSet: "release-2026-10-03.1", units, order: ["gauntlet", "skills"],
@@ -207,7 +209,7 @@ test("the plan CLI writes the computed plan and checks a committed one", (t) => 
   });
 
   const drifted = runPlanCli(["--check"], {
-    root, readVersions: () => versionsAt("0.1.8", { gauntlet: "0.1.10", skills: "0.1.9" }), readTags,
+    root, readVersions: () => versionsAt("0.1.8", { gauntlet: "0.1.10", skills: "0.1.9" }), readTags, readCompatibility,
   });
   assert.equal(drifted.exitCode, 1);
   assert.deepEqual(JSON.parse(drifted.stdout).problems, [
@@ -216,13 +218,35 @@ test("the plan CLI writes the computed plan and checks a committed one", (t) => 
   ]);
 
   writeFileSync(join(root, ".release/plan.json"), serializeReleasePlan(createReleasePlan([])));
-  const empty = runPlanCli(["--check"], { root, readVersions: () => versionsAt("0.1.8"), readTags });
+  const empty = runPlanCli(["--check"], { root, readVersions: () => versionsAt("0.1.8"), readTags, readCompatibility });
   assert.equal(empty.exitCode, 1);
   assert.deepEqual(JSON.parse(empty.stdout).problems, ["release plan has no units"]);
 
   for (const argv of [["--check", "--release-set", "v0.1.9"], ["--check", "--commit", "short"], ["--bogus"]]) {
     assert.equal(runPlanCli(argv, { root, readVersions, readTags }).exitCode, 2, argv.join(" "));
   }
+});
+
+test("plan --check rejects a plan the released application cannot serve, and a missing ledger", (t) => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "gauntlet-plan-compatibility-")));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, ".release"));
+  writeFileSync(join(root, ".release/plan.json"), serializeReleasePlan(createReleasePlan([{ id: "typescript-core", from: "0.1.8", to: "0.1.9" }])));
+  const options = { root, readVersions: () => versionsAt("0.1.8", { "typescript-core": "0.1.9" }), readTags: () => baselineTags() };
+  const narrowed = () => catalogEntries(versionsAt("0.1.8")).map((entry) => (entry.id === "gauntlet"
+    ? { ...entry, supports: { protocol: [2], widgetChannel: [1] } } : entry));
+  const rejected = runPlanCli(["--check"], { ...options, readCompatibility: narrowed });
+  assert.equal(rejected.exitCode, 1);
+  // The released application (its recorded row, since gauntlet is not planned) supports only protocol 2,
+  // so the planned typescript-core and every recorded protocol 1 package are rejected, in catalog order.
+  assert.deepEqual(JSON.parse(rejected.stdout).problems, [
+    "gauntlet: its supported contracts changed without a gauntlet release",
+    ...["protocol", "dashboard-client", "typescript-core", "typescript-node", "next-adapter", "conformance-runner",
+      "php-core", "symfony-bundle", "java-core", "spring-boot-starter"]
+      .map((id) => `${id}: implements protocol 1, which gauntlet 0.1.8 does not support`),
+  ]);
+  const missing = runPlanCli(["--check"], { ...options, readCompatibility: () => { throw new Error("absent"); } });
+  assert.deepEqual(JSON.parse(missing.stdout).problems, ["compatibility: docs/reference/compatibility.md is missing or invalid"]);
 });
 
 test("the plan CLI refuses to write an empty plan and keeps the previous one", (t) => {

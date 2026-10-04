@@ -5,11 +5,13 @@ import { resolve } from "node:path";
 import test from "node:test";
 
 import { writePublicationReceipt } from "../check-published.mjs";
+import { COMPATIBILITY_PATH, catalogEntries, renderCompatibilityDocument } from "../compatibility.mjs";
 import { createReleasePlan, serializeReleasePlan } from "../plan.mjs";
 import {
   changelogPath, changelogSection, planOutputs, preflightOutputs, releaseNotes, requireUnitState, runReleaseSetCli, unitField,
   unitTitle,
 } from "../release-set.mjs";
+import { RELEASE_UNITS } from "../units.mjs";
 import { releaseFixture, SET } from "./release-fixture.mjs";
 
 const MANIFEST = Object.freeze({
@@ -85,11 +87,12 @@ test("notes use the unit changelog section when present and name the release set
   const source = "# Changelog\n\n## [0.1.9] - 2026-10-03\n\n### Fixed\n\n- A thing.\n\n## [0.1.8] - 2026-10-02\n\n- Old.\n";
   assert.equal(changelogSection(source, "0.1.9"), "### Fixed\n\n- A thing.");
   assert.equal(changelogSection(source, "0.1.10"), null);
-  assert.deepEqual(releaseNotes({ changelog: "### Fixed\n\n- A thing.", releaseSet: "release-2026-10-03.1" }), {
-    mode: "changelog", text: "### Fixed\n\n- A thing.\n\nRelease set `release-2026-10-03.1`.\n",
+  const compatibility = "Compatibility: protocol 0.1.9 implements adapter protocol 1; Gauntlet 0.1.9 supports adapter protocol 1 and widget channel 1.";
+  assert.deepEqual(releaseNotes({ changelog: "### Fixed\n\n- A thing.", compatibility, releaseSet: "release-2026-10-03.1" }), {
+    mode: "changelog", text: `### Fixed\n\n- A thing.\n\n${compatibility}\n\nRelease set \`release-2026-10-03.1\`.\n`,
   });
-  assert.deepEqual(releaseNotes({ changelog: null, releaseSet: "release-2026-10-03.1" }), {
-    mode: "generated", text: "Release set `release-2026-10-03.1`.\n",
+  assert.deepEqual(releaseNotes({ changelog: null, compatibility, releaseSet: "release-2026-10-03.1" }), {
+    mode: "generated", text: `${compatibility}\n\nRelease set \`release-2026-10-03.1\`.\n`,
   });
 });
 
@@ -112,8 +115,13 @@ function finalizedFixture(t, units) {
 function scratchDirectory(t) {
   const directory = realpathSync(mkdtempSync(resolve(tmpdir(), "gauntlet-release-set-test-")));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
+  mkdirSync(resolve(directory, "docs/reference"), { recursive: true });
+  writeFileSync(resolve(directory, COMPATIBILITY_PATH),
+    renderCompatibilityDocument(catalogEntries(new Map(RELEASE_UNITS.map(({ id }) => [id, "0.1.0"])))));
   return directory;
 }
+
+const SKILLS_LINE = "Compatibility: skills 0.1.0 has no versioned runtime contract with the application.";
 
 test("assets list the finalized skills files and skills has no registry artifact", (t) => {
   const { root } = finalizedFixture(t, [{ id: "skills", version: "0.1.0" }]);
@@ -187,17 +195,27 @@ test("notes fall back to generated mode, use a unit changelog section and refuse
   const output = resolve(repository, "notes.md");
   const run = (path) => runReleaseSetCli(["notes", "--release-directory", root, "--unit", "skills", "--output", path], { root: repository });
   assert.deepEqual([run(output).exitCode, run(resolve(repository, "other.md")).stdout], [0, "generated\n"]);
-  assert.equal(readFileSync(output, "utf8"), `Release set \`${SET}\`.\n`);
+  assert.equal(readFileSync(output, "utf8"), `${SKILLS_LINE}\n\nRelease set \`${SET}\`.\n`);
   assert.equal(run(output).exitCode, 1);
 
   mkdirSync(resolve(repository, "skills"));
   writeFileSync(resolve(repository, "skills/CHANGELOG.md"), "# Changelog\n\n## [0.1.0] - 2026-10-03\n\n- First.\n");
   const second = resolve(repository, "second.md");
   assert.deepEqual([run(second).exitCode, run(resolve(repository, "third.md")).stdout], [0, "changelog\n"]);
-  assert.equal(readFileSync(second, "utf8"), `- First.\n\nRelease set \`${SET}\`.\n`);
+  assert.equal(readFileSync(second, "utf8"), `- First.\n\n${SKILLS_LINE}\n\nRelease set \`${SET}\`.\n`);
 
   writeFileSync(resolve(repository, "skills/CHANGELOG.md"), "# Changelog\n\n## [0.0.9]\n\n- Old.\n");
   assert.equal(run(resolve(repository, "fourth.md")).stdout, "generated\n");
+});
+
+test("notes refuse a ledger row that does not record the released version", (t) => {
+  const { root } = releaseFixture(t, [{ id: "skills", version: "0.1.0" }]);
+  const repository = scratchDirectory(t);
+  writeFileSync(resolve(repository, COMPATIBILITY_PATH),
+    renderCompatibilityDocument(catalogEntries(new Map(RELEASE_UNITS.map(({ id }) => [id, "0.0.9"])))));
+  const result = runReleaseSetCli(["notes", "--release-directory", root, "--unit", "skills", "--output", resolve(repository, "n.md")], { root: repository });
+  assert.equal(result.exitCode, 1);
+  assert.equal(JSON.parse(result.stderr).error.message, "Compatibility document records skills 0.0.9, not the released 0.1.0");
 });
 
 test("notes refuse a symbolic-link changelog and never write through a symbolic-link output", (t) => {

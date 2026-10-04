@@ -53,6 +53,7 @@ boundaries, request flow and state ownership. Details live in focused references
 | --- | --- |
 | REST endpoints, request/response behavior and errors | [Control-plane HTTP API](reference/control-plane-api.md) |
 | Operation definitions, profiles and capabilities | [Protocol model](reference/protocol-model.md) |
+| Which package versions work with which application release | [Compatibility](reference/compatibility.md) |
 | Idempotency, timeout, cancellation and scaling | [Run lifecycle](reference/run-lifecycle.md) |
 | Source directories and responsibilities | [Repository guide](reference/repository.md) |
 | Canonical Adapter v1 wire contract | [Protocol package](../packages/protocol/README.md), [OpenAPI](../packages/protocol/openapi/adapter-v1.yaml), [JSON Schemas](../packages/protocol/schemas/v1) |

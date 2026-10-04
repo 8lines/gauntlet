@@ -41,6 +41,7 @@
     "docs/local-development.md",
     "docs/mockups/README.md",
     "docs/reference/control-plane-api.md",
+    "docs/reference/compatibility.md",
     "docs/reference/protocol-model.md",
     "docs/reference/repository.md",
     "docs/reference/run-lifecycle.md",
