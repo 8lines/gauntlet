@@ -51,7 +51,8 @@ function versionOutput(version = "0.1.0") {
     command: "check",
     mismatches: [],
     ok: true,
-    tag: null,
+    plan: null,
+    units: [],
     version,
   })}\n`;
 }
@@ -403,7 +404,7 @@ test("unneeded phases are skipped and never invoked", async () => {
   const report = await runPhases({ root: "/workspace/gauntlet", plan, runner: async (invocation) => {
     calls.push(invocation.phase);
     return { status: 0, signal: null, stderr: "", stdout: invocation.args[0] === "scripts/release/version.mjs"
-      ? `${JSON.stringify({ command: "check", mismatches: [], ok: true, tag: null, version: "0.1.8" })}\n` : "" };
+      ? `${JSON.stringify({ command: "check", mismatches: [], ok: true, plan: null, units: [], version: "0.1.8" })}\n` : "" };
   } });
   assert.deepEqual([...new Set(calls)], ["source", "php", "conformance", "documentation"]);
   assert.deepEqual(report.units, ["php-core"]);

@@ -49,7 +49,7 @@ function jsonLine(value) {
 }
 
 function versionReport(version = VERSION) {
-  return jsonLine({ command: "check", mismatches: [], ok: true, tag: null, version });
+  return jsonLine({ command: "check", mismatches: [], ok: true, plan: null, units: [], version });
 }
 
 function developmentReport(version = VERSION, { units = ALL_UNITS_PLAN.order } = {}) {

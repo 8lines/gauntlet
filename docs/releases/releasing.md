@@ -33,9 +33,11 @@ tag: `gauntlet` (the application, tag `v<version>`), `protocol`,
 in `scripts/release/units.mjs`, and every unit reads its version from its own
 manifest or `VERSION` file.
 
-Until plan-driven publishing lands, the release workflow still publishes one
-lockstep release, so every unit version must equal the root `VERSION`. The
-lockstep guard (`pnpm release:version --check`) fails otherwise.
+Units are versioned and released independently. `pnpm release:version --check`
+validates every slot against its own unit, and `--plan .release/plan.json` also
+checks the plan against the manifests.
+`node scripts/release/version.mjs --set-unit <unit> X.Y.Z` moves one unit and
+every slot bound to it.
 
 Each unit needs a baseline tag so later releases can be compared against it.
 The baseline is `e3f80e5`, the v0.1.8 release commit. Preview the tags that

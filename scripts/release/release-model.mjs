@@ -161,7 +161,6 @@ function assertReleaseCatalog(catalog) {
 
 assertReleaseCatalog(releaseArtifacts);
 export const RELEASE_ARTIFACTS = deeplyFreeze(releaseArtifacts);
-export const RELEASE_STAGE_ARTIFACT_COUNT = 19;
 
 export function parseReleaseVersion(raw) {
   let bytes;
@@ -470,10 +469,6 @@ const RELEASE_TEXT_FILES = deeplyFreeze([
     ],
   },
   {
-    path: "skills/gauntlet-app-integration/SKILL.md",
-    slots: [{ unit: "skills", prefix: "Consume exact `", suffix: "` artifacts;" }],
-  },
-  {
     path: "skills/gauntlet-app-integration/references/node.md",
     slots: [
       { unit: "protocol", prefix: "@8lines/gauntlet-protocol@", suffix: " \\\n" },
@@ -491,7 +486,10 @@ const RELEASE_TEXT_FILES = deeplyFreeze([
   },
   {
     path: "skills/gauntlet-app-integration/references/symfony.md",
-    slots: [{ unit: "php-core", prefix: "install exact release `", suffix: "` of `8lines/gauntlet-php-core`" }],
+    slots: [
+      { unit: "php-core", prefix: "install exact release `", suffix: "` of `8lines/gauntlet-php-core`" },
+      { unit: "symfony-bundle", prefix: "and exact release `", suffix: "` of `8lines/gauntlet-symfony-bundle`" },
+    ],
   },
   {
     path: "skills/gauntlet-app-integration/references/spring.md",
@@ -608,24 +606,12 @@ export function readUnitVersion(root, id) {
   }
 }
 
-// The Java source and release checks build both artifacts from one captured tree, so both
-// unit VERSION records must be present and agree until the checks learn per-artifact versions.
-export function javaLockstepVersion(records) {
-  const versions = ["packages/java/core/VERSION", "packages/java/spring-boot-starter/VERSION"].map((path) => {
-    const record = records.find(({ relativePath }) => relativePath === path);
-    if (record === undefined) throw new Error(VERSION_ERROR);
-    return parseReleaseVersion(record.bytes);
-  });
-  if (versions[0] !== versions[1]) throw new Error(VERSION_ERROR);
-  return versions[0];
-}
-
 export function readUnitVersions(root) {
   return new Map(RELEASE_UNITS.map(({ id }) => [id, readUnitVersion(root, id)]));
 }
 
-// Until plan-driven publishing exists, every unit is still released at the application version.
-export const LOCKSTEP_RELEASES = true;
+// Units are versioned and released independently; plan-driven publishing replaced the lockstep guard.
+export const LOCKSTEP_RELEASES = false;
 
 function readableUnitVersions(root) {
   const versions = new Map();
@@ -723,23 +709,8 @@ export function collectUnitVersionMismatches(root) {
   return inspectUnitVersions(root).mismatches;
 }
 
-export function collectVersionMismatches(root, expectedTag) {
-  const { mismatches, versions } = inspectUnitVersions(root);
-  const applicationVersion = versions.get("gauntlet");
-
-  if (expectedTag !== undefined && expectedTag !== `v${applicationVersion ?? ""}`) {
-    mismatches.push(`tag: must equal ${applicationVersion === undefined ? "vVERSION" : `v${applicationVersion}`}`);
-  }
-
-  if (LOCKSTEP_RELEASES && applicationVersion !== undefined) {
-    for (const [id, version] of versions) {
-      if (version !== applicationVersion) {
-        mismatches.push(`${id}: version ${version} must equal VERSION ${applicationVersion} until plan-driven publishing`);
-      }
-    }
-  }
-
-  return mismatches;
+export function collectVersionMismatches(root) {
+  return collectUnitVersionMismatches(root);
 }
 
 export const VERSION_LOCATIONS = deeplyFreeze([

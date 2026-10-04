@@ -5,6 +5,26 @@ import test from "node:test";
 import { checkDocumentation } from "../check-docs.mjs";
 import { fixture } from "./support.mjs";
 
+const UNIT_VERSION_FILES = Object.freeze({
+  "VERSION": "0.1.0\n",
+  "packages/java/core/VERSION": "0.1.0\n",
+  "packages/java/spring-boot-starter/VERSION": "0.1.0\n",
+  ...Object.fromEntries([
+    "packages/protocol",
+    "packages/dashboard-client",
+    "packages/typescript/core",
+    "packages/typescript/node",
+    "packages/typescript/next",
+    "conformance/runner",
+    "packages/widget",
+    "packages/php/core",
+    "packages/php/symfony-bundle",
+  ].map((directory) => [
+    `${directory}/${directory.startsWith("packages/php/") ? "composer" : "package"}.json`,
+    `${JSON.stringify({ name: "fixture", version: "0.1.0" })}\n`,
+  ])),
+});
+
 test("reports missing files, broken local links, stale claims, and unsafe coordinates", async (t) => {
   const root = await fixture({
     "README.md": [
@@ -78,7 +98,7 @@ test("rejects malformed and open documentation manifests", async (t) => {
 
 test("rejects snapshot, ranged, and scalar released SDK examples", async (t) => {
   const root = await fixture({
-    VERSION: "0.1.0\n",
+    ...UNIT_VERSION_FILES,
     "packages/java/README.md": [
       "`dev.eightlines.gauntlet:core:0.1.0-SNAPSHOT`",
       "`dev.eightlines.gauntlet:spring-boot-starter:0.1.0`",
@@ -128,7 +148,7 @@ test("rejects snapshot, ranged, and scalar released SDK examples", async (t) => 
 
 test("accepts exact released SDK coordinates and structured environments", async (t) => {
   const root = await fixture({
-    VERSION: "0.1.0\n",
+    ...UNIT_VERSION_FILES,
     "packages/java/README.md": [
       "`dev.eightlines.gauntlet:core:0.1.0`",
       "`dev.eightlines.gauntlet:spring-boot-starter:0.1.0`",
@@ -185,7 +205,7 @@ test("rejects released SDK guides with required consumer coordinates removed", a
     "",
   ].join("\n");
   const root = await fixture({
-    VERSION: "0.1.0\n",
+    ...UNIT_VERSION_FILES,
     "packages/java/README.md": structuredEnvironment,
     "packages/java/spring-boot-starter/README.md": structuredEnvironment,
     "packages/php/symfony-bundle/README.md": structuredEnvironment,
@@ -209,26 +229,6 @@ test("rejects released SDK guides with required consumer coordinates removed", a
     "packages/php/symfony-bundle/README.md is missing Composer consumer coordinate 8lines/gauntlet-php-core:0.1.0",
     "packages/php/symfony-bundle/README.md is missing Composer consumer coordinate 8lines/gauntlet-symfony-bundle:0.1.0",
   ]);
-});
-
-const UNIT_VERSION_FILES = Object.freeze({
-  "VERSION": "0.1.0\n",
-  "packages/java/core/VERSION": "0.1.0\n",
-  "packages/java/spring-boot-starter/VERSION": "0.1.0\n",
-  ...Object.fromEntries([
-    "packages/protocol",
-    "packages/dashboard-client",
-    "packages/typescript/core",
-    "packages/typescript/node",
-    "packages/typescript/next",
-    "conformance/runner",
-    "packages/widget",
-    "packages/php/core",
-    "packages/php/symfony-bundle",
-  ].map((directory) => [
-    `${directory}/${directory.startsWith("packages/php/") ? "composer" : "package"}.json`,
-    `${JSON.stringify({ name: "fixture", version: "0.1.0" })}\n`,
-  ])),
 });
 
 function unitFixture(files, overrides = {}) {

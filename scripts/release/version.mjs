@@ -10,9 +10,13 @@ import {
   setReleaseVersion,
   setUnitVersions,
 } from "./release-model.mjs";
+import { readReleasePlan, validatePlanAgainstManifests } from "./plan.mjs";
 import { unitById } from "./units.mjs";
 
-const USAGE = "Usage: version.mjs --check [--tag vX.Y.Z] | --set X.Y.Z | --set-unit UNIT X.Y.Z";
+const USAGE = "Usage: version.mjs --check [--plan PATH] | --set X.Y.Z | --set-unit UNIT X.Y.Z";
+// readReleasePlan fails with one of these fixed, value-free messages; anything else is reported generically.
+const PLAN_MISSING = "Release plan is missing or unsafe";
+const PLAN_MESSAGES = new Set(["Release plan is invalid", PLAN_MISSING, "Release plan path must stay inside the repository"]);
 const REPOSITORY_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 
 function invalidArguments() {
@@ -31,10 +35,8 @@ function parseArgumentVersion(value) {
 export function parseVersionCommand(argv) {
   if (!Array.isArray(argv) || argv.some((value) => typeof value !== "string")) throw invalidArguments();
   if (argv.length === 1 && argv[0] === "--check") return { command: "check" };
-  if (argv.length === 3 && argv[0] === "--check" && argv[1] === "--tag") {
-    const tag = argv[2];
-    if (!tag.startsWith("v") || parseArgumentVersion(tag.slice(1)) !== tag.slice(1)) throw invalidArguments();
-    return { command: "check", tag };
+  if (argv.length === 3 && argv[0] === "--check" && argv[1] === "--plan" && argv[2].length > 0) {
+    return { command: "check", plan: argv[2] };
   }
   if (argv.length === 2 && argv[0] === "--set") {
     return { command: "set", version: parseArgumentVersion(argv[1]) };
@@ -48,6 +50,23 @@ export function parseVersionCommand(argv) {
     return { command: "set-unit", unit: argv[1], version: parseArgumentVersion(argv[2]) };
   }
   throw invalidArguments();
+}
+
+function planMismatches(root, path) {
+  let plan;
+  try {
+    plan = readReleasePlan(root, path);
+  } catch (error) {
+    return [`plan: ${error instanceof Error && PLAN_MESSAGES.has(error.message) ? error.message : PLAN_MISSING}`];
+  }
+  let versions;
+  try {
+    versions = readUnitVersions(root);
+  } catch {
+    // An unreadable unit is already a version mismatch; the plan is compared once every unit reads.
+    return [];
+  }
+  return validatePlanAgainstManifests(plan, versions).map((problem) => `plan: ${problem}`);
 }
 
 function jsonLine(value) {
@@ -80,7 +99,8 @@ export function runVersionCli(argv, { root = REPOSITORY_ROOT } = {}) {
   try {
     if (command.command === "check") {
       const version = readReleaseVersion(root);
-      const mismatches = collectVersionMismatches(root, command.tag);
+      const mismatches = collectVersionMismatches(root);
+      if (command.plan !== undefined) mismatches.push(...planMismatches(root, command.plan));
       // stage, verify and dry-run parse stdout as exactly one JSON line, so the per-unit
       // "<unit> <version>" lines travel inside that record instead of as extra output lines.
       const units = mismatches.length === 0
@@ -92,7 +112,7 @@ export function runVersionCli(argv, { root = REPOSITORY_ROOT } = {}) {
           command: "check",
           mismatches,
           ok: mismatches.length === 0,
-          tag: command.tag ?? null,
+          plan: command.plan ?? null,
           units,
           version,
         }),

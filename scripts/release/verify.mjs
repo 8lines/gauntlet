@@ -277,7 +277,7 @@ function oneJsonLine(source) {
 
 function validateVersionOutput(result) {
   const value = oneJsonLine(result.stdout);
-  if (result.stderr !== "" || value.command !== "check" || value.ok !== true || value.tag !== null
+  if (result.stderr !== "" || value.command !== "check" || value.ok !== true || value.plan !== null
       || !Array.isArray(value.mismatches) || value.mismatches.length !== 0) throw new Error();
   return stableVersion(value.version);
 }
