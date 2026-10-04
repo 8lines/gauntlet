@@ -88,15 +88,25 @@ function planEntry(entry) {
   return Object.freeze({ id: unit.id, from: entry.from, to });
 }
 
-export function createReleasePlan(entries) {
+export const CHANGE_FILE_NAME = /^[a-z0-9][a-z0-9-]{0,63}\.md$/u;
+
+function planChanges(changes) {
+  if (!Array.isArray(changes) || changes.some((name) => typeof name !== "string" || !CHANGE_FILE_NAME.test(name))
+      || new Set(changes).size !== changes.length) throw new Error(PLAN_FAILURE);
+  return Object.freeze([...changes].sort());
+}
+
+export function createReleasePlan(entries, { changes = [] } = {}) {
   const list = [...entries].map(planEntry);
   const byId = new Map(list.map((entry) => [entry.id, entry]));
   if (byId.size !== list.length) throw new Error(PLAN_FAILURE);
   const order = dependencyOrder([...byId.keys()]);
+  const consumed = planChanges(changes);
   return Object.freeze({
     schemaVersion: 1,
     units: Object.freeze(order.map((id) => byId.get(id))),
     order: Object.freeze([...order]),
+    ...(consumed.length > 0 ? { changes: consumed } : {}),
   });
 }
 
@@ -105,6 +115,7 @@ export function serializeReleasePlan(plan) {
     schemaVersion: 1,
     units: plan.units.map(({ id, from, to }) => ({ id, from, to })),
     order: [...plan.order],
+    ...(plan.changes?.length > 0 ? { changes: [...plan.changes] } : {}),
   }, null, 2)}\n`;
 }
 
@@ -118,7 +129,7 @@ export function parseReleasePlan(source) {
   }
   if (value === null || typeof value !== "object" || Array.isArray(value) || value.schemaVersion !== 1
       || !Array.isArray(value.units) || !Array.isArray(value.order)) throw new Error(PLAN_FAILURE);
-  const plan = createReleasePlan(value.units);
+  const plan = createReleasePlan(value.units, { changes: value.changes ?? [] });
   if (serializeReleasePlan(plan) !== source) throw new Error(PLAN_FAILURE);
   return plan;
 }

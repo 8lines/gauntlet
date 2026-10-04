@@ -285,3 +285,18 @@ test("the plan CLI writes an all-units plan only below the ignored artifacts tre
   assert.equal(linked.exitCode, 1);
   assert.equal(readFileSync(join(root, ".release/plan.json"), "utf8"), committed);
 });
+
+test("a plan records the change files it consumed, sorted, only when there are any", () => {
+  const units = [{ id: "gauntlet", from: "0.1.8", to: "0.1.9" }, { id: "skills", from: "0.1.8", to: "0.1.9" }];
+  const plan = createReleasePlan(units, { changes: ["sidebar.md", "colors.md"] });
+  assert.deepEqual(plan.changes, ["colors.md", "sidebar.md"]);
+  const source = serializeReleasePlan(plan);
+  assert.equal(source, `${JSON.stringify({ schemaVersion: 1, units, order: ["gauntlet", "skills"], changes: ["colors.md", "sidebar.md"] }, null, 2)}\n`);
+  assert.deepEqual(parseReleasePlan(source), plan);
+  assert.equal(Object.hasOwn(createReleasePlan(units), "changes"), false);
+  const toSource = (changes) => `${JSON.stringify({ schemaVersion: 1, units, order: ["gauntlet", "skills"], changes }, null, 2)}\n`;
+  for (const changes of [[], ["sidebar.md", "colors.md"], ["../x.md"], ["a.md", "a.md"], "a.md"]) {
+    assert.throws(() => parseReleasePlan(toSource(changes)), /Release plan is invalid/u, JSON.stringify(changes));
+  }
+  assert.throws(() => createReleasePlan(units, { changes: ["Upper.md"] }), /Release plan is invalid/u);
+});
