@@ -11,7 +11,8 @@ the explicit publication trigger.
 - `VERSION`, npm/Composer/Maven manifests, Helm metadata, image labels, and
   documentation all agree;
 - CI passes the Node.js, PHP/Symfony, Java/Spring, conformance, dashboard,
-  deployment, security, package-consumer, skill, and documentation gates;
+  widget, widget-panel, deployment, skills, security, package-consumer, and
+  documentation gates;
 - the protected `release` environment, its secrets, and every public
   destination are configured as described in
   [repository configuration](#repository-configuration);

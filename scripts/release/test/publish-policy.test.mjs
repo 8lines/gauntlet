@@ -135,7 +135,7 @@ test("publication is scoped to clean units and creates each unit's tag and relea
     /gh api "repos\/\$GITHUB_REPOSITORY\/git\/refs"/u,
     /gh release create "\$TAG" --draft --verify-tag --title "\$TITLE" "\$LATEST"/u,
     /--unit "\$UNIT" --require-draft-identical/u,
-    /gh release edit "\$TAG" --draft=false/u,
+    /gh release edit "\$TAG" --draft=false "\$LATEST"/u,
     /GAUNTLET_USE_REMOTE_RECEIPT=true[\s\S]*--unit "\$UNIT" --require-identical/u,
     /release-set\.mjs require-state --state-file "\$RUNNER_TEMP\/released-\$UNIT\.json" --unit "\$UNIT" --state already-identical/u,
   ];
@@ -147,8 +147,30 @@ test("publication is scoped to clean units and creates each unit's tag and relea
   }
   assert.match(loop, /LATEST="--latest=false"/u);
   assert.match(loop, /if \[ "\$UNIT" = "gauntlet" \]; then[\s\S]*LATEST="--latest"/u);
+  // The only bare --latest is the application's assignment; both release commands pass "$LATEST".
   assert.equal((source.match(/--latest\b(?!=)/gu) ?? []).length, 1);
+  assert.equal((loop.match(/"\$LATEST"/gu) ?? []).length, 2);
   assert.doesNotMatch(loop, /git push/u);
+  assert.deepEqual(step("Verify every published artifact").env, {
+    GH_TOKEN: "${{ github.token }}",
+    GAUNTLET_USE_REMOTE_RECEIPT: "true",
+    GAUNTLET_EXPECTED_IMAGE_DIGEST: "${{ steps.image.outputs.digest }}",
+    GAUNTLET_EXPECTED_CHART_DIGEST: "${{ steps.chart.outputs.digest }}",
+  });
+  assert.match(step("Verify every published artifact").run, /--source-commit "\$GITHUB_SHA" \\\n\s*--require-identical$/mu);
+});
+
+test("workflow expressions reach run scripts only through step environment variables", () => {
+  const { workflow } = releaseWorkflow();
+  for (const [jobName, job] of Object.entries(workflow.jobs)) {
+    for (const step of job.steps) assert.doesNotMatch(step.run ?? "", /\$\{\{/u, `${jobName}: ${step.name ?? step.run}`);
+  }
+  const steps = workflow.jobs.publish.steps;
+  const step = (name) => steps.find((candidate) => candidate.name === name);
+  assert.equal(step("Verify pushed image and attestations").env.COPIED_DIGEST, "${{ steps.image-copy.outputs.digest }}");
+  assert.match(step("Verify pushed image and attestations").run, /test "\$DIGEST" = "\$COPIED_DIGEST"/u);
+  assert.equal(step("Promote image digest to the semantic tag").env.IMAGE_DIGEST, "${{ steps.image.outputs.digest }}");
+  assert.match(step("Promote image digest to the semantic tag").run, /"ghcr\.io\/8lines\/gauntlet@\$IMAGE_DIGEST"/u);
 });
 
 test("every remote destination is preflighted after the dry run and before the first mutation", () => {

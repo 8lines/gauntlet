@@ -428,7 +428,9 @@ function githubReleaseFetch({
 }) {
   const calls = [];
   const byId = new Map(assets.map(({ id, name }) => [id, name]));
-  const release = () => ({ tag_name: tag, draft, prerelease: false, immutable, assets });
+  const release = () => ({
+    tag_name: tag, draft, prerelease: false, immutable: typeof immutable === "function" ? immutable() : immutable, assets,
+  });
   const fetch = async (input, options = {}) => {
     const url = new URL(input);
     calls.push({ url: url.href, options });
@@ -604,6 +606,84 @@ test("post-finalize evidence binds remote receipt bytes and the published chart 
     sourceCommit: COMMIT,
   })));
   assert.match(collected.units[0].evidence["github:v0.1.0"], /^[0-9a-f]{64}$/u);
+});
+
+test("a rerun verifies an already-released application through its remote receipt next to a clean unit", async (t) => {
+  const fixture = releaseFixture(t, [{ id: "gauntlet", version: VERSION }, { id: "skills", version: VERSION }]);
+  // helm push reports an OCI manifest digest, which is not the sha256 of the chart archive.
+  const ociChartDigest = `sha256:${"b".repeat(64)}`;
+  const { assets, bytesByName } = remoteAssets("gauntlet", "published");
+  bytesByName.set("publication-receipt.json", canonicalReceiptBytes(fixture.root, "gauntlet", {
+    imageDigest: fixture.digest,
+    chartDigest: ociChartDigest,
+  }));
+  const remote = githubReleaseFetch({ assets, bytesByName, immutable: true });
+  const published = await withEnvironment(REMOTE, () => withFetch(remote.fetch, () => collectReleaseEvidence({
+    releaseDirectory: fixture.root,
+    sourceCommit: COMMIT,
+  })));
+  const publishedGauntlet = published.units.find(({ id }) => id === "gauntlet").evidence;
+  const probe = async (check) => check.unit === "gauntlet"
+    ? { id: check.id, state: "present", evidence: publishedGauntlet[check.id] }
+    : { id: check.id, state: "absent" };
+  const options = { releaseDirectory: fixture.root, sourceCommit: COMMIT, requireIdentical: true, unit: null };
+  const dependencies = { collectEvidence: collectReleaseEvidence, probe, sleep: async () => {} };
+
+  const converged = await withEnvironment({ ...REMOTE, GAUNTLET_EXPECTED_IMAGE_DIGEST: "", GAUNTLET_EXPECTED_CHART_DIGEST: "" },
+    () => withFetch(remote.fetch, () => checkReleasePublication(options, dependencies)));
+  assert.deepEqual(converged.units.map(({ id, state }) => [id, state]), [
+    ["gauntlet", "already-identical"],
+    ["skills", "published-artifacts-identical"],
+  ]);
+
+  // Without the remote receipt the predicted receipt names the chart archive digest and never matches.
+  await withEnvironment({ GAUNTLET_USE_REMOTE_RECEIPT: undefined }, () => assert.rejects(
+    checkReleasePublication(options, dependencies),
+    /invalid GitHub Release state/u,
+  ));
+});
+
+test("post-publication verification waits a bounded time for GitHub to report a release immutable", async (t) => {
+  const fixture = releaseFixture(t, GAUNTLET_ONLY);
+  const { assets, bytesByName } = remoteAssets("gauntlet", "published");
+  bytesByName.set("publication-receipt.json", canonicalReceiptBytes(fixture.root, "gauntlet", {
+    imageDigest: fixture.digest,
+    chartDigest: `sha256:${"b".repeat(64)}`,
+  }));
+  const settled = githubReleaseFetch({ assets, bytesByName, immutable: true });
+  const published = await withEnvironment(REMOTE, () => withFetch(settled.fetch, () => collectReleaseEvidence({
+    releaseDirectory: fixture.root,
+    sourceCommit: COMMIT,
+  })));
+  const probe = async (check) => ({ id: check.id, state: "present", evidence: published.units[0].evidence[check.id] });
+  const options = { releaseDirectory: fixture.root, sourceCommit: COMMIT, requireIdentical: true, unit: null };
+
+  let reads = 0;
+  const sleeps = [];
+  const lagging = githubReleaseFetch({ assets, bytesByName, immutable: () => ++reads > 2 });
+  const result = await withEnvironment(REMOTE, () => withFetch(lagging.fetch, () => checkReleasePublication(options, {
+    collectEvidence: collectReleaseEvidence,
+    probe,
+    sleep: async (milliseconds) => { sleeps.push(milliseconds); },
+  })));
+  assert.deepEqual(result.units.map(({ state }) => state), ["already-identical"]);
+  assert.deepEqual(sleeps, [5_000, 5_000]);
+
+  const neverSleeps = [];
+  const mutable = githubReleaseFetch({ assets, bytesByName, immutable: false });
+  await withEnvironment(REMOTE, () => withFetch(mutable.fetch, () => assert.rejects(checkReleasePublication(options, {
+    collectEvidence: collectReleaseEvidence,
+    probe,
+    sleep: async (milliseconds) => { neverSleeps.push(milliseconds); },
+  }), /failed closed/u)));
+  assert.equal(neverSleeps.length, 12);
+
+  const preflightSleeps = [];
+  await withEnvironment(REMOTE, () => withFetch(mutable.fetch, () => assert.rejects(checkReleasePublication(
+    { ...options, requireIdentical: false },
+    { collectEvidence: collectReleaseEvidence, probe, sleep: async (milliseconds) => { preflightSleeps.push(milliseconds); } },
+  ), /failed closed/u)));
+  assert.deepEqual(preflightSleeps, []);
 });
 
 function finalizedDraftAssets(root, unit) {

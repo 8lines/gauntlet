@@ -224,3 +224,45 @@ test("the plan CLI writes the computed plan and checks a committed one", (t) => 
     assert.equal(runPlanCli(argv, { root, readVersions, readTags }).exitCode, 2, argv.join(" "));
   }
 });
+
+test("the plan CLI writes an all-units plan only below the ignored artifacts tree", (t) => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "gauntlet-plan-all-")));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, ".release"));
+  const committed = serializeReleasePlan(buildReleasePlan(versionsAt("0.1.8", DASHBOARD), baselineTags()));
+  writeFileSync(join(root, ".release/plan.json"), committed);
+  const readVersions = () => versionsAt("0.1.8", DASHBOARD);
+  const readTags = () => { throw new Error("tags are not needed for an all-units plan"); };
+  const path = ".artifacts/ci/all-units-plan.json";
+
+  const written = runPlanCli(["--write-all-units", path], { root, readVersions, readTags });
+  assert.equal(written.exitCode, 0, written.stderr);
+  const plan = allUnitsPlan(readVersions());
+  assert.deepEqual(JSON.parse(written.stdout), {
+    command: "write-all-units", path, units: plan.units, order: plan.order, gates: planGates(plan),
+  });
+  assert.equal(readFileSync(join(root, path), "utf8"), serializeReleasePlan(plan));
+  assert.deepEqual(readReleasePlan(root, path), plan);
+  assert.equal(plan.order.includes("gauntlet"), true);
+  assert.equal(readFileSync(join(root, ".release/plan.json"), "utf8"), committed);
+
+  const rewritten = runPlanCli(["--write-all-units", path], { root, readVersions, readTags });
+  assert.equal(rewritten.exitCode, 0, rewritten.stderr);
+
+  for (const argv of [
+    ["--write-all-units"],
+    ["--write-all-units", ".release/plan.json"],
+    ["--write-all-units", "plan.json"],
+    ["--write-all-units", ".artifacts/ci/plan.txt"],
+    ["--write-all-units", ".artifacts/../plan.json"],
+    ["--write-all-units", `${root}/.artifacts/ci/plan.json`],
+    ["--write-all-units", ".artifacts/ci/plan.json", "--check"],
+  ]) {
+    assert.equal(runPlanCli(argv, { root, readVersions, readTags }).exitCode, 2, argv.join(" "));
+  }
+
+  symlinkSync(join(root, ".release"), join(root, ".artifacts/linked"));
+  const linked = runPlanCli(["--write-all-units", ".artifacts/linked/plan.json"], { root, readVersions, readTags });
+  assert.equal(linked.exitCode, 1);
+  assert.equal(readFileSync(join(root, ".release/plan.json"), "utf8"), committed);
+});

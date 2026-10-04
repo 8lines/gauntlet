@@ -15,11 +15,12 @@ const PLAN_MISSING = "Release plan is missing or unsafe";
 const PLAN_PATH_FAILURE = "Release plan path must stay inside the repository";
 const SET_FAILURE = "Release set id must be release-YYYY-MM-DD.N or local-<12 hex> of the source commit";
 const TAGS_FAILURE = "Repository tags are unreadable";
-const USAGE = "Usage: plan.mjs [--write] | --check [--release-set release-YYYY-MM-DD.N] [--commit SHA]";
+const USAGE = "Usage: plan.mjs [--write] | --write-all-units .artifacts/<path>.json | --check [--release-set release-YYYY-MM-DD.N] [--commit SHA]";
 const MAX_PLAN_BYTES = 64 * 1024;
 const COMMIT = /^[0-9a-f]{40}$/u;
 const RELEASE_TAG = /^release-([0-9]{4})-([0-9]{2})-([0-9]{2})\.([1-9][0-9]{0,2})$/u;
 const LOCAL_SET = /^local-[0-9a-f]{12}$/u;
+const ALL_UNITS_PLAN_PATH = /^\.artifacts\/(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.json$/u;
 const ARTIFACT_UNIT = new Map(RELEASE_UNITS.flatMap(({ id, artifacts }) => artifacts.map((name) => [name, id])));
 
 export const RELEASE_PLAN_PATH = ".release/plan.json";
@@ -271,20 +272,49 @@ export function resolveReleasePlan(root, path = null, { readVersions = readUnitV
   return Object.freeze({ plan: allUnitsPlan(readVersions(root)), path: null });
 }
 
-export function writeReleasePlan(root, plan) {
-  const directory = resolve(root, ".release");
-  mkdirSync(directory, { recursive: true, mode: 0o755 });
-  const stat = lstatSync(directory);
-  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error(PLAN_MISSING);
+// Writes a plan atomically at a repository-relative path whose every parent is a real directory.
+function writePlanFile(root, relativePath, plan) {
+  const segments = relativePath.split("/");
+  let directory = root;
+  for (const segment of segments.slice(0, -1)) {
+    directory = join(directory, segment);
+    try {
+      mkdirSync(directory, { mode: 0o755 });
+    } catch (error) {
+      if (error?.code !== "EEXIST") throw new Error(PLAN_MISSING);
+    }
+    const stat = lstatSync(directory);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error(PLAN_MISSING);
+  }
   const scratch = join(directory, `.plan-${randomBytes(8).toString("hex")}.json`);
   writeFileSync(scratch, serializeReleasePlan(plan), { flag: "wx", mode: 0o644 });
-  renameSync(scratch, resolve(root, RELEASE_PLAN_PATH));
-  return RELEASE_PLAN_PATH;
+  renameSync(scratch, join(directory, segments.at(-1)));
+  return relativePath;
+}
+
+export function writeReleasePlan(root, plan) {
+  return writePlanFile(root, RELEASE_PLAN_PATH, plan);
+}
+
+// CI scans the application image whatever the committed plan says, so it stages from a plan of every
+// unit written below the ignored .artifacts tree, where it never dirties the source tree.
+function isAllUnitsPlanPath(value) {
+  return typeof value === "string" && ALL_UNITS_PLAN_PATH.test(value)
+    && value.split("/").every((segment) => segment !== "." && segment !== "..");
+}
+
+export function writeAllUnitsPlan(root, path, versions) {
+  if (!isAllUnitsPlanPath(path)) throw new TypeError(USAGE);
+  const plan = allUnitsPlan(versions);
+  return Object.freeze({ plan, path: writePlanFile(root, path, plan) });
 }
 
 export function parsePlanArguments(argv) {
   if (!Array.isArray(argv) || argv.some((value) => typeof value !== "string")) throw new TypeError(USAGE);
   if (argv.length === 0 || (argv.length === 1 && argv[0] === "--write")) return Object.freeze({ command: "write" });
+  if (argv.length === 2 && argv[0] === "--write-all-units" && isAllUnitsPlanPath(argv[1])) {
+    return Object.freeze({ command: "write-all-units", path: argv[1] });
+  }
   if (argv[0] !== "--check" || argv.length % 2 !== 1) throw new TypeError(USAGE);
   let releaseSet = null;
   let commit = null;
@@ -310,6 +340,14 @@ export function runPlanCli(argv, { root = REPOSITORY_ROOT, readVersions = readUn
   }
   try {
     const versions = readVersions(root);
+    if (command.command === "write-all-units") {
+      const { plan, path } = writeAllUnitsPlan(root, command.path, versions);
+      return {
+        exitCode: 0,
+        stdout: jsonLine({ command: "write-all-units", path, units: plan.units, order: plan.order, gates: planGates(plan) }),
+        stderr: "",
+      };
+    }
     const tags = readTags(root);
     if (command.command === "write") {
       const plan = buildReleasePlan(versions, tags);

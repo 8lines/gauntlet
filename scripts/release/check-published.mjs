@@ -44,6 +44,9 @@ const GITHUB_ASSET_REDIRECTS = 3;
 const GITHUB_API_VERSION = "2026-03-10";
 const PUBLICATION_POLL_INTERVAL_MS = 15_000;
 const PUBLICATION_MAX_POLLS = 40;
+// GitHub can report a just-published release before it reports it immutable.
+const IMMUTABILITY_POLL_INTERVAL_MS = 5_000;
+const IMMUTABILITY_MAX_POLLS = 12;
 const MIB = 1024 * 1024;
 const GITHUB_RELEASES = "https://github.com/8lines/gauntlet/releases/tag";
 // Every staged kind a unit attaches to its GitHub Release; `docker` and `oci` image archives never are.
@@ -66,6 +69,14 @@ const RECEIPT_KEYS = Object.freeze(["schemaVersion", "releaseSet", "unit", "vers
 const DIGEST_KEYS = Object.freeze(["imageDigest", "chartDigest"]);
 const CHECK_KEYS = Object.freeze(["id", "unit", "kind", "destination", "expectedEvidence", "version", "tag"]);
 const PLAN_INVALID = "Published unit check plan is invalid";
+
+// A published, non-draft release that GitHub does not (yet) report immutable. Its message stays
+// the generic failure; post-publication verification alone retries it for a bounded time.
+class ReleaseNotImmutableError extends Error {
+  constructor() {
+    super(FAILURE);
+  }
+}
 
 function wait(milliseconds) {
   return new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
@@ -571,6 +582,21 @@ export async function checkReleasePublication(options, dependencyOverrides) {
   }
   const unit = values.unit === null ? null : knownUnitId(values.unit);
   const dependencies = dependencySet(dependencyOverrides);
+  const run = () => evaluateReleasePublication({
+    releaseDirectory, commit, unit, requireIdentical: values.requireIdentical, dependencies,
+  });
+  if (!values.requireIdentical) return run();
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await run();
+    } catch (error) {
+      if (!(error instanceof ReleaseNotImmutableError) || attempt === IMMUTABILITY_MAX_POLLS) throw error;
+    }
+    await dependencies.sleep(IMMUTABILITY_POLL_INTERVAL_MS);
+  }
+}
+
+async function evaluateReleasePublication({ releaseDirectory, commit, unit, requireIdentical, dependencies }) {
   const collected = collectedUnitPlans(
     await dependencies.collectEvidence({ releaseDirectory, sourceCommit: commit }),
     commit,
@@ -579,7 +605,7 @@ export async function checkReleasePublication(options, dependencyOverrides) {
   if (selected.length === 0) throw new TypeError(`Release unit ${unit} is not in release set ${collected.releaseSet}`);
   const plans = selected.map(({ plan }) => plan);
   const states = [];
-  if (!values.requireIdentical) {
+  if (!requireIdentical) {
     for (const { state } of await checkUnitDestinations({ plans, probe: dependencies.probe })) states.push(state);
   } else {
     for (const plan of plans) states.push(await verifyPublishedArtifactsWithRetry(plan, dependencies.probe, dependencies.sleep));
@@ -1330,7 +1356,8 @@ async function publishedUnitReceipt(manifest, unitId) {
   const release = await githubJson(`/repos/8lines/gauntlet/releases/tags/${entry.tag}`, token);
   if (release.state === "absent") return undefined;
   if (release.value?.tag_name !== entry.tag || release.value?.draft !== false || release.value?.prerelease !== false
-      || release.value?.immutable !== true || !Array.isArray(release.value?.assets)) throw new Error(FAILURE);
+      || typeof release.value?.immutable !== "boolean" || !Array.isArray(release.value?.assets)) throw new Error(FAILURE);
+  if (release.value.immutable !== true) throw new ReleaseNotImmutableError();
   const assets = parseReleaseAssets(release.value.assets, entry.id, entry.version);
   const downloaded = await downloadGithubReleaseAsset(
     assets["publication-receipt.json"],
@@ -1511,8 +1538,12 @@ async function probeGithubRelease(check, expectedDraft) {
     : await githubJson(`/repos/8lines/gauntlet/releases/tags/${check.tag}`, token);
   if (release.state === "absent") return { id: check.id, state: "absent" };
   if (release.value?.tag_name !== check.tag || release.value?.draft !== expectedDraft
-      || release.value?.prerelease !== false || release.value?.immutable !== !expectedDraft) {
+      || release.value?.prerelease !== false || typeof release.value?.immutable !== "boolean") {
     throw new Error(FAILURE);
+  }
+  if (release.value.immutable !== !expectedDraft) {
+    if (expectedDraft) throw new Error(FAILURE);
+    throw new ReleaseNotImmutableError();
   }
   const assets = parseReleaseAssets(release.value?.assets, check.unit, check.version);
   const downloads = await Promise.allSettled(githubReleaseAssetCatalog(check.unit, check.version).map(async ({ name, maximumBytes }) => {

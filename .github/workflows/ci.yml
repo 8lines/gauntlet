@@ -336,7 +336,9 @@ jobs:
           set -euo pipefail
           SET="local-$(git rev-parse HEAD | cut -c1-12)"
           VERSION="$(tr -d '\n' < VERSION)"
-          pnpm release:stage --output "$PWD/.artifacts/release/$SET" --release-set "$SET"
+          # Scan the application image whatever units a committed .release/plan.json releases.
+          node scripts/release/plan.mjs --write-all-units .artifacts/ci/all-units-plan.json
+          pnpm release:stage --output "$PWD/.artifacts/release/$SET" --plan .artifacts/ci/all-units-plan.json --release-set "$SET"
           pnpm release:security --image-archive ".artifacts/release/$SET/image/gauntlet-$VERSION.docker.tar"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()

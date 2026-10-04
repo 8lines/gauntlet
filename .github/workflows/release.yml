@@ -617,6 +617,8 @@ jobs:
         if: steps.preflight.outputs.gauntlet == 'true'
         id: image
         shell: bash
+        env:
+          COPIED_DIGEST: ${{ steps.image-copy.outputs.digest }}
         run: |
           set -euo pipefail
           SHORT_SHA="${GITHUB_SHA:0:12}"
@@ -624,7 +626,7 @@ jobs:
           DIGEST="$(docker buildx imagetools inspect "$IMAGE" | sed -n 's/^Digest:[[:space:]]*//p' | head -n 1)"
           test "${DIGEST#sha256:}" != "$DIGEST"
           test "${#DIGEST}" -eq 71
-          test "$DIGEST" = "${{ steps.image-copy.outputs.digest }}"
+          test "$DIGEST" = "$COPIED_DIGEST"
           test "$(docker buildx imagetools inspect "ghcr.io/8lines/gauntlet@$DIGEST" --format '{{ json .Provenance }}')" != "null"
           test "$(docker buildx imagetools inspect "ghcr.io/8lines/gauntlet@$DIGEST" --format '{{ json .SBOM }}')" != "null"
           TRIVY_IMAGE="aquasec/trivy:0.66.0@sha256:086971aaf400beebd94e8300fd8ea623774419597169156cec56eec5b00dfb1e"
@@ -695,13 +697,15 @@ jobs:
       - name: Promote image digest to the semantic tag
         if: steps.preflight.outputs.gauntlet == 'true'
         shell: bash
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
         run: |
           set -euo pipefail
           RELEASE_DIRECTORY="$PWD/.artifacts/release/$GITHUB_REF_NAME"
           VERSION="$(node scripts/release/release-set.mjs field --release-directory "$RELEASE_DIRECTORY" --unit gauntlet --field version)"
           docker buildx imagetools create \
             --tag "ghcr.io/8lines/gauntlet:$VERSION" \
-            "ghcr.io/8lines/gauntlet@${{ steps.image.outputs.digest }}"
+            "ghcr.io/8lines/gauntlet@$IMAGE_DIGEST"
       - name: Publish Helm chart
         if: steps.preflight.outputs.gauntlet == 'true'
         id: chart
@@ -722,7 +726,11 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          # Units released by an earlier run are verified through their published receipts; an empty
+          # digest (the application was not published by this run) counts as unset.
+          GAUNTLET_USE_REMOTE_RECEIPT: "true"
           GAUNTLET_EXPECTED_IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+          GAUNTLET_EXPECTED_CHART_DIGEST: ${{ steps.chart.outputs.digest }}
         run: |
           set -euo pipefail
           node scripts/release/check-published.mjs \
@@ -767,7 +775,7 @@ jobs:
             gh release create "$TAG" --draft --verify-tag --title "$TITLE" "$LATEST" "${NOTES_ARGS[@]}" "${ASSETS[@]}"
             node scripts/release/check-published.mjs --release-directory "$RELEASE_DIRECTORY" \
               --source-commit "$GITHUB_SHA" --unit "$UNIT" --require-draft-identical
-            gh release edit "$TAG" --draft=false
+            gh release edit "$TAG" --draft=false "$LATEST"
             GAUNTLET_EXPECTED_IMAGE_DIGEST="$IMAGE_DIGEST" GAUNTLET_EXPECTED_CHART_DIGEST="$CHART_DIGEST" GAUNTLET_USE_REMOTE_RECEIPT=true \
               node scripts/release/check-published.mjs --release-directory "$RELEASE_DIRECTORY" \
               --source-commit "$GITHUB_SHA" --unit "$UNIT" --require-identical > "$RUNNER_TEMP/released-$UNIT.json"

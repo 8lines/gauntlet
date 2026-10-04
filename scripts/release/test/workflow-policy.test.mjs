@@ -143,7 +143,12 @@ test("CI exposes the bounded, read-only product and release gates", () => {
   assert.match(commands.skills, /pnpm docs:check/);
   assert.match(commands.skills, /apt-get install --yes --no-install-recommends acl/u);
   assert.match(commands.security, /SET="local-\$\(git rev-parse HEAD \| cut -c1-12\)"/u);
-  assert.match(commands.security, /pnpm release:stage --output "\$PWD\/\.artifacts\/release\/\$SET" --release-set "\$SET"$/mu);
+  // CI scans the application image whatever a committed plan releases: it stages every unit.
+  const allUnits = commands.security.indexOf("node scripts/release/plan.mjs --write-all-units .artifacts/ci/all-units-plan.json\n");
+  const stage = commands.security.search(
+    /pnpm release:stage --output "\$PWD\/\.artifacts\/release\/\$SET" --plan \.artifacts\/ci\/all-units-plan\.json --release-set "\$SET"$/mu,
+  );
+  assert.equal(allUnits >= 0 && allUnits < stage, true, "the all-units plan is written before staging");
   assert.match(
     commands.security,
     /pnpm release:security --image-archive "\.artifacts\/release\/\$SET\/image\/gauntlet-\$VERSION\.docker\.tar"/u,
