@@ -2,6 +2,23 @@
 
 All notable changes to this project are recorded here. Released artifacts are immutable; corrections receive a new semantic version.
 
+This is the changelog of the `gauntlet` application unit: the server, the
+dashboard and widget panel, the container image, the Helm chart and the
+Compose distribution. Up to 0.1.8 every package was released together with the
+application and is recorded here. Each other release unit has its own
+changelog: [`protocol`](packages/protocol/CHANGELOG.md),
+[`dashboard-client`](packages/dashboard-client/CHANGELOG.md),
+[`typescript-core`](packages/typescript/core/CHANGELOG.md),
+[`typescript-node`](packages/typescript/node/CHANGELOG.md),
+[`next-adapter`](packages/typescript/next/CHANGELOG.md),
+[`conformance-runner`](conformance/runner/CHANGELOG.md),
+[`widget`](packages/widget/CHANGELOG.md),
+[`php-core`](packages/php/core/CHANGELOG.md),
+[`symfony-bundle`](packages/php/symfony-bundle/CHANGELOG.md),
+[`java-core`](packages/java/core/CHANGELOG.md),
+[`spring-boot-starter`](packages/java/spring-boot-starter/CHANGELOG.md) and
+[`skills`](skills/CHANGELOG.md).
+
 ## Unreleased
 
 ## [0.1.8] - 2026-10-03

@@ -38,10 +38,12 @@ const SYMFONY_CONSTRAINT = "^7.4 || ^8.0";
 const CONTRACTS = Object.freeze({
   "8lines/gauntlet-php-core": Object.freeze({
     required: Object.freeze(["LICENSE", "README.md", "composer.json", "phpunit.xml.dist"]),
+    optional: Object.freeze(["CHANGELOG.md"]),
     roots: Object.freeze(["src", "tests"]),
   }),
   "8lines/gauntlet-symfony-bundle": Object.freeze({
     required: Object.freeze(["LICENSE", "README.md", "composer.json", "phpunit.xml.dist"]),
+    optional: Object.freeze(["CHANGELOG.md"]),
     roots: Object.freeze(["config", "src", "tests"]),
   }),
 });
@@ -263,6 +265,7 @@ function parseTree(bytes, prefix) {
 function validateAllowedPath(contract, path) {
   if (path === "composer.lock") return false;
   if (contract.required.includes(path)) return true;
+  if (contract.optional.includes(path)) return true;
   const [root, ...rest] = path.split("/");
   return contract.roots.includes(root) && rest.length > 0 && path.endsWith(".php");
 }

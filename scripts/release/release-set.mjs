@@ -1,12 +1,15 @@
 import { createHash } from "node:crypto";
 import { closeSync, constants, fstatSync, lstatSync, openSync, readSync, realpathSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, resolve, sep } from "node:path";
+import { isAbsolute, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { changelogPath, changelogSection } from "./changelog.mjs";
 import { unitReleaseAssets } from "./check-published.mjs";
 import { readReleaseManifest } from "./inventory.mjs";
 import { RELEASE_GATES, readReleasePlan } from "./plan.mjs";
 import { dependencyOrder, unitById, unitTag } from "./units.mjs";
+
+export { changelogPath, changelogSection } from "./changelog.mjs";
 
 const ROOT = realpathSync(fileURLToPath(new URL("../../", import.meta.url)));
 const PUBLISHABLE_STATES = Object.freeze(["clean", "already-identical"]);
@@ -160,20 +163,6 @@ export function unitArtifactPath(releaseDirectory, manifest, unitId) {
 
 export function unitAssetPaths(releaseDirectory, manifest, unitId) {
   return Object.freeze(unitReleaseAssets(manifest, unitId).map(({ path }) => stagedFile(releaseDirectory, path)));
-}
-
-export function changelogPath(unitId) {
-  const unit = unitById(unitId);
-  return unit.id === "gauntlet" ? "CHANGELOG.md" : `${dirname(unit.version.path)}/CHANGELOG.md`;
-}
-
-export function changelogSection(source, version) {
-  const lines = source.split("\n");
-  const start = lines.findIndex((line) => line === `## [${version}]` || line.startsWith(`## [${version}] `));
-  if (start < 0) return null;
-  const end = lines.findIndex((line, index) => index > start && line.startsWith("## "));
-  const body = lines.slice(start + 1, end < 0 ? lines.length : end).join("\n").trim();
-  return body === "" ? null : body;
 }
 
 export function releaseNotes({ changelog, releaseSet }) {

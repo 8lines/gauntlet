@@ -73,7 +73,7 @@ function composerVersions(version) {
   return Object.fromEntries(COMPOSER_UNIT_IDS.map((id) => [id, version]));
 }
 
-function createFixture(version = "0.1.0", { bundleVersion = version } = {}) {
+function createFixture(version = "0.1.0", { bundleVersion = version, changelogs = false } = {}) {
   const sandbox = realpathSync(mkdtempSync(resolve(tmpdir(), "gauntlet-composer-stage-test-")));
   const root = resolve(sandbox, "source");
   mkdirSync(root, { mode: 0o700 });
@@ -110,6 +110,10 @@ function createFixture(version = "0.1.0", { bundleVersion = version } = {}) {
     { repositories: [{ type: "path", url: "../core", options: { symlink: false } }] },
     bundleVersion,
   ));
+  if (changelogs) {
+    write(root, "packages/php/core/CHANGELOG.md", "# Changelog: 8lines/gauntlet-php-core\n\n## Unreleased\n");
+    write(root, "packages/php/symfony-bundle/CHANGELOG.md", "# Changelog: 8lines/gauntlet-symfony-bundle\n\n## Unreleased\n");
+  }
   runGit(root, ["init", "--initial-branch=main"]);
   runGit(root, ["add", "."]);
   runGit(root, ["commit", "-m", "fixture"]);
@@ -125,6 +129,21 @@ function createFixture(version = "0.1.0", { bundleVersion = version } = {}) {
     cleanup() { rmSync(sandbox, { recursive: true, force: true }); },
   };
 }
+
+test("stages the package changelog when the package has one", async () => {
+  const fixture = createFixture("0.1.0", { changelogs: true });
+  try {
+    const artifacts = await stageComposerPackages({
+      root: fixture.root, outputDirectory: fixture.output, sourceCommit: fixture.commit,
+      versions: composerVersions("0.1.0"), include: COMPOSER_UNIT_IDS,
+    });
+    for (const artifact of artifacts) {
+      assert.equal(readFileSync(resolve(artifact.path, "CHANGELOG.md"), "utf8"), `# Changelog: ${artifact.name}\n\n## Unreleased\n`);
+    }
+  } finally {
+    fixture.cleanup();
+  }
+});
 
 test("stages Composer packages after a release bump to 0.1.1", async () => {
   const fixture = createFixture("0.1.1");
