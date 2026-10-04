@@ -9,3 +9,9 @@ Releases up to 0.1.8 were published together with the application and are record
 [root changelog](../../../CHANGELOG.md).
 
 ## Unreleased
+
+## [0.1.9] - 2026-10-04
+
+### Changed
+
+- Updated `typescript-node` to 0.1.9.

@@ -11,7 +11,7 @@
     },
     {
       "path": "VERSION",
-      "sha256": "76f81f64ece28d0bcfe39dd35f6d14f3c87fe000b77aee11561e18d1919f607e"
+      "sha256": "e358d84552808a5c0bd6679d690c283b938ebe15c2bd843c898681d093213107"
     },
     {
       "path": "examples/symfony/composer.json",
@@ -57,7 +57,7 @@
         "dist",
         "node_modules"
       ],
-      "sha256": "8f45f5f4f595371164625689a5054379451d61797f780337f93c0ae39fd2c74e"
+      "sha256": "5c4175aaa37929a49eb148e35568b339a64959f8fa25a12408d4631fc8e979f9"
     },
     {
       "path": "packages/php/core",
@@ -81,7 +81,7 @@
         "dist",
         "node_modules"
       ],
-      "sha256": "5c3359059b5049b12e5150d975b26ee39cd4b281d00896a5950f76ef23c317d2"
+      "sha256": "b281fb5cddbba729540bfc330104f6889a65651ac0b188d099ce9c553ca6d4db"
     },
     {
       "path": "packages/typescript/core",
@@ -89,7 +89,7 @@
         "dist",
         "node_modules"
       ],
-      "sha256": "5699f7d5d4cfd0138eb3f0bce13cc125230d8bebaf1ab5ea4c0e9fc1174d97bd"
+      "sha256": "f274e347e2eff5de6998da0c306473d53fea96a71532a3d0af0b90395f4aca77"
     },
     {
       "path": "packages/typescript/node",
@@ -97,7 +97,7 @@
         "dist",
         "node_modules"
       ],
-      "sha256": "682bd96e6a9e9e123b2339db17c1daef8d27634b60fc9fa0b5b730a7e947cd91"
+      "sha256": "932b05b2b1e80e57baa28ef87f558ecbb9350e31b61a7d710e483bcd5972d01d"
     }
   ],
   "linkedRuntimeTrees": [

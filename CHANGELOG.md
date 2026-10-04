@@ -21,6 +21,13 @@ changelog: [`protocol`](packages/protocol/CHANGELOG.md),
 
 ## Unreleased
 
+## [0.1.9] - 2026-10-04
+
+### Changed
+
+- Updated `protocol` to 0.2.0.
+- Updated `dashboard-client` to 0.1.9.
+
 ## [0.1.8] - 2026-10-03
 
 ### Added

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "units": [
+    {
+      "id": "protocol",
+      "from": "0.1.8",
+      "to": "0.2.0"
+    },
+    {
+      "id": "dashboard-client",
+      "from": "0.1.8",
+      "to": "0.1.9"
+    },
+    {
+      "id": "gauntlet",
+      "from": "0.1.8",
+      "to": "0.1.9"
+    },
+    {
+      "id": "typescript-core",
+      "from": "0.1.8",
+      "to": "0.1.9"
+    },
+    {
+      "id": "typescript-node",
+      "from": "0.1.8",
+      "to": "0.1.9"
+    },
+    {
+      "id": "next-adapter",
+      "from": "0.1.8",
+      "to": "0.1.9"
+    },
+    {
+      "id": "conformance-runner",
+      "from": "0.1.8",
+      "to": "0.1.9"
+    },
+    {
+      "id": "skills",
+      "from": "0.1.8",
+      "to": "0.1.9"
+    }
+  ],
+  "order": [
+    "protocol",
+    "dashboard-client",
+    "gauntlet",
+    "typescript-core",
+    "typescript-node",
+    "next-adapter",
+    "conformance-runner",
+    "skills"
+  ],
+  "changes": [
+    "rehearsal-protocol-cascade.md"
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "name": "@8lines/gauntlet-conformance-runner",
   "description": "Scenario-driven Adapter v1 conformance libraries, CLI runners, and fixture adapter for Gauntlet implementations.",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "type": "module",
   "license": "Apache-2.0",
   "engines": { "node": ">=24 <27" },

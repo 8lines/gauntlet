@@ -3,9 +3,9 @@
 Support Node.js 24–26. Install each package's own exact release from the public npm registry; no scope mapping or registry token is needed:
 
 ```sh
-pnpm add @8lines/gauntlet-protocol@0.1.8 \
-  @8lines/gauntlet-typescript-core@0.1.8 \
-  @8lines/gauntlet-typescript-node@0.1.8
+pnpm add @8lines/gauntlet-protocol@0.2.0 \
+  @8lines/gauntlet-typescript-core@0.1.9 \
+  @8lines/gauntlet-typescript-node@0.1.9
 ```
 
 Build one application-owned catalog from explicit Core registries, a schema validator, a `RunManager`, a stable secret decoded to at least 32 high-entropy bytes, and a `RunStore`/execution coordinator appropriate to the runtime topology. Do not expose arbitrary routes, classes, commands, events, SQL, or URLs.
