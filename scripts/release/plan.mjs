@@ -15,6 +15,7 @@ const PLAN_MISSING = "Release plan is missing or unsafe";
 const PLAN_PATH_FAILURE = "Release plan path must stay inside the repository";
 const SET_FAILURE = "Release set id must be release-YYYY-MM-DD.N or local-<12 hex> of the source commit";
 const TAGS_FAILURE = "Repository tags are unreadable";
+const EMPTY_PLAN_FAILURE = "Release plan would be empty: no unit version moved past its latest tag";
 const USAGE = "Usage: plan.mjs [--write] | --write-all-units .artifacts/<path>.json | --check [--release-set release-YYYY-MM-DD.N] [--commit SHA]";
 const MAX_PLAN_BYTES = 64 * 1024;
 const COMMIT = /^[0-9a-f]{40}$/u;
@@ -351,6 +352,7 @@ export function runPlanCli(argv, { root = REPOSITORY_ROOT, readVersions = readUn
     const tags = readTags(root);
     if (command.command === "write") {
       const plan = buildReleasePlan(versions, tags);
+      if (plan.units.length === 0) throw new Error(EMPTY_PLAN_FAILURE);
       const path = writeReleasePlan(root, plan);
       return {
         exitCode: 0,

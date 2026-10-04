@@ -1,16 +1,19 @@
+import { createHash } from "node:crypto";
 import { closeSync, constants, fstatSync, lstatSync, openSync, readSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { unitReleaseAssets } from "./check-published.mjs";
 import { readReleaseManifest } from "./inventory.mjs";
-import { RELEASE_GATES } from "./plan.mjs";
-import { dependencyOrder, unitById } from "./units.mjs";
+import { RELEASE_GATES, readReleasePlan } from "./plan.mjs";
+import { dependencyOrder, unitById, unitTag } from "./units.mjs";
 
 const ROOT = realpathSync(fileURLToPath(new URL("../../", import.meta.url)));
 const PUBLISHABLE_STATES = Object.freeze(["clean", "already-identical"]);
 const ARCHIVE_KINDS = Object.freeze(["npm", "composer", "maven"]);
-const FIELDS = Object.freeze(["version", "tag", "title"]);
+const FIELDS = Object.freeze(["version", "tag", "title", "previous-tag"]);
+const PACKAGE_KINDS = Object.freeze(["npm", "maven", "composer"]);
+const HASH_CHUNK_BYTES = 1024 * 1024;
 const MAXIMUM_INPUT_BYTES = 1024 * 1024;
 const REQUIRABLE_STATES = Object.freeze(["clean", "already-identical", "published-artifacts-identical", "draft-identical"]);
 const PLAN_FAILURE = "Release plan check did not pass";
@@ -19,7 +22,7 @@ const READ_FAILURE = "Release set input could not be read";
 const USAGE = [
   "Usage: release-set.mjs outputs --plan-result FILE",
   "| preflight-outputs --state-file FILE",
-  "| field --release-directory DIR --unit ID --field version|tag|title",
+  "| field --release-directory DIR --unit ID --field version|tag|title|previous-tag",
   "| artifact --release-directory DIR --unit ID",
   "| assets --release-directory DIR --unit ID",
   "| notes --release-directory DIR --unit ID --output FILE",
@@ -59,9 +62,12 @@ export function preflightOutputs(result) {
     `clean=${JSON.stringify(clean.map(({ id }) => id))}`,
     `clean_units=${clean.map(({ id }) => id).join(" ")}`,
     `gauntlet=${clean.some(({ id }) => id === "gauntlet")}`,
+    `skills=${clean.some(({ id }) => id === "skills")}`,
     `npm=${ofKind("npm")}`,
     `composer=${ofKind("composer")}`,
     `maven=${ofKind("maven")}`,
+    // Package units never depend on gauntlet or skills, so the workflow publishes and releases them first.
+    `packages=${dependencyOrder(clean.filter(({ kind }) => PACKAGE_KINDS.includes(kind)).map(({ id }) => id)).join(" ")}`,
     "",
   ].join("\n");
 }
@@ -87,6 +93,15 @@ export function unitField(manifest, unitId, field) {
   throw new TypeError("Unknown release unit field");
 }
 
+// The tag a unit's generated notes start from: the plan's `from` version, which plan --check bound to
+// the latest unit tag; empty for a first release.
+export function previousUnitTag(manifest, plan, unitId) {
+  const unit = manifestUnit(manifest, unitId);
+  const planned = plan.units.find(({ id }) => id === unit.id);
+  if (planned === undefined || planned.to !== unit.version) throw new Error(`Release unit ${unit.id} is not planned at its staged version`);
+  return planned.from === null ? "" : unitTag(unitById(unit.id), planned.from);
+}
+
 // Resolves a manifest-relative path to a regular file that is canonical (no symbolic link at any
 // component) and lies inside the canonical release directory.
 function stagedFile(releaseDirectory, relativePath) {
@@ -105,12 +120,42 @@ function stagedFile(releaseDirectory, relativePath) {
   return path;
 }
 
+// Hashes one canonical staged file through a descriptor that refuses a symbolic link.
+function stagedFileSha256(path, relativePath) {
+  const failure = `Staged release file ${relativePath} is missing or not canonical`;
+  let descriptor;
+  try {
+    descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_CLOEXEC);
+  } catch {
+    throw new Error(failure);
+  }
+  try {
+    if (!fstatSync(descriptor).isFile()) throw new Error(failure);
+    const hash = createHash("sha256");
+    const buffer = Buffer.alloc(HASH_CHUNK_BYTES);
+    for (;;) {
+      const count = readSync(descriptor, buffer, 0, buffer.length, null);
+      if (count === 0) break;
+      hash.update(buffer.subarray(0, count));
+    }
+    return hash.digest("hex");
+  } catch {
+    throw new Error(failure);
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
 export function unitArtifactPath(releaseDirectory, manifest, unitId) {
   const unit = manifestUnit(manifest, unitId);
   if (!ARCHIVE_KINDS.includes(unitById(unit.id).kind)) throw new Error(`Release unit ${unit.id} has no registry archive`);
   const artifacts = manifest.artifacts.filter((artifact) => artifact.unit === unit.id);
   if (artifacts.length !== 1) throw new Error(`Release unit ${unit.id} must stage exactly one archive`);
-  return stagedFile(releaseDirectory, artifacts[0].path);
+  const path = stagedFile(releaseDirectory, artifacts[0].path);
+  if (stagedFileSha256(path, artifacts[0].path) !== artifacts[0].sha256) {
+    throw new Error(`Staged release file ${artifacts[0].path} does not match its manifest hash`);
+  }
+  return path;
 }
 
 export function unitAssetPaths(releaseDirectory, manifest, unitId) {
@@ -234,7 +279,9 @@ export function runReleaseSetCli(argv, { root = ROOT } = {}) {
       const unitId = values["--unit"];
       const { manifest } = readReleaseManifest(values["--release-directory"]);
       const releaseDirectory = realpathSync(values["--release-directory"]);
-      if (command === "field") {
+      if (command === "field" && values["--field"] === "previous-tag") {
+        stdout = `${previousUnitTag(manifest, readReleasePlan(root), unitId)}\n`;
+      } else if (command === "field") {
         stdout = `${unitField(manifest, unitId, values["--field"])}\n`;
       } else if (command === "artifact") {
         stdout = `${unitArtifactPath(releaseDirectory, manifest, unitId)}\n`;

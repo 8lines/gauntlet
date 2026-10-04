@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 
 import { writePublicationReceipt } from "../check-published.mjs";
+import { createReleasePlan, serializeReleasePlan } from "../plan.mjs";
 import {
   changelogPath, changelogSection, planOutputs, preflightOutputs, releaseNotes, requireUnitState, runReleaseSetCli, unitField,
   unitTitle,
@@ -35,12 +36,37 @@ test("preflight outputs list only clean units per ecosystem", () => {
     'clean=["typescript-core","php-core","gauntlet","skills"]',
     "clean_units=typescript-core php-core gauntlet skills",
     "gauntlet=true",
+    "skills=true",
     "npm=typescript-core",
     "composer=php-core",
     "maven=",
+    "packages=typescript-core php-core",
     "",
   ].join("\n"));
   assert.throws(() => preflightOutputs({ ...result, units: [{ id: "protocol", kind: "npm", state: "partial" }] }));
+});
+
+test("preflight packages list every clean npm, Maven and Composer unit in dependency order", () => {
+  const units = [
+    { id: "protocol", kind: "npm", state: "clean" },
+    { id: "dashboard-client", kind: "npm", state: "clean" },
+    { id: "gauntlet", kind: "application", state: "clean" },
+    { id: "typescript-core", kind: "npm", state: "already-identical" },
+    { id: "typescript-node", kind: "npm", state: "clean" },
+    { id: "php-core", kind: "composer", state: "clean" },
+    { id: "symfony-bundle", kind: "composer", state: "clean" },
+    { id: "java-core", kind: "maven", state: "clean" },
+    { id: "spring-boot-starter", kind: "maven", state: "clean" },
+    { id: "skills", kind: "skills", state: "clean" },
+  ];
+  const packages = (list) => preflightOutputs({ command: "check", units: list }).split("\n").find((line) => line.startsWith("packages="));
+  assert.equal(packages(units), "packages=protocol dashboard-client typescript-node php-core symfony-bundle java-core spring-boot-starter");
+  // A dependent listed before its dependency is still published after it.
+  assert.equal(packages([units[4], units[0]]), "packages=protocol typescript-node");
+  assert.equal(packages([units[2], units[9]]), "packages=");
+  const flags = (list) => preflightOutputs({ command: "check", units: list }).split("\n").filter((line) => /^(?:gauntlet|skills)=/u.test(line));
+  assert.deepEqual(flags([units[0]]), ["gauntlet=false", "skills=false"]);
+  assert.deepEqual(flags([{ ...units[2], state: "already-identical" }, units[9]]), ["gauntlet=false", "skills=true"]);
 });
 
 test("unit fields, titles and changelog locations", () => {
@@ -114,6 +140,38 @@ test("assets fail before finalization and artifact resolves the single registry 
   assert.equal(runReleaseSetCli(["artifact", "--release-directory", root, "--unit", "gauntlet"]).exitCode, 1);
 });
 
+test("previous-tag names the unit tag the plan starts from, or nothing for a first release", (t) => {
+  const { root } = releaseFixture(t, [{ id: "protocol", version: "0.2.0" }, { id: "skills", version: "0.1.0" }]);
+  const repository = scratchDirectory(t);
+  const run = (unit) => runReleaseSetCli(["field", "--release-directory", root, "--unit", unit, "--field", "previous-tag"], { root: repository });
+  assert.equal(JSON.parse(run("protocol").stderr).error.message, "Release plan is missing or unsafe");
+  mkdirSync(resolve(repository, ".release"));
+  const writePlan = (units) => writeFileSync(resolve(repository, ".release/plan.json"), serializeReleasePlan(createReleasePlan(units)));
+  writePlan([{ id: "protocol", from: "0.1.8", to: "0.2.0" }, { id: "skills", from: null, to: "0.1.0" }]);
+  assert.deepEqual([run("protocol").exitCode, run("protocol").stdout], [0, "protocol-v0.1.8\n"]);
+  assert.deepEqual([run("skills").exitCode, run("skills").stdout], [0, "\n"]);
+
+  writePlan([{ id: "protocol", from: "0.1.8", to: "0.2.1" }, { id: "skills", from: null, to: "0.1.0" }]);
+  assert.deepEqual([run("protocol").exitCode, JSON.parse(run("protocol").stderr).error.message],
+    [1, "Release unit protocol is not planned at its staged version"]);
+  writePlan([{ id: "skills", from: null, to: "0.1.0" }]);
+  assert.equal(run("protocol").exitCode, 1);
+
+  rmSync(resolve(repository, ".release/plan.json"));
+  symlinkSync(resolve(repository, "elsewhere.json"), resolve(repository, ".release/plan.json"));
+  assert.equal(run("skills").exitCode, 1);
+});
+
+test("artifact refuses a staged archive whose bytes no longer match the manifest", (t) => {
+  const { root } = releaseFixture(t, [{ id: "protocol", version: "0.1.0" }]);
+  const path = resolve(root, "npm/8lines-gauntlet-protocol-0.1.0.tgz");
+  assert.equal(runReleaseSetCli(["artifact", "--release-directory", root, "--unit", "protocol"]).exitCode, 0);
+  writeFileSync(path, "tampered\n");
+  const result = runReleaseSetCli(["artifact", "--release-directory", root, "--unit", "protocol"]);
+  assert.deepEqual([result.exitCode, result.stdout], [1, ""]);
+  assert.equal(JSON.parse(result.stderr).error.message, "Staged release file npm/8lines-gauntlet-protocol-0.1.0.tgz does not match its manifest hash");
+});
+
 test("field prints one manifest value", (t) => {
   const { root } = releaseFixture(t, [{ id: "gauntlet", version: "0.1.0" }, { id: "skills", version: "0.1.0" }]);
   for (const [field, expected] of [["version", "0.1.0"], ["tag", "v0.1.0"], ["title", "Gauntlet v0.1.0"]]) {
@@ -185,6 +243,7 @@ test("invalid arguments exit 2 with a usage error", () => {
   for (const argv of [
     [], ["unknown"], ["outputs"], ["outputs", "--plan-result", "relative.json"], ["outputs", "--plan-result", "/a", "--plan-result", "/b"],
     ["field", "--release-directory", "/a", "--unit", "skills", "--field", "nope"],
+    ["field", "--release-directory", "/a", "--unit", "skills", "--field", "previous"],
     ["field", "--release-directory", "/a", "--unit", "nope", "--field", "tag"],
     ["artifact", "--release-directory", "/a", "--unit", "skills", "--extra", "x"],
     ["require-state", "--state-file", "/a", "--unit", "skills", "--state", "Clean!"],

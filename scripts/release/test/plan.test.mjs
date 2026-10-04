@@ -225,6 +225,25 @@ test("the plan CLI writes the computed plan and checks a committed one", (t) => 
   }
 });
 
+test("the plan CLI refuses to write an empty plan and keeps the previous one", (t) => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "gauntlet-plan-empty-")));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const readTags = () => baselineTags();
+  for (const argv of [[], ["--write"]]) {
+    const result = runPlanCli(argv, { root, readVersions: () => versionsAt("0.1.8"), readTags });
+    assert.deepEqual([result.exitCode, result.stdout], [1, ""], argv.join(" "));
+    assert.deepEqual(JSON.parse(result.stderr), {
+      error: { code: "PLAN_FAILED", message: "Release plan would be empty: no unit version moved past its latest tag" }, ok: false,
+    });
+    assert.throws(() => readFileSync(join(root, ".release/plan.json")), { code: "ENOENT" });
+  }
+  const written = runPlanCli(["--write"], { root, readVersions: () => versionsAt("0.1.8", DASHBOARD), readTags });
+  assert.equal(written.exitCode, 0, written.stderr);
+  const committed = readFileSync(join(root, ".release/plan.json"), "utf8");
+  assert.equal(runPlanCli(["--write"], { root, readVersions: () => versionsAt("0.1.8"), readTags }).exitCode, 1);
+  assert.equal(readFileSync(join(root, ".release/plan.json"), "utf8"), committed);
+});
+
 test("the plan CLI writes an all-units plan only below the ignored artifacts tree", (t) => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "gauntlet-plan-all-")));
   t.after(() => rmSync(root, { recursive: true, force: true }));
