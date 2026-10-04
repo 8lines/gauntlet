@@ -178,6 +178,7 @@ test("loads the standalone Compose example through the bounded configuration pat
       environment: { name: "dev", kind: "development" },
     },
     widget: { enabled: false },
+    auth: { mode: "none" },
     targets: [
       {
         id: "billing",
@@ -218,6 +219,7 @@ test("loads the isolated Compose smoke configuration with two exact targets", as
       environment: { name: "compose-smoke", kind: "test" },
     },
     widget: { enabled: false },
+    auth: { mode: "none" },
     targets: [
       {
         id: "fixture-a",
