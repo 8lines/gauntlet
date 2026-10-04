@@ -21,6 +21,12 @@ changelog: [`protocol`](packages/protocol/CHANGELOG.md),
 
 ## Unreleased
 
+## [0.1.9] - 2026-10-04
+
+### Fixed
+
+- The dashboard states an operation's exact time limit, such as 1 min 30 s, instead of rounding it to whole minutes.
+
 ## [0.1.8] - 2026-10-03
 
 ### Added
