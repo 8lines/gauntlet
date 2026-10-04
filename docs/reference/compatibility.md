@@ -13,7 +13,7 @@ rows of the units it releases and rejects a plan that would break this rule.
 
 | Unit | Version | Implements | Supports |
 | --- | --- | --- | --- |
-| `gauntlet` | 0.1.8 | none | protocol 1; widgetChannel 1 |
+| `gauntlet` | 0.1.9 | none | protocol 1; widgetChannel 1 |
 | `protocol` | 0.1.8 | protocol 1 | none |
 | `dashboard-client` | 0.1.8 | protocol 1 | none |
 | `typescript-core` | 0.1.8 | protocol 1 | none |
@@ -25,4 +25,4 @@ rows of the units it releases and rejects a plan that would break this rule.
 | `symfony-bundle` | 0.1.8 | protocol 1 | none |
 | `java-core` | 0.1.8 | protocol 1 | none |
 | `spring-boot-starter` | 0.1.8 | protocol 1 | none |
-| `skills` | 0.1.8 | none | none |
+| `skills` | 0.1.9 | none | none |

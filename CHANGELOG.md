@@ -21,6 +21,12 @@ changelog: [`protocol`](packages/protocol/CHANGELOG.md),
 
 ## Unreleased
 
+## [0.1.9] - 2026-10-04
+
+### Fixed
+
+- The dashboard keeps the sidebar width after a reload.
+
 ## [0.1.8] - 2026-10-03
 
 ### Added

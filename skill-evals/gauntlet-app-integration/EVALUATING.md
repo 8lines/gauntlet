@@ -105,3 +105,4 @@ checked the final bytes.
 - 2026-10-04: Release units now declare only the paths they release, and the workspace gained release:changes. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
 - 2026-10-04: Each release unit gained its own changelog, and Composer archives carry it. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
 - 2026-10-04: The workspace gained release:prepare. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
+- 2026-10-04: Release preparation moved gauntlet to 0.1.9, skills to 0.1.9. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.

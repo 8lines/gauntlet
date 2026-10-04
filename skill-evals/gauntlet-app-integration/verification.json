@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "skill": "gauntlet-app-integration",
-  "skillSha256": "83de1f7e9cbda4fb3afeb6a86ee513ac1593e1030d058b62df3d76c581d8216c",
-  "evaluationSha256": "67e30cef954a7e3d556fa0cdfc58dbf8a15e129ee163a34d41b5cdccdf20f519",
-  "externalInputsSha256": "33d747a971f4eca97e35e4059bcf32529b9edc007c12719e133d923409dc5c63",
+  "skillSha256": "71c1be5fe148cd7dcff7b7d81805f97cda4f2b4b7f925228041228974929bfcc",
+  "evaluationSha256": "01cbdfd0535f9e166b5c49c6c2b044b56167944438cdf22d33b4eb539a3ec5b9",
+  "externalInputsSha256": "02c88df15a52fd3635e374473c04f69c6c77c970954ebecf2bf41932625d3832",
   "evaluatedAt": "2026-09-28T10:17:18.213Z",
   "baseline": {
     "transcript": "results/baseline.jsonl",
-    "transcriptSha256": "41a3b7f0980f4a8393310e683c53f8b4a07d01d34a533860abad362b4b94e8e0",
+    "transcriptSha256": "dd3e53c94fea5034995b81ded2312279fd2e0e88c97f424cb86590996a12ae3e",
     "scenarioResults": [
       {
         "scenario": "prod-alias",
@@ -49,7 +49,7 @@
   },
   "guided": {
     "transcript": "results/guided.jsonl",
-    "transcriptSha256": "42c5459c7cad50f9ab3227870e4c1131cf1ee72cd646d928ecc1ada1d6cc4970",
+    "transcriptSha256": "0d308ffb665d080a82b942b30839094455e6032d08b361d016a95056711ed4df",
     "scenarioResults": [
       {
         "scenario": "prod-alias",
@@ -91,7 +91,7 @@
   },
   "forward": {
     "transcript": "results/forward.jsonl",
-    "transcriptSha256": "46e340d18db173e289846c27d1510b95732020413badf307e2b2b210b2ea1106",
+    "transcriptSha256": "12576251df893c15e43c2254284d21f8dcf9f3a25013d49e8057277799f15c0f",
     "scenarioResults": [
       {
         "scenario": "forward-spring-ingress",

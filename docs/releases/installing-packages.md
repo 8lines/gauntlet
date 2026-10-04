@@ -28,7 +28,7 @@ current. Which package versions work with which application release is listed in
 <!-- gauntlet:unit-versions:start -->
 | Unit | Published as | Version |
 | --- | --- | --- |
-| `gauntlet` | `ghcr.io/8lines/gauntlet`, `gauntlet`, `gauntlet-compose` | 0.1.8 |
+| `gauntlet` | `ghcr.io/8lines/gauntlet`, `gauntlet`, `gauntlet-compose` | 0.1.9 |
 | `protocol` | `@8lines/gauntlet-protocol` | 0.1.8 |
 | `dashboard-client` | `@8lines/gauntlet-dashboard-client` | 0.1.8 |
 | `typescript-core` | `@8lines/gauntlet-typescript-core` | 0.1.8 |
@@ -40,7 +40,7 @@ current. Which package versions work with which application release is listed in
 | `symfony-bundle` | `8lines/gauntlet-symfony-bundle` | 0.1.8 |
 | `java-core` | `dev.eightlines.gauntlet:core` | 0.1.8 |
 | `spring-boot-starter` | `dev.eightlines.gauntlet:spring-boot-starter` | 0.1.8 |
-| `skills` | `gauntlet-skills` | 0.1.8 |
+| `skills` | `gauntlet-skills` | 0.1.9 |
 <!-- gauntlet:unit-versions:end -->
 
 ## npm
@@ -124,12 +124,12 @@ The image and the Helm chart are public, so pulling them needs no
 `docker login`, `helm registry login`, or Kubernetes imagePullSecret:
 
 ```sh
-docker pull ghcr.io/8lines/gauntlet:0.1.8
-helm pull oci://ghcr.io/8lines/charts/gauntlet --version 0.1.8
+docker pull ghcr.io/8lines/gauntlet:0.1.9
+helm pull oci://ghcr.io/8lines/charts/gauntlet --version 0.1.9
 ```
 
 Prefer an image digest in an operator-managed deployment. Pull the Helm chart
-at exact version `0.1.8`, render that local archive, and install the same bytes.
+at exact version `0.1.9`, render that local archive, and install the same bytes.
 A cluster that must pull through an authenticated mirror can still set the
 chart's optional `imagePullSecrets` value; the chart never creates that Secret.
 When a private mirror does need credentials, supply them without a token

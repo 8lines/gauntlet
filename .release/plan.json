@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "units": [
+    {
+      "id": "gauntlet",
+      "from": "0.1.8",
+      "to": "0.1.9"
+    },
+    {
+      "id": "skills",
+      "from": "0.1.8",
+      "to": "0.1.9"
+    }
+  ],
+  "order": [
+    "gauntlet",
+    "skills"
+  ],
+  "changes": [
+    "rehearsal-dashboard-only.md"
+  ]
+}
