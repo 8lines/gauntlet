@@ -1,5 +1,5 @@
 import type { Ref } from "react";
-import { Search, X } from "lucide-react";
+import { LogOut, Search, X } from "lucide-react";
 import type { TargetSnapshot } from "../api.ts";
 import { GauntletMark } from "@/components/gauntlet/GauntletMark";
 import { StateMark } from "@/components/gauntlet/StateMark";
@@ -11,7 +11,7 @@ import { targetStateLabel, targetStateTone } from "../app/EnvironmentSwitcher.ts
  * Header of the embedded panel. The close button (and Escape, handled by `Panel`) is the
  * only way to close the drawer: the open iframe covers the host's launcher button.
  */
-export function PanelHeader({ snapshot, search, onClose }: {
+export function PanelHeader({ snapshot, search, onClose, onLogOut }: {
   snapshot: TargetSnapshot | undefined;
   search?: {
     readonly query: string;
@@ -20,6 +20,8 @@ export function PanelHeader({ snapshot, search, onClose }: {
     readonly disabled: boolean;
   } | undefined;
   onClose: () => void;
+  /** Shown only when Gauntlet requires authentication. */
+  onLogOut?: (() => void) | undefined;
 }) {
   const environment = snapshot?.manifest?.application.environment;
   return (
@@ -42,6 +44,11 @@ export function PanelHeader({ snapshot, search, onClose }: {
             </p>
           )}
         </div>
+        {onLogOut !== undefined && (
+          <Button type="button" variant="ghost" size="icon" aria-label="Log out" title="Log out" onClick={onLogOut}>
+            <LogOut aria-hidden="true" />
+          </Button>
+        )}
         <Button type="button" variant="ghost" size="icon" aria-label="Close" onClick={onClose}>
           <X aria-hidden="true" />
         </Button>

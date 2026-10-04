@@ -37,7 +37,10 @@ export function memoryTokenStore(): TokenStore {
 }
 
 /** Storage that throws (blocked, full, sandboxed) behaves as empty. */
-export function localTokenStore(storage: Storage, key = "gauntlet.session.v1"): TokenStore {
+export function localTokenStore(
+  storage: Pick<Storage, "getItem" | "setItem" | "removeItem">,
+  key = "gauntlet.session.v1",
+): TokenStore {
   return {
     read: () => {
       try {
