@@ -218,9 +218,13 @@ environment flag that already gates the application's own adapter.
   origin in the `Referer` header, never its path or query.
 - **No CORS.** The `/widget/*` routes add no CORS headers; embedding relies
   on the framing policy above, not on cross-origin fetches.
-- **The private network boundary is unchanged.** Gauntlet's v0.1
-  authentication is still deferred; the widget does not add authentication,
-  so the dashboard, REST API, MCP endpoint and widget routes must all stay
-  behind the same verified private boundary.
+- **Sign-in stays inside the panel.** With password authentication on, the
+  panel shows its own sign-in form and keeps the session in a partitioned
+  cookie, or in its own storage when the browser refuses that cookie (plain
+  HTTP). Nothing about the session crosses the channel to the host page
+  ([authentication](../deployment/authentication.md#sessions)).
+- **The private network boundary is unchanged.** The dashboard, REST API, MCP
+  endpoint and widget routes must all stay behind the same verified private
+  boundary, with or without authentication.
 
 [Documentation index](../README.md)

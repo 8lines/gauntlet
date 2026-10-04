@@ -22,12 +22,15 @@ Before installation, record:
 - the private user access path (loopback tunnel, VPN/Tailscale ACL, private
   ingress with an allowlist, or an authenticating reverse proxy such as basic
   authentication or SSO in front of the dashboard);
+- whether Gauntlet itself requires a password
+  ([authentication](authentication.md)), and who holds `GAUNTLET_AUTH_SECRET`;
 - the exact image version or digest and chart/package versions;
 - how public ingress denies `/_gauntlet/v1` for every application;
 - who owns firewall, ingress, DNS, registry, and adapter enablement evidence;
 - the single-replica constraint and the accepted loss of in-memory history.
 
-Gauntlet v0.1 authentication is deferred. A TLS certificate, private DNS
+Gauntlet's optional password authentication narrows who can use an instance
+that is already private; it is not a reason to expose one. A TLS certificate, private DNS
 name, Kubernetes NetworkPolicy, Tailscale route, or container network does not
 identify a user. Treat each as one layer of the deployment boundary, not as
 application authorization.

@@ -64,7 +64,11 @@ an Origin header, it must match the allow-list exactly; otherwise it receives
 not a CORS endpoint or authentication. Invalid configuration fails startup
 without echoing its contents.
 
-Gauntlet authentication is deferred. MCP inherits the same verified
+When Gauntlet's password authentication is on, `/mcp` answers `401` without a
+credential: configure the client with an `Authorization: Bearer` header
+carrying a static API token
+([authentication](deployment/authentication.md#api-tokens)). Browser sign-in
+for MCP clients (OAuth) is not available yet. MCP inherits the same verified
 private access boundary as REST and the dashboard; it must not be exposed on
 the public internet. Every connected client can operate the configured targets
 within the existing protocol policies. The adapter still owns application

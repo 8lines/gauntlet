@@ -40,6 +40,7 @@ set -eu
     "GAUNTLET_CONFIG_PATH=\${GAUNTLET_CONFIG_PATH-unset}" \
     "GAUNTLET_MCP_ENABLED=\${GAUNTLET_MCP_ENABLED-unset}" \
     "GAUNTLET_MCP_ALLOWED_ORIGINS_JSON=\${GAUNTLET_MCP_ALLOWED_ORIGINS_JSON-unset}" \
+    "GAUNTLET_AUTH_SECRET=\${GAUNTLET_AUTH_SECRET-unset}" \
     __ENV_END__
 } >> "$FAKE_DOCKER_RECEIPT"
 
@@ -266,6 +267,7 @@ test("delegation pins absolute Compose inputs, preserves arguments and scrubs mo
       GAUNTLET_CONFIG_PATH: "/tmp/hostile-config",
       GAUNTLET_MCP_ENABLED: "true",
       GAUNTLET_MCP_ALLOWED_ORIGINS_JSON: '["https://hostile.example"]',
+      GAUNTLET_AUTH_SECRET: "hostile-secret",
     });
     assert.equal(result.status, 0, result.stderr);
     const recorded = await calls(instance.receipt);
@@ -289,6 +291,7 @@ test("delegation pins absolute Compose inputs, preserves arguments and scrubs mo
       "GAUNTLET_CONFIG_PATH=unset",
       "GAUNTLET_MCP_ENABLED=unset",
       "GAUNTLET_MCP_ALLOWED_ORIGINS_JSON=unset",
+      "GAUNTLET_AUTH_SECRET=unset",
     ]);
   } finally {
     await cleanup(instance);

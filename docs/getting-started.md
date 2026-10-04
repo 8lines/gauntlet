@@ -15,8 +15,10 @@ For the Docker path below, you also need Docker Engine with Compose, access to
 the private Gauntlet image and the application's container on the same Docker
 Engine. For Kubernetes, follow the [Helm guide](../deploy/helm/README.md) instead.
 
-Gauntlet v0.1 has no built-in authentication. Give access only to trusted
-users; do not expose it publicly or enable application adapters in production.
+Authentication is off by default; to require a password, see
+[authentication](deployment/authentication.md). Either way, give access only to
+trusted users; do not expose Gauntlet publicly or enable application adapters
+in production.
 
 ## 1. Create your configuration
 

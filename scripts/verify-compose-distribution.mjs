@@ -144,6 +144,7 @@ assert.deepEqual(service.environment, {
   GAUNTLET_PORT: "8080",
   GAUNTLET_MCP_ENABLED: "false",
   GAUNTLET_MCP_ALLOWED_ORIGINS_JSON: "[]",
+  GAUNTLET_AUTH_SECRET: "",
 });
 
 assert.equal(service.ports.length, 1);
@@ -200,7 +201,10 @@ assert.equal(service.healthcheck.timeout, "2s");
 assert.equal(service.healthcheck.retries, 6);
 assert.equal(service.healthcheck.start_period, "5s");
 
-const serializedService = JSON.stringify(service);
+// The authentication signing secret is the one credential the service takes, from the private `.env`
+// (empty by default); nothing else in the rendered service may look like a credential.
+const { GAUNTLET_AUTH_SECRET: _authSecret, ...credentialFreeEnvironment } = service.environment;
+const serializedService = JSON.stringify({ ...service, environment: credentialFreeEnvironment });
 assert.equal(serializedService.includes("/_gauntlet/v1"), false);
 assert.equal(serializedService.includes("/ready"), true);
 assert.equal(serializedService.includes("docker.sock"), false);
@@ -218,6 +222,7 @@ assert.deepEqual(environmentKeys, [
   "GAUNTLET_CONFIG_PATH",
   "GAUNTLET_MCP_ENABLED",
   "GAUNTLET_MCP_ALLOWED_ORIGINS_JSON",
+  "GAUNTLET_AUTH_SECRET",
 ]);
 
 const buildModel = renderComposeModel([composeFile, buildOverrideFile]);

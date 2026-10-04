@@ -8,7 +8,8 @@ test("security policy uses private reporting and states the deployment boundary"
   assert.match(security, /security\/advisories\/new/u);
   assert.match(security, /Do not open a public issue/iu);
   assert.match(security, /non-production/iu);
-  assert.match(security, /authentication is deferred/iu);
+  assert.match(security, /Built-in authentication is optional and off by default/u);
+  assert.match(security, /does not replace the private boundary/u);
   assert.match(security, /public adapter/iu);
 });
 

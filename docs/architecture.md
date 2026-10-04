@@ -144,9 +144,12 @@ cancellation and execution-lease semantics.
 
 ## Trust and deployment boundaries
 
-Gauntlet v0.1 authentication is deferred. The dashboard, REST API and MCP
-endpoint must remain behind a verified private boundary. MCP Origin validation
-and operation confirmations do not authenticate a user. Authorization and
+Authentication is optional: with `auth.mode: password` one request guard
+requires a session (cookie or bearer) or a static API token for `/api` and
+`/mcp`, and records the principal as the run actor
+([authentication](deployment/authentication.md)). The dashboard, REST API and
+MCP endpoint must still remain behind a verified private boundary. MCP Origin
+validation and operation confirmations do not authenticate a user. Authorization and
 domain rules remain in the application.
 
 Environment metadata rejects accidental misconfiguration; it cannot prove the
