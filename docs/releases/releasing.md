@@ -113,7 +113,8 @@ run `PLAYWRIGHT_BROWSER_CHANNEL=chrome pnpm release:dry-run`. The browser
 preflight must finish successfully before starting the long rehearsal.
 
 The command rejects a dirty source tree, validates the exact version, runs the
-complete repository verification, stages `.artifacts/release/0.1.8`, exercises
+complete repository verification, stages `.artifacts/release/local-<12 hex>`
+(the release set named for the source commit), exercises
 a uniquely named loopback-only OCI registry, verifies package consumers and
 inventory hashes, and removes only resources it created. It never contacts a
 GitHub publishing endpoint.
@@ -132,7 +133,7 @@ Review:
 ```sh
 git status --short
 node scripts/release/version.mjs --check
-node scripts/release/verify-inventory.mjs --release-root "$PWD/.artifacts/release/0.1.8"
+node scripts/release/verify-inventory.mjs --release-root "$PWD/.artifacts/release/local-$(git rev-parse HEAD | cut -c1-12)"
 ```
 
 The generated directory is reproducible evidence, not a credential store.
@@ -191,11 +192,11 @@ requires a new version.
 ## Failure handling
 
 A failure after staging deliberately retains
-`.artifacts/release/0.1.8` for inspection. After preserving any evidence you
+`.artifacts/release/local-<12 hex>` for inspection. After preserving any evidence you
 need, discard only that verified, commit-bound staged directory with:
 
 ```sh
-pnpm release:discard-staged --release-root .artifacts/release/0.1.8 \
+pnpm release:discard-staged --release-root ".artifacts/release/local-$(git rev-parse HEAD | cut -c1-12)" \
   --source-commit "$(git rev-parse HEAD)"
 ```
 

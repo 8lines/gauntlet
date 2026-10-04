@@ -13,15 +13,17 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { isAbsolute, join, resolve, sep } from "node:path";
+import { basename, isAbsolute, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify, TextDecoder, types as utilTypes } from "node:util";
 
 import { parseDocument } from "yaml";
 
 import { withMaterializedCanonicalTree, withOwnedTemporaryWorkspace } from "./archive-consumer.mjs";
-import { createReleaseManifest, verifyReleaseInventory } from "./inventory.mjs";
+import { createReleaseManifest, readReleaseManifest, verifyReleaseInventory } from "./inventory.mjs";
 import { parseReleaseVersion, RELEASE_ARTIFACTS } from "./release-model.mjs";
+import { COMPOSER_UNIT_IDS } from "./stage-composer.mjs";
+import { unitById } from "./units.mjs";
 
 const execFileAsync = promisify(execFile);
 const FAILURE = "Composer split publication failed closed";
@@ -438,65 +440,70 @@ export async function publishComposerPackage(options) {
   });
 }
 
+const CLI_USAGE = "Usage: publish-composer.mjs --release-directory ABSOLUTE_PATH --source-commit SHA --unit php-core|symfony-bundle";
+
 function parseCli(argv) {
-  if (!Array.isArray(argv) || argv.length !== 6 || argv[0] !== "--release-directory" || argv[2] !== "--version"
-      || argv[4] !== "--source-commit") {
-    throw new TypeError("Usage: publish-composer.mjs --release-directory ABSOLUTE_PATH --version X.Y.Z --source-commit SHA");
+  if (!Array.isArray(argv) || argv.length !== 6 || argv[0] !== "--release-directory" || argv[2] !== "--source-commit"
+      || argv[4] !== "--unit") {
+    throw new TypeError(CLI_USAGE);
   }
   return Object.freeze({
     releaseDirectory: canonicalDirectory(argv[1], "Release directory"),
-    version: stableVersion(argv[3]),
-    sourceCommit: exactSourceCommit(argv[5]),
+    sourceCommit: exactSourceCommit(argv[3]),
+    unit: composerUnit(argv[5]),
   });
 }
 
-export async function publishComposerRepositories(options, dependencyOverrides) {
+function closedOptions(options, wanted, message) {
   if (options === null || typeof options !== "object" || Array.isArray(options) || utilTypes.isProxy(options)
       || ![Object.prototype, null].includes(Object.getPrototypeOf(options))) {
-    throw new TypeError("Composer repository publication options are invalid");
+    throw new TypeError(message);
   }
   const descriptors = Object.getOwnPropertyDescriptors(options);
-  const wanted = ["releaseDirectory", "version", "sourceCommit"];
   const keys = Reflect.ownKeys(descriptors);
   if (keys.length !== wanted.length || wanted.some((key) => !keys.includes(key))
       || keys.some((key) => typeof key !== "string" || !wanted.includes(key)
         || descriptors[key].enumerable !== true || !("value" in descriptors[key]))) {
-    throw new TypeError("Composer repository publication options are invalid");
+    throw new TypeError(message);
   }
-  const releaseDirectory = canonicalDirectory(descriptors.releaseDirectory.value, "Release directory");
-  const version = stableVersion(descriptors.version.value);
-  const commit = exactSourceCommit(descriptors.sourceCommit.value);
-  const dependencies = publicationDependencies(dependencyOverrides);
-  const plan = createComposerPublicationPlan({ releaseDirectory, version, sourceCommit: commit });
-  return withMaterializedComposerSources(plan, version, commit, 0, [], async (sources) => {
-    const results = [];
-    for (const [index, artifact] of plan.entries()) {
-      results.push(Object.freeze({
-        name: artifact.name,
-        status: await dependencies.publishPackage({
-          source: sources[index],
-          remote: artifact.remote,
-          version,
-          sourceCommit: commit,
-          dryRun: false,
-        }),
-      }));
-    }
-    return Object.freeze(results);
-  });
+  return Object.freeze(Object.fromEntries(wanted.map((key) => [key, descriptors[key].value])));
 }
 
-async function withMaterializedComposerSources(plan, version, commit, index, sources, consumer) {
-  if (index === plan.length) return consumer(Object.freeze([...sources]));
-  const artifact = plan[index];
+function composerUnit(value) {
+  if (typeof value !== "string" || !COMPOSER_UNIT_IDS.includes(value)) {
+    throw new TypeError(`Composer publication unit must be one of ${COMPOSER_UNIT_IDS.join(", ")}`);
+  }
+  return value;
+}
+
+export async function publishComposerRepositories(options, dependencyOverrides) {
+  const values = closedOptions(
+    options,
+    ["releaseDirectory", "sourceCommit", "unit"],
+    "Composer repository publication options are invalid",
+  );
+  const releaseDirectory = canonicalDirectory(values.releaseDirectory, "Release directory");
+  const commit = exactSourceCommit(values.sourceCommit);
+  const unit = composerUnit(values.unit);
+  const dependencies = publicationDependencies(dependencyOverrides);
+  const artifact = createComposerPublicationPlan({ releaseDirectory, sourceCommit: commit, unit });
   return withMaterializedCanonicalTree({
     archivePath: artifact.archivePath,
     expectedPrefix: artifact.expectedPrefix,
     expectedSha256: artifact.expectedSha256,
   }, async (source) => {
-    const contract = validateSourceContract(source, version, validateRemote(artifact.remote), commit);
+    const contract = validateSourceContract(source, artifact.version, validateRemote(artifact.remote), commit);
     if (contract.artifact.name !== artifact.name || artifact.expectedSourceCommit !== commit) failClosed();
-    return withMaterializedComposerSources(plan, version, commit, index + 1, [...sources, source], consumer);
+    return Object.freeze([Object.freeze({
+      name: artifact.name,
+      status: await dependencies.publishPackage({
+        source,
+        remote: artifact.remote,
+        version: artifact.version,
+        sourceCommit: commit,
+        dryRun: false,
+      }),
+    })]);
   });
 }
 
@@ -515,11 +522,11 @@ function publicationDependencies(overrides) {
   return Object.freeze({ publishPackage: descriptors.publishPackage.value });
 }
 
-function readComposerReleaseManifest(releaseDirectory, version, commit) {
+function readComposerReleaseManifest(releaseDirectory, commit) {
   try {
     const verification = verifyReleaseInventory({
       outputDirectory: releaseDirectory,
-      version,
+      releaseSet: basename(releaseDirectory),
       sourceCommit: commit,
     });
     const manifestPath = join(releaseDirectory, "release-manifest.json");
@@ -529,17 +536,16 @@ function readComposerReleaseManifest(releaseDirectory, version, commit) {
     const after = readFileSync(manifestPath);
     if (!before.equals(after)) failClosed();
     if (Object.keys(parsed).sort().join("\0") !== [
-      "schemaVersion", "version", "sourceTag", "sourceCommit", "artifacts",
-    ].sort().join("\0") || parsed.schemaVersion !== 1 || parsed.version !== version
-        || parsed.sourceTag !== `v${version}` || parsed.sourceCommit !== commit) failClosed();
+      "schemaVersion", "releaseSet", "sourceCommit", "units", "artifacts",
+    ].sort().join("\0") || parsed.schemaVersion !== 2 || parsed.releaseSet !== verification.releaseSet
+        || parsed.sourceCommit !== commit) failClosed();
     const manifest = createReleaseManifest({
-      version: parsed.version,
+      releaseSet: parsed.releaseSet,
       sourceCommit: parsed.sourceCommit,
+      units: parsed.units,
       artifacts: parsed.artifacts,
     });
     if (!before.equals(Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8"))) failClosed();
-    const composer = manifest.artifacts.filter(({ kind }) => kind === "composer");
-    if (composer.length !== RELEASE_ARTIFACTS.composer.length) failClosed();
     return manifest;
   } catch (error) {
     if (error instanceof Error && error.message === FAILURE) throw error;
@@ -560,45 +566,45 @@ function canonicalArchive(path) {
 }
 
 export function createComposerPublicationPlan(options) {
-  if (options === null || typeof options !== "object" || Array.isArray(options) || utilTypes.isProxy(options)
-      || ![Object.prototype, null].includes(Object.getPrototypeOf(options))) {
-    throw new TypeError("Composer publication plan options must be a closed data object");
-  }
-  const descriptors = Object.getOwnPropertyDescriptors(options);
-  const keys = Reflect.ownKeys(descriptors);
-  const wanted = ["releaseDirectory", "version", "sourceCommit"];
-  if (keys.length !== wanted.length || wanted.some((key) => !keys.includes(key))
-      || keys.some((key) => typeof key !== "string" || !wanted.includes(key)
-        || descriptors[key].enumerable !== true || !("value" in descriptors[key]))) {
-    throw new TypeError("Composer publication plan options must be a closed data object");
-  }
-  const releaseDirectory = canonicalDirectory(descriptors.releaseDirectory.value, "Release directory");
-  const version = stableVersion(descriptors.version.value);
-  const commit = exactSourceCommit(descriptors.sourceCommit.value);
-  const manifest = readComposerReleaseManifest(releaseDirectory, version, commit);
-  return Object.freeze(RELEASE_ARTIFACTS.composer.map((artifact) => {
-    const leaf = artifact.repository.split("/").at(-1);
-    if (typeof leaf !== "string" || !/^[a-z0-9][a-z0-9-]*$/u.test(leaf)) failClosed();
-    const filename = `${leaf}-${version}.tar.gz`;
-    const expectedPath = `composer/artifacts/${filename}`;
-    const records = manifest.artifacts.filter(({ kind, name }) => kind === "composer" && name === artifact.name);
-    if (records.length !== 1 || records[0].path !== expectedPath) failClosed();
-    return Object.freeze({
-      name: artifact.name,
-      archivePath: canonicalArchive(resolve(releaseDirectory, ...expectedPath.split("/"))),
-      expectedPrefix: filename.slice(0, -7),
-      expectedSha256: records[0].sha256,
-      expectedSourceCommit: commit,
-      remote: artifact.repositoryUrl,
-    });
-  }));
+  const values = closedOptions(
+    options,
+    ["releaseDirectory", "sourceCommit", "unit"],
+    "Composer publication plan options must be a closed data object",
+  );
+  const releaseDirectory = canonicalDirectory(values.releaseDirectory, "Release directory");
+  const commit = exactSourceCommit(values.sourceCommit);
+  const unit = composerUnit(values.unit);
+  const manifest = readComposerReleaseManifest(releaseDirectory, commit);
+  const staged = manifest.units.find(({ id }) => id === unit);
+  if (staged === undefined) failClosed();
+  const version = stableVersion(staged.version);
+  const name = unitById(unit).artifacts[0];
+  const artifact = RELEASE_ARTIFACTS.composer.find((candidate) => candidate.name === name);
+  if (artifact === undefined) failClosed();
+  const leaf = artifact.repository.split("/").at(-1);
+  if (typeof leaf !== "string" || !/^[a-z0-9][a-z0-9-]*$/u.test(leaf)) failClosed();
+  const filename = `${leaf}-${version}.tar.gz`;
+  const expectedPath = `composer/artifacts/${filename}`;
+  const records = manifest.artifacts.filter((record) => record.kind === "composer" && record.name === artifact.name);
+  if (records.length !== 1 || records[0].unit !== unit || records[0].path !== expectedPath) failClosed();
+  return Object.freeze({
+    name: artifact.name,
+    version,
+    archivePath: canonicalArchive(resolve(releaseDirectory, ...expectedPath.split("/"))),
+    expectedPrefix: filename.slice(0, -7),
+    expectedSha256: records[0].sha256,
+    expectedSourceCommit: commit,
+    remote: artifact.repositoryUrl,
+  });
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const options = parseCli(process.argv.slice(2));
     const results = await publishComposerRepositories(options);
-    process.stdout.write(`${JSON.stringify({ results, version: options.version })}\n`);
+    const staged = readReleaseManifest(options.releaseDirectory).manifest.units.find(({ id }) => id === options.unit);
+    if (staged === undefined) failClosed();
+    process.stdout.write(`${JSON.stringify({ results, unit: options.unit, version: staged.version })}\n`);
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : FAILURE}\n`);
     process.exitCode = 1;

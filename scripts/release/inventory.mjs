@@ -14,13 +14,16 @@ import {
   unlinkSync,
   writeSync,
 } from "node:fs";
-import { isAbsolute, resolve, sep } from "node:path";
+import { basename, isAbsolute, resolve, sep } from "node:path";
 import { TextDecoder, types as utilTypes } from "node:util";
 
-import { parseReleaseVersion, RELEASE_ARTIFACTS, RELEASE_STAGE_ARTIFACT_COUNT } from "./release-model.mjs";
+import { parseReleaseSetId } from "./plan.mjs";
+import { parseReleaseVersion, RELEASE_ARTIFACTS } from "./release-model.mjs";
+import { dependencyOrder, unitById, unitTag } from "./units.mjs";
 
 const FAILURE = "Release inventory generation failed closed";
 const INPUT_FAILURE = "Release inventory input is invalid";
+const VERIFY_FAILURE = "Release inventory verification failed closed";
 const COMMIT = /^[0-9a-f]{40}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 const SAFE_NAME = /^[A-Za-z0-9@._+:/-]{1,240}$/;
@@ -32,7 +35,7 @@ const MAX_ARTIFACTS = 512;
 const MAX_FILE_BYTES = 16 * 1024 * 1024 * 1024;
 const MAX_INVENTORY_BYTES = 4 * 1024 * 1024;
 const UTF8 = new TextDecoder("utf-8", { fatal: true });
-export const RELEASE_INVENTORY_ARTIFACTS = RELEASE_STAGE_ARTIFACT_COUNT;
+const MANIFEST_KEYS = Object.freeze(["schemaVersion", "releaseSet", "sourceCommit", "units", "artifacts"]);
 
 function inputFailure() {
   throw new Error(INPUT_FAILURE);
@@ -98,16 +101,20 @@ function compareText(left, right) {
   return Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8"));
 }
 
-function compareArtifacts(left, right) {
+export function compareArtifacts(left, right) {
   return compareText(left.kind, right.kind) || compareText(left.name, right.name) || compareText(left.path, right.path);
 }
 
-function parseArtifacts(value, requireHash) {
+function parseArtifacts(value, requireHash, unitIds) {
   const paths = new Set();
   const identities = new Set();
   const records = ownArray(value).map((candidate) => {
-    const record = ownData(candidate, requireHash ? ["kind", "name", "path", "sha256"] : ["kind", "name", "path"]);
-    if (typeof record.kind !== "string" || !KINDS.has(record.kind)
+    const record = ownData(
+      candidate,
+      requireHash ? ["unit", "kind", "name", "path", "sha256"] : ["unit", "kind", "name", "path"],
+    );
+    if (typeof record.unit !== "string" || !unitIds.includes(record.unit)
+        || typeof record.kind !== "string" || !KINDS.has(record.kind)
         || typeof record.name !== "string" || !SAFE_NAME.test(record.name)) inputFailure();
     const path = safePath(record.path);
     if (requireHash && (typeof record.sha256 !== "string" || !SHA256.test(record.sha256))) inputFailure();
@@ -116,6 +123,7 @@ function parseArtifacts(value, requireHash) {
     paths.add(path);
     identities.add(identity);
     return Object.freeze({
+      unit: record.unit,
       kind: record.kind,
       name: record.name,
       path,
@@ -125,22 +133,49 @@ function parseArtifacts(value, requireHash) {
   return records.sort(compareArtifacts);
 }
 
+function parseUnits(value) {
+  const entries = ownArray(value).map((candidate) => {
+    const withTag = candidate !== null && typeof candidate === "object" && !utilTypes.isProxy(candidate)
+      && Object.hasOwn(candidate, "tag");
+    const record = ownData(candidate, withTag ? ["id", "version", "tag"] : ["id", "version"]);
+    let unit;
+    try { unit = unitById(record.id); } catch { inputFailure(); }
+    const version = stableVersion(record.version);
+    const tag = unitTag(unit, version);
+    if (withTag && record.tag !== tag) inputFailure();
+    return Object.freeze({ id: unit.id, version, tag });
+  });
+  const ids = entries.map(({ id }) => id);
+  if (new Set(ids).size !== ids.length || JSON.stringify(dependencyOrder(ids)) !== JSON.stringify(ids)) inputFailure();
+  return Object.freeze(entries);
+}
+
+function parseSetId(value, sourceCommit) {
+  try {
+    return parseReleaseSetId(value, sourceCommit);
+  } catch {
+    inputFailure();
+  }
+}
+
 function deeplyFreezeManifest(manifest) {
+  Object.freeze(manifest.units);
   Object.freeze(manifest.artifacts);
   return Object.freeze(manifest);
 }
 
 export function createReleaseManifest(options) {
   try {
-    const values = ownData(options, ["version", "sourceCommit", "artifacts"]);
-    const version = stableVersion(values.version);
+    const values = ownData(options, ["releaseSet", "sourceCommit", "units", "artifacts"]);
     if (typeof values.sourceCommit !== "string" || !COMMIT.test(values.sourceCommit)) inputFailure();
+    const releaseSet = parseSetId(values.releaseSet, values.sourceCommit);
+    const units = parseUnits(values.units);
     return deeplyFreezeManifest({
-      schemaVersion: 1,
-      version,
-      sourceTag: `v${version}`,
+      schemaVersion: 2,
+      releaseSet,
       sourceCommit: values.sourceCommit,
-      artifacts: parseArtifacts(values.artifacts, true),
+      units,
+      artifacts: parseArtifacts(values.artifacts, true, units.map(({ id }) => id)),
     });
   } catch (error) {
     if (error instanceof Error && error.message === INPUT_FAILURE) throw error;
@@ -221,47 +256,39 @@ function readRegularFile(root, relativePath, maximumBytes) {
   }
 }
 
-function expectedReleaseArtifactIdentity(version) {
-  const npm = RELEASE_ARTIFACTS.npm.map(({ name }) => ({
-    kind: "npm",
-    name,
-    path: `npm/${name.replace(/^@/u, "").replaceAll("/", "-")}-${version}.tgz`,
-  }));
-  const composer = RELEASE_ARTIFACTS.composer.map(({ name, repository }) => ({
-    kind: "composer",
-    name,
-    path: `composer/artifacts/${repository.split("/").at(-1)}-${version}.tar.gz`,
-  }));
-  const maven = RELEASE_ARTIFACTS.maven.map(({ name }) => ({
-    kind: "maven",
-    name,
-    path: `maven/artifacts/gauntlet-${name.split(":")[1]}-${version}.tar.gz`,
-  }));
-  return [
-    ...npm,
-    ...composer,
-    ...maven,
-    { kind: "skills", name: RELEASE_ARTIFACTS.skills.name, path: `skills/gauntlet-skills-${version}.tgz` },
-    { kind: "compose", name: RELEASE_ARTIFACTS.compose.name, path: `compose/gauntlet-compose-${version}.tar.gz` },
-    { kind: "helm", name: RELEASE_ARTIFACTS.chart.name, path: `helm/gauntlet-${version}.tgz` },
-    { kind: "docker", name: "gauntlet.local/gauntlet", path: `image/gauntlet-${version}.docker.tar` },
-    { kind: "oci", name: RELEASE_ARTIFACTS.image.name, path: `image/gauntlet-${version}.oci.tar` },
-    {
-      kind: "provenance",
-      name: `${RELEASE_ARTIFACTS.image.name}@buildkit-unsigned`,
-      path: `image/gauntlet-${version}.provenance.json`,
-    },
-    {
-      kind: "sbom",
-      name: `${RELEASE_ARTIFACTS.image.name}@linux/amd64`,
-      path: "sbom/gauntlet-linux-amd64.spdx.json",
-    },
-    {
-      kind: "sbom",
-      name: `${RELEASE_ARTIFACTS.image.name}@linux/arm64`,
-      path: "sbom/gauntlet-linux-arm64.spdx.json",
-    },
-  ].sort(compareArtifacts);
+const npmArchive = (name, version) => `npm/${name.replace(/^@/u, "").replaceAll("/", "-")}-${version}.tgz`;
+
+export function expectedUnitArtifacts(unitId, rawVersion) {
+  const unit = unitById(unitId);
+  const version = stableVersion(rawVersion);
+  const name = unit.artifacts[0];
+  let records;
+  if (unit.kind === "npm") {
+    records = [{ kind: "npm", name, path: npmArchive(name, version) }];
+  } else if (unit.kind === "composer") {
+    const { repository } = RELEASE_ARTIFACTS.composer.find((artifact) => artifact.name === name);
+    records = [{ kind: "composer", name, path: `composer/artifacts/${repository.split("/").at(-1)}-${version}.tar.gz` }];
+  } else if (unit.kind === "maven") {
+    records = [{ kind: "maven", name, path: `maven/artifacts/gauntlet-${name.split(":")[1]}-${version}.tar.gz` }];
+  } else if (unit.kind === "skills") {
+    records = [{ kind: "skills", name: RELEASE_ARTIFACTS.skills.name, path: `skills/gauntlet-skills-${version}.tgz` }];
+  } else {
+    const image = RELEASE_ARTIFACTS.image.name;
+    records = [
+      { kind: "compose", name: RELEASE_ARTIFACTS.compose.name, path: `compose/gauntlet-compose-${version}.tar.gz` },
+      { kind: "helm", name: RELEASE_ARTIFACTS.chart.name, path: `helm/gauntlet-${version}.tgz` },
+      { kind: "docker", name: "gauntlet.local/gauntlet", path: `image/gauntlet-${version}.docker.tar` },
+      { kind: "oci", name: image, path: `image/gauntlet-${version}.oci.tar` },
+      { kind: "provenance", name: `${image}@buildkit-unsigned`, path: `image/gauntlet-${version}.provenance.json` },
+      { kind: "sbom", name: `${image}@linux/amd64`, path: "sbom/gauntlet-linux-amd64.spdx.json" },
+      { kind: "sbom", name: `${image}@linux/arm64`, path: "sbom/gauntlet-linux-arm64.spdx.json" },
+    ];
+  }
+  return Object.freeze(records.map((record) => Object.freeze({ unit: unit.id, ...record })).sort(compareArtifacts));
+}
+
+export function expectedReleaseArtifacts(units) {
+  return Object.freeze(units.flatMap(({ id, version }) => expectedUnitArtifacts(id, version)).sort(compareArtifacts));
 }
 
 function sha256Bytes(bytes) {
@@ -321,44 +348,61 @@ function canonicalInventoryRoot(outputDirectory) {
   return root;
 }
 
+function canonicalManifestBytes(manifest) {
+  return Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+}
+
+function parseManifestBytes(bytes) {
+  const values = ownData(JSON.parse(UTF8.decode(bytes)), MANIFEST_KEYS);
+  if (values.schemaVersion !== 2) failClosed();
+  const manifest = createReleaseManifest({
+    releaseSet: values.releaseSet,
+    sourceCommit: values.sourceCommit,
+    units: values.units,
+    artifacts: values.artifacts,
+  });
+  if (!bytes.equals(canonicalManifestBytes(manifest))) failClosed();
+  return manifest;
+}
+
+// Reads a finalized release directory's manifest. Only the canonical bytes are checked: a finalized
+// directory legitimately holds publication files beyond the closed staged tree.
+export function readReleaseManifest(outputDirectory) {
+  try {
+    const root = canonicalInventoryRoot(outputDirectory);
+    const bytes = readRegularFile(root, "release-manifest.json", MAX_INVENTORY_BYTES);
+    return Object.freeze({ manifest: parseManifestBytes(bytes), bytes });
+  } catch {
+    throw new Error(VERIFY_FAILURE);
+  }
+}
+
 export function verifyStagedReleaseInventory(outputDirectory) {
   try {
     const root = canonicalInventoryRoot(outputDirectory);
     const manifestBytes = readRegularFile(root, "release-manifest.json", MAX_INVENTORY_BYTES);
-    const parsed = JSON.parse(UTF8.decode(manifestBytes));
-    const values = ownData(parsed, ["schemaVersion", "version", "sourceTag", "sourceCommit", "artifacts"]);
-    const version = stableVersion(values.version);
-    if (values.schemaVersion !== 1 || values.sourceTag !== `v${version}`
+    const values = ownData(JSON.parse(UTF8.decode(manifestBytes)), MANIFEST_KEYS);
+    if (values.schemaVersion !== 2 || typeof values.releaseSet !== "string" || basename(root) !== values.releaseSet
         || typeof values.sourceCommit !== "string" || !COMMIT.test(values.sourceCommit)) failClosed();
-    return verifyReleaseInventory({ outputDirectory: root, version, sourceCommit: values.sourceCommit });
-  } catch (error) {
-    if (error instanceof Error && error.message === "Release inventory verification failed closed") throw error;
-    throw new Error("Release inventory verification failed closed");
+    return verifyReleaseInventory({ outputDirectory: root, releaseSet: values.releaseSet, sourceCommit: values.sourceCommit });
+  } catch {
+    throw new Error(VERIFY_FAILURE);
   }
 }
 
 export function verifyReleaseInventory(options) {
   try {
-    const values = ownData(options, ["outputDirectory", "version", "sourceCommit"]);
-    const version = stableVersion(values.version);
+    const values = ownData(options, ["outputDirectory", "releaseSet", "sourceCommit"]);
     if (typeof values.sourceCommit !== "string" || !COMMIT.test(values.sourceCommit)) inputFailure();
+    const releaseSet = parseSetId(values.releaseSet, values.sourceCommit);
     const root = canonicalInventoryRoot(values.outputDirectory);
     const rootBefore = lstatSync(root, { bigint: true });
 
     const manifestBytes = readRegularFile(root, "release-manifest.json", MAX_INVENTORY_BYTES);
-    const parsed = JSON.parse(UTF8.decode(manifestBytes));
-    const manifestValues = ownData(parsed, ["schemaVersion", "version", "sourceTag", "sourceCommit", "artifacts"]);
-    if (manifestValues.schemaVersion !== 1 || manifestValues.version !== version
-        || manifestValues.sourceTag !== `v${version}` || manifestValues.sourceCommit !== values.sourceCommit) failClosed();
-    const manifest = createReleaseManifest({
-      version: manifestValues.version,
-      sourceCommit: manifestValues.sourceCommit,
-      artifacts: manifestValues.artifacts,
-    });
-    const canonicalManifestBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-    if (!manifestBytes.equals(canonicalManifestBytes) || manifest.artifacts.length !== RELEASE_INVENTORY_ARTIFACTS) failClosed();
-    const expected = expectedReleaseArtifactIdentity(version);
-    const actual = manifest.artifacts.map(({ kind, name, path }) => ({ kind, name, path }));
+    const manifest = parseManifestBytes(manifestBytes);
+    if (manifest.releaseSet !== releaseSet || manifest.sourceCommit !== values.sourceCommit) failClosed();
+    const expected = expectedReleaseArtifacts(manifest.units);
+    const actual = manifest.artifacts.map(({ unit, kind, name, path }) => ({ unit, kind, name, path }));
     if (JSON.stringify(actual) !== JSON.stringify(expected)) failClosed();
 
     const checksumsBytes = readRegularFile(root, "SHA256SUMS", MAX_INVENTORY_BYTES);
@@ -380,30 +424,34 @@ export function verifyReleaseInventory(options) {
     if (!rootAfter.isDirectory() || rootAfter.isSymbolicLink() || rootBefore.dev !== rootAfter.dev
         || rootBefore.ino !== rootAfter.ino || rootBefore.uid !== rootAfter.uid || rootBefore.mode !== rootAfter.mode) failClosed();
 
-    const nativeImage = evidenceArtifact(manifest, "docker", "gauntlet.local/gauntlet");
-    const multiPlatformOciArtifact = evidenceArtifact(manifest, "oci", RELEASE_ARTIFACTS.image.name);
-    const helmChart = evidenceArtifact(manifest, "helm", RELEASE_ARTIFACTS.chart.name);
-    const multiPlatformOci = Object.freeze({
-      ...multiPlatformOciArtifact,
-      platforms: Object.freeze(["linux/amd64", "linux/arm64"]),
-      verification: "deeply-validated-during-staging",
-    });
+    const hasApplication = manifest.units.some(({ id }) => id === "gauntlet");
+    let nativeImage = null;
+    let multiPlatformOci = null;
+    let helmChart = null;
+    if (hasApplication) {
+      nativeImage = evidenceArtifact(manifest, "docker", "gauntlet.local/gauntlet");
+      helmChart = evidenceArtifact(manifest, "helm", RELEASE_ARTIFACTS.chart.name);
+      multiPlatformOci = Object.freeze({
+        ...evidenceArtifact(manifest, "oci", RELEASE_ARTIFACTS.image.name),
+        platforms: Object.freeze(["linux/amd64", "linux/arm64"]),
+        verification: "deeply-validated-during-staging",
+      });
+    }
     return Object.freeze({
-      schemaVersion: 1,
+      schemaVersion: 2,
       ok: true,
-      version,
+      releaseSet,
       sourceCommit: values.sourceCommit,
-      artifacts: RELEASE_INVENTORY_ARTIFACTS,
+      units: manifest.units,
+      artifacts: manifest.artifacts.length,
       manifestSha256: sha256Bytes(manifestBytes),
       checksumsSha256: sha256Bytes(checksumsBytes),
       nativeImage,
       multiPlatformOci,
       helmChart,
     });
-  } catch (error) {
-    if (error instanceof Error && error.message === "Release inventory verification failed closed") throw error;
-    const failure = new Error("Release inventory verification failed closed");
-    throw failure;
+  } catch {
+    throw new Error(VERIFY_FAILURE);
   }
 }
 
@@ -461,7 +509,7 @@ function prepareFile(root, basename, bytes) {
 export async function writeReleaseInventory(options) {
   let preparedManifest;
   try {
-    const values = ownData(options, ["outputDirectory", "version", "sourceCommit", "artifacts"]);
+    const values = ownData(options, ["outputDirectory", "releaseSet", "sourceCommit", "units", "artifacts"]);
     if (typeof values.outputDirectory !== "string" || !isAbsolute(values.outputDirectory)
         || resolve(values.outputDirectory) !== values.outputDirectory || values.outputDirectory.includes("\0")) inputFailure();
     const suppliedRootStat = lstatSync(values.outputDirectory, { bigint: true });
@@ -478,14 +526,16 @@ export async function writeReleaseInventory(options) {
         if (error?.code !== "ENOENT") failClosed();
       }
     }
-    const descriptors = parseArtifacts(values.artifacts, false);
+    const units = parseUnits(values.units);
+    const descriptors = parseArtifacts(values.artifacts, false, units.map(({ id }) => id));
     const hashed = descriptors.map((record) => ({ ...record, sha256: hashFile(root, record.path) }));
     const manifest = createReleaseManifest({
-      version: values.version,
+      releaseSet: values.releaseSet,
       sourceCommit: values.sourceCommit,
+      units: values.units,
       artifacts: hashed,
     });
-    const manifestBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    const manifestBytes = canonicalManifestBytes(manifest);
     const checksumBytes = Buffer.from(
       [...manifest.artifacts]
         .sort((left, right) => compareText(left.path, right.path))

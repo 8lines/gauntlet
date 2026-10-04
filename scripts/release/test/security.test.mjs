@@ -964,6 +964,34 @@ test("the staged image input is one canonical single-link Docker tar in the vers
   );
 });
 
+test("the staged image input may live in a release-set root named for the gauntlet version", (t) => {
+  const files = fixture(t);
+  files.write("VERSION", "0.1.0\n");
+  for (const relativePath of [
+    ".artifacts/release/local-0123456789ab/image/gauntlet-0.1.0.docker.tar",
+    ".artifacts/release/release-2026-10-03.1/image/gauntlet-0.1.0.docker.tar",
+  ]) {
+    files.write(relativePath, "docker-archive-fixture\n");
+    const record = security.validateStagedImageArchive(files.root, resolve(files.root, relativePath));
+    assert.equal(record.relativePath, relativePath);
+    assert.equal(record.size, 23);
+  }
+  for (const relativePath of [
+    ".artifacts/release/release-2026-10-03.1/image/gauntlet-0.2.0.docker.tar",
+    ".artifacts/release/0.1.1/image/gauntlet-0.1.0.docker.tar",
+    ".artifacts/release/local-0123/image/gauntlet-0.1.0.docker.tar",
+    ".artifacts/release/release-2026-02-30.1/image/gauntlet-0.1.0.docker.tar",
+    ".artifacts/other/local-0123456789ab/image/gauntlet-0.1.0.docker.tar",
+  ]) {
+    files.write(relativePath, "docker-archive-fixture\n");
+    assert.throws(
+      () => security.validateStagedImageArchive(files.root, resolve(files.root, relativePath)),
+      { message: "Release security gate failed closed" },
+      relativePath,
+    );
+  }
+});
+
 test("security CLI arguments expose only source-only or a versioned staged image", () => {
   assert.deepEqual(security.parseSecurityArguments([]), { mode: "release", imageArchive: undefined });
   assert.deepEqual(security.parseSecurityArguments(["--source-only"]), { mode: "source-only" });
@@ -977,11 +1005,21 @@ test("security CLI arguments expose only source-only or a versioned staged image
       imageArchive: ".artifacts/release/0.1.0/image/gauntlet-0.1.0.docker.tar",
     },
   );
+  for (const imageArchive of [
+    ".artifacts/release/local-0123456789ab/image/gauntlet-0.1.0.docker.tar",
+    ".artifacts/release/release-2026-10-03.1/image/gauntlet-0.1.9.docker.tar",
+  ]) {
+    assert.deepEqual(security.parseSecurityArguments(["--image-archive", imageArchive]), { mode: "release", imageArchive });
+  }
   for (const argv of [
     ["--image-archive"],
     ["--source-only", "--image-archive", "archive.tar"],
     ["--image-archive", "../archive.tar"],
     ["--image-archive", "/tmp/archive.tar"],
+    ["--image-archive", ".artifacts/release/0.1.1/image/gauntlet-0.1.0.docker.tar"],
+    ["--image-archive", ".artifacts/release/local-0123/image/gauntlet-0.1.0.docker.tar"],
+    ["--image-archive", ".artifacts/release/release-2026-13-01.1/image/gauntlet-0.1.0.docker.tar"],
+    ["--image-archive", ".artifacts/release/../image/gauntlet-0.1.0.docker.tar"],
     ["--publish"],
   ]) {
     assert.throws(() => security.parseSecurityArguments(argv), { message: "Usage: security.mjs [--source-only | --image-archive <path>]" });

@@ -9,10 +9,15 @@ import {
   runDryRun,
   runDryRunCli,
 } from "../dry-run.mjs";
+import { dependencyOrder, unitById } from "../units.mjs";
 
 const ROOT = "/workspace/gauntlet";
 const VERSION = "0.1.0";
 const COMMIT = "1".repeat(40);
+const SET = "local-111111111111";
+const RELEASE_ROOT = `${ROOT}/.artifacts/release/${SET}`;
+const STAGED_UNITS = Object.freeze(dependencyOrder().map((id) => Object.freeze({ id, version: VERSION })));
+const REPORTED_UNITS = Object.freeze(STAGED_UNITS.map(({ id, version }) => ({ id, version, tag: `${unitById(id).tagPrefix}${version}` })));
 const TOKEN = "a".repeat(32);
 const CONTAINER_ID = "b".repeat(64);
 const IMAGE_ID = `sha256:${"c".repeat(64)}`;
@@ -85,12 +90,24 @@ function securityReport() {
   });
 }
 
+function stageOutput(overrides = {}) {
+  return jsonLine({
+    artifacts: 19,
+    outputDirectory: RELEASE_ROOT,
+    releaseSet: SET,
+    sourceCommit: COMMIT,
+    units: STAGED_UNITS,
+    ...overrides,
+  });
+}
+
 function inventoryReport(overrides = {}) {
   return jsonLine({
-    schemaVersion: 1,
+    schemaVersion: 2,
     ok: true,
-    version: VERSION,
+    releaseSet: SET,
     sourceCommit: COMMIT,
+    units: REPORTED_UNITS,
     artifacts: 19,
     manifestSha256: MANIFEST_SHA256,
     checksumsSha256: CHECKSUMS_SHA256,
@@ -184,19 +201,12 @@ function createSuccessfulRunner(calls, {
     if (command === process.execPath && args[0]?.endsWith("/version.mjs")) return commandResult(versionReport());
     if (command === process.execPath && args[0]?.endsWith("/verify.mjs")) return commandResult(developmentReport());
     if (command === "pnpm" && ["test:composer:consumer", "test:java:release"].includes(args[0])) return commandResult();
-    if (command === process.execPath && args[0]?.endsWith("/stage.mjs")) {
-      return commandResult(jsonLine({
-        artifacts: 19,
-        outputDirectory: `${ROOT}/.artifacts/release/${VERSION}`,
-        sourceCommit: COMMIT,
-        version: VERSION,
-      }));
-    }
+    if (command === process.execPath && args[0]?.endsWith("/stage.mjs")) return commandResult(stageOutput());
     if (command === process.execPath && args[0]?.endsWith("/security.mjs")) return commandResult(securityReport());
     if (command === process.execPath && args[0]?.endsWith("/verify-inventory.mjs")) return commandResult(inventoryReport());
     if (command === "pnpm" && args[0] === "docs:verify-commands") {
       return commandResult(jsonLine({ exitCode: 0, ok: true }), {
-        stderr: `$ node scripts/docs/verify-documented-commands.mjs --release-root .artifacts/release/${VERSION}\n`,
+        stderr: `$ node scripts/docs/verify-documented-commands.mjs --release-root .artifacts/release/${SET}\n`,
       });
     }
     if (command === "docker" && args[0] === "context") return commandResult('"unix:///var/run/docker.sock"\n');
@@ -275,11 +285,31 @@ test("uses a pinned registry and permits only task-owned loopback registry comma
   const workspace = fakeWorkspace().owned;
   const plan = createLocalRegistryPlan({
     root: ROOT,
-    releaseRoot: `${ROOT}/.artifacts/release/${VERSION}`,
+    releaseRoot: RELEASE_ROOT,
     version: VERSION,
     workspace,
     port: 49152,
   });
+  assert.equal(plan.imageArchive, `${RELEASE_ROOT}/image/gauntlet-${VERSION}.docker.tar`);
+  assert.equal(plan.chartArchive, `${RELEASE_ROOT}/helm/gauntlet-${VERSION}.tgz`);
+  assert.equal(
+    createLocalRegistryPlan({
+      root: ROOT, releaseRoot: `${ROOT}/.artifacts/release/release-2026-10-03.1`, version: VERSION, workspace, port: 49152,
+    }).imageArchive,
+    `${ROOT}/.artifacts/release/release-2026-10-03.1/image/gauntlet-${VERSION}.docker.tar`,
+  );
+  for (const releaseRoot of [
+    `${ROOT}/.artifacts/release/${VERSION}`,
+    `${ROOT}/.artifacts/release/local-1111`,
+    `${ROOT}/.artifacts/other/${SET}`,
+    `/tmp/.artifacts/release/${SET}`,
+  ]) {
+    assert.throws(
+      () => createLocalRegistryPlan({ root: ROOT, releaseRoot, version: VERSION, workspace, port: 49152 }),
+      /Local registry plan is invalid/u,
+      releaseRoot,
+    );
+  }
   assert.equal(plan.start.command, "docker");
   assert.equal(plan.start.args.includes(REGISTRY_IMAGE), true);
   assert.equal(plan.start.args.includes("127.0.0.1::5000"), true);
@@ -320,7 +350,14 @@ test("the complete dry-run orders every gate, rechecks source identity, and clea
   assert.ok(index("scripts/release/verify-inventory.mjs") < index("docs:verify-commands"));
   assert.equal(rendered.some((line) => line.includes("sha256sum")), false);
   assert.ok(index("docs:verify-commands") < index(`docker run --detach`));
-  assert.equal(rendered.includes(`pnpm docs:verify-commands --release-root .artifacts/release/${VERSION}`), true);
+  assert.equal(rendered.includes(`pnpm docs:verify-commands --release-root .artifacts/release/${SET}`), true);
+  const stageCall = calls.find(({ args }) => args[0]?.endsWith("/stage.mjs"));
+  assert.deepEqual(stageCall.args, [`${ROOT}/scripts/release/stage.mjs`, "--output", RELEASE_ROOT, "--release-set", SET]);
+  assert.equal(
+    rendered.includes(`${process.execPath} ${ROOT}/scripts/release/security.mjs --image-archive .artifacts/release/${SET}/image/gauntlet-${VERSION}.docker.tar`),
+    true,
+  );
+  assert.equal(rendered.includes(`${process.execPath} ${ROOT}/scripts/release/verify-inventory.mjs --release-root ${RELEASE_ROOT}`), true);
   assert.ok(index("docker image push 127.0.0.1:49152") < index("helm push"));
   assert.equal(calls.filter(({ command, args }) => command === "git" && args.includes("HEAD^{commit}")).length, 3);
   assert.equal(calls.filter(({ command, args }) => command === "git" && args.includes("status")).length, 3);
@@ -337,6 +374,7 @@ test("the complete dry-run orders every gate, rechecks source identity, and clea
     releaseReady: report.releaseReady,
     version: report.version,
     sourceCommit: report.sourceCommit,
+    releaseSet: report.releaseSet,
   }, {
     mode: "dry-run",
     scope: "complete-local-rehearsal",
@@ -346,6 +384,7 @@ test("the complete dry-run orders every gate, rechecks source identity, and clea
     releaseReady: true,
     version: VERSION,
     sourceCommit: COMMIT,
+    releaseSet: SET,
   });
   assert.deepEqual(report.evidence, {
     inventory: {
@@ -378,7 +417,7 @@ test("the complete dry-run orders every gate, rechecks source identity, and clea
     },
   });
   assert.deepEqual(workspace.events, [
-    ["output-exists", `${ROOT}/.artifacts/release/${VERSION}`],
+    ["output-exists", RELEASE_ROOT],
     ["create", workspace.owned.root],
     ["remove", workspace.owned.root],
   ]);
@@ -520,18 +559,22 @@ test("malformed command results and unevidenced outputs fail closed at their own
       phase: "packages",
       override: ({ args }) => args[0]?.endsWith("/stage.mjs") ? commandResult("staged\n") : undefined,
     },
-    ...[18, 20].map((artifacts) => ({
-      name: `stage output reports ${artifacts} artifacts`,
+    ...[
+      ["18 artifacts", { artifacts: 18 }],
+      ["20 artifacts", { artifacts: 20 }],
+      ["another release set", { releaseSet: "local-222222222222" }],
+      ["another output directory", { outputDirectory: `${ROOT}/.artifacts/release/${VERSION}` }],
+      ["another source commit", { sourceCommit: "2".repeat(40) }],
+      ["no application unit", { artifacts: 12, units: STAGED_UNITS.filter(({ id }) => id !== "gauntlet") }],
+      ["an application at another version", { units: STAGED_UNITS.map((unit) => unit.id === "gauntlet" ? { ...unit, version: "0.1.1" } : unit) }],
+      ["units out of dependency order", { units: [...STAGED_UNITS].reverse() }],
+      ["no units", { artifacts: 0, units: [] }],
+      ["a schema 1 version field", { version: VERSION }],
+    ].map(([name, overrides]) => ({
+      name: `stage output reports ${name}`,
       code: "OUTPUT_INVALID",
       phase: "packages",
-      override: ({ args }) => args[0]?.endsWith("/stage.mjs")
-        ? commandResult(jsonLine({
-            artifacts,
-            outputDirectory: `${ROOT}/.artifacts/release/${VERSION}`,
-            sourceCommit: COMMIT,
-            version: VERSION,
-          }))
-        : undefined,
+      override: ({ args }) => args[0]?.endsWith("/stage.mjs") ? commandResult(stageOutput(overrides)) : undefined,
     })),
     {
       name: "security is not a full pass",
@@ -555,6 +598,30 @@ test("malformed command results and unevidenced outputs fail closed at their own
       phase: "inventory",
       override: ({ args }) => args[0]?.endsWith("/verify-inventory.mjs")
         ? commandResult(inventoryReport({ artifacts: 18 }))
+        : undefined,
+    },
+    {
+      name: "inventory report belongs to another release set",
+      code: "OUTPUT_INVALID",
+      phase: "inventory",
+      override: ({ args }) => args[0]?.endsWith("/verify-inventory.mjs")
+        ? commandResult(inventoryReport({ releaseSet: "release-2026-10-03.1" }))
+        : undefined,
+    },
+    {
+      name: "inventory report has other units than the stage",
+      code: "OUTPUT_INVALID",
+      phase: "inventory",
+      override: ({ args }) => args[0]?.endsWith("/verify-inventory.mjs")
+        ? commandResult(inventoryReport({ units: REPORTED_UNITS.slice(1) }))
+        : undefined,
+    },
+    {
+      name: "inventory report is schema 1",
+      code: "OUTPUT_INVALID",
+      phase: "inventory",
+      override: ({ args }) => args[0]?.endsWith("/verify-inventory.mjs")
+        ? commandResult(inventoryReport({ schemaVersion: 1 }))
         : undefined,
     },
     {

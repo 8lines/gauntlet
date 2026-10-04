@@ -28,7 +28,7 @@ import {
   readDeployKey,
   withDeployKeyFiles,
 } from "../publish-composer.mjs";
-import { createReleaseManifest } from "../inventory.mjs";
+import { createReleaseManifest, writeReleaseInventory } from "../inventory.mjs";
 import { RELEASE_ARTIFACTS } from "../release-model.mjs";
 import { packageCanonicalTree } from "../tree-archive.mjs";
 
@@ -50,6 +50,11 @@ const FIXTURE_DEPLOY_KEY = [
 ].join("\n");
 const WRONG_COMMIT = "f".repeat(40);
 const VERSION = "0.1.0";
+const SET = "release-2026-10-03.1";
+const COMPOSER_PLAN = Object.freeze([
+  Object.freeze({ id: "php-core", version: "0.1.0", artifact: RELEASE_ARTIFACTS.composer[0] }),
+  Object.freeze({ id: "symfony-bundle", version: "0.1.1", artifact: RELEASE_ARTIFACTS.composer[1] }),
+]);
 
 function git(cwd, args) {
   const result = spawnSync("git", args, {
@@ -100,9 +105,20 @@ function fixture(t) {
   return { changedSource, remote, root, source };
 }
 
-function releaseFixture(t) {
+function writeComposerSource(source, artifact, version, commit) {
+  write(source, "composer.json", `${JSON.stringify({ name: artifact.name, version })}\n`);
+  write(source, ".gauntlet-source.json", `${JSON.stringify({
+    repository: "8lines/gauntlet",
+    commit,
+    path: artifact.directory,
+    version,
+  })}\n`);
+  write(source, "src/Fixture.php", `<?php\n// ${artifact.name}\n`);
+}
+
+async function releaseFixture(t, plan = COMPOSER_PLAN) {
   const files = fixture(t);
-  const releaseDirectory = resolve(files.root, "release");
+  const releaseDirectory = resolve(files.root, SET);
   const sourceRoot = resolve(files.root, "archive-sources");
   const archiveDirectory = resolve(releaseDirectory, "composer/artifacts");
   for (const directory of [releaseDirectory, sourceRoot, archiveDirectory]) {
@@ -110,68 +126,27 @@ function releaseFixture(t) {
     chmodSync(directory, 0o700);
   }
   const artifacts = [];
-  const add = (kind, name, relativePath, bytes = `${kind}:${name}\n`) => {
-    write(releaseDirectory, relativePath, bytes);
-    artifacts.push({
-      kind,
-      name,
-      path: relativePath,
-      sha256: createHash("sha256").update(readFileSync(resolve(releaseDirectory, relativePath))).digest("hex"),
-    });
-  };
-  for (const artifact of RELEASE_ARTIFACTS.npm) {
-    const basename = artifact.name.replace(/^@/u, "").replaceAll("/", "-");
-    add("npm", artifact.name, `npm/${basename}-${VERSION}.tgz`);
-  }
-  for (const artifact of RELEASE_ARTIFACTS.composer) {
+  for (const { id, version, artifact } of plan) {
     const source = resolve(sourceRoot, artifact.repository);
     mkdirSync(source, { recursive: true, mode: 0o700 });
-    write(source, "composer.json", `${JSON.stringify({ name: artifact.name, version: "0.1.0" })}\n`);
-    write(source, ".gauntlet-source.json", `${JSON.stringify({
-      repository: "8lines/gauntlet",
-      commit: COMMIT,
-      path: artifact.directory,
-      version: "0.1.0",
-    })}\n`);
-    write(source, "src/Fixture.php", `<?php\n// ${artifact.name}\n`);
-    const filename = `${artifact.repository.split("/").at(-1)}-0.1.0.tar.gz`;
-    const archived = packageCanonicalTree({
+    writeComposerSource(source, artifact, version, COMMIT);
+    const filename = `${artifact.repository.split("/").at(-1)}-${version}.tar.gz`;
+    packageCanonicalTree({
       sourceDirectory: realpathSync(source),
       outputDirectory: realpathSync(archiveDirectory),
       filename,
       archivePrefix: filename.slice(0, -7),
     });
-    artifacts.push({
-      kind: "composer",
-      name: artifact.name,
-      path: `composer/artifacts/${filename}`,
-      sha256: archived.sha256,
-    });
+    artifacts.push({ unit: id, kind: "composer", name: artifact.name, path: `composer/artifacts/${filename}` });
   }
   rmSync(sourceRoot, { recursive: true, force: false });
-  for (const artifact of RELEASE_ARTIFACTS.maven) {
-    const artifactId = artifact.name.split(":")[1];
-    add("maven", artifact.name, `maven/artifacts/gauntlet-${artifactId}-${VERSION}.tar.gz`);
-  }
-  add("compose", RELEASE_ARTIFACTS.compose.name, `compose/gauntlet-compose-${VERSION}.tar.gz`);
-  add("skills", RELEASE_ARTIFACTS.skills.name, `skills/gauntlet-skills-${VERSION}.tgz`);
-  add("helm", RELEASE_ARTIFACTS.chart.name, `helm/gauntlet-${VERSION}.tgz`);
-  add("docker", "gauntlet.local/gauntlet", `image/gauntlet-${VERSION}.docker.tar`);
-  add("oci", RELEASE_ARTIFACTS.image.name, `image/gauntlet-${VERSION}.oci.tar`);
-  add(
-    "provenance",
-    `${RELEASE_ARTIFACTS.image.name}@buildkit-unsigned`,
-    `image/gauntlet-${VERSION}.provenance.json`,
-  );
-  add("sbom", `${RELEASE_ARTIFACTS.image.name}@linux/amd64`, "sbom/gauntlet-linux-amd64.spdx.json");
-  add("sbom", `${RELEASE_ARTIFACTS.image.name}@linux/arm64`, "sbom/gauntlet-linux-arm64.spdx.json");
-  assert.equal(artifacts.length, 19);
-  const manifest = createReleaseManifest({ version: VERSION, sourceCommit: COMMIT, artifacts });
-  writeFileSync(resolve(releaseDirectory, "release-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 });
-  const checksums = [...manifest.artifacts]
-    .sort((left, right) => Buffer.compare(Buffer.from(left.path), Buffer.from(right.path)))
-    .map(({ path, sha256 }) => `${sha256}  ${path}\n`).join("");
-  writeFileSync(resolve(releaseDirectory, "SHA256SUMS"), checksums, { mode: 0o600 });
+  await writeReleaseInventory({
+    outputDirectory: releaseDirectory,
+    releaseSet: SET,
+    sourceCommit: COMMIT,
+    units: plan.map(({ id, version }) => ({ id, version })),
+    artifacts,
+  });
   return { ...files, releaseDirectory };
 }
 
@@ -179,32 +154,26 @@ function rewriteInventory(releaseDirectory, mutation) {
   const current = JSON.parse(readFileSync(resolve(releaseDirectory, "release-manifest.json"), "utf8"));
   mutation(current);
   const manifest = createReleaseManifest({
-    version: current.version,
+    releaseSet: current.releaseSet,
     sourceCommit: current.sourceCommit,
+    units: current.units,
     artifacts: current.artifacts,
   });
+  for (const name of ["release-manifest.json", "SHA256SUMS"]) rmSync(resolve(releaseDirectory, name));
   writeFileSync(resolve(releaseDirectory, "release-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   writeFileSync(resolve(releaseDirectory, "SHA256SUMS"), [...manifest.artifacts]
     .sort((left, right) => Buffer.compare(Buffer.from(left.path), Buffer.from(right.path)))
     .map(({ path, sha256 }) => `${sha256}  ${path}\n`).join(""));
 }
 
-function replaceComposerArchiveCommit(files, artifactName, commit) {
-  const artifact = RELEASE_ARTIFACTS.composer.find(({ name }) => name === artifactName);
-  assert.notEqual(artifact, undefined);
+function replaceComposerArchiveCommit(files, unitId, commit) {
+  const { version, artifact } = COMPOSER_PLAN.find(({ id }) => id === unitId);
   const leaf = artifact.repository.split("/").at(-1);
-  const filename = `${leaf}-${VERSION}.tar.gz`;
+  const filename = `${leaf}-${version}.tar.gz`;
   const archivePath = resolve(files.releaseDirectory, "composer/artifacts", filename);
   const source = resolve(files.root, `repacked-${leaf}`);
   mkdirSync(source, { mode: 0o700 });
-  write(source, "composer.json", `${JSON.stringify({ name: artifact.name, version: VERSION })}\n`);
-  write(source, ".gauntlet-source.json", `${JSON.stringify({
-    repository: "8lines/gauntlet",
-    commit,
-    path: artifact.directory,
-    version: VERSION,
-  })}\n`);
-  write(source, "src/Fixture.php", `<?php\n// ${artifact.name}\n`);
+  writeComposerSource(source, artifact, version, commit);
   rmSync(archivePath);
   const receipt = packageCanonicalTree({
     sourceDirectory: realpathSync(source),
@@ -318,49 +287,73 @@ test("rejects malformed versions, unsafe sources, and arbitrary network destinat
   );
 });
 
-test("CLI publication planning resolves only manifest-bound archives to catalog-fixed remotes", (t) => {
-  const files = releaseFixture(t);
-  const plan = createComposerPublicationPlan({
-    releaseDirectory: files.releaseDirectory,
-    version: VERSION,
-    sourceCommit: COMMIT,
-  });
-  assert.deepEqual(plan.map(({ name, archivePath, expectedPrefix, expectedSha256, expectedSourceCommit, remote }) => ({
-    name, archivePath, expectedPrefix, expectedSha256, expectedSourceCommit, remote,
-  })), RELEASE_ARTIFACTS.composer.map((artifact) => {
-    const filename = `${artifact.repository.split("/").at(-1)}-0.1.0.tar.gz`;
+test("CLI publication planning resolves one staged Composer unit to its archive, version and fixed remote", async (t) => {
+  const files = await releaseFixture(t);
+  for (const { id, version, artifact } of COMPOSER_PLAN) {
+    const plan = createComposerPublicationPlan({ releaseDirectory: files.releaseDirectory, sourceCommit: COMMIT, unit: id });
+    const filename = `${artifact.repository.split("/").at(-1)}-${version}.tar.gz`;
     const archivePath = resolve(files.releaseDirectory, "composer/artifacts", filename);
-    return {
+    assert.deepEqual(plan, {
       name: artifact.name,
+      version,
       archivePath,
       expectedPrefix: filename.slice(0, -7),
       expectedSha256: createHash("sha256").update(readFileSync(archivePath)).digest("hex"),
       expectedSourceCommit: COMMIT,
       remote: artifact.repositoryUrl,
-    };
-  }));
-  assert.equal(Object.isFrozen(plan), true);
-  assert.equal(plan.every(Object.isFrozen), true);
+    });
+    assert.equal(Object.isFrozen(plan), true);
+  }
+  const bundle = createComposerPublicationPlan({ releaseDirectory: files.releaseDirectory, sourceCommit: COMMIT, unit: "symfony-bundle" });
+  assert.equal(bundle.version, "0.1.1");
+  assert.equal(bundle.expectedPrefix, "gauntlet-symfony-bundle-0.1.1");
+  assert.equal(bundle.remote, "https://github.com/8lines/gauntlet-symfony-bundle.git");
   assert.equal(existsSync(resolve(files.releaseDirectory, "composer/repositories")), false);
 });
 
-test("CLI publication planning rejects a release tree outside the closed full inventory", (t) => {
-  const files = releaseFixture(t);
-  write(files.releaseDirectory, "unexpected.txt", "foreign\n");
+test("CLI publication planning rejects a unit that is not staged or not a Composer package", async (t) => {
+  const files = await releaseFixture(t, COMPOSER_PLAN.slice(0, 1));
+  for (const unit of ["symfony-bundle", "protocol", "gauntlet", "nope", undefined]) {
+    assert.throws(
+      () => createComposerPublicationPlan({ releaseDirectory: files.releaseDirectory, sourceCommit: COMMIT, unit }),
+      unit === "symfony-bundle" ? /failed closed/u : /Composer publication unit/u,
+      String(unit),
+    );
+  }
+  assert.throws(
+    () => createComposerPublicationPlan({ releaseDirectory: files.releaseDirectory, sourceCommit: WRONG_COMMIT, unit: "php-core" }),
+    /failed closed/u,
+  );
   assert.throws(
     () => createComposerPublicationPlan({ releaseDirectory: files.releaseDirectory, version: VERSION, sourceCommit: COMMIT }),
+    /closed data object/u,
+  );
+});
+
+test("CLI publication planning rejects a release tree outside the closed inventory or its release set", async (t) => {
+  const files = await releaseFixture(t);
+  write(files.releaseDirectory, "unexpected.txt", "foreign\n");
+  assert.throws(
+    () => createComposerPublicationPlan({ releaseDirectory: files.releaseDirectory, sourceCommit: COMMIT, unit: "php-core" }),
+    /failed closed/u,
+  );
+  const renamed = await releaseFixture(t);
+  const moved = resolve(renamed.root, "release-2026-10-03.2");
+  renameSync(renamed.releaseDirectory, moved);
+  assert.throws(
+    () => createComposerPublicationPlan({ releaseDirectory: moved, sourceCommit: COMMIT, unit: "php-core" }),
     /failed closed/u,
   );
 });
 
-test("CLI publication materializes manifest archives into private temporary trees and removes them", async (t) => {
-  const files = releaseFixture(t);
+test("CLI publication materializes the unit archive into a private temporary tree and removes it", async (t) => {
+  const files = await releaseFixture(t);
   await withTemporaryDirectory(files.root, async (temporaryDirectory) => {
     const observed = [];
     const result = await publishComposerRepositories({
       releaseDirectory: files.releaseDirectory,
-      version: "0.1.0",
       sourceCommit: COMMIT,
+      unit: "symfony-bundle",
     }, {
       publishPackage: async ({ source, remote, version, sourceCommit, dryRun }) => {
         observed.push({
@@ -374,29 +367,29 @@ test("CLI publication materializes manifest archives into private temporary tree
         return "published";
       },
     });
-    assert.deepEqual(result, RELEASE_ARTIFACTS.composer.map(({ name }) => ({ name, status: "published" })));
-    assert.deepEqual(observed, RELEASE_ARTIFACTS.composer.map((artifact) => ({
-      name: artifact.name,
-      remote: artifact.repositoryUrl,
-      version: "0.1.0",
+    assert.deepEqual(result, [{ name: "8lines/gauntlet-symfony-bundle", status: "published" }]);
+    assert.deepEqual(observed, [{
+      name: "8lines/gauntlet-symfony-bundle",
+      remote: "https://github.com/8lines/gauntlet-symfony-bundle.git",
+      version: "0.1.1",
       sourceCommit: COMMIT,
       dryRun: false,
       insideTemporaryDirectory: true,
-    })));
+    }]);
     assert.deepEqual(readdirSync(temporaryDirectory), []);
   });
 });
 
-test("CLI publication validates the second manifest archive before invoking the first publisher", async (t) => {
-  const files = releaseFixture(t);
-  const archive = resolve(files.releaseDirectory, "composer/artifacts/gauntlet-symfony-bundle-0.1.0.tar.gz");
+test("CLI publication validates the unit archive before invoking the publisher", async (t) => {
+  const files = await releaseFixture(t);
+  const archive = resolve(files.releaseDirectory, "composer/artifacts/gauntlet-symfony-bundle-0.1.1.tar.gz");
   writeFileSync(archive, "mutated archive\n");
   await withTemporaryDirectory(files.root, async (temporaryDirectory) => {
     let calls = 0;
     await assert.rejects(publishComposerRepositories({
       releaseDirectory: files.releaseDirectory,
-      version: "0.1.0",
       sourceCommit: COMMIT,
+      unit: "symfony-bundle",
     }, {
       publishPackage: async () => { calls += 1; return "published"; },
     }), /failed closed/u);
@@ -406,13 +399,13 @@ test("CLI publication validates the second manifest archive before invoking the 
 });
 
 test("CLI publication rejects a rehashed archive whose provenance commit differs before publishing", async (t) => {
-  const files = releaseFixture(t);
-  replaceComposerArchiveCommit(files, "8lines/gauntlet-symfony-bundle", WRONG_COMMIT);
+  const files = await releaseFixture(t);
+  replaceComposerArchiveCommit(files, "symfony-bundle", WRONG_COMMIT);
   let calls = 0;
   await assert.rejects(publishComposerRepositories({
     releaseDirectory: files.releaseDirectory,
-    version: VERSION,
     sourceCommit: COMMIT,
+    unit: "symfony-bundle",
   }, {
     publishPackage: async () => { calls += 1; return "published"; },
   }), /failed closed/u);
@@ -420,12 +413,12 @@ test("CLI publication rejects a rehashed archive whose provenance commit differs
 });
 
 test("CLI publication preserves a replacement temporary path and fails cleanup safely", async (t) => {
-  const files = releaseFixture(t);
+  const files = await releaseFixture(t);
   await withTemporaryDirectory(files.root, async (temporaryDirectory) => {
     await assert.rejects(publishComposerRepositories({
       releaseDirectory: files.releaseDirectory,
-      version: "0.1.0",
       sourceCommit: COMMIT,
+      unit: "php-core",
     }, {
       publishPackage: async () => {
         const [workspaceName] = readdirSync(temporaryDirectory);
@@ -445,13 +438,13 @@ test("CLI publication preserves a replacement temporary path and fails cleanup s
 });
 
 test("CLI publication never recursively removes a replacement inside its materialized tree", async (t) => {
-  const files = releaseFixture(t);
+  const files = await releaseFixture(t);
   await withTemporaryDirectory(files.root, async () => {
     let replacement;
     await assert.rejects(publishComposerRepositories({
       releaseDirectory: files.releaseDirectory,
-      version: "0.1.0",
       sourceCommit: COMMIT,
+      unit: "php-core",
     }, {
       publishPackage: async ({ source }) => {
         renameSync(source, `${source}-original`);

@@ -4,36 +4,64 @@
   "title": "Gauntlet release manifest",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "version", "sourceTag", "sourceCommit", "artifacts"],
+  "required": ["schemaVersion", "releaseSet", "sourceCommit", "units", "artifacts"],
   "properties": {
-    "schemaVersion": { "const": 1 },
-    "version": {
-      "type": "string",
-      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
-      "maxLength": 64
+    "schemaVersion": {
+      "const": 2
     },
-    "sourceTag": {
+    "releaseSet": {
       "type": "string",
-      "pattern": "^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
-      "maxLength": 65
+      "pattern": "^(?:release-[0-9]{4}-[0-9]{2}-[0-9]{2}\\.[1-9][0-9]{0,2}|local-[0-9a-f]{12})$"
     },
     "sourceCommit": {
       "type": "string",
       "pattern": "^[0-9a-f]{40}$"
     },
+    "units": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 13,
+      "items": {
+        "$ref": "#/$defs/unit"
+      }
+    },
     "artifacts": {
       "type": "array",
       "minItems": 1,
       "maxItems": 512,
-      "items": { "$ref": "#/$defs/artifact" }
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
     }
   },
   "$defs": {
+    "unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "tag"],
+      "properties": {
+        "id": {
+          "enum": ["gauntlet", "protocol", "dashboard-client", "typescript-core", "typescript-node", "next-adapter", "conformance-runner", "widget", "php-core", "symfony-bundle", "java-core", "spring-boot-starter", "skills"]
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+          "maxLength": 64
+        },
+        "tag": {
+          "type": "string",
+          "pattern": "^(?:v|[a-z]+(?:-[a-z]+)*-v)(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+        }
+      }
+    },
     "artifact": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "name", "path", "sha256"],
+      "required": ["unit", "kind", "name", "path", "sha256"],
       "properties": {
+        "unit": {
+          "enum": ["gauntlet", "protocol", "dashboard-client", "typescript-core", "typescript-node", "next-adapter", "conformance-runner", "widget", "php-core", "symfony-bundle", "java-core", "spring-boot-starter", "skills"]
+        },
         "kind": {
           "enum": ["npm", "composer", "maven", "compose", "helm", "oci", "docker", "skills", "sbom", "provenance", "security"]
         },

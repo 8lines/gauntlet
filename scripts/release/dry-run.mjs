@@ -10,14 +10,16 @@ import {
   rmSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { isAbsolute, join, resolve, sep } from "node:path";
+import { basename, isAbsolute, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 
 import { parse } from "yaml";
 
-import { RELEASE_STAGE_ARTIFACT_COUNT } from "./release-model.mjs";
+import { expectedReleaseArtifacts } from "./inventory.mjs";
+import { localReleaseSetId, parseReleaseSetId } from "./plan.mjs";
 import { inspectDockerArchive } from "./stage-image.mjs";
+import { dependencyOrder, unitById, unitTag } from "./units.mjs";
 import { createProcessRunner, plannedReleasePhases } from "./verify.mjs";
 
 const ROOT = realpathSync(fileURLToPath(new URL("../../", import.meta.url)));
@@ -80,6 +82,15 @@ function validateWorkspace(value) {
   return Object.freeze({ ...workspace });
 }
 
+function isReleaseSetId(value) {
+  try {
+    parseReleaseSetId(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function registryContainerName(workspace) {
   const name = `gauntlet-release-registry-${workspace.token.slice(0, 24)}`;
   if (!CONTAINER.test(name)) throw new TypeError();
@@ -91,7 +102,7 @@ export function createLocalRegistryPlan({ root: rawRoot, releaseRoot: rawRelease
   const releaseRoot = canonicalAbsolute(rawReleaseRoot);
   const version = stableVersion(rawVersion);
   const workspace = validateWorkspace(rawWorkspace);
-  if (releaseRoot !== resolve(root, ".artifacts", "release", version)
+  if (!isReleaseSetId(basename(releaseRoot)) || releaseRoot !== resolve(root, ".artifacts", "release", basename(releaseRoot))
       || !Number.isInteger(port) || port < 1 || port > 65_535) throw new TypeError("Local registry plan is invalid");
   const containerName = registryContainerName(workspace);
   const ownerLabel = "dev.8lines.gauntlet.release-owner";
@@ -318,7 +329,7 @@ function deepFreeze(value) {
 }
 
 function dryReport(records, {
-  ok, sourceChecksOk, status, version = null, sourceCommit = null, failure, evidence,
+  ok, sourceChecksOk, status, version = null, sourceCommit = null, releaseSet, failure, evidence,
 } = {}) {
   return Object.freeze({
     schemaVersion: 1,
@@ -330,6 +341,7 @@ function dryReport(records, {
     releaseReady: ok === true && records.every((record) => record.status === "passed"),
     version,
     sourceCommit,
+    ...(releaseSet === undefined ? {} : { releaseSet }),
     phases: freezeRecords(records),
     ...(failure === undefined ? {} : { failure: Object.freeze({ ...failure }) }),
     ...(evidence === undefined ? {} : { evidence: deepFreeze(evidence) }),
@@ -450,12 +462,31 @@ function validateDevelopmentReport(result, version) {
   return value;
 }
 
-function validateStageOutput(result, root, releaseRoot, version, sourceCommit) {
+function stagedUnits(value) {
+  if (!Array.isArray(value) || value.length === 0) throw new Error();
+  const units = value.map((entry) => {
+    const unit = exactObject(entry, ["id", "version"]);
+    if (unit === undefined || typeof unit.id !== "string") throw new Error();
+    unitById(unit.id);
+    return Object.freeze({ id: unit.id, version: stableVersion(unit.version) });
+  });
+  const ids = units.map(({ id }) => id);
+  if (new Set(ids).size !== ids.length || JSON.stringify(dependencyOrder(ids)) !== JSON.stringify(ids)) throw new Error();
+  return Object.freeze(units);
+}
+
+// Until plan scoping reaches the dry run, the staged set must include the application at the
+// observed repository version; every staged unit must account for exactly its expected artifacts.
+function validateStageOutput(result, root, releaseRoot, releaseSet, sourceCommit, version) {
   const value = oneJsonLine(result.stdout);
-  const output = exactObject(value, ["artifacts", "outputDirectory", "sourceCommit", "version"]);
-  if (result.stderr !== "" || output === undefined || output.artifacts !== RELEASE_STAGE_ARTIFACT_COUNT
-      || output.outputDirectory !== releaseRoot || output.sourceCommit !== sourceCommit || output.version !== version
-      || releaseRoot !== resolve(root, ".artifacts", "release", version)) throw new Error();
+  const output = exactObject(value, ["artifacts", "outputDirectory", "releaseSet", "sourceCommit", "units"]);
+  if (result.stderr !== "" || output === undefined || output.outputDirectory !== releaseRoot
+      || output.releaseSet !== releaseSet || output.sourceCommit !== sourceCommit
+      || releaseRoot !== resolve(root, ".artifacts", "release", releaseSet)) throw new Error();
+  const units = stagedUnits(output.units);
+  if (units.find(({ id }) => id === "gauntlet")?.version !== version
+      || output.artifacts !== expectedReleaseArtifacts(units).length) throw new Error();
+  return units;
 }
 
 function validateSecurityOutput(result, sourceCommit) {
@@ -488,15 +519,17 @@ function exactArtifactEvidence(value, expectedPath) {
   return Object.freeze(artifact);
 }
 
-function validateInventoryOutput(result, version, sourceCommit) {
+function validateInventoryOutput(result, releaseSet, sourceCommit, units, version) {
   const value = oneJsonLine(result.stdout);
   const report = exactObject(value, [
-    "schemaVersion", "ok", "version", "sourceCommit", "artifacts", "manifestSha256", "checksumsSha256",
+    "schemaVersion", "ok", "releaseSet", "sourceCommit", "units", "artifacts", "manifestSha256", "checksumsSha256",
     "nativeImage", "multiPlatformOci", "helmChart",
   ]);
-  if (result.stderr !== "" || report === undefined || report.schemaVersion !== 1 || report.ok !== true
-      || report.version !== version || report.sourceCommit !== sourceCommit
-      || report.artifacts !== RELEASE_STAGE_ARTIFACT_COUNT
+  const expectedUnits = units.map(({ id, version: unitVersion }) => ({ id, version: unitVersion, tag: unitTag(unitById(id), unitVersion) }));
+  if (result.stderr !== "" || report === undefined || report.schemaVersion !== 2 || report.ok !== true
+      || report.releaseSet !== releaseSet || report.sourceCommit !== sourceCommit
+      || JSON.stringify(report.units) !== JSON.stringify(expectedUnits)
+      || report.artifacts !== expectedReleaseArtifacts(units).length
       || typeof report.manifestSha256 !== "string" || !/^[0-9a-f]{64}$/u.test(report.manifestSha256)
       || typeof report.checksumsSha256 !== "string" || !/^[0-9a-f]{64}$/u.test(report.checksumsSha256)) throw new Error();
   const nativeImage = exactArtifactEvidence(report.nativeImage, `image/gauntlet-${version}.docker.tar`);
@@ -507,7 +540,7 @@ function validateInventoryOutput(result, version, sourceCommit) {
       || JSON.stringify(oci.platforms) !== JSON.stringify(["linux/amd64", "linux/arm64"])
       || oci.verification !== "deeply-validated-during-staging") throw new Error();
   return Object.freeze({
-    artifacts: RELEASE_STAGE_ARTIFACT_COUNT,
+    artifacts: report.artifacts,
     manifestSha256: report.manifestSha256,
     checksumsSha256: report.checksumsSha256,
     nativeImage,
@@ -882,7 +915,8 @@ export async function runDryRun(options = {}) {
   let observed = await observeSource(root, runner, records, state, true);
   state.version = observed.version;
   state.sourceCommit = observed.sourceCommit;
-  const releaseRoot = resolve(root, ".artifacts", "release", state.version);
+  const releaseSet = localReleaseSetId(state.sourceCommit);
+  const releaseRoot = resolve(root, ".artifacts", "release", releaseSet);
   let occupied;
   try { occupied = await workspace.outputExists(releaseRoot); } catch {
     throw failure("EXECUTION_FAILED", "source", 1, records, state.version, state.sourceCommit);
@@ -919,14 +953,17 @@ export async function runDryRun(options = {}) {
   await execute(runner, java, "java", records, state);
   records[PHASES.indexOf("java")] = { name: "java", status: "passed" };
 
-  const stage = invocation(process.execPath, [resolve(root, "scripts/release/stage.mjs"), "--output", releaseRoot], root);
+  const stage = invocation(process.execPath, [
+    resolve(root, "scripts/release/stage.mjs"), "--output", releaseRoot, "--release-set", releaseSet,
+  ], root);
   const staged = await execute(runner, stage, "packages", records, state);
-  try { validateStageOutput(staged, root, releaseRoot, state.version, state.sourceCommit); } catch {
+  let units;
+  try { units = validateStageOutput(staged, root, releaseRoot, releaseSet, state.sourceCommit, state.version); } catch {
     throw failure("OUTPUT_INVALID", "packages", 1, records, state.version, state.sourceCommit);
   }
   records[PHASES.indexOf("packages")] = { name: "packages", status: "passed" };
 
-  const relativeReleaseRoot = `.artifacts/release/${state.version}`;
+  const relativeReleaseRoot = `.artifacts/release/${releaseSet}`;
   const imageArchive = `${relativeReleaseRoot}/image/gauntlet-${state.version}.docker.tar`;
   const security = invocation(process.execPath, [
     resolve(root, "scripts/release/security.mjs"), "--image-archive", imageArchive,
@@ -942,7 +979,7 @@ export async function runDryRun(options = {}) {
   ], root);
   const checked = await execute(runner, inventoryCall, "inventory", records, state);
   let inventory;
-  try { inventory = validateInventoryOutput(checked, state.version, state.sourceCommit); } catch {
+  try { inventory = validateInventoryOutput(checked, releaseSet, state.sourceCommit, units, state.version); } catch {
     throw failure("OUTPUT_INVALID", "inventory", 1, records, state.version, state.sourceCommit);
   }
   records[PHASES.indexOf("inventory")] = { name: "inventory", status: "passed" };
@@ -1000,6 +1037,7 @@ export async function runDryRun(options = {}) {
     status: "passed",
     version: state.version,
     sourceCommit: state.sourceCommit,
+    releaseSet,
     evidence: {
       inventory: {
         artifacts: inventory.artifacts,

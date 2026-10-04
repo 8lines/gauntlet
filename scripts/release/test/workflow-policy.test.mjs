@@ -142,10 +142,11 @@ test("CI exposes the bounded, read-only product and release gates", () => {
   assert.match(commands.skills, /pnpm skills:validate/);
   assert.match(commands.skills, /pnpm docs:check/);
   assert.match(commands.skills, /apt-get install --yes --no-install-recommends acl/u);
-  assert.match(commands.security, /pnpm release:stage/);
+  assert.match(commands.security, /SET="local-\$\(git rev-parse HEAD \| cut -c1-12\)"/u);
+  assert.match(commands.security, /pnpm release:stage --output "\$PWD\/\.artifacts\/release\/\$SET"/u);
   assert.match(
     commands.security,
-    /pnpm release:security --image-archive "\.artifacts\/release\/\$VERSION\/image\/gauntlet-\$VERSION\.docker\.tar"/u,
+    /pnpm release:security --image-archive "\.artifacts\/release\/\$SET\/image\/gauntlet-\$VERSION\.docker\.tar"/u,
   );
   assert.doesNotMatch(commands.security, /--source-only/u);
   assert.match(commands["release-metadata"], /playwright install --with-deps chromium/);
