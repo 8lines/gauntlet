@@ -443,7 +443,8 @@ export async function installApiFixture(page: Page, options: ApiFixtureOptions):
         return json({ type: "urn:gauntlet:problem:invalid-credentials", title: "Invalid credentials", status: 401 }, 401);
       }
       signedIn = true;
-      return json({ principal, token: "g1.s.fixture.signature", expiresAt: "2026-09-04T00:00:00.000Z" });
+      // The dashboard keeps its session in the cookie and never reads the token.
+      return json({ principal, token: "<fixture session token>", expiresAt: "2026-09-04T00:00:00.000Z" });
     }
 
     if (auth !== undefined && method === "POST" && url.pathname === "/api/v1/auth/logout") {
