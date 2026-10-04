@@ -39,6 +39,26 @@ export const METHOD_NOT_ALLOWED_PROBLEM: Problem = Object.freeze({
   title: "Method not allowed",
   status: 405,
 });
+export const UNAUTHENTICATED_PROBLEM: Problem = Object.freeze({
+  type: "urn:gauntlet:problem:unauthenticated",
+  title: "Authentication required",
+  status: 401,
+});
+export const INVALID_CREDENTIALS_PROBLEM: Problem = Object.freeze({
+  type: "urn:gauntlet:problem:invalid-credentials",
+  title: "Invalid credentials",
+  status: 401,
+});
+export const RATE_LIMITED_PROBLEM: Problem = Object.freeze({
+  type: "urn:gauntlet:problem:rate-limited",
+  title: "Too many attempts",
+  status: 429,
+});
+export const CROSS_SITE_REQUEST_PROBLEM: Problem = Object.freeze({
+  type: "urn:gauntlet:problem:cross-site-request",
+  title: "Cross-site request rejected",
+  status: 403,
+});
 export const INTERNAL_ERROR_PROBLEM: Problem = Object.freeze({
   type: "urn:gauntlet:problem:internal-error",
   title: "Internal server error",
@@ -48,6 +68,8 @@ export const INTERNAL_ERROR_PROBLEM: Problem = Object.freeze({
 const knownRoutes: ReadonlyArray<{ readonly pattern: RegExp; readonly methods: ReadonlySet<string> }> = [
   { pattern: /^\/health$/, methods: new Set(["GET"]) },
   { pattern: /^\/ready$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/v1\/auth\/session$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/v1\/auth\/(?:login|logout)$/, methods: new Set(["POST"]) },
   { pattern: /^\/api\/v1\/targets$/, methods: new Set(["GET"]) },
   { pattern: /^\/api\/v1\/targets\/([^/]+)\/operations\/([^/]+)$/, methods: new Set(["GET"]) },
   { pattern: /^\/api\/v1\/targets\/([^/]+)\/operations\/([^/]+)\/runs$/, methods: new Set(["POST"]) },
@@ -188,7 +210,10 @@ export function isSpaNavigation(request: FastifyRequest): boolean {
 
 export function configureProblemResponses(app: FastifyInstance, options: ProblemResponseOptions = {}): void {
   app.addHook("onRequest", async (request, reply) => {
-    if (rawPathname(request).includes("%")) {
+    // Only origin-form targets: the router strips an absolute-form `http://host` prefix, so any
+    // check on the raw path (such as the authentication guard) would otherwise see another path.
+    const pathname = rawPathname(request);
+    if (!pathname.startsWith("/") || pathname.includes("%")) {
       return sendProblem(reply, INVALID_PATH_PROBLEM);
     }
   });

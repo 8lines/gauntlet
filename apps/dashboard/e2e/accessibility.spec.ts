@@ -193,3 +193,19 @@ test("an indeterminate progress bar stands still when Gauntlet is set to reduce 
   await expect(bar).toHaveAttribute("data-state", "indeterminate");
   expect(await indicatorAnimation(bar)).toBe("none");
 });
+
+for (const theme of ["light", "dark"] as const) {
+  test(`sign-in has no serious violations, including its error (${theme})`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: theme });
+    await page.addInitScript(() => localStorage.setItem("gauntlet.preferences.v1", JSON.stringify({ theme: "system" })));
+    await installApiFixture(page, { operation: desktopOperation, scenario: "desktop", auth: { username: "anna", password: "letmein" } });
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "Sign in to Gauntlet" })).toBeVisible();
+    await scan(page, "sign-in", theme);
+    await page.getByLabel("Username").fill("anna");
+    await page.getByLabel("Password").fill("wrong");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await scan(page, "sign-in with an error", theme);
+  });
+}

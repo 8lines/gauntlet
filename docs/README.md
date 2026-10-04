@@ -41,6 +41,7 @@ they are separate from runtime MCP access.
 | Operate a standalone Docker installation | [Compose runbook](../deploy/compose/README.md) |
 | Operate Kubernetes | [Helm runbook](../deploy/helm/README.md) and [private ingress examples](../deploy/helm/examples/README.md) |
 | Migrate retired Kubernetes manifests | [Migration procedure](../deploy/kubernetes/README.md) |
+| Require a password or API tokens | [Authentication](deployment/authentication.md) |
 | Review access and production restrictions | [Non-production boundary](safety/non-production-boundary.md) |
 | Upgrade or recover a deployment | [Upgrade](releases/upgrading.md), [rollback](releases/rollback.md) |
 

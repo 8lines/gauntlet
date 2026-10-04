@@ -31,9 +31,9 @@ applications, using their own services and data.
 - **Let AI operate the same catalog:** connect an MCP client to discover and
   run the capabilities your applications expose.
 
-Gauntlet is for non-production environments only. Authentication is not
-included in v0.1: keep access private, or behind an authenticating reverse
-proxy, and limited to trusted users. Application adapters must remain disabled
+Gauntlet is for non-production environments only. Keep access private and
+limited to trusted users; Gauntlet can also require a password and API tokens
+([authentication](docs/deployment/authentication.md)), which is off by default. Application adapters must remain disabled
 in production and must never be reachable from outside the private network.
 Gauntlet is open source, but that does not make a public deployment safe.
 

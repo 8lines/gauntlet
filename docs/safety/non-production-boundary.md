@@ -17,8 +17,9 @@ The boundary has independent layers:
 5. Adapter routes remain on an internal application listener or are explicitly
    denied by every public ingress.
 6. The dashboard, REST API and optional MCP endpoint are exposed only through
-   an independently reviewed private boundary or an authenticating reverse
-   proxy (for example basic authentication or SSO) in front of Gauntlet.
+   an independently reviewed private boundary, optionally with Gauntlet's own
+   password authentication or an authenticating reverse proxy (for example
+   basic authentication or SSO) in front of Gauntlet.
 7. Every operation is an allow-listed handler with typed input and truthful
    impact, confirmation, dry-run, idempotency, timeout, cancellation, and
    concurrency declarations.
@@ -30,14 +31,17 @@ cluster, namespace, account, ingress, and service selectors.
 
 ## Authentication status
 
-Gauntlet v0.1 authentication is deferred. Confirmation is accidental-click
+Gauntlet can require a shared password, per-user passwords and static API
+tokens ([authentication](../deployment/authentication.md)); it is off by
+default. Signed-in principals are recorded as run actors, but every principal
+can use every target: there are no roles. Confirmation is accidental-click
 protection; it is not authentication, authorization, approval, or audit. A VPN,
 Tailscale ACL, TLS connection, private IP, or Kubernetes NetworkPolicy narrows
 reachability but does not replace caller identity or application authorization.
 
-Until authentication is implemented, give dashboard and MCP access only to
-trusted users and clients within an administered private boundary, or put an
-authenticating reverse proxy in front of Gauntlet. Such a proxy protects only
+With or without authentication, give dashboard and MCP access only to
+trusted users and clients within an administered private boundary; Gauntlet's
+password mode or an authenticating reverse proxy narrows that access further. Such a proxy protects only
 the Gauntlet dashboard, API, and MCP endpoint; adapter routes must still stay
 internal and denied by every public ingress. Gauntlet being open source does
 not make a public deployment safe. MCP Origin

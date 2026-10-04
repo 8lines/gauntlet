@@ -12,6 +12,8 @@ import { lstat } from "node:fs/promises";
 import { relative, resolve, sep } from "node:path";
 import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance } from "fastify";
+import { AUTH_DISABLED, type AuthConfiguration } from "./auth/config.js";
+import { registerAuth } from "./auth/index.js";
 import { createDataSourceService } from "./data-source-service.js";
 import { registerMcp, validateMcpOptions, type McpOptions } from "./mcp.js";
 import { createInMemoryGauntletStore } from "./in-memory-gauntlet-store.js";
@@ -47,11 +49,24 @@ export interface CreateAppOptions {
   readonly mcp?: McpOptions;
   /** Embeddable widget; omitted ⇒ disabled and every /widget path is 404. */
   readonly widget?: WidgetOptions;
+  /** Authentication; omitted ⇒ disabled. Any mode other than `none` needs the signing secret. */
+  readonly auth?: AuthOptions;
+}
+
+export interface AuthOptions {
+  readonly configuration: AuthConfiguration;
+  /** Decoded `GAUNTLET_AUTH_SECRET`. */
+  readonly secret?: Buffer;
 }
 
 export async function createApp(options: CreateAppOptions): Promise<FastifyInstance> {
   assertNonProductionEnvironment(options.environment);
   const mcp = validateMcpOptions(options.mcp ?? { enabled: false });
+  const auth = options.auth ?? { configuration: AUTH_DISABLED };
+  if (auth.configuration.mode !== "none" && auth.secret === undefined) {
+    throw new TypeError("Authentication requires GAUNTLET_AUTH_SECRET");
+  }
+  const clock = options.clock ?? (() => new Date());
   const maxUploadBytes = options.maxUploadBytes ?? DEFAULT_MAX_UPLOAD_BYTES;
   if (!Number.isSafeInteger(maxUploadBytes)
     || maxUploadBytes <= 0
@@ -98,6 +113,7 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
   const dashboard = await registerDashboard(app, options.dashboardDir);
   await registerWidget(app, options.widget ?? { enabled: false }, targetProvider.targets());
   configureProblemResponses(app, dashboard ? { spaFallback: (_request, reply) => reply.header("content-security-policy", DASHBOARD_FRAME_POLICY).sendFile("index.html") } : {});
+  registerAuth(app, { ...auth, clock });
   const dataSources = createDataSourceService(client, manifests);
   registerRoutes(app, { dataSources, manifests, runs, maxUploadBytes });
   registerMcp(app, { dataSources, manifests, runs, maxUploadBytes }, mcp);
@@ -106,6 +122,7 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
 }
 
 export type { McpOptions } from "./mcp.js";
+export type { AuthConfiguration } from "./auth/config.js";
 export { createManifestService } from "./manifest-service.js";
 export type {
   CompatibleTargetResult,

@@ -1217,3 +1217,22 @@ test("cancelling the projected SSE after a yield releases the upstream reader", 
   assert.equal(transportCancellations, 1);
   assert.deepEqual(await iterator.next(), { done: true, value: undefined });
 });
+
+test("create records a verified actor in the forwarded invocation context", async () => {
+  const { fake, runs } = harness();
+  const actor = { id: "user:anna", displayName: "anna" };
+  const created = await runs.create(fakeTarget.id, createHappyOperation().id, validCreateRunRequest, actor);
+  assert.equal(created.ok, true);
+  const forwarded = fake.calls.find((call) => call.method === "POST" && call.pathname.endsWith("/runs"));
+  const context = (forwarded?.body as { context: Record<string, unknown> }).context;
+  assert.deepEqual(context.actor, actor);
+  assert.equal(context.requestId, validCreateRunRequest.context?.requestId);
+
+  const { context: _omitted, ...withoutContext } = validCreateRunRequest;
+  const second = harness();
+  assert.equal((await second.runs.create(fakeTarget.id, createHappyOperation().id, withoutContext, actor)).ok, true);
+  const generated = second.fake.calls.find((call) => call.method === "POST" && call.pathname.endsWith("/runs"));
+  const generatedContext = (generated?.body as { context: Record<string, unknown> }).context;
+  assert.deepEqual(generatedContext.actor, actor);
+  assert.match(String(generatedContext.requestId), /^gauntlet-[0-9a-f-]{36}$/);
+});

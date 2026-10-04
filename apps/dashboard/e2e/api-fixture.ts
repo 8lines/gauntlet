@@ -34,6 +34,13 @@ export interface ApiFixtureOptions {
   readonly targetLabel?: string;
   /** When set, every create-run response waits for this promise to settle. */
   readonly createRunGate?: Promise<unknown>;
+  /** Password authentication; omitted means authentication is off. */
+  readonly auth?: { readonly password: string; readonly username?: string; readonly logoutStatus?: number };
+}
+
+export interface ApiFixtureControl {
+  /** Makes the current session invalid, as an expiry or a rotated secret would. */
+  expireSession(): void;
 }
 
 export function operationWithRevision(
@@ -370,10 +377,16 @@ function cancelledRun(operation: OperationDefinition): Run {
   });
 }
 
-export async function installApiFixture(page: Page, options: ApiFixtureOptions): Promise<void> {
+export async function installApiFixture(page: Page, options: ApiFixtureOptions): Promise<ApiFixtureControl> {
   const manifest = manifestFor(options.operation);
   let creates = 0;
   let polls = 0;
+  let signedIn = false;
+  const auth = options.auth;
+  const loginFields = auth?.username === undefined ? ["password"] : ["username", "password"];
+  const principal = auth?.username === undefined
+    ? { kind: "shared", id: "shared", displayName: "Shared password" }
+    : { kind: "user", id: `user:${auth.username}`, displayName: auth.username };
 
   await page.addInitScript(() => {
     const state: { requests: RecordedRequest[] } = { requests: [] };
@@ -413,6 +426,37 @@ export async function installApiFixture(page: Page, options: ApiFixtureOptions):
       contentType: "application/json",
       body: JSON.stringify(body),
     });
+
+    if (method === "GET" && url.pathname === "/api/v1/auth/session") {
+      if (auth === undefined) return json({ mode: "none", loginFields: [], principal: null, expiresAt: null });
+      return json({
+        mode: "password",
+        loginFields,
+        principal: signedIn ? principal : null,
+        expiresAt: signedIn ? "2026-09-04T00:00:00.000Z" : null,
+      });
+    }
+
+    if (auth !== undefined && method === "POST" && url.pathname === "/api/v1/auth/login") {
+      const body = request.postDataJSON() as { username?: string; password?: string };
+      if (body.password !== auth.password || body.username !== auth.username) {
+        return json({ type: "urn:gauntlet:problem:invalid-credentials", title: "Invalid credentials", status: 401 }, 401);
+      }
+      signedIn = true;
+      return json({ principal, token: "g1.s.fixture.signature", expiresAt: "2026-09-04T00:00:00.000Z" });
+    }
+
+    if (auth !== undefined && method === "POST" && url.pathname === "/api/v1/auth/logout") {
+      if (auth.logoutStatus !== undefined) {
+        return json({ type: "urn:gauntlet:problem:cross-site-request", title: "Cross-site request rejected", status: auth.logoutStatus }, auth.logoutStatus);
+      }
+      signedIn = false;
+      return route.fulfill({ status: 204 });
+    }
+
+    if (auth !== undefined && !signedIn) {
+      return json({ type: "urn:gauntlet:problem:unauthenticated", title: "Authentication required", status: 401 }, 401);
+    }
 
     if (method === "GET" && url.pathname === "/api/v1/targets") {
       return json({
@@ -475,6 +519,8 @@ export async function installApiFixture(page: Page, options: ApiFixtureOptions):
       status: 404,
     }, 404);
   });
+
+  return { expireSession: () => { signedIn = false; } };
 }
 
 export function recordedState(page: Page): Promise<BrowserFixtureState> {

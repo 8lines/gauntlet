@@ -17,6 +17,7 @@ import {
   PAYLOAD_TOO_LARGE_PROBLEM,
   sendProblem,
 } from "./problem-response.js";
+import { principalActor, requestPrincipal } from "./auth/principal.js";
 import type { RunProxyService } from "./run-proxy-service.js";
 
 export interface RouteDependencies {
@@ -97,7 +98,7 @@ export function registerRoutes(app: FastifyInstance, dependencies: RouteDependen
     const ids = pathIds(request, ["targetId", "operationId"]);
     if (ids === undefined) return sendProblem(reply, INVALID_PATH_PROBLEM);
     const [targetId, operationId] = ids as readonly [string, string];
-    const result = await dependencies.runs.create(targetId, operationId, request.body);
+    const result = await dependencies.runs.create(targetId, operationId, request.body, principalActor(requestPrincipal(request)));
     if (!result.ok) return sendProblem(reply, result.problem);
     const status = result.value.state === "queued" || result.value.state === "running" ? 202 : 201;
     return reply.code(status).send(result.value);

@@ -9,6 +9,9 @@ import { BackBar } from "./BackBar.tsx";
 import { OperationLists } from "./OperationLists.tsx";
 import { PanelHeader } from "./PanelHeader.tsx";
 import { PanelNotice, TargetProblem } from "./PanelNotice.tsx";
+import { PanelLogin } from "./PanelLogin.tsx";
+import { usePanelAuth } from "./usePanelAuth.ts";
+import { needsSignIn } from "../app/useAuthSession.ts";
 import { subjectChip } from "./placements.ts";
 import type { BindingValue } from "./prefill.ts";
 import { readRecentRuns, rememberRun } from "../recent-runs.ts";
@@ -43,6 +46,7 @@ const NOT_CONNECTED: Readonly<Record<Exclude<PanelChannelState["kind"], "connect
 /** The embedded panel: channel state, header, and navigation between lists, an operation and a run. */
 export function Panel() {
   const channel = usePanelChannel();
+  const auth = usePanelAuth();
   const { close } = channel;
 
   useEffect(() => {
@@ -62,10 +66,35 @@ export function Panel() {
       </div>
     );
   }
-  return <ConnectedPanel channel={channel} targetId={channel.state.target} />;
+  if (auth.state.status !== "ready") {
+    return (
+      <div className="flex h-full flex-col bg-background">
+        <PanelHeader snapshot={undefined} onClose={close} />
+        {auth.state.status === "loading"
+          ? <PanelNotice title="Connecting…" />
+          : <PanelNotice tone="stop" title="Cannot connect to Gauntlet" detail={describeProblem(auth.state.problem).advice} />}
+      </div>
+    );
+  }
+  const session = auth.state.session;
+  if (needsSignIn(session)) {
+    return (
+      <div className="flex h-full flex-col bg-background">
+        <PanelHeader snapshot={undefined} onClose={close} />
+        <PanelLogin session={session} onSignedIn={auth.widgetSignedIn} />
+      </div>
+    );
+  }
+  return (
+    <ConnectedPanel
+      channel={channel}
+      targetId={channel.state.target}
+      {...(session.mode === "none" ? {} : { onLogOut: () => void auth.signOut() })}
+    />
+  );
 }
 
-function ConnectedPanel({ channel, targetId }: { channel: PanelChannel; targetId: string }) {
+function ConnectedPanel({ channel, targetId, onLogOut }: { channel: PanelChannel; targetId: string; onLogOut?: () => void }) {
   const { context, openCount, sendState, close, setExpanded } = channel;
   const { target, operations, refreshProblem } = usePanelTarget(targetId, openCount);
   const [query, setQuery] = useState("");
@@ -120,6 +149,7 @@ function ConnectedPanel({ channel, targetId }: { channel: PanelChannel; targetId
           // Searching from an open operation would discard its form, so search waits for "Back".
           : { query, onQuery: setQuery, inputRef: searchRef, disabled: view.kind !== "lists" }}
         onClose={close}
+        {...(onLogOut === undefined ? {} : { onLogOut })}
       />
       <main className="@container/workspace flex min-h-0 flex-1 flex-col">
         {refreshProblem !== undefined && snapshot !== undefined && (

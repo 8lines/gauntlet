@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { McpConnection } from "./McpConnection.tsx";
 import { useReturnFocus } from "./useReturnFocus.ts";
 
-export function SettingsDialog({ open, onOpenChange, opener, preferences, onChange, saved }: {
+export function SettingsDialog({ open, onOpenChange, opener, preferences, onChange, saved, authenticated = false }: {
   open: boolean;
   /** The element that gets focus back when the dialog closes; empty means the one focused when it opened. */
   opener: RefObject<HTMLElement | null>;
@@ -24,6 +24,8 @@ export function SettingsDialog({ open, onOpenChange, opener, preferences, onChan
   preferences: Preferences;
   onChange: (changes: Partial<Preferences>) => void;
   saved: boolean;
+  /** Whether this Gauntlet requires authentication, which MCP clients then need too. */
+  authenticated?: boolean;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const returnFocus = useReturnFocus(opener);
@@ -142,7 +144,7 @@ export function SettingsDialog({ open, onOpenChange, opener, preferences, onChan
             </TabsContent>
             {/* Kept mounted so the address being edited survives a switch to Appearance and back. */}
             <TabsContent value="mcp" forceMount className="data-[state=inactive]:hidden">
-              <McpConnection />
+              <McpConnection authenticated={authenticated} />
             </TabsContent>
           </div>
         </Tabs>

@@ -162,6 +162,17 @@ For a VPS, copy the distribution to that VPS and invoke it there, or provision t
 - **Environment mismatch:** compare the actual manifest name and kind with `expectedEnvironment`; fix the deployment rather than changing safety semantics.
 - **Dashboard unreachable remotely:** keep loopback/private binding and repair the SSH/VPN/proxy/firewall path. Do not solve it by public exposure.
 
+## Authentication
+
+To require a password, generate the signing secret and password hashes with
+the image, for example
+`./gauntlet run --rm --no-deps gauntlet node dist/auth-cli.js generate-secret`
+and `./gauntlet run --rm --no-deps -T gauntlet node dist/auth-cli.js hash-password`.
+Put the secret in the installed `.env` as `GAUNTLET_AUTH_SECRET`, add the
+`auth` section to `config.yaml`, and run `./gauntlet up -d --wait`. The
+installed `.env` is created private to its owner; keep it that way. See
+[authentication](../../docs/deployment/authentication.md).
+
 ## MCP access for AI clients
 
 Set `GAUNTLET_MCP_ENABLED=true` in the installed `.env` and run

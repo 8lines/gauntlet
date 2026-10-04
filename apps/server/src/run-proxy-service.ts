@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type {
   AdapterClient,
   AdapterRunEventStream,
@@ -84,12 +85,18 @@ export type ResolvedOperationResult =
 
 export interface RunProxyService {
   resolveOperation(targetId: string, operationId: string): Promise<ResolvedOperationResult>;
-  create(targetId: string, operationId: string, request: unknown): Promise<ClientResult<Run>>;
+  /** `actor`, when given, is the verified caller and replaces any actor in the request context. */
+  create(targetId: string, operationId: string, request: unknown, actor?: RunActor): Promise<ClientResult<Run>>;
   get(targetId: string, runId: string): Promise<ClientResult<Run>>;
   createUpload(targetId: string, file: Blob, fileName?: string): Promise<ClientResult<UploadResponse>>;
   cancel(targetId: string, runId: string): Promise<ClientResult<Run>>;
   streamEvents(targetId: string, runId: string, lastEventId?: string): Promise<ClientResult<AdapterRunEventStream>>;
   createSessionLaunch(targetId: string, runId: string, artifactId: string): Promise<ClientResult<SessionLaunchResponse>>;
+}
+
+export interface RunActor {
+  readonly id: string;
+  readonly displayName: string;
 }
 
 export interface RunProxyServiceOptions {
@@ -390,7 +397,7 @@ export function createRunProxyService(options: RunProxyServiceOptions): RunProxy
       return await resolveCompatibleOperation(compatible, operationId);
     },
 
-    async create(targetId: string, operationId: string, request: unknown): Promise<ClientResult<Run>> {
+    async create(targetId: string, operationId: string, request: unknown, actor?: RunActor): Promise<ClientResult<Run>> {
       const validation = validateCreateRunRequest(request);
       if (!validation.ok) {
         return failure(validation.problem);
@@ -415,7 +422,16 @@ export function createRunProxyService(options: RunProxyServiceOptions): RunProxy
       if (typeof contextTarget === "string" && contextTarget !== targetId) {
         return failure(VALIDATION_FAILED);
       }
-      const result = await options.client.createRun(resolved.target, operationId, ownedRequest);
+      const forwarded: CreateRunRequest = actor === undefined
+        ? ownedRequest
+        : {
+            ...ownedRequest,
+            context: {
+              ...(ownedRequest.context ?? { requestId: `gauntlet-${randomUUID()}` }),
+              actor: { id: actor.id, displayName: actor.displayName },
+            },
+          };
+      const result = await options.client.createRun(resolved.target, operationId, forwarded);
       if (!result.ok) {
         return result;
       }

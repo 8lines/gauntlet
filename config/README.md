@@ -110,6 +110,33 @@ other invalid configuration field. When the widget is enabled,
 `/widget/*` routes are documented in
 [server settings](../apps/server/README.md).
 
+## Authentication
+
+The optional top-level `auth` object turns on Gauntlet's own sign-in:
+
+```yaml
+auth:
+  mode: password
+  publicUrl: https://gauntlet.qa.internal
+  sessionTtl: 12h
+  password:
+    shared:
+      hash: "scrypt$16384$8$1$..."
+  tokens:
+    - name: ci-nightly
+      hash: "sha256$..."
+```
+
+`mode` is `none` (the default when `auth` is omitted, and then no other key is
+allowed) or `password`. Password mode requires `publicUrl`, an exact HTTP(S)
+origin without path, query or fragment, and exactly one of `password.shared`
+or `password.users` (a non-empty list of unique `username` IDs with their
+`hash`). `sessionTtl` is `<n>m`, `<n>h` or `<n>d` between 5 minutes and 30
+days. `tokens` lists static API tokens by unique `name` and unique hash. The
+file holds only hashes, produced by `node dist/auth-cli.js hash-password` and
+`create-token`; the signing secret comes from `GAUNTLET_AUTH_SECRET`, never
+from this file. See [authentication](../docs/deployment/authentication.md).
+
 ## File selection and parsing
 
 Set `GAUNTLET_CONFIG_FILE` to a file ending in lowercase `.yaml`, `.yml`, or

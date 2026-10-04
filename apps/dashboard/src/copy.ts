@@ -85,6 +85,18 @@ export function describeProblem(problem: Problem): { readonly title: string; rea
   };
 }
 
+/** The sentence under a failed sign-in; `fields` says whether a username was asked for. */
+export function loginProblemMessage(problem: Problem, fields: readonly string[]): string {
+  if (problem.type === "urn:gauntlet:problem:invalid-credentials") {
+    return fields.includes("username") ? "Incorrect username or password." : "Incorrect password.";
+  }
+  if (problem.type === "urn:gauntlet:problem:rate-limited") return "Too many attempts. Try again in a few minutes.";
+  if (problem.type === "urn:gauntlet:problem:network-unreachable") {
+    return "Could not connect to Gauntlet. Check your connection to the network Gauntlet runs in.";
+  }
+  return "Could not sign in. Try again.";
+}
+
 const UNKNOWN_TIME = "at an unknown time";
 
 /** "just now", "12 s ago", "5 min ago", "3 h ago", "2 d ago"; a timestamp that does not parse reads "at an unknown time". */
