@@ -10,8 +10,9 @@ permissions:
   contents: read
 
 
+# One release set at a time: two sets must never publish or release units concurrently.
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
@@ -574,11 +575,66 @@ jobs:
             --source-commit "$GITHUB_SHA" > "$RESULT"
           node scripts/release/release-set.mjs preflight-outputs --state-file "$RESULT" >> "$GITHUB_OUTPUT"
       # Every unit is clean or already identical; a partially published unit fails the preflight.
-      # Only clean units are published. The commit-tagged image push and its Trivy scan run first
-      # because they are not public releases. Public destinations then follow dependency order:
-      # npm, Maven and Composer, then the semantic image tag and the chart, which depend on the
-      # protocol and dashboard-client units. Units are finally tagged and released in plan order.
-      # Tags created through the API with GITHUB_TOKEN do not start workflows.
+      # Only clean units are published, and each unit is tagged and released right after its own
+      # registry artifacts are published and verified, so a later failure never leaves an earlier unit
+      # published without its release. Package units (npm, Maven, Composer) go first, in dependency
+      # order; none of them depends on the application or the skills. The application follows, then
+      # the skills, which have no registry destination. Each release is created by
+      # scripts/release/release-unit.sh. Tags created through the API with GITHUB_TOKEN do not start workflows.
+      - name: Publish and release package units
+        if: steps.preflight.outputs.packages != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Units released by an earlier run are verified through their published receipts.
+          GAUNTLET_USE_REMOTE_RECEIPT: "true"
+          PACKAGE_UNITS: ${{ steps.preflight.outputs.packages }}
+          NPM_UNITS: ${{ steps.preflight.outputs.npm }}
+          MAVEN_UNITS: ${{ steps.preflight.outputs.maven }}
+          COMPOSER_UNITS: ${{ steps.preflight.outputs.composer }}
+          NPM_PUBLISH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          CORE_DEPLOY_KEY: ${{ secrets.COMPOSER_SPLIT_CORE_DEPLOY_KEY }}
+          BUNDLE_DEPLOY_KEY: ${{ secrets.COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          # Each publish command alone receives its credential: the secrets move into unexported shell
+          # variables, so verification, tagging and releasing never see them.
+          NPM_SECRET="$NPM_PUBLISH_TOKEN"
+          CORE_KEY="$CORE_DEPLOY_KEY"
+          BUNDLE_KEY="$BUNDLE_DEPLOY_KEY"
+          unset NPM_PUBLISH_TOKEN CORE_DEPLOY_KEY BUNDLE_DEPLOY_KEY
+          RELEASE_DIRECTORY="$PWD/.artifacts/release/$GITHUB_REF_NAME"
+          for UNIT in $PACKAGE_UNITS; do
+            if [[ " $NPM_UNITS " == *" $UNIT "* ]]; then
+              PACKAGE="$(node scripts/release/release-set.mjs artifact --release-directory "$RELEASE_DIRECTORY" --unit "$UNIT")"
+              NODE_AUTH_TOKEN="$NPM_SECRET" npm publish "$PACKAGE" --registry=https://registry.npmjs.org/ --access public
+            elif [[ " $MAVEN_UNITS " == *" $UNIT "* ]]; then
+              case "$UNIT" in
+                java-core) TASK=":core:publish" ;;
+                spring-boot-starter) TASK=":spring-boot-starter:publish" ;;
+                *) exit 1 ;;
+              esac
+              ORG_GRADLE_PROJECT_gauntletRemotePublishing=true \
+                ORG_GRADLE_PROJECT_gauntletRemoteUsername="$GITHUB_ACTOR" \
+                ORG_GRADLE_PROJECT_gauntletRemotePassword="$GH_TOKEN" \
+                packages/java/gradlew --no-daemon --no-configuration-cache --console=plain -p packages/java "$TASK"
+            elif [[ " $COMPOSER_UNITS " == *" $UNIT "* ]]; then
+              case "$UNIT" in
+                php-core) COMPOSER_SPLIT_CORE_DEPLOY_KEY="$CORE_KEY" node scripts/release/publish-composer.mjs \
+                  --release-directory "$RELEASE_DIRECTORY" --source-commit "$GITHUB_SHA" --unit "$UNIT" ;;
+                symfony-bundle) COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY="$BUNDLE_KEY" node scripts/release/publish-composer.mjs \
+                  --release-directory "$RELEASE_DIRECTORY" --source-commit "$GITHUB_SHA" --unit "$UNIT" ;;
+                *) exit 1 ;;
+              esac
+            else
+              exit 1
+            fi
+            node scripts/release/check-published.mjs --release-directory "$RELEASE_DIRECTORY" \
+              --source-commit "$GITHUB_SHA" --unit "$UNIT" --require-identical > "$RUNNER_TEMP/published-$UNIT.json"
+            node scripts/release/release-set.mjs require-state --state-file "$RUNNER_TEMP/published-$UNIT.json" --unit "$UNIT" --state published-artifacts-identical
+            bash scripts/release/release-unit.sh "$RELEASE_DIRECTORY" "$UNIT"
+          done
+      # The commit-tagged image push and its Trivy scan precede the application's public destinations.
       - name: Publish commit-tagged image with attestations
         if: steps.preflight.outputs.gauntlet == 'true'
         id: image-copy
@@ -646,54 +702,6 @@ jobs:
               "ghcr.io/8lines/gauntlet@$DIGEST"
           done
           printf 'digest=%s\n' "$DIGEST" >> "$GITHUB_OUTPUT"
-      - name: Publish staged npm packages
-        if: steps.preflight.outputs.npm != ''
-        shell: bash
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_UNITS: ${{ steps.preflight.outputs.npm }}
-        run: |
-          set -euo pipefail
-          RELEASE_DIRECTORY="$PWD/.artifacts/release/$GITHUB_REF_NAME"
-          for UNIT in $NPM_UNITS; do
-            PACKAGE="$(node scripts/release/release-set.mjs artifact --release-directory "$RELEASE_DIRECTORY" --unit "$UNIT")"
-            npm publish "$PACKAGE" --registry=https://registry.npmjs.org/ --access public
-          done
-      - name: Publish staged Maven packages
-        if: steps.preflight.outputs.maven != ''
-        shell: bash
-        env:
-          ORG_GRADLE_PROJECT_gauntletRemotePublishing: "true"
-          ORG_GRADLE_PROJECT_gauntletRemoteUsername: ${{ github.actor }}
-          ORG_GRADLE_PROJECT_gauntletRemotePassword: ${{ github.token }}
-          MAVEN_UNITS: ${{ steps.preflight.outputs.maven }}
-        run: |
-          set -euo pipefail
-          TASKS=()
-          for UNIT in $MAVEN_UNITS; do
-            case "$UNIT" in
-              java-core) TASKS+=(":core:publish") ;;
-              spring-boot-starter) TASKS+=(":spring-boot-starter:publish") ;;
-              *) exit 1 ;;
-            esac
-          done
-          packages/java/gradlew --no-daemon --no-configuration-cache --console=plain \
-            -p packages/java "${TASKS[@]}"
-      - name: Publish Composer split repositories
-        if: steps.preflight.outputs.composer != ''
-        shell: bash
-        env:
-          COMPOSER_SPLIT_CORE_DEPLOY_KEY: ${{ secrets.COMPOSER_SPLIT_CORE_DEPLOY_KEY }}
-          COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY: ${{ secrets.COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY }}
-          COMPOSER_UNITS: ${{ steps.preflight.outputs.composer }}
-        run: |
-          set -euo pipefail
-          for UNIT in $COMPOSER_UNITS; do
-            node scripts/release/publish-composer.mjs \
-              --release-directory "$PWD/.artifacts/release/$GITHUB_REF_NAME" \
-              --source-commit "$GITHUB_SHA" \
-              --unit "$UNIT"
-          done
       - name: Promote image digest to the semantic tag
         if: steps.preflight.outputs.gauntlet == 'true'
         shell: bash
@@ -721,63 +729,35 @@ jobs:
           test "${DIGEST#sha256:}" != "$DIGEST"
           test "${#DIGEST}" -eq 71
           printf 'digest=%s\n' "$DIGEST" >> "$GITHUB_OUTPUT"
-      - name: Verify every published artifact
-        if: steps.preflight.outputs.clean != '[]'
+      - name: Verify the published application
+        if: steps.preflight.outputs.gauntlet == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          # Units released by an earlier run are verified through their published receipts; an empty
-          # digest (the application was not published by this run) counts as unset.
           GAUNTLET_USE_REMOTE_RECEIPT: "true"
           GAUNTLET_EXPECTED_IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
           GAUNTLET_EXPECTED_CHART_DIGEST: ${{ steps.chart.outputs.digest }}
         run: |
           set -euo pipefail
-          node scripts/release/check-published.mjs \
-            --release-directory "$PWD/.artifacts/release/$GITHUB_REF_NAME" \
-            --source-commit "$GITHUB_SHA" \
-            --require-identical
-      - name: Tag and release each unit
-        if: steps.preflight.outputs.clean != '[]'
+          RELEASE_DIRECTORY="$PWD/.artifacts/release/$GITHUB_REF_NAME"
+          node scripts/release/check-published.mjs --release-directory "$RELEASE_DIRECTORY" \
+            --source-commit "$GITHUB_SHA" --unit gauntlet --require-identical > "$RUNNER_TEMP/published-gauntlet.json"
+          node scripts/release/release-set.mjs require-state --state-file "$RUNNER_TEMP/published-gauntlet.json" --unit gauntlet --state published-artifacts-identical
+      - name: Tag and release the application
+        if: steps.preflight.outputs.gauntlet == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          CLEAN_UNITS: ${{ steps.preflight.outputs.clean_units }}
           IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
           CHART_DIGEST: ${{ steps.chart.outputs.digest }}
         run: |
           set -euo pipefail
-          RELEASE_DIRECTORY="$PWD/.artifacts/release/$GITHUB_REF_NAME"
-          for UNIT in $CLEAN_UNITS; do
-            TAG="$(node scripts/release/release-set.mjs field --release-directory "$RELEASE_DIRECTORY" --unit "$UNIT" --field tag)"
-            TITLE="$(node scripts/release/release-set.mjs field --release-directory "$RELEASE_DIRECTORY" --unit "$UNIT" --field title)"
-            LATEST="--latest=false"
-            if [ "$UNIT" = "gauntlet" ]; then
-              node scripts/release/check-published.mjs --finalize "$RELEASE_DIRECTORY" --unit "$UNIT" \
-                --image-digest "$IMAGE_DIGEST" --chart-digest "$CHART_DIGEST"
-              LATEST="--latest"
-            else
-              node scripts/release/check-published.mjs --finalize "$RELEASE_DIRECTORY" --unit "$UNIT"
-            fi
-            if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
-              test "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$GITHUB_SHA"
-            else
-              TAG_OBJECT="$(gh api "repos/$GITHUB_REPOSITORY/git/tags" -f tag="$TAG" -f message="$TITLE" -f object="$GITHUB_SHA" -f type=commit --jq .sha)"
-              gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$TAG_OBJECT" > /dev/null
-            fi
-            NOTES="$RUNNER_TEMP/release-notes-$UNIT.md"
-            NOTES_MODE="$(node scripts/release/release-set.mjs notes --release-directory "$RELEASE_DIRECTORY" --unit "$UNIT" --output "$NOTES")"
-            NOTES_ARGS=(--notes-file "$NOTES")
-            if [ "$NOTES_MODE" = "generated" ]; then NOTES_ARGS+=(--generate-notes); fi
-            node scripts/release/release-set.mjs assets --release-directory "$RELEASE_DIRECTORY" --unit "$UNIT" > "$RUNNER_TEMP/assets-$UNIT.txt"
-            mapfile -t ASSETS < "$RUNNER_TEMP/assets-$UNIT.txt"
-            test "${#ASSETS[@]}" -ge 4
-            gh release create "$TAG" --draft --verify-tag --title "$TITLE" "$LATEST" "${NOTES_ARGS[@]}" "${ASSETS[@]}"
-            node scripts/release/check-published.mjs --release-directory "$RELEASE_DIRECTORY" \
-              --source-commit "$GITHUB_SHA" --unit "$UNIT" --require-draft-identical
-            gh release edit "$TAG" --draft=false "$LATEST"
-            GAUNTLET_EXPECTED_IMAGE_DIGEST="$IMAGE_DIGEST" GAUNTLET_EXPECTED_CHART_DIGEST="$CHART_DIGEST" GAUNTLET_USE_REMOTE_RECEIPT=true \
-              node scripts/release/check-published.mjs --release-directory "$RELEASE_DIRECTORY" \
-              --source-commit "$GITHUB_SHA" --unit "$UNIT" --require-identical > "$RUNNER_TEMP/released-$UNIT.json"
-            node scripts/release/release-set.mjs require-state --state-file "$RUNNER_TEMP/released-$UNIT.json" --unit "$UNIT" --state already-identical
-          done
+          bash scripts/release/release-unit.sh "$PWD/.artifacts/release/$GITHUB_REF_NAME" gauntlet
+      - name: Tag and release the skills
+        if: steps.preflight.outputs.skills == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          bash scripts/release/release-unit.sh "$PWD/.artifacts/release/$GITHUB_REF_NAME" skills
