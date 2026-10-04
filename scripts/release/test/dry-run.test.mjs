@@ -1074,6 +1074,22 @@ test("the dry-run CLI is strict and never returns child diagnostics", async () =
   assert.deepEqual(forwarded, [[ROOT, ".release/plan.json"]]);
 });
 
+test("the CI all-units plan path reaches verification and staging", async () => {
+  const calls = [];
+  const path = ".artifacts/ci/all-units-plan.json";
+  const cli = await runDryRunCli(["--plan", path], {
+    root: ROOT,
+    runner: createSuccessfulRunner(calls),
+    workspace: fakeWorkspace().lifecycle,
+    archiveInspector,
+    readPlan: (root, planPath) => ({ plan: ALL_UNITS_PLAN, path: planPath }),
+  });
+  assert.equal(cli.exitCode, 0, cli.stderr);
+  const childArgs = (name) => calls.find(({ args }) => args[0]?.endsWith(`/${name}`)).args;
+  assert.deepEqual(childArgs("verify.mjs").slice(1), ["--plan", path]);
+  assert.deepEqual(childArgs("stage.mjs").slice(3, 5), ["--plan", path]);
+});
+
 test("a php-core plan runs only its release work and skips the application rehearsal", async () => {
   const calls = [];
   const workspace = fakeWorkspace();

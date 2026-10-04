@@ -156,6 +156,18 @@ test("CI exposes the bounded, read-only product and release gates", () => {
   assert.doesNotMatch(commands.security, /--source-only/u);
   assert.match(commands["release-metadata"], /playwright install --with-deps chromium/);
   assert.match(commands["release-metadata"], /pnpm release:dry-run/);
+  // CI always rehearses every unit, not a committed plan that may name only already released units.
+  const rehearsal = workflow.jobs["release-metadata"].steps.find(({ name }) => name === "Reproduce the complete release without publishing");
+  assert.equal(rehearsal.shell, "bash");
+  assert.equal(rehearsal.env?.PLAYWRIGHT_BROWSER_CHANNEL, "chromium");
+  assert.deepEqual(rehearsal.run.split("\n").filter((line) => line !== "" && !line.trimStart().startsWith("#")), [
+    "set -euo pipefail",
+    "node scripts/release/version.mjs --check",
+    "if [ -e .release/plan.json ]; then node scripts/release/version.mjs --check --plan .release/plan.json; fi",
+    "node scripts/release/plan.mjs --write-all-units .artifacts/ci/all-units-plan.json",
+    "pnpm release:dry-run --plan .artifacts/ci/all-units-plan.json",
+  ]);
+  assert.equal(commands["release-metadata"].match(/pnpm release:dry-run/gu).length, 1);
   const metadataSteps = workflow.jobs["release-metadata"].steps;
   const metadataBuild = metadataSteps.findIndex(({ run }) => run === "pnpm build");
   const metadataPreload = metadataSteps.findIndex(({ run }) => run === "node scripts/prepare-ci-images.mjs");
