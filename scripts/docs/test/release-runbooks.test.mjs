@@ -70,7 +70,7 @@ test("upgrade and rollback retain immutable identities and repeat safety checks"
 test("AI skill guide documents both safe installation paths and their boundaries", () => {
   const source = read("docs/ai-skills.md");
   assert.match(source, /scripts\/skills\/install\.mjs --destination/u);
-  assert.match(source, /gauntlet-skills-0\.1\.8\.tgz/u);
+  assert.match(source, /gauntlet-skills-0\.1\.9\.tgz/u);
   assert.match(source, /exactly one\s+skill per invocation/iu);
   assert.match(source, /\$gauntlet-app-integration/u);
   assert.match(source, /\$gauntlet-extension-authoring/u);

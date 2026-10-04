@@ -100,7 +100,7 @@ The image and the Helm chart are public, so pulling them needs no
 `docker login`, `helm registry login`, or Kubernetes imagePullSecret:
 
 ```sh
-docker pull ghcr.io/8lines/gauntlet:0.1.8
+docker pull ghcr.io/8lines/gauntlet:0.1.9
 helm pull oci://ghcr.io/8lines/charts/gauntlet --version 0.1.8
 ```
 
