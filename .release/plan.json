@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "units": [
+    {
+      "id": "skills",
+      "from": "0.1.8",
+      "to": "0.1.9"
+    }
+  ],
+  "order": [
+    "skills"
+  ],
+  "changes": [
+    "skills-per-package-versions.md"
+  ]
+}

@@ -40,7 +40,7 @@ current. Which package versions work with which application release is listed in
 | `symfony-bundle` | `8lines/gauntlet-symfony-bundle` | 0.1.8 |
 | `java-core` | `dev.eightlines.gauntlet:core` | 0.1.8 |
 | `spring-boot-starter` | `dev.eightlines.gauntlet:spring-boot-starter` | 0.1.8 |
-| `skills` | `gauntlet-skills` | 0.1.8 |
+| `skills` | `gauntlet-skills` | 0.1.9 |
 <!-- gauntlet:unit-versions:end -->
 
 ## npm

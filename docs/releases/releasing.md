@@ -157,7 +157,7 @@ single `publish` job that runs in the protected GitHub environment named
 
 | Setting | Purpose |
 | --- | --- |
-| `release` environment | Holds the secrets below; restrict it to tag deployments and require reviewer approval. |
+| `release` environment | Holds the secrets below; restrict its deployments to tags matching `release-*` and require reviewer approval. |
 | `NPM_TOKEN` secret | npm automation or granular access token that may publish the `@8lines` scope on `https://registry.npmjs.org`. Only the "Publish and release package units" step receives it. That step replaces its shell with `scripts/release/publish-package-units.sh` through `exec env -u …`, handing the token over on a file descriptor instead of the environment, so no other process of the job can read it from a process environment. The script gives it only to `npm publish`, as `NODE_AUTH_TOKEN`, which runs without `GH_TOKEN`. |
 | `COMPOSER_SPLIT_CORE_DEPLOY_KEY` secret | Private half of a passphrase-less OpenSSH deploy key with write access on `github.com/8lines/gauntlet-php-core`. It reaches the package script the same way, on its own file descriptor, and only the `php-core` publication command sees it, without `GH_TOKEN`. |
 | `COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY` secret | Private half of a passphrase-less OpenSSH deploy key with write access on `github.com/8lines/gauntlet-symfony-bundle`. It reaches the package script the same way, on its own file descriptor, and only the `symfony-bundle` publication command sees it, without `GH_TOKEN`. |
