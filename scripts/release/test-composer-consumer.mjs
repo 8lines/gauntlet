@@ -17,8 +17,8 @@ import { tmpdir } from "node:os";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseReleaseVersion, readReleaseVersion } from "./release-model.mjs";
-import { stageComposerPackages } from "./stage-composer.mjs";
+import { parseReleaseVersion, readUnitVersion } from "./release-model.mjs";
+import { COMPOSER_UNIT_IDS, stageComposerPackages } from "./stage-composer.mjs";
 import {
   COMPOSER_IMAGE,
   createDockerBuildInvocation,
@@ -47,9 +47,12 @@ function invalidPlan() {
   throw new TypeError("Composer consumer plan is invalid");
 }
 
-export function createComposerConsumerPlan({ version, taskIdentifier, sandbox, imageTag, uid, gid }) {
+export function createComposerConsumerPlan({ versions, taskIdentifier, sandbox, imageTag, uid, gid }) {
   try {
-    if (parseReleaseVersion(`${version}\n`) !== version) invalidPlan();
+    if (versions === null || typeof versions !== "object" || Array.isArray(versions)
+        || Object.keys(versions).length !== COMPOSER_UNIT_IDS.length
+        || COMPOSER_UNIT_IDS.some((id) => typeof versions[id] !== "string"
+          || parseReleaseVersion(`${versions[id]}\n`) !== versions[id])) invalidPlan();
   } catch {
     invalidPlan();
   }
@@ -64,13 +67,15 @@ export function createComposerConsumerPlan({ version, taskIdentifier, sandbox, i
       name: "8lines/gauntlet-php-core",
       staged: resolve(sandbox, "staged/8lines/gauntlet-php-core"),
       bare: resolve(sandbox, "repositories/gauntlet-php-core.git"),
-      tag: `v${version}`,
+      version: versions["php-core"],
+      tag: `v${versions["php-core"]}`,
     }),
     Object.freeze({
       name: "8lines/gauntlet-symfony-bundle",
       staged: resolve(sandbox, "staged/8lines/gauntlet-symfony-bundle"),
       bare: resolve(sandbox, "repositories/gauntlet-symfony-bundle.git"),
-      tag: `v${version}`,
+      version: versions["symfony-bundle"],
+      tag: `v${versions["symfony-bundle"]}`,
     }),
   ]);
   const environment = Object.freeze({});
@@ -88,7 +93,7 @@ export function createComposerConsumerPlan({ version, taskIdentifier, sandbox, i
     environment,
   })));
   return Object.freeze({
-    version,
+    versions: Object.freeze({ "php-core": versions["php-core"], "symfony-bundle": versions["symfony-bundle"] }),
     taskIdentifier,
     sandbox,
     imageTag,
@@ -229,16 +234,16 @@ function gitEnvironment(environment) {
   });
 }
 
-function createBareRepository(repository, environment, version) {
+function createBareRepository(repository, environment) {
   mkdirSync(dirname(repository.bare), { recursive: true, mode: 0o700 });
   execute("git", ["init", "--quiet", "--initial-branch=main"], {
     cwd: repository.staged, environment, timeout: 30_000,
   });
   execute("git", ["add", "--all", "--"], { cwd: repository.staged, environment, timeout: 30_000 });
-  execute("git", ["commit", "--quiet", "--message", `Release ${version}`], {
+  execute("git", ["commit", "--quiet", "--message", `Release ${repository.version}`], {
     cwd: repository.staged, environment, timeout: 30_000,
   });
-  execute("git", ["tag", "--annotate", repository.tag, "--message", `Release ${version}`], {
+  execute("git", ["tag", "--annotate", repository.tag, "--message", `Release ${repository.version}`], {
     cwd: repository.staged, environment, timeout: 30_000,
   });
   execute("git", ["init", "--bare", "--quiet", "--initial-branch=main", repository.bare], {
@@ -306,15 +311,23 @@ function validateConsumerLock(consumer, plan, commits) {
   for (const name of expected) {
     const dependency = packages.find((candidate) => candidate.name === name);
     const repository = plan.repositories.find((candidate) => candidate.name === name);
-    if (dependency?.version !== plan.version || dependency.source?.type !== "git"
+    if (dependency?.version !== repository.version || dependency.source?.type !== "git"
         || dependency.source?.url !== composerLockSourceFor(repository)
         || dependency.source?.reference !== commits.get(name) || dependency.dist !== undefined) throw new Error();
   }
-  if (packages.some(({ name, version }) => INTERNAL_PACKAGES.includes(name) && version !== plan.version)) throw new Error();
+  if (packages.some(({ name, version }) => INTERNAL_PACKAGES.includes(name)
+      && version !== plan.repositories.find((candidate) => candidate.name === name).version)) throw new Error();
   if (consumer.name === "php-symfony") {
     const framework = packages.find(({ name }) => name === "symfony/framework-bundle");
     if (framework === undefined || !/^v?7\.4\./.test(framework.version)) throw new Error();
   }
+}
+
+function readComposerVersions(root) {
+  return Object.freeze({
+    "php-core": readUnitVersion(root, "php-core"),
+    "symfony-bundle": readUnitVersion(root, "symfony-bundle"),
+  });
 }
 
 export async function runComposerConsumer({ root = ROOT } = {}) {
@@ -329,7 +342,7 @@ export async function runComposerConsumer({ root = ROOT } = {}) {
   const uid = typeof process.getuid === "function" ? process.getuid() : 0;
   const gid = typeof process.getgid === "function" ? process.getgid() : 0;
   const plan = createComposerConsumerPlan({
-    version: readReleaseVersion(root),
+    versions: readComposerVersions(root),
     taskIdentifier,
     sandbox,
     imageTag,
@@ -341,17 +354,24 @@ export async function runComposerConsumer({ root = ROOT } = {}) {
   let imageBuilt = false;
   try {
     const commit = exactHead(root, environment);
-    if (readReleaseVersion(root) !== plan.version) throw new Error();
+    const reread = readComposerVersions(root);
+    if (COMPOSER_UNIT_IDS.some((id) => reread[id] !== plan.versions[id])) throw new Error();
     for (const directory of [resolve(sandbox, "staged"), resolve(sandbox, "repositories"), resolve(sandbox, "consumers"), resolve(sandbox, "offline-consumers"), resolve(sandbox, "composer-cache")]) {
       mkdirSync(directory, { recursive: true, mode: 0o700 });
       chmodSync(directory, 0o700);
     }
-    await stageComposerPackages({ root, outputDirectory: resolve(sandbox, "staged"), sourceCommit: commit });
+    await stageComposerPackages({
+      root,
+      outputDirectory: resolve(sandbox, "staged"),
+      sourceCommit: commit,
+      versions: plan.versions,
+      include: COMPOSER_UNIT_IDS,
+    });
     materializeConsumers(root, commit, plan, environment);
     const commits = new Map();
     const gitEnv = gitEnvironment(environment);
     for (const repository of plan.repositories) {
-      commits.set(repository.name, createBareRepository(repository, gitEnv, plan.version));
+      commits.set(repository.name, createBareRepository(repository, gitEnv));
     }
 
     const build = Object.freeze({ php: "8.3", platform, image: PHP_IMAGES["8.3"], tag: imageTag });
@@ -371,7 +391,7 @@ export async function runComposerConsumer({ root = ROOT } = {}) {
       validateConsumerLock(offlineConsumer, plan, commits);
       dockerRun(plan, offlineConsumer, consumer.check, environment, platform, { network: "none" });
     }
-    return Object.freeze({ version: plan.version, packages: plan.repositories.length, consumers: plan.consumers.length });
+    return Object.freeze({ versions: plan.versions, packages: plan.repositories.length, consumers: plan.consumers.length });
   } catch (error) {
     if (error instanceof TypeError || error?.message === "Composer consumer requires committed release inputs") throw error;
     throw new Error("Composer consumer verification failed safely");

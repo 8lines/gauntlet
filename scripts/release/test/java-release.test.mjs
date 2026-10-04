@@ -25,12 +25,13 @@ const CHECK_TASKS = [
 test("plans pinned source checks, Maven staging, and isolated online-to-offline consumers", () => {
   const plan = createJavaReleasePlan({
     sandbox: "/private/gauntlet-java-release",
-    version: "0.1.0",
+    versions: { "java-core": "0.1.0", "spring-boot-starter": "0.1.1" },
     uid: 501,
     gid: 20,
   });
 
-  assert.equal(plan.version, "0.1.0");
+  assert.deepEqual(plan.versions, { "java-core": "0.1.0", "spring-boot-starter": "0.1.1" });
+  assert.equal(Object.isFrozen(plan.versions), true);
   assert.equal(plan.image, IMAGE);
   assert.equal(plan.platform, "linux/amd64");
   assert.equal(plan.repository, "/private/gauntlet-java-release/repository");
@@ -126,7 +127,7 @@ test("plans pinned source checks, Maven staging, and isolated online-to-offline 
 test("rejects unsafe Java release plan inputs before constructing mounts", () => {
   const base = {
     sandbox: "/private/gauntlet-java-release",
-    version: "0.1.0",
+    versions: { "java-core": "0.1.0", "spring-boot-starter": "0.1.0" },
     uid: 501,
     gid: 20,
   };
@@ -134,7 +135,10 @@ test("rejects unsafe Java release plan inputs before constructing mounts", () =>
     { sandbox: "relative" },
     { sandbox: "/private/../escape" },
     { sandbox: "/private/with,comma" },
-    { version: "0.1.0-SNAPSHOT" },
+    { versions: { "java-core": "0.1.0-SNAPSHOT", "spring-boot-starter": "0.1.0" } },
+    { versions: { "java-core": "0.1.0" } },
+    { versions: { "java-core": "0.1.0", "spring-boot-starter": "0.1.0", extra: "0.1.0" } },
+    { versions: "0.1.0" },
     { uid: -1 },
     { gid: 1.5 },
   ]) {
@@ -206,7 +210,11 @@ test("accepts an exact Git HEAD and rejects tracked or untracked release input c
 
 test("the committed consumer closes Gauntlet resolution to the staged repository and pins transitives", () => {
   const directory = resolve(ROOT, "tests/consumers/java");
-  const version = readFileSync(resolve(ROOT, "packages/java/core/VERSION"), "utf8").trimEnd();
+  const versions = {
+    "java-core": readFileSync(resolve(ROOT, "packages/java/core/VERSION"), "utf8").trimEnd(),
+    "spring-boot-starter": readFileSync(resolve(ROOT, "packages/java/spring-boot-starter/VERSION"), "utf8").trimEnd(),
+  };
+  const version = versions["spring-boot-starter"];
   const expectedFiles = [
     "build.gradle.kts",
     "gradle.lockfile",
@@ -257,27 +265,56 @@ test("the committed consumer closes Gauntlet resolution to the staged repository
     "testCompileClasspath",
     "testRuntimeClasspath",
   ]);
-  assert.equal(locked.some((line) => line.startsWith(`dev.eightlines.gauntlet:core:${version}=`)), true);
+  assert.equal(locked.some((line) => line.startsWith(`dev.eightlines.gauntlet:core:${versions["java-core"]}=`)), true);
   assert.equal(locked.some((line) => line.startsWith(`dev.eightlines.gauntlet:spring-boot-starter:${version}=`)), true);
   assert.doesNotMatch(
     lock,
     /(?:https?:|file:|SNAPSHOT|\bLATEST\b|\bRELEASE\b|\[[^\]]*\]|\([^)]*\)|\+|GITHUB_|password|credentials?|authorization|bearer|private[_-]?key|secret|token|username)/iu,
   );
 
-  const validation = validateJavaConsumerFixture({ settings, build, lock, source, version });
+  const validation = validateJavaConsumerFixture({ settings, build, lock, source, versions });
   assert.deepEqual(validation, { dependencies: 60, configurations: 6 });
   assert.equal(Object.isFrozen(validation), true);
   for (const change of [
     { settings: settings.replace(MAVEN_CENTRAL, "https://maven.pkg.github.com/8lines/gauntlet") },
     { settings: `${settings}\ncredentials { username = "leak" }\n` },
     { build: build.replace(`:${version}`, ":0.1.+") },
-    { lock: lock.replace(`dev.eightlines.gauntlet:core:${version}`, `dev.eightlines.gauntlet:core:${version}-SNAPSHOT`) },
+    { lock: lock.replace(`dev.eightlines.gauntlet:core:${versions["java-core"]}`, `dev.eightlines.gauntlet:core:${versions["java-core"]}-SNAPSHOT`) },
+    { versions: { "java-core": versions["java-core"] } },
+    { versions: { ...versions, extra: "0.1.0" } },
+    { versions: { ...versions, "java-core": "not-a-version" } },
+    { lock: `${lock}dev.eightlines.gauntlet:other:${version}=compileClasspath\n` },
   ]) {
     assert.throws(
-      () => validateJavaConsumerFixture({ settings, build, lock, source, version, ...change }),
+      () => validateJavaConsumerFixture({ settings, build, lock, source, versions, ...change }),
       { message: "Java consumer fixture is invalid" },
     );
   }
+
+  // Diverged unit versions: the build pins the starter, the lockfile pins each unit at its own version.
+  const diverged = { "java-core": "0.1.9", "spring-boot-starter": "0.1.10" };
+  const divergedBuild = build.replace(`spring-boot-starter:${version}`, `spring-boot-starter:${diverged["spring-boot-starter"]}`);
+  const lockAt = (core, starter) => lock
+    .replace(`dev.eightlines.gauntlet:core:${versions["java-core"]}=`, `dev.eightlines.gauntlet:core:${core}=`)
+    .replace(`dev.eightlines.gauntlet:spring-boot-starter:${version}=`, `dev.eightlines.gauntlet:spring-boot-starter:${starter}=`);
+  assert.deepEqual(
+    validateJavaConsumerFixture({
+      settings, build: divergedBuild, lock: lockAt("0.1.9", "0.1.10"), source, versions: diverged,
+    }),
+    { dependencies: 60, configurations: 6 },
+  );
+  assert.throws(
+    () => validateJavaConsumerFixture({
+      settings, build: divergedBuild, lock: lockAt("0.1.10", "0.1.10"), source, versions: diverged,
+    }),
+    { message: "Java consumer fixture is invalid" },
+  );
+  assert.throws(
+    () => validateJavaConsumerFixture({
+      settings, build, lock: lockAt("0.1.9", "0.1.10"), source, versions: diverged,
+    }),
+    { message: "Java consumer fixture is invalid" },
+  );
 });
 
 test("every source-check project uses strict locking with a closed generated lock", () => {

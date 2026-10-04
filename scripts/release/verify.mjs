@@ -6,8 +6,12 @@ import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { TextDecoder, types as utilTypes } from "node:util";
 
+import { parseReleaseSetId, resolveReleasePlan } from "./plan.mjs";
+import { unitById } from "./units.mjs";
+
 const ROOT = realpathSync(fileURLToPath(new URL("../../", import.meta.url)));
-const USAGE = "Usage: verify.mjs";
+const USAGE = "Usage: verify.mjs [--plan PATH]";
+const EMPTY_PLAN = "Release plan has no units";
 const FAILURE = "Release verification failed safely";
 const MAX_COMMAND_OUTPUT_BYTES = 16 * 1024 * 1024;
 const UTF8 = new TextDecoder("utf-8", { fatal: true });
@@ -40,11 +44,27 @@ const PHASE_TIMEOUTS = Object.freeze({
   dashboard: 40 * 60_000,
   image: 45 * 60_000,
   compose: 45 * 60_000,
-  helm: 30 * 60_000,
+  helm: 60 * 60_000,
   security: 90 * 60_000,
-  packages: 30 * 60_000,
+  packages: 60 * 60_000,
   inventory: 10 * 60_000,
-  documentation: 30 * 60_000,
+  documentation: 60 * 60_000,
+});
+
+// Phases every plan runs, and the phases each unit gate adds. The widget and widget-panel gates add no
+// phase here: they run only as workflow jobs (release.yml and ci.yml), not inside node or dashboard.
+const ALWAYS_PHASES = Object.freeze(["source", "inventory", "documentation"]);
+const GATE_PHASES = Object.freeze({
+  node: Object.freeze(["node"]),
+  php: Object.freeze(["php"]),
+  java: Object.freeze(["java"]),
+  conformance: Object.freeze(["conformance"]),
+  skills: Object.freeze(["skills"]),
+  dashboard: Object.freeze(["dashboard"]),
+  deployment: Object.freeze(["image", "compose", "helm"]),
+  security: Object.freeze(["security"]),
+  widget: Object.freeze([]),
+  "widget-panel": Object.freeze([]),
 });
 
 const RELEASE_ONLY_EVIDENCE = Object.freeze({
@@ -60,8 +80,8 @@ function command(id, executable, args, scope = "source") {
   return Object.freeze({ id, command: executable, args: Object.freeze([...args]), scope });
 }
 
-function phaseCommands(version, root = ROOT) {
-  const releaseRoot = version === null ? null : `.artifacts/release/${version}`;
+function phaseCommands(releaseSet, version, root = ROOT) {
+  const releaseRoot = version === null ? null : `.artifacts/release/${releaseSet}`;
   const imageArchive = releaseRoot === null ? null : `${releaseRoot}/image/gauntlet-${version}.docker.tar`;
   return Object.freeze({
     source: Object.freeze([
@@ -141,19 +161,50 @@ function stableVersion(value) {
   return value;
 }
 
+function releaseSetId(value) {
+  try {
+    return parseReleaseSetId(value);
+  } catch {
+    throw new TypeError("Release verification release set is invalid");
+  }
+}
+
 export function plannedReleasePhases() {
   return [...PHASES];
 }
 
-export function commandsForPhase(phase, { version } = {}) {
+export function phasesForUnits(ids) {
+  if (!Array.isArray(ids)) throw new TypeError("Release verification units are invalid");
+  const needed = new Set(ALWAYS_PHASES);
+  for (const id of ids) {
+    const unit = unitById(id);
+    for (const gate of unit.gates) {
+      const phases = GATE_PHASES[gate];
+      if (phases === undefined) throw new TypeError(`Release gate ${gate} has no verification phase`);
+      for (const phase of phases) needed.add(phase);
+    }
+    if (unit.kind === "npm") needed.add("packages");
+  }
+  return PHASES.filter((phase) => needed.has(phase));
+}
+
+export function commandsForPhase(phase, { releaseSet, version } = {}) {
   if (typeof phase !== "string" || !PHASES.includes(phase)) throw new TypeError("Unknown release phase");
-  const commands = phaseCommands(stableVersion(version))[phase];
+  const commands = phaseCommands(releaseSetId(releaseSet), stableVersion(version))[phase];
   return commands.map(({ command: executable, args }) => [executable, [...args]]);
 }
 
+function safePlanPath(value) {
+  if (typeof value !== "string" || value === "" || value.includes("\\") || /[\u0000-\u001f\u007f,]/u.test(value)) return false;
+  if (isAbsolute(value)) return resolve(value) === value && value !== "/";
+  return value.split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
+}
+
 export function parseVerifyArguments(argv) {
-  if (!Array.isArray(argv) || argv.length !== 0) throw new TypeError(USAGE);
-  return {};
+  if (!Array.isArray(argv) || argv.some((value) => typeof value !== "string")) throw new TypeError(USAGE);
+  if (argv.length === 0) return { planPath: null };
+  if (argv.length !== 2 || argv[0] !== "--plan" || !safePlanPath(argv[1])) throw new TypeError(USAGE);
+  return { planPath: argv[1] };
 }
 
 function initialPhaseRecords() {
@@ -164,7 +215,7 @@ function frozenPhaseRecords(records) {
   return Object.freeze(records.map((record) => Object.freeze({ ...record })));
 }
 
-function report(records, { sourceChecksOk, status, version = null, failure } = {}) {
+function report(records, { sourceChecksOk, status, version = null, units = null, failure } = {}) {
   return Object.freeze({
     schemaVersion: 1,
     mode: "development",
@@ -174,13 +225,14 @@ function report(records, { sourceChecksOk, status, version = null, failure } = {
     sourceChecksOk,
     releaseReady: false,
     version,
+    units: units === null ? null : Object.freeze([...units]),
     phases: frozenPhaseRecords(records),
     ...(failure === undefined ? {} : { failure: Object.freeze({ ...failure }) }),
   });
 }
 
 class VerificationFailure extends Error {
-  constructor(code, phase, exitCode, records, version) {
+  constructor(code, phase, exitCode, records, version, units = null) {
     super(`${phase ?? "setup"} phase failed`);
     this.name = "VerificationFailure";
     this.code = code;
@@ -190,13 +242,14 @@ class VerificationFailure extends Error {
       sourceChecksOk: false,
       status: "failed",
       version,
+      units,
       failure: { code, phase },
     });
   }
 }
 
-function fail(code, phase, exitCode, records, version) {
-  throw new VerificationFailure(code, phase, exitCode, records, version);
+function fail(code, phase, exitCode, records, version, units = null) {
+  throw new VerificationFailure(code, phase, exitCode, records, version, units);
 }
 
 function closeResult(value) {
@@ -225,7 +278,7 @@ function oneJsonLine(source) {
 
 function validateVersionOutput(result) {
   const value = oneJsonLine(result.stdout);
-  if (result.stderr !== "" || value.command !== "check" || value.ok !== true || value.tag !== null
+  if (result.stderr !== "" || value.command !== "check" || value.ok !== true || value.plan !== null
       || !Array.isArray(value.mismatches) || value.mismatches.length !== 0) throw new Error();
   return stableVersion(value.version);
 }
@@ -271,30 +324,45 @@ function runOptions(options) {
       || ![Object.prototype, null].includes(Object.getPrototypeOf(options))) throw new TypeError();
   const descriptors = Object.getOwnPropertyDescriptors(options);
   const keys = Reflect.ownKeys(descriptors);
-  if (keys.some((key) => typeof key !== "string" || !["root", "runner"].includes(key)
+  if (keys.some((key) => typeof key !== "string" || !["root", "runner", "plan"].includes(key)
       || descriptors[key].enumerable !== true || !("value" in descriptors[key]))) throw new TypeError();
   const root = descriptors.root?.value ?? ROOT;
   const runner = descriptors.runner?.value ?? createProcessRunner();
   if (typeof root !== "string" || !isAbsolute(root) || resolve(root) !== root || root === "/" || typeof runner !== "function") {
     throw new TypeError();
   }
-  return { root, runner };
+  return { root, runner, units: planUnits(descriptors.plan?.value) };
+}
+
+function planUnits(plan) {
+  if (plan === null || typeof plan !== "object" || !Object.isFrozen(plan) || !Array.isArray(plan.order)
+      || plan.order.length === 0 || plan.order.some((id) => typeof id !== "string")) throw new TypeError();
+  const units = Object.freeze([...plan.order]);
+  if (new Set(units).size !== units.length) throw new TypeError();
+  phasesForUnits(units);
+  return units;
 }
 
 export async function runPhases(options = {}) {
   let root;
   let runner;
+  let units;
   const records = initialPhaseRecords();
   let version = null;
   try {
-    ({ root, runner } = runOptions(options));
+    ({ root, runner, units } = runOptions(options));
   } catch {
     fail("INVALID_OPTIONS", null, 1, records, version);
   }
-  const commands = phaseCommands(null, root);
+  const commands = phaseCommands(null, null, root);
+  const needed = new Set(phasesForUnits(units));
+  for (const [phaseIndex, phase] of PHASES.entries()) {
+    if (!needed.has(phase)) records[phaseIndex] = { name: phase, status: "skipped", reason: "not-in-release-plan", commands: 0 };
+  }
 
   for (let phaseIndex = 0; phaseIndex < PHASES.length; phaseIndex += 1) {
     const phase = PHASES[phaseIndex];
+    if (!needed.has(phase)) continue;
     const runnable = commands[phase].filter(({ scope }) => scope === "source");
     const excluded = RELEASE_ONLY_EVIDENCE[phase];
     if (runnable.length === 0) {
@@ -321,35 +389,27 @@ export async function runPhases(options = {}) {
         });
       } catch {
         records[phaseIndex] = { name: phase, status: "failed", commands: completed };
-        for (let index = phaseIndex + 1; index < records.length; index += 1) {
-          records[index] = { name: PHASES[index], status: "not-run", reason: "short-circuited", commands: 0 };
-        }
-        fail("EXECUTION_FAILED", phase, 1, records, version);
+        shortCircuit(records, phaseIndex);
+        fail("EXECUTION_FAILED", phase, 1, records, version, units);
       }
       const child = closeResult(raw);
       if (child === undefined) {
         records[phaseIndex] = { name: phase, status: "failed", commands: completed };
-        for (let index = phaseIndex + 1; index < records.length; index += 1) {
-          records[index] = { name: PHASES[index], status: "not-run", reason: "short-circuited", commands: 0 };
-        }
-        fail("MALFORMED_RESULT", phase, 1, records, version);
+        shortCircuit(records, phaseIndex);
+        fail("MALFORMED_RESULT", phase, 1, records, version, units);
       }
       if (child.status !== 0) {
         records[phaseIndex] = { name: phase, status: "failed", commands: completed + 1 };
-        for (let index = phaseIndex + 1; index < records.length; index += 1) {
-          records[index] = { name: PHASES[index], status: "not-run", reason: "short-circuited", commands: 0 };
-        }
-        fail("PHASE_FAILED", phase, child.status, records, version);
+        shortCircuit(records, phaseIndex);
+        fail("PHASE_FAILED", phase, child.status, records, version, units);
       }
       try {
         const observedVersion = validateCommandOutput(descriptor, child);
         if (observedVersion !== undefined) version = observedVersion;
       } catch {
         records[phaseIndex] = { name: phase, status: "failed", commands: completed + 1 };
-        for (let index = phaseIndex + 1; index < records.length; index += 1) {
-          records[index] = { name: PHASES[index], status: "not-run", reason: "short-circuited", commands: 0 };
-        }
-        fail("OUTPUT_INVALID", phase, 1, records, version);
+        shortCircuit(records, phaseIndex);
+        fail("OUTPUT_INVALID", phase, 1, records, version, units);
       }
       completed += 1;
     }
@@ -364,8 +424,15 @@ export async function runPhases(options = {}) {
         };
   }
 
-  if (version === null) fail("OUTPUT_INVALID", "source", 1, records, version);
-  return report(records, { sourceChecksOk: true, status: "partial", version });
+  if (version === null) fail("OUTPUT_INVALID", "source", 1, records, version, units);
+  return report(records, { sourceChecksOk: true, status: "partial", version, units });
+}
+
+function shortCircuit(records, phaseIndex) {
+  for (let index = phaseIndex + 1; index < records.length; index += 1) {
+    if (records[index].status === "skipped") continue;
+    records[index] = { name: PHASES[index], status: "not-run", reason: "short-circuited", commands: 0 };
+  }
 }
 
 function safeEnvironment(source) {
@@ -479,18 +546,51 @@ function jsonLine(value) {
   return `${JSON.stringify(value)}\n`;
 }
 
-export async function runVerifyCli(argv, options = {}) {
+function invalidArguments(message) {
+  return {
+    exitCode: 2,
+    stdout: "",
+    stderr: jsonLine({ error: { code: "INVALID_ARGUMENTS", message }, ok: false, releaseReady: false }),
+  };
+}
+
+// The CLI resolves the plan (an explicit --plan, else .release/plan.json, else every unit) unless the
+// caller injects one; accessors stay unevaluated so runPhases can reject them.
+function optionsWithPlan(options, planPath) {
+  if (options === null || typeof options !== "object" || Object.hasOwn(options, "plan")) return options;
+  const rootDescriptor = Object.getOwnPropertyDescriptor(options, "root");
+  const root = rootDescriptor !== undefined && "value" in rootDescriptor ? rootDescriptor.value : ROOT;
+  let plan;
   try {
-    parseVerifyArguments(argv);
+    ({ plan } = resolveReleasePlan(root, planPath));
+  } catch (error) {
+    throw new TypeError(error instanceof Error && error.message.startsWith("Release plan") ? error.message : USAGE);
+  }
+  return Object.defineProperties({}, {
+    ...Object.getOwnPropertyDescriptors(options),
+    plan: { value: plan, enumerable: true, configurable: true, writable: true },
+  });
+}
+
+export async function runVerifyCli(argv, options = {}) {
+  let planPath;
+  try {
+    ({ planPath } = parseVerifyArguments(argv));
   } catch {
-    return {
-      exitCode: 2,
-      stdout: "",
-      stderr: jsonLine({ error: { code: "INVALID_ARGUMENTS", message: USAGE }, ok: false, releaseReady: false }),
-    };
+    return invalidArguments(USAGE);
+  }
+  let planned;
+  try {
+    planned = optionsWithPlan(options, planPath);
+    const plan = planned?.plan;
+    if (plan !== null && typeof plan === "object" && Array.isArray(plan.order) && plan.order.length === 0) {
+      throw new TypeError(EMPTY_PLAN);
+    }
+  } catch (error) {
+    return invalidArguments(error instanceof TypeError ? error.message : USAGE);
   }
   try {
-    const verification = await runPhases(options);
+    const verification = await runPhases(planned);
     return { exitCode: 0, stdout: jsonLine(verification), stderr: "" };
   } catch (error) {
     const code = error instanceof VerificationFailure ? error.code : "EXECUTION_FAILED";

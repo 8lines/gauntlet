@@ -2,19 +2,20 @@
 
 import { spawnSync } from "node:child_process";
 import { lstatSync, realpathSync } from "node:fs";
-import { isAbsolute, resolve, sep } from "node:path";
+import { basename, isAbsolute, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { parse } from "yaml";
 
 import { parseDockerEndpoint } from "../run-compose-smoke.mjs";
-import { readReleaseVersion, RELEASE_STAGE_ARTIFACT_COUNT } from "../release/release-model.mjs";
+import { readReleaseManifest } from "../release/inventory.mjs";
+import { parseReleaseSetId } from "../release/plan.mjs";
 import { inspectDockerArchive } from "../release/stage-image.mjs";
 
 const ROOT = realpathSync(fileURLToPath(new URL("../..", import.meta.url)));
 const FAILURE = "Documented command verification failed closed";
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
-const USAGE = "Usage: node scripts/docs/verify-documented-commands.mjs --release-root .artifacts/release/<VERSION>";
+const USAGE = "Usage: node scripts/docs/verify-documented-commands.mjs --release-root .artifacts/release/<set-id>";
 const COMMIT = /^[0-9a-f]{40}$/u;
 const SHA256 = /^[0-9a-f]{64}$/u;
 const IMAGE_ID = /^sha256:[0-9a-f]{64}$/u;
@@ -66,8 +67,11 @@ export function planDocumentedCommandChecks({ root: rawRoot, releaseRoot: rawRel
     const root = canonicalDirectory(rawRoot);
     const releaseRoot = canonicalDirectory(rawReleaseRoot);
     const temporaryRoot = canonicalDirectory(rawTemporaryRoot);
-    const version = readReleaseVersion(root);
-    if (releaseRoot !== resolve(root, ".artifacts/release", version)
+    const { manifest: staged } = readReleaseManifest(releaseRoot);
+    const application = staged.units.find(({ id }) => id === "gauntlet");
+    if (application === undefined) failClosed();
+    const version = application.version;
+    if (releaseRoot !== resolve(root, ".artifacts/release", staged.releaseSet)
         || temporaryRoot === root || temporaryRoot === releaseRoot
         || temporaryRoot.startsWith(`${releaseRoot}${sep}`)) failClosed();
 
@@ -83,6 +87,10 @@ export function planDocumentedCommandChecks({ root: rawRoot, releaseRoot: rawRel
 
     return deepFreezePlan({
       version,
+      releaseSet: staged.releaseSet,
+      sourceCommit: staged.sourceCommit,
+      units: staged.units,
+      artifacts: staged.artifacts.length,
       root,
       releaseRoot,
       temporaryRoot,
@@ -214,7 +222,7 @@ function oneJsonLine(source) {
   try {
     const value = JSON.parse(source.slice(0, -1));
     if (!hasExactKeys(value, [
-      "schemaVersion", "ok", "version", "sourceCommit", "artifacts", "manifestSha256",
+      "schemaVersion", "ok", "releaseSet", "sourceCommit", "units", "artifacts", "manifestSha256",
       "checksumsSha256", "nativeImage", "multiPlatformOci", "helmChart",
     ])) failClosed();
     return value;
@@ -229,11 +237,15 @@ function validArtifactEvidence(value, path) {
     && value.path === path && typeof value.sha256 === "string" && SHA256.test(value.sha256);
 }
 
-function validateInventoryReport(result, version) {
+function validateInventoryReport(result, plan) {
   const value = oneJsonLine(result.stdout);
-  if (result.stderr !== "" || value.schemaVersion !== 1 || value.ok !== true || value.version !== version
+  const { version } = plan;
+  if (result.stderr !== "" || value.schemaVersion !== 2 || value.ok !== true || value.releaseSet !== plan.releaseSet
       || typeof value.sourceCommit !== "string" || !COMMIT.test(value.sourceCommit)
-      || value.artifacts !== RELEASE_STAGE_ARTIFACT_COUNT
+      || value.sourceCommit !== plan.sourceCommit
+      || !Array.isArray(value.units) || value.units.length === 0
+      || JSON.stringify(value.units) !== JSON.stringify(plan.units)
+      || !Number.isInteger(value.artifacts) || value.artifacts < 1 || value.artifacts !== plan.artifacts
       || typeof value.manifestSha256 !== "string" || !SHA256.test(value.manifestSha256)
       || typeof value.checksumsSha256 !== "string" || !SHA256.test(value.checksumsSha256)
       || !validArtifactEvidence(value.nativeImage, `image/gauntlet-${version}.docker.tar`)
@@ -285,7 +297,7 @@ function validateRenderedChart(source, version) {
 }
 
 function validatePhaseOutput(phase, result, plan) {
-  if (phase === "inventory") return validateInventoryReport(result, plan.version);
+  if (phase === "inventory") return validateInventoryReport(result, plan);
   if (phase === "docker-context") parseDockerEndpoint(result.stdout);
   if (phase === "docker-info" && !/^"[^"\r\n]+"\n?$/u.test(result.stdout)) failClosed();
   if (phase === "image-absence" && !/(?:No such image|No such object)/iu.test(result.stderr)) failClosed();
@@ -410,13 +422,13 @@ export function parseDocumentedCommandArguments(argv, root = ROOT) {
       || typeof argv[1] !== "string" || argv[1] === "" || argv[1].includes("\\")
       || /[\u0000-\u001f\u007f]/u.test(argv[1])) throw new TypeError(USAGE);
   const releaseRoot = isAbsolute(argv[1]) ? resolve(argv[1]) : resolve(root, argv[1]);
-  let version;
+  const releaseSet = basename(releaseRoot);
   try {
-    version = readReleaseVersion(root);
+    parseReleaseSetId(releaseSet);
   } catch {
     throw new TypeError(USAGE);
   }
-  if (releaseRoot !== resolve(root, ".artifacts/release", version)) throw new TypeError(USAGE);
+  if (releaseRoot !== resolve(root, ".artifacts/release", releaseSet)) throw new TypeError(USAGE);
   return { releaseRoot };
 }
 

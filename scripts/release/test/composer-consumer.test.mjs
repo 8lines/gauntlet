@@ -34,17 +34,17 @@ test("defines closed Core and disabled Symfony consumers with no path repositori
 
 test("plans deterministic VCS tags, online install, checks, and a network-disabled offline reinstall", () => {
   const plan = createComposerConsumerPlan({
-    version: "0.1.0",
+    versions: { "php-core": "0.1.0", "symfony-bundle": "0.1.1" },
     taskIdentifier: "unit",
     sandbox: "/private/consumer",
     imageTag: "gauntlet-php-compatibility:unit-php83",
     uid: 501,
     gid: 20,
   });
-  assert.equal(plan.version, "0.1.0");
-  assert.deepEqual(plan.repositories.map(({ name, tag }) => [name, tag]), [
-    ["8lines/gauntlet-php-core", "v0.1.0"],
-    ["8lines/gauntlet-symfony-bundle", "v0.1.0"],
+  assert.deepEqual(plan.versions, { "php-core": "0.1.0", "symfony-bundle": "0.1.1" });
+  assert.deepEqual(plan.repositories.map(({ name, version, tag }) => [name, version, tag]), [
+    ["8lines/gauntlet-php-core", "0.1.0", "v0.1.0"],
+    ["8lines/gauntlet-symfony-bundle", "0.1.1", "v0.1.1"],
   ]);
   assert.deepEqual(plan.repositories.map(({ staged }) => staged), [
     "/private/consumer/staged/8lines/gauntlet-php-core",
@@ -68,7 +68,7 @@ test("plans deterministic VCS tags, online install, checks, and a network-disabl
 
 test("plans Composer repositories and lock expectations for release 0.1.1", () => {
   const plan = createComposerConsumerPlan({
-    version: "0.1.1",
+    versions: { "php-core": "0.1.1", "symfony-bundle": "0.1.1" },
     taskIdentifier: "next-release",
     sandbox: "/private/consumer-next",
     imageTag: "gauntlet-php-compatibility:next-release-php83",
@@ -76,13 +76,13 @@ test("plans Composer repositories and lock expectations for release 0.1.1", () =
     gid: 20,
   });
 
-  assert.equal(plan.version, "0.1.1");
+  assert.deepEqual(plan.versions, { "php-core": "0.1.1", "symfony-bundle": "0.1.1" });
   assert.deepEqual(plan.repositories.map(({ tag }) => tag), ["v0.1.1", "v0.1.1"]);
 });
 
 test("consumer planning rejects unsafe identifiers, paths, image tags, and identities", () => {
   const base = {
-    version: "0.1.0",
+    versions: { "php-core": "0.1.0", "symfony-bundle": "0.1.0" },
     taskIdentifier: "unit",
     sandbox: "/private/consumer",
     imageTag: "gauntlet-php-compatibility:unit-php83",
@@ -93,7 +93,10 @@ test("consumer planning rejects unsafe identifiers, paths, image tags, and ident
     { taskIdentifier: "../bad" },
     { sandbox: "relative" },
     { imageTag: "php:latest" },
-    { version: "0.1.0-SNAPSHOT" },
+    { versions: { "php-core": "0.1.0-SNAPSHOT", "symfony-bundle": "0.1.0" } },
+    { versions: { "php-core": "0.1.0" } },
+    { versions: { "php-core": "0.1.0", "symfony-bundle": "0.1.0", extra: "0.1.0" } },
+    { versions: undefined },
     { uid: -1 },
     { gid: 1.5 },
   ]) {

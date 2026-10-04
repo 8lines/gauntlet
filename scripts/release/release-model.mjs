@@ -161,7 +161,6 @@ function assertReleaseCatalog(catalog) {
 
 assertReleaseCatalog(releaseArtifacts);
 export const RELEASE_ARTIFACTS = deeplyFreeze(releaseArtifacts);
-export const RELEASE_STAGE_ARTIFACT_COUNT = 19;
 
 export function parseReleaseVersion(raw) {
   let bytes;
@@ -470,10 +469,6 @@ const RELEASE_TEXT_FILES = deeplyFreeze([
     ],
   },
   {
-    path: "skills/gauntlet-app-integration/SKILL.md",
-    slots: [{ unit: "skills", prefix: "Consume exact `", suffix: "` artifacts;" }],
-  },
-  {
     path: "skills/gauntlet-app-integration/references/node.md",
     slots: [
       { unit: "protocol", prefix: "@8lines/gauntlet-protocol@", suffix: " \\\n" },
@@ -491,7 +486,10 @@ const RELEASE_TEXT_FILES = deeplyFreeze([
   },
   {
     path: "skills/gauntlet-app-integration/references/symfony.md",
-    slots: [{ unit: "php-core", prefix: "install exact release `", suffix: "` of `8lines/gauntlet-php-core`" }],
+    slots: [
+      { unit: "php-core", prefix: "install exact release `", suffix: "` of `8lines/gauntlet-php-core`" },
+      { unit: "symfony-bundle", prefix: "and exact release `", suffix: "` of `8lines/gauntlet-symfony-bundle`" },
+    ],
   },
   {
     path: "skills/gauntlet-app-integration/references/spring.md",
@@ -608,24 +606,12 @@ export function readUnitVersion(root, id) {
   }
 }
 
-// The Java source and release checks build both artifacts from one captured tree, so both
-// unit VERSION records must be present and agree until the checks learn per-artifact versions.
-export function javaLockstepVersion(records) {
-  const versions = ["packages/java/core/VERSION", "packages/java/spring-boot-starter/VERSION"].map((path) => {
-    const record = records.find(({ relativePath }) => relativePath === path);
-    if (record === undefined) throw new Error(VERSION_ERROR);
-    return parseReleaseVersion(record.bytes);
-  });
-  if (versions[0] !== versions[1]) throw new Error(VERSION_ERROR);
-  return versions[0];
-}
-
 export function readUnitVersions(root) {
   return new Map(RELEASE_UNITS.map(({ id }) => [id, readUnitVersion(root, id)]));
 }
 
-// Until plan-driven publishing exists, every unit is still released at the application version.
-export const LOCKSTEP_RELEASES = true;
+// Units are versioned and released independently; plan-driven publishing replaced the lockstep guard.
+export const LOCKSTEP_RELEASES = false;
 
 function readableUnitVersions(root) {
   const versions = new Map();
@@ -723,23 +709,8 @@ export function collectUnitVersionMismatches(root) {
   return inspectUnitVersions(root).mismatches;
 }
 
-export function collectVersionMismatches(root, expectedTag) {
-  const { mismatches, versions } = inspectUnitVersions(root);
-  const applicationVersion = versions.get("gauntlet");
-
-  if (expectedTag !== undefined && expectedTag !== `v${applicationVersion ?? ""}`) {
-    mismatches.push(`tag: must equal ${applicationVersion === undefined ? "vVERSION" : `v${applicationVersion}`}`);
-  }
-
-  if (LOCKSTEP_RELEASES && applicationVersion !== undefined) {
-    for (const [id, version] of versions) {
-      if (version !== applicationVersion) {
-        mismatches.push(`${id}: version ${version} must equal VERSION ${applicationVersion} until plan-driven publishing`);
-      }
-    }
-  }
-
-  return mismatches;
+export function collectVersionMismatches(root) {
+  return collectUnitVersionMismatches(root);
 }
 
 export const VERSION_LOCATIONS = deeplyFreeze([
@@ -844,27 +815,33 @@ function applySpans(source, spans) {
   return result;
 }
 
-function prepareJsonFile(root, path, currentVersion, nextVersion, keyPaths) {
+function prepareJsonFile(root, path, edits) {
   const manifest = parseJsonManifest(root, path);
-  const spans = keyPaths.map(({ keyPath, constraint = false }) => {
+  const spans = edits.map(({ keyPath, current, next, constraint = false }) => {
     const node = jsonNodeAt(manifest.document, keyPath);
-    const expected = constraint ? `^${currentVersion}` : currentVersion;
+    const expected = constraint ? `^${current}` : current;
     if (node?.type !== "string" || node.value !== expected) throw new Error("Unexpected JSON version scalar");
     return {
       start: node.start,
       end: node.end,
-      replacement: JSON.stringify(constraint ? `^${nextVersion}` : nextVersion),
+      replacement: JSON.stringify(constraint ? `^${next}` : next),
     };
   });
+  if (spans.length === 0) return { ...manifest, path, nextBytes: manifest.bytes };
   const nextSource = applySpans(manifest.source, spans);
   const nextDocument = parseJsonSyntax(nextSource);
-  for (const { keyPath, constraint = false } of keyPaths) {
+  for (const { keyPath, next, constraint = false } of edits) {
     const node = jsonNodeAt(nextDocument, keyPath);
-    if (node?.type !== "string" || node.value !== (constraint ? `^${nextVersion}` : nextVersion)) {
+    if (node?.type !== "string" || node.value !== (constraint ? `^${next}` : next)) {
       throw new Error("JSON version update validation failed");
     }
   }
   return { ...manifest, path, nextBytes: Buffer.from(nextSource, "utf8") };
+}
+
+function prepareUnchangedFile(root, path) {
+  const manifest = readManifest(root, path);
+  return { ...manifest, path, nextBytes: manifest.bytes };
 }
 
 function prepareYamlFile(root, path, currentVersion, nextVersion, keyPaths) {
@@ -912,16 +889,20 @@ function prepareComposeFile(root, currentVersion, nextVersion) {
   return { ...manifest, path: "deploy/compose/.env.example", nextBytes: Buffer.from(nextSource, "utf8") };
 }
 
-function prepareReleaseTextFile(root, { path, slots }, currentVersion, nextVersion) {
+function prepareReleaseTextFile(root, { path, slots }, currentVersions, nextVersions) {
   const manifest = readManifest(root, path);
   const spans = releaseTextSpans(manifest.source, slots);
-  if (spans.some(({ value }) => value !== currentVersion)) throw new Error("Unexpected release text version");
+  if (spans.some(({ unit, value }) => value !== currentVersions.get(unit))) throw new Error("Unexpected release text version");
+  const moving = spans.filter(({ unit }) => nextVersions.has(unit));
+  if (moving.length === 0) return { ...manifest, path, nextBytes: manifest.bytes };
   const nextSource = applySpans(
     manifest.source,
-    spans.map(({ start, end }) => ({ start, end, replacement: nextVersion })),
+    moving.map(({ start, end, unit }) => ({ start, end, replacement: nextVersions.get(unit) })),
   );
   const nextSpans = releaseTextSpans(nextSource, slots);
-  if (nextSpans.some(({ value }) => value !== nextVersion)) throw new Error("Release text update validation failed");
+  if (nextSpans.some(({ unit, value }) => value !== (nextVersions.get(unit) ?? currentVersions.get(unit)))) {
+    throw new Error("Release text update validation failed");
+  }
   return { ...manifest, path, nextBytes: Buffer.from(nextSource, "utf8") };
 }
 
@@ -931,25 +912,51 @@ function prepareVersionFile(root, path, currentVersion, nextVersion) {
   return { ...manifest, path, nextBytes: Buffer.from(`${nextVersion}\n`, "ascii") };
 }
 
-function prepareReleaseUpdate(root, currentVersion, nextVersion) {
+function prepareReleaseUpdate(root, currentVersions, nextVersions) {
   const initialSafety = new Map(UPDATE_PATHS.map((path) => [path, assertSafeReleaseFile(root, path)]));
 
+  const has = (unit) => nextVersions.has(unit);
+  const edit = (keyPath, unit, constraint = false) => ({
+    keyPath,
+    current: currentVersions.get(unit),
+    next: nextVersions.get(unit),
+    constraint,
+  });
   const prepared = [
-    ...RELEASE_JSON_MANIFESTS.map(({ path, constraintUnit }) =>
-      prepareJsonFile(root, path, currentVersion, nextVersion, [
-        { keyPath: ["version"] },
-        ...(constraintUnit === undefined ? [] : [{ keyPath: ["require", "8lines/gauntlet-php-core"], constraint: true }]),
+    ...RELEASE_JSON_MANIFESTS.map(({ path, unit, constraintUnit }) =>
+      prepareJsonFile(root, path, [
+        ...(has(unit) ? [edit(["version"], unit)] : []),
+        ...(constraintUnit !== undefined && has(constraintUnit)
+          ? [edit(["require", "8lines/gauntlet-php-core"], constraintUnit, true)]
+          : []),
       ]),
     ),
-    prepareYamlFile(root, "deploy/helm/gauntlet/Chart.yaml", currentVersion, nextVersion, [["version"], ["appVersion"]]),
-    prepareYamlFile(root, "deploy/helm/gauntlet/values.yaml", currentVersion, nextVersion, [["image", "tag"]]),
-    prepareComposeFile(root, currentVersion, nextVersion),
+    has("gauntlet")
+      ? prepareYamlFile(root, "deploy/helm/gauntlet/Chart.yaml", currentVersions.get("gauntlet"), nextVersions.get("gauntlet"), [["version"], ["appVersion"]])
+      : prepareUnchangedFile(root, "deploy/helm/gauntlet/Chart.yaml"),
+    has("gauntlet")
+      ? prepareYamlFile(root, "deploy/helm/gauntlet/values.yaml", currentVersions.get("gauntlet"), nextVersions.get("gauntlet"), [["image", "tag"]])
+      : prepareUnchangedFile(root, "deploy/helm/gauntlet/values.yaml"),
+    has("gauntlet")
+      ? prepareComposeFile(root, currentVersions.get("gauntlet"), nextVersions.get("gauntlet"))
+      : prepareUnchangedFile(root, "deploy/compose/.env.example"),
     ...RELEASE_CONSUMER_JSON_FILES.map(({ path, keyPaths }) =>
-      prepareJsonFile(root, path, currentVersion, nextVersion, keyPaths.map(({ keyPath }) => ({ keyPath }))),
+      prepareJsonFile(
+        root,
+        path,
+        keyPaths.filter(({ unit }) => has(unit)).map(({ keyPath, unit }) => edit(keyPath, unit)),
+      ),
     ),
-    ...RELEASE_TEXT_FILES.map((file) => prepareReleaseTextFile(root, file, currentVersion, nextVersion)),
-    ...UNIT_VERSION_FILE_PATHS.map((path) => prepareVersionFile(root, path, currentVersion, nextVersion)),
-    prepareVersionFile(root, "VERSION", currentVersion, nextVersion),
+    ...RELEASE_TEXT_FILES.map((file) => prepareReleaseTextFile(root, file, currentVersions, nextVersions)),
+    ...UNIT_VERSION_FILE_PATHS.map((path) => {
+      const unit = RELEASE_UNITS.find(({ version }) => version.type === "file" && version.path === path).id;
+      return has(unit)
+        ? prepareVersionFile(root, path, currentVersions.get(unit), nextVersions.get(unit))
+        : prepareUnchangedFile(root, path);
+    }),
+    has("gauntlet")
+      ? prepareVersionFile(root, "VERSION", currentVersions.get("gauntlet"), nextVersions.get("gauntlet"))
+      : prepareUnchangedFile(root, "VERSION"),
   ];
 
   if (prepared.map(({ path }) => path).join("\0") !== UPDATE_PATHS.join("\0")) {
@@ -1171,24 +1178,9 @@ function rollbackTransaction(root, transaction, testingHook) {
   }
 }
 
-export function setReleaseVersion(root, requestedVersion, options = {}) {
-  const nextVersion = parseReleaseVersion(
-    typeof requestedVersion === "string" ? `${requestedVersion}\n` : requestedVersion,
-  );
-  const testingHook = captureTestingHook(options);
-
-  let currentVersion;
-  let prepared;
-  try {
-    currentVersion = readReleaseVersion(root);
-    if (collectVersionMismatches(root).length > 0) throw new Error("Repository version state is inconsistent");
-    prepared = prepareReleaseUpdate(root, currentVersion, nextVersion);
-  } catch {
-    throw new Error("Release version update preflight failed");
-  }
-
+function commitPreparedUpdate(root, prepared, testingHook) {
   const changed = prepared.filter(({ originalBytes, nextBytes }) => !originalBytes.equals(nextBytes));
-  if (changed.length === 0) return { version: nextVersion, changedPaths: [] };
+  if (changed.length === 0) return [];
 
   const transactions = openTransactions(root, changed);
   let primaryError;
@@ -1225,5 +1217,59 @@ export function setReleaseVersion(root, requestedVersion, options = {}) {
   if (!closeTransactions(transactions)) {
     throw new Error("release version update failed; repository version state is inconsistent");
   }
-  return { version: nextVersion, changedPaths: changed.map(({ path }) => path) };
+  return changed.map(({ path }) => path);
+}
+
+function requestedUnitVersions(requested) {
+  let entries;
+  if (requested instanceof Map) entries = [...requested];
+  else if (
+    requested !== null &&
+    typeof requested === "object" &&
+    !Array.isArray(requested) &&
+    Object.getPrototypeOf(requested) === Object.prototype
+  ) entries = Object.entries(requested);
+  if (entries === undefined || entries.length === 0) throw new TypeError("Release unit versions must name at least one unit");
+  const result = new Map();
+  for (const [id, version] of entries) {
+    unitById(id);
+    if (result.has(id) || typeof version !== "string") throw new TypeError("Release unit versions are invalid");
+    result.set(id, parseReleaseVersion(`${version}\n`));
+  }
+  return result;
+}
+
+export function setUnitVersions(root, requested, options = {}) {
+  const nextVersions = requestedUnitVersions(requested);
+  const testingHook = captureTestingHook(options);
+  let prepared;
+  try {
+    if (collectUnitVersionMismatches(root).length > 0) throw new Error("Repository version state is inconsistent");
+    prepared = prepareReleaseUpdate(root, readUnitVersions(root), nextVersions);
+  } catch {
+    throw new Error("Release version update preflight failed");
+  }
+  const changedPaths = commitPreparedUpdate(root, prepared, testingHook);
+  return Object.freeze({ versions: Object.freeze(Object.fromEntries(nextVersions)), changedPaths });
+}
+
+export function setReleaseVersion(root, requestedVersion, options = {}) {
+  const nextVersion = parseReleaseVersion(
+    typeof requestedVersion === "string" ? `${requestedVersion}\n` : requestedVersion,
+  );
+  const testingHook = captureTestingHook(options);
+
+  let prepared;
+  try {
+    if (collectVersionMismatches(root).length > 0) throw new Error("Repository version state is inconsistent");
+    prepared = prepareReleaseUpdate(
+      root,
+      readUnitVersions(root),
+      new Map(RELEASE_UNITS.map(({ id }) => [id, nextVersion])),
+    );
+  } catch {
+    throw new Error("Release version update preflight failed");
+  }
+
+  return { version: nextVersion, changedPaths: commitPreparedUpdate(root, prepared, testingHook) };
 }

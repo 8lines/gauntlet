@@ -22,8 +22,23 @@ import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify, types as utilTypes } from "node:util";
 
-import { RELEASE_ARTIFACTS, javaLockstepVersion } from "./release-model.mjs";
+import { RELEASE_ARTIFACTS, parseReleaseVersion } from "./release-model.mjs";
 import { INSPECTOR_FILENAME, writeJdkInspector } from "./inspect-jdk.mjs";
+import { dependencyOrder } from "./units.mjs";
+
+export const MAVEN_UNIT_IDS = Object.freeze(["java-core", "spring-boot-starter"]);
+const MAVEN_PROJECTS = Object.freeze({
+  "java-core": Object.freeze({
+    artifactId: "core",
+    versionPath: "core/VERSION",
+    task: ":core:publishCorePublicationToGauntletLocalRepository",
+  }),
+  "spring-boot-starter": Object.freeze({
+    artifactId: "spring-boot-starter",
+    versionPath: "spring-boot-starter/VERSION",
+    task: ":spring-boot-starter:publishSpringBootStarterPublicationToGauntletLocalRepository",
+  }),
+});
 
 const execFileAsync = promisify(execFile);
 const GRADLE_IMAGE = "docker.io/library/gradle:9.2.1-jdk21@sha256:f1d5be114f4f16e780eee51a942449eaa98808887dddd5da4a5b608971c90aa4";
@@ -83,14 +98,67 @@ function validateClosedOptions(options) {
   }
   const descriptors = Object.getOwnPropertyDescriptors(options);
   const keys = Reflect.ownKeys(descriptors);
-  if (keys.length !== 2 || !keys.includes("root") || !keys.includes("outputDirectory")
+  const names = ["root", "outputDirectory", "versions", "include"];
+  if (keys.length !== names.length
       || keys.some((key) => typeof key !== "string"
-        || !["root", "outputDirectory"].includes(key)
+        || !names.includes(key)
         || descriptors[key].enumerable !== true
         || !("value" in descriptors[key]))) {
     throw new TypeError("Maven staging options must be a closed data object");
   }
-  return Object.freeze({ root: descriptors.root.value, outputDirectory: descriptors.outputDirectory.value });
+  return Object.freeze({
+    root: descriptors.root.value,
+    outputDirectory: descriptors.outputDirectory.value,
+    versions: validateUnitVersions(descriptors.versions.value),
+    include: validateInclude(descriptors.include.value),
+  });
+}
+
+function validateUnitVersions(versions) {
+  try {
+    if (versions === null || typeof versions !== "object" || Array.isArray(versions)
+        || utilTypes.isProxy(versions)
+        || ![Object.prototype, null].includes(Object.getPrototypeOf(versions))) throw new Error();
+    const descriptors = Object.getOwnPropertyDescriptors(versions);
+    const keys = Reflect.ownKeys(descriptors);
+    if (keys.length !== MAVEN_UNIT_IDS.length
+        || keys.some((key) => typeof key !== "string" || !MAVEN_UNIT_IDS.includes(key)
+          || descriptors[key].enumerable !== true || !("value" in descriptors[key])
+          || typeof descriptors[key].value !== "string"
+          || parseReleaseVersion(`${descriptors[key].value}\n`) !== descriptors[key].value)) throw new Error();
+    return Object.freeze(Object.fromEntries(MAVEN_UNIT_IDS.map((id) => [id, descriptors[id].value])));
+  } catch {
+    return fixedFailure();
+  }
+}
+
+function validateInclude(include) {
+  try {
+    if (!Array.isArray(include) || utilTypes.isProxy(include) || include.length === 0
+        || Object.getPrototypeOf(include) !== Array.prototype
+        || Reflect.ownKeys(include).length !== include.length + 1) throw new Error();
+    const ids = [];
+    for (let index = 0; index < include.length; index += 1) {
+      const descriptor = Object.getOwnPropertyDescriptor(include, String(index));
+      if (descriptor === undefined || !("value" in descriptor) || !MAVEN_UNIT_IDS.includes(descriptor.value)) throw new Error();
+      ids.push(descriptor.value);
+    }
+    if (new Set(ids).size !== ids.length
+        || JSON.stringify(dependencyOrder(ids)) !== JSON.stringify(ids)) throw new Error();
+    return Object.freeze(ids);
+  } catch {
+    return fixedFailure();
+  }
+}
+
+// The included Maven projects in dependency order, each with its own artifact and version.
+function selectedProjects({ versions, include }) {
+  return include.map((id) => {
+    const { artifactId } = MAVEN_PROJECTS[id];
+    const artifact = RELEASE_ARTIFACTS.maven.find(({ name }) => name === `dev.eightlines.gauntlet:${artifactId}`);
+    if (artifact === undefined) fixedFailure();
+    return Object.freeze({ id, artifactId, artifact, version: versions[id] });
+  });
 }
 
 function validateCanonicalDirectory(path, label, privateDirectory = false) {
@@ -296,7 +364,7 @@ async function publishRun({ root, scratch, runName, offline, environment }) {
   return Object.freeze({ runRoot, javaCopy, repository, projectCache, offline, environment, root, scratch, runName });
 }
 
-async function executePublication(run, capture) {
+async function executePublication(run, capture, selection) {
   materializeJavaTree(run.javaCopy, capture);
   const user = typeof process.getuid === "function" && typeof process.getgid === "function"
     ? `${process.getuid()}:${process.getgid()}` : "1000:1000";
@@ -314,17 +382,15 @@ async function executePublication(run, capture) {
     "--project-cache-dir", `/task/${run.runName}/project-cache`,
     ...(run.offline ? ["--offline"] : []),
     "-PgauntletPublishingRepository=file:///task/" + run.runName + "/repository",
-    ":core:publishCorePublicationToGauntletLocalRepository",
-    ":spring-boot-starter:publishSpringBootStarterPublicationToGauntletLocalRepository",
+    ...selection.include.map((id) => MAVEN_PROJECTS[id].task),
   ];
   const result = await runDocker(arguments_, run.root, run.environment);
   if (result.stdout !== "" || result.stderr !== "") fixedFailure();
 }
 
-function expectedRawFiles(version) {
+function expectedRawFiles(selection) {
   const expected = new Set();
-  for (const artifact of RELEASE_ARTIFACTS.maven) {
-    const artifactId = artifact.name.split(":")[1];
+  for (const { artifactId, version } of selectedProjects(selection)) {
     const prefix = `dev/eightlines/gauntlet/${artifactId}`;
     const base = `${artifactId}-${version}`;
     for (const { suffix } of PRIMARY_ROLES) {
@@ -360,9 +426,9 @@ function listRegularTree(root) {
   return files;
 }
 
-function validateRawRepository(repository, version) {
+function validateRawRepository(repository, selection) {
   const actual = listRegularTree(repository);
-  const expected = [...expectedRawFiles(version)].sort(binaryCompare);
+  const expected = [...expectedRawFiles(selection)].sort(binaryCompare);
   if (JSON.stringify(actual) !== JSON.stringify(expected)) fixedFailure();
   const captures = new Map();
   for (const relativePath of actual) {
@@ -382,7 +448,7 @@ function validateRawRepository(repository, version) {
   return captures;
 }
 
-function validateModuleMetadata(bytes, artifactId, version, captures) {
+function validateModuleMetadata(bytes, artifactId, version, captures, coreVersion) {
   let metadata;
   try {
     const source = bytes.toString("utf8");
@@ -419,7 +485,7 @@ function validateModuleMetadata(bytes, artifactId, version, captures) {
         || !serialized.includes('"module":"jackson-databind"')
         || !serialized.includes('"requires":"3.1.7"')) fixedFailure();
   } else if (!serialized.includes('"group":"dev.eightlines.gauntlet"')
-      || !serialized.includes('"module":"core"') || !serialized.includes(`"requires":"${version}"`)
+      || !serialized.includes('"module":"core"') || !serialized.includes(`"requires":"${coreVersion}"`)
       || !serialized.includes('"group":"org.apache.tomcat.embed"')
       || !serialized.includes('"module":"tomcat-embed-core"')
       || !serialized.includes('"module":"tomcat-embed-el"')
@@ -432,7 +498,7 @@ function validateModuleMetadata(bytes, artifactId, version, captures) {
       || !serialized.includes('"module":"spring-boot-starter-validation"')) fixedFailure();
 }
 
-async function inspectRepository(root, repository, scratch, version, environment) {
+async function inspectRepository(root, repository, scratch, selection, environment) {
   const inspectorDirectory = realpathSync(mkdtempSync(join(scratch, ".gauntlet-inspector-")));
   chmodSync(inspectorDirectory, 0o700);
   writeJdkInspector(inspectorDirectory);
@@ -445,18 +511,19 @@ async function inspectRepository(root, repository, scratch, version, environment
     "--mount", mount(repository, "/publication", true),
     "--mount", mount(inspectorDirectory, "/inspector", true),
     GRADLE_IMAGE,
-    "java", `/inspector/${INSPECTOR_FILENAME}`, "/publication", "/workspace/LICENSE", version,
+    "java", `/inspector/${INSPECTOR_FILENAME}`, "/publication", "/workspace/LICENSE",
+    selection.versions["java-core"], selection.versions["spring-boot-starter"],
+    ...selection.include.map((id) => MAVEN_PROJECTS[id].artifactId),
   ], root, environment, 10 * 60_000);
   if (result.stdout !== "MAVEN_INSPECTION_OK\n" || result.stderr !== "") fixedFailure();
 }
 
-function validateCaptures(captures, version) {
-  for (const artifact of RELEASE_ARTIFACTS.maven) {
-    const artifactId = artifact.name.split(":")[1];
+function validateCaptures(captures, selection) {
+  for (const { artifactId, version } of selectedProjects(selection)) {
     const basePath = `dev/eightlines/gauntlet/${artifactId}/${version}/${artifactId}-${version}`;
     const moduleBytes = captures.get(`${basePath}.module`);
     if (moduleBytes === undefined) fixedFailure();
-    validateModuleMetadata(moduleBytes, artifactId, version, captures);
+    validateModuleMetadata(moduleBytes, artifactId, version, captures, selection.versions["java-core"]);
   }
 }
 
@@ -505,10 +572,9 @@ function writeExclusive(path, bytes) {
   chmodSync(path, 0o600);
 }
 
-function materializeStage(ready, captures, version) {
+function materializeStage(ready, captures, selection) {
   const staged = [];
-  for (const artifact of RELEASE_ARTIFACTS.maven) {
-    const artifactId = artifact.name.split(":")[1];
+  for (const { artifact, artifactId, version } of selectedProjects(selection)) {
     const relativeDirectory = `dev/eightlines/gauntlet/${artifactId}/${version}`;
     const directory = join(ready, ...relativeDirectory.split("/"));
     ensureDirectory(directory);
@@ -532,7 +598,7 @@ function materializeStage(ready, captures, version) {
       );
       files.push(Object.freeze({ role, filename, ...digests }));
     }
-    staged.push(Object.freeze({ artifact, relativeDirectory, treeSha256: treeHash(treeRecords), files: Object.freeze(files) }));
+    staged.push(Object.freeze({ artifact, version, relativeDirectory, treeSha256: treeHash(treeRecords), files: Object.freeze(files) }));
   }
   return Object.freeze(staged);
 }
@@ -563,13 +629,13 @@ function validateStagedTree(outputDirectory, staged) {
   if (JSON.stringify(listRegularTree(outputDirectory)) !== JSON.stringify(expected.sort(binaryCompare))) fixedFailure();
 }
 
-function resultRecords(outputDirectory, staged, version) {
+function resultRecords(outputDirectory, staged) {
   return Object.freeze(staged.map((record) => {
     const path = join(outputDirectory, ...record.relativeDirectory.split("/"));
     return Object.freeze({
       kind: "maven",
       name: record.artifact.name,
-      version,
+      version: record.version,
       path,
       treeSha256: record.treeSha256,
       files: Object.freeze(record.files.map((file) => Object.freeze({
@@ -582,21 +648,22 @@ function resultRecords(outputDirectory, staged, version) {
   }));
 }
 
-// Maven publishes only the Java units, so the version comes from their own VERSION files
-// (both must agree until staging learns per-artifact versions), never the root VERSION.
-function javaCaptureVersion(capture) {
-  return javaLockstepVersion(capture.records.map(({ relativePath, bytes }) => ({
-    relativePath: `packages/java/${relativePath}`,
-    bytes,
+// Maven publishes only the Java units, so each version comes from that unit's own VERSION file,
+// never the root VERSION. The versions may diverge.
+function captureVersions(capture) {
+  return Object.freeze(Object.fromEntries(MAVEN_UNIT_IDS.map((id) => {
+    const record = capture.records.find(({ relativePath }) => relativePath === MAVEN_PROJECTS[id].versionPath);
+    return [id, parseReleaseVersion(record === undefined ? Buffer.alloc(0) : record.bytes)];
   })));
 }
 
-export function readMavenStageVersion(root) {
-  return javaCaptureVersion(captureJavaTree(root));
+export function readMavenStageVersions(root) {
+  return captureVersions(captureJavaTree(root));
 }
 
 export async function publishMavenLocally(options) {
-  const { root, outputDirectory } = validateClosedOptions(options);
+  const { root, outputDirectory, versions, include } = validateClosedOptions(options);
+  const selection = Object.freeze({ versions, include });
   validateCanonicalDirectory(root, "Maven staging root");
   validateCanonicalDirectory(outputDirectory, "Maven staging output", true);
   const rootPrefix = `${root}${sep}`;
@@ -613,7 +680,8 @@ export async function publishMavenLocally(options) {
   const rootLicense = safeRead(join(root, "LICENSE"), 1024 * 1024);
   if (rootLicense.bytes.length === 0) fixedFailure();
   const javaCapture = captureJavaTree(root);
-  const version = javaCaptureVersion(javaCapture);
+  const captured = captureVersions(javaCapture);
+  if (MAVEN_UNIT_IDS.some((id) => captured[id] !== versions[id])) fixedFailure();
   const scratch = realpathSync(mkdtempSync(join(dirname(outputDirectory), ".gauntlet-maven-stage-")));
   chmodSync(scratch, 0o700);
   const ready = realpathSync(mkdtempSync(join(dirname(outputDirectory), ".gauntlet-maven-ready-")));
@@ -628,19 +696,19 @@ export async function publishMavenLocally(options) {
     phase = "toolchain";
     await prepareToolchain(root, environment);
     phase = "first-publication";
-    await executePublication(firstRun, javaCapture);
+    await executePublication(firstRun, javaCapture, selection);
     phase = "first-validation";
-    const first = validateRawRepository(firstRun.repository, version);
-    validateCaptures(first, version);
+    const first = validateRawRepository(firstRun.repository, selection);
+    validateCaptures(first, selection);
     phase = "first-inspection";
-    await inspectRepository(root, firstRun.repository, scratch, version, environment);
+    await inspectRepository(root, firstRun.repository, scratch, selection, environment);
     phase = "second-publication";
-    await executePublication(secondRun, javaCapture);
+    await executePublication(secondRun, javaCapture, selection);
     phase = "second-validation";
-    const second = validateRawRepository(secondRun.repository, version);
-    validateCaptures(second, version);
+    const second = validateRawRepository(secondRun.repository, selection);
+    validateCaptures(second, selection);
     phase = "second-inspection";
-    await inspectRepository(root, secondRun.repository, scratch, version, environment);
+    await inspectRepository(root, secondRun.repository, scratch, selection, environment);
     phase = "reproducibility";
     assertReproducible(first, second);
     phase = "source-integrity";
@@ -648,7 +716,7 @@ export async function publishMavenLocally(options) {
     const licenseAfter = safeRead(join(root, "LICENSE"), 1024 * 1024);
     if (!rootLicense.bytes.equals(licenseAfter.bytes) || !sameFile(rootLicense.stat, licenseAfter.stat)) fixedFailure();
     phase = "staging";
-    const staged = materializeStage(ready, first, version);
+    const staged = materializeStage(ready, first, selection);
     validateStagedTree(ready, staged);
     if (readdirSync(outputDirectory).length !== 0) fixedFailure();
     phase = "promotion";
@@ -656,7 +724,7 @@ export async function publishMavenLocally(options) {
     promoted = true;
     phase = "final-validation";
     validateStagedTree(outputDirectory, staged);
-    const result = resultRecords(outputDirectory, staged, version);
+    const result = resultRecords(outputDirectory, staged);
     validateStagedTree(outputDirectory, staged);
     return result;
   } catch {

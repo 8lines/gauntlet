@@ -334,9 +334,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          SET="local-$(git rev-parse HEAD | cut -c1-12)"
           VERSION="$(tr -d '\n' < VERSION)"
-          pnpm release:stage --output "$PWD/.artifacts/release/$VERSION"
-          pnpm release:security --image-archive ".artifacts/release/$VERSION/image/gauntlet-$VERSION.docker.tar"
+          # Scan the application image whatever units a committed .release/plan.json releases.
+          node scripts/release/plan.mjs --write-all-units .artifacts/ci/all-units-plan.json
+          pnpm release:stage --output "$PWD/.artifacts/release/$SET" --plan .artifacts/ci/all-units-plan.json --release-set "$SET"
+          pnpm release:security --image-archive ".artifacts/release/$SET/image/gauntlet-$VERSION.docker.tar"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
@@ -396,9 +399,17 @@ jobs:
       - name: Verify version and package policy
         run: node scripts/release/version.mjs --check && pnpm release:test
       - name: Reproduce the complete release without publishing
+        shell: bash
         env:
           PLAYWRIGHT_BROWSER_CHANNEL: chromium
-        run: pnpm release:dry-run
+        run: |
+          set -euo pipefail
+          node scripts/release/version.mjs --check
+          if [ -e .release/plan.json ]; then node scripts/release/version.mjs --check --plan .release/plan.json; fi
+          # Rehearse every unit whatever a committed .release/plan.json releases: after a partial
+          # release that plan names only old units. The tag workflow rehearses its plan instead.
+          node scripts/release/plan.mjs --write-all-units .artifacts/ci/all-units-plan.json
+          pnpm release:dry-run --plan .artifacts/ci/all-units-plan.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-dry-run

@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 
-import { isAbsolute, resolve, sep } from "node:path";
+import { basename, isAbsolute, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 
 import { verifyStagedReleaseInventory } from "./inventory.mjs";
+import { parseReleaseSetId } from "./plan.mjs";
 
-const USAGE = "Usage: verify-inventory.mjs --release-root ABSOLUTE_PATH";
+const USAGE = "Usage: verify-inventory.mjs --release-root ABSOLUTE_PATH/.artifacts/release/<set-id>";
 const FAILURE = "Staged release inventory verification failed safely";
 
 function jsonLine(value) {
@@ -17,6 +18,11 @@ export function parseVerifyInventoryArguments(argv) {
   if (!Array.isArray(argv) || argv.length !== 2 || argv[0] !== "--release-root"
       || typeof argv[1] !== "string" || !isAbsolute(argv[1]) || resolve(argv[1]) !== argv[1]
       || argv[1] === sep || argv[1].includes("\0")) throw new TypeError(USAGE);
+  try {
+    parseReleaseSetId(basename(argv[1]));
+  } catch {
+    throw new TypeError(USAGE);
+  }
   return { releaseRoot: argv[1] };
 }
 

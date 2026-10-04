@@ -38,16 +38,39 @@ test("release runbook requires a clean rehearsal and equality-checked retry", ()
   assert.match(source, /PLAYWRIGHT_BROWSER_CHANNEL=(?:chrome|chromium)/u);
   assert.match(source, /node scripts\/release\/verify-inventory\.mjs --release-root/u);
   assert.match(source, /pnpm release:discard-staged/u);
-  assert.match(source, /closed 19-artifact inventory/u);
-  assert.doesNotMatch(source, /closed 18-artifact inventory/u);
+  assert.match(source, /closed per-plan inventory/u);
+  assert.doesNotMatch(source, /closed 1[89]-artifact inventory/u);
+  assert.match(source, /pnpm release:dry-run \[--plan \.release\/plan\.json\] \[--release-set ID\]/u);
+  assert.match(source, /pnpm release:discard-staged --release-root \.artifacts\/release\/<set-id>/u);
   assert.match(source, /host-platform native\s+image/iu);
   assert.match(source, /multi-platform OCI archive/iu);
   assert.match(source, /Helm chart digest/iu);
-  assert.match(source, /git tag -a v0\.1\.8/u);
+  assert.match(source, /pnpm release:plan/u);
+  assert.match(source, /git fetch --tags origin && pnpm release:tag/u);
+  assert.match(source, /git push origin refs\/tags\/release-YYYY-MM-DD\.N/u);
+  assert.match(source, /Only `release-\*` tags start the release workflow; unit tags never do\./u);
+  assert.doesNotMatch(source, /git tag -a v|v\*\.\*\.\*/u);
   assert.match(source, /commit contained in `main`/u);
   assert.match(source, /all artifacts are already\s+byte\/commit-identical/isu);
   assert.match(source, /Do not manually fill a partially published release/u);
   assert.match(source, /Never delete or rewrite|Never delete|Do not retag or\s+overwrite/isu);
+});
+
+test("release runbook describes per-unit publication, reruns and recovery without lockstep leftovers", () => {
+  const source = read("docs/releases/releasing.md");
+  assert.doesNotMatch(source, /npm\/Composer\/Maven manifests[^.]*all agree/su);
+  assert.doesNotMatch(source, /overwrite `0\.1\.8`/u);
+  assert.match(source, /git fetch --tags origin\npnpm release:plan\n/u);
+  assert.match(source, /tagged and\s+released right after its own registry artifacts/u);
+  assert.match(source, /Publish and release package units/u);
+  const failure = source.slice(source.indexOf("## Failure handling"));
+  assert.match(failure, /Re-running the same release-set tag/u);
+  assert.match(failure, /new version,\s+a\s+new release plan and a new\s+release-set tag/u);
+  assert.match(failure, /stale draft/u);
+  assert.match(failure, /delete/u);
+  const verify = source.slice(source.indexOf("## Verify the published release"), source.indexOf("## Failure handling"));
+  assert.match(verify, /For each released unit/u);
+  assert.match(verify, /A correction requires a new version of that\s+unit/u);
 });
 
 test("upgrade and rollback retain immutable identities and repeat safety checks", () => {

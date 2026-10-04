@@ -63,7 +63,7 @@ function sourceFixture(t) {
   write("LICENSE", "License fixture\n");
   write("NOTICE", "Notice fixture\n");
   write("packages/java/core/VERSION", "0.1.0\n");
-  write("packages/java/spring-boot-starter/VERSION", "0.1.0\n");
+  write("packages/java/spring-boot-starter/VERSION", "0.1.1\n");
   write("packages/java/settings.gradle.kts", 'rootProject.name = "fixture"\n');
   write("packages/java/build.gradle.kts", "plugins {}\n");
   write("packages/java/gradlew", "#!/bin/sh\nexit 99\n", 0o755);
@@ -89,7 +89,7 @@ test("plans an isolated pinned-Docker Java working-tree check", () => {
   const plan = createJavaSourcePlan({
     root: "/private/repository",
     sandbox: "/private/tc-java-source-123",
-    version: "0.1.0",
+    versions: { "java-core": "0.1.0", "spring-boot-starter": "0.1.1" },
     uid: 501,
     gid: 20,
     token: TOKEN,
@@ -284,7 +284,7 @@ test("rejects unsafe plan inputs before constructing Docker arguments", () => {
   const base = {
     root: "/private/repository",
     sandbox: "/private/tc-java-source-123",
-    version: "0.1.0",
+    versions: { "java-core": "0.1.0", "spring-boot-starter": "0.1.1" },
     uid: 501,
     gid: 20,
     token: TOKEN,
@@ -295,7 +295,10 @@ test("rejects unsafe plan inputs before constructing Docker arguments", () => {
     { root: "relative" },
     { sandbox: "/private/../escape" },
     { sandbox: "/private/with,comma" },
-    { version: "0.1.0-SNAPSHOT" },
+    { versions: { "java-core": "0.1.0-SNAPSHOT", "spring-boot-starter": "0.1.1" } },
+    { versions: { "java-core": "0.1.0" } },
+    { versions: { "java-core": "0.1.0", "spring-boot-starter": "0.1.1", extra: "0.1.1" } },
+    { versions: "0.1.0" },
     { uid: -1 },
     { gid: 1.5 },
     { token: "short" },
@@ -355,7 +358,7 @@ test("checks the live dirty Java tree from an isolated snapshot without host too
     runner,
   });
 
-  assert.deepEqual(report, { ok: true, version: "0.1.0", sourceChecks: 4 });
+  assert.deepEqual(report, { ok: true, versions: { "java-core": "0.1.0", "spring-boot-starter": "0.1.1" }, sourceChecks: 4 });
   assert.equal(Object.isFrozen(report), true);
   assert.deepEqual(calls.map(({ command, args }) => [command, args.slice(0, 2)]), [
     ["docker", ["context", "inspect"]],

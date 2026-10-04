@@ -23,6 +23,7 @@ import { tmpdir } from "node:os";
 import { dirname, isAbsolute, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { parseReleaseSetId } from "./plan.mjs";
 import { readReleaseVersion, RELEASE_ARTIFACTS } from "./release-model.mjs";
 
 const MAX_SCANNED_FILE_BYTES = 8 * 1024 * 1024;
@@ -809,13 +810,29 @@ function exactFileDigest(path, maximumBytes) {
   }
 }
 
+const STAGED_IMAGE_ARCHIVE = /^\.artifacts\/release\/([A-Za-z0-9.-]+)\/image\/gauntlet-((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))\.docker\.tar$/u;
+
+// The release directory is always a release-set id; the archive name carries the gauntlet version.
+function stagedImageArchivePath(relativePath) {
+  const match = typeof relativePath === "string" ? STAGED_IMAGE_ARCHIVE.exec(relativePath) : null;
+  if (match === null) return null;
+  const [, directory, version] = match;
+  try {
+    parseReleaseSetId(directory);
+  } catch {
+    return null;
+  }
+  return Object.freeze({ directory, version });
+}
+
 export function validateStagedImageArchive(root, imageArchive) {
   try {
     validateCanonicalDirectory(root);
     const version = readReleaseVersion(root);
-    const relativePath = `.artifacts/release/${version}/image/gauntlet-${version}.docker.tar`;
-    const expected = resolve(root, relativePath);
-    if (imageArchive !== expected) failClosed();
+    if (typeof imageArchive !== "string" || !imageArchive.startsWith(`${root}${sep}`)) failClosed();
+    const relativePath = imageArchive.slice(root.length + 1).split(sep).join("/");
+    const staged = stagedImageArchivePath(relativePath);
+    if (staged === null || staged.version !== version || imageArchive !== resolve(root, relativePath)) failClosed();
     const record = exactFileDigest(imageArchive, MAX_IMAGE_ARCHIVE_BYTES);
     const stat = lstatSync(imageArchive, { bigint: true });
     if ((stat.mode & 0o077n) !== 0n) failClosed();
@@ -1531,9 +1548,8 @@ export function parseSecurityArguments(argv) {
   }
   if (argv.length === 0) return { mode: "release", imageArchive: undefined };
   if (argv.length === 1 && argv[0] === "--source-only") return { mode: "source-only" };
-  if (argv.length === 2 && argv[0] === "--image-archive") {
-    const match = /^\.artifacts\/release\/((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))\/image\/gauntlet-\1\.docker\.tar$/.exec(argv[1]);
-    if (match !== null) return { mode: "release", imageArchive: argv[1] };
+  if (argv.length === 2 && argv[0] === "--image-archive" && stagedImageArchivePath(argv[1]) !== null) {
+    return { mode: "release", imageArchive: argv[1] };
   }
   throw new TypeError(SECURITY_USAGE);
 }

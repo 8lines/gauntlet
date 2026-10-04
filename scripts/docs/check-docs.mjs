@@ -242,8 +242,7 @@ function releasedSdkGuideErrors(owner, source, versions) {
   return errors;
 }
 
-// Reads every release unit's own version. A fixture that models no unit version files besides the
-// root VERSION is treated as lockstep at that version; otherwise unreadable units are skipped.
+// Reads every release unit's own version; unreadable units are simply not compared.
 function loadUnitVersions(root) {
   const versions = new Map();
   for (const { id } of RELEASE_UNITS) {
@@ -254,9 +253,6 @@ function loadUnitVersions(root) {
     }
   }
   if (versions.size === 0) return undefined;
-  if (versions.size === 1 && versions.has("gauntlet")) {
-    return new Map(RELEASE_UNITS.map(({ id }) => [id, versions.get("gauntlet")]));
-  }
   return versions;
 }
 

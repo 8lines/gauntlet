@@ -32,17 +32,23 @@ behaviour against the 0.1.8 packages. A fresh evaluation and independent review
 are required before claiming current behavioural evidence.
 
 The release unit model (2026-10-03) changed bound inputs without changing
-prompts, scenarios, scorecards or verifiers; hashes were re-bound to current
-bytes without generating new model samples. This confirms content integrity,
-not behaviour.
+prompts, scenarios or scorecards. The verifier text changed only because it
+embeds the fixture contracts, whose versions are now read from each unit's
+manifest. Hashes were re-bound to current bytes without generating new model
+samples. This confirms content integrity, not behaviour.
+
+Plan-driven publishing (2026-10-03) changed bound release tooling and the
+skill's version wording (each reference now names its own exact version and
+the unit release it comes from) without changing prompts, scenarios,
+scorecards or verifiers. Hashes were re-bound to current bytes without
+generating new model samples. This confirms content integrity, not behaviour.
 
 The preserved prompts, results, and evidence describe the original evaluation
-and have not been rewritten. The standard fixture preparers and verifier
-self-tests exercise the current 0.1.8 candidate packages. The forward Node
-Compose fixture remains pinned to 0.1.6 so its recorded response is checked
-against the exact package version named in its frozen prompt. Passing
-self-tests do not establish that the recorded model samples ran on 0.1.8. A
-new model evaluation would need prompts and samples prepared for that version.
+and have not been rewritten. The forward Node Compose fixture remains pinned
+to 0.1.6 so its recorded response is checked against the exact package version
+named in its frozen prompt. Passing self-tests do not establish that the
+recorded model samples ran on the current package versions. A new model
+evaluation would need prompts and samples prepared for those versions.
 
 Every sample in the matrix is a fresh generation by a new evaluator process
 run against the frozen skill and evaluation inputs. Every started sample

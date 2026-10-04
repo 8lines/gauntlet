@@ -77,8 +77,8 @@ export function planBaselineTags({ root, commit }) {
     const version = unitVersionAt(root, sha, unit, lockstepVersion);
     const tag = unitTag(unit, version);
     const found = git(root, ["rev-parse", "--verify", "--quiet", `refs/tags/${tag}^{commit}`]);
-    // The application tag matches the release trigger (v*.*.*), so this tool never creates it: it must
-    // already exist and peel to the baseline commit.
+    // The application tag v<version> is the published application release, so this tool never creates
+    // it: it must already exist and peel to the baseline commit.
     if (unit.id === "gauntlet" && (found.status !== 0 || found.stdout.trim() !== sha)) {
       throw new Error(`baseline requires existing tag ${tag} at ${sha}`);
     }

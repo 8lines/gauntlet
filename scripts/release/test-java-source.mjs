@@ -26,14 +26,18 @@ import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 
-import { javaLockstepVersion } from "./release-model.mjs";
-import { MAVEN_TOOLCHAIN } from "./stage-maven.mjs";
+import { parseReleaseVersion } from "./release-model.mjs";
+import { MAVEN_TOOLCHAIN, MAVEN_UNIT_IDS } from "./stage-maven.mjs";
 
 const ROOT = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), "../.."));
 const PLAN_FAILURE = "Java source plan is invalid";
 const ENDPOINT_FAILURE = "Java source verification requires a local Docker daemon";
 const FAILURE = "Java source verification failed safely";
 const STABLE_VERSION = /^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/u;
+const JAVA_VERSION_PATHS = Object.freeze({
+  "java-core": "packages/java/core/VERSION",
+  "spring-boot-starter": "packages/java/spring-boot-starter/VERSION",
+});
 const TOKEN = /^[0-9a-f]{32}$/u;
 const LOCAL_DOCKER = /^unix:\/\/\/[^\u0000-\u0020\u007f]+$/u;
 const CONTAINER_ID = /^[0-9a-f]{64}$/u;
@@ -75,7 +79,7 @@ function closedPlanOptions(options) {
       || utilTypes.isProxy(options)
       || ![Object.prototype, null].includes(Object.getPrototypeOf(options))) invalidPlan();
   const descriptors = Object.getOwnPropertyDescriptors(options);
-  const expected = ["root", "sandbox", "version", "uid", "gid", "token", "dockerHost", "executablePath"];
+  const expected = ["root", "sandbox", "versions", "uid", "gid", "token", "dockerHost", "executablePath"];
   const keys = Reflect.ownKeys(descriptors);
   if (keys.length !== expected.length || expected.some((key) => !keys.includes(key))
       || keys.some((key) => typeof key !== "string" || !expected.includes(key)
@@ -372,10 +376,34 @@ export function parseLocalDockerEndpoint(result) {
   }
 }
 
+function validJavaVersions(value) {
+  try {
+    if (value === null || typeof value !== "object" || Array.isArray(value) || utilTypes.isProxy(value)
+        || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) return false;
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const keys = Reflect.ownKeys(descriptors);
+    return keys.length === MAVEN_UNIT_IDS.length
+      && keys.every((key) => typeof key === "string" && MAVEN_UNIT_IDS.includes(key)
+        && descriptors[key].enumerable === true && "value" in descriptors[key]
+        && typeof descriptors[key].value === "string" && STABLE_VERSION.test(descriptors[key].value));
+  } catch {
+    return false;
+  }
+}
+
+// Each Java unit is checked at the version in its own VERSION file; the versions may diverge.
+function javaUnitVersions(records) {
+  return Object.freeze(Object.fromEntries(MAVEN_UNIT_IDS.map((id) => {
+    const record = records.find(({ relativePath }) => relativePath === JAVA_VERSION_PATHS[id]);
+    if (record === undefined) throw new Error(FAILURE);
+    return [id, parseReleaseVersion(record.bytes)];
+  })));
+}
+
 export function createJavaSourcePlan(options) {
-  const { root, sandbox, version, uid, gid, token, dockerHost, executablePath } = closedPlanOptions(options);
+  const { root, sandbox, versions, uid, gid, token, dockerHost, executablePath } = closedPlanOptions(options);
   if (!canonicalPath(root) || !canonicalPath(sandbox) || root === sandbox
-      || !STABLE_VERSION.test(version) || !Number.isSafeInteger(uid) || uid < 0 || uid > 2_147_483_647
+      || !validJavaVersions(versions) || !Number.isSafeInteger(uid) || uid < 0 || uid > 2_147_483_647
       || !Number.isSafeInteger(gid) || gid < 0 || gid > 2_147_483_647 || !TOKEN.test(token)
       || !LOCAL_DOCKER.test(dockerHost) || typeof executablePath !== "string" || executablePath === ""
       || executablePath.includes("\0")) invalidPlan();
@@ -501,7 +529,7 @@ export async function runJavaSourceCheck(options = {}) {
   try {
     workspace = createWorkspace(temporaryDirectory);
     const capture = captureWorkingSource(root);
-    const version = javaLockstepVersion(capture.records);
+    const versions = javaUnitVersions(capture.records);
     const source = resolve(workspace.root, "source");
     materializeSource(source, capture);
     for (const directory of [
@@ -522,7 +550,7 @@ export async function runJavaSourceCheck(options = {}) {
     plan = createJavaSourcePlan({
       root,
       sandbox: workspace.root,
-      version,
+      versions,
       uid,
       gid,
       token,
@@ -538,7 +566,7 @@ export async function runJavaSourceCheck(options = {}) {
     if (execution.status !== 0) throw new Error(FAILURE);
     const after = captureWorkingSource(root);
     if (!capturesMatch(capture, after)) throw new Error(FAILURE);
-    report = Object.freeze({ ok: true, version, sourceChecks: SOURCE_TASKS.length });
+    report = Object.freeze({ ok: true, versions, sourceChecks: SOURCE_TASKS.length });
   } catch {
     primaryFailed = true;
   } finally {

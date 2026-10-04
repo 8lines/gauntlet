@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  DRY_RUN_PHASE_TIMEOUT_MS,
   LOCAL_REGISTRY_IMAGE,
   assertLocalRegistryInvocation,
   createLocalRegistryPlan,
@@ -9,10 +10,17 @@ import {
   runDryRun,
   runDryRunCli,
 } from "../dry-run.mjs";
+import { allUnitsPlan, createReleasePlan } from "../plan.mjs";
+import { RELEASE_UNITS, dependencyOrder, unitById } from "../units.mjs";
+import { phasesForUnits } from "../verify.mjs";
 
 const ROOT = "/workspace/gauntlet";
 const VERSION = "0.1.0";
 const COMMIT = "1".repeat(40);
+const SET = "local-111111111111";
+const RELEASE_ROOT = `${ROOT}/.artifacts/release/${SET}`;
+const STAGED_UNITS = Object.freeze(dependencyOrder().map((id) => Object.freeze({ id, version: VERSION })));
+const REPORTED_UNITS = Object.freeze(STAGED_UNITS.map(({ id, version }) => ({ id, version, tag: `${unitById(id).tagPrefix}${version}` })));
 const TOKEN = "a".repeat(32);
 const CONTAINER_ID = "b".repeat(64);
 const IMAGE_ID = `sha256:${"c".repeat(64)}`;
@@ -28,6 +36,9 @@ const PHASES = [
   "source", "node", "php", "java", "conformance", "skills", "dashboard", "image", "compose", "helm",
   "security", "packages", "inventory", "documentation",
 ];
+const ALL_UNITS_PLAN = allUnitsPlan(new Map(RELEASE_UNITS.map(({ id }) => [id, VERSION])));
+const ALL_UNITS = () => ({ plan: ALL_UNITS_PLAN, path: null });
+const PHP_PLAN = createReleasePlan([{ id: "php-core", from: "0.1.0", to: "0.1.1" }]);
 
 function commandResult(stdout = "", overrides = {}) {
   return { status: 0, signal: null, stdout, stderr: "", ...overrides };
@@ -38,11 +49,12 @@ function jsonLine(value) {
 }
 
 function versionReport(version = VERSION) {
-  return jsonLine({ command: "check", mismatches: [], ok: true, tag: null, version });
+  return jsonLine({ command: "check", mismatches: [], ok: true, plan: null, units: [], version });
 }
 
-function developmentReport(version = VERSION) {
+function developmentReport(version = VERSION, { units = ALL_UNITS_PLAN.order } = {}) {
   const partial = new Set(["php", "java", "security", "packages", "documentation"]);
+  const needed = new Set(phasesForUnits(units));
   return jsonLine({
     schemaVersion: 1,
     mode: "development",
@@ -52,11 +64,14 @@ function developmentReport(version = VERSION) {
     sourceChecksOk: true,
     releaseReady: false,
     version,
-    phases: PHASES.map((name) => name === "inventory"
-      ? { name, status: "not-run", reason: "excluded-in-development-mode", commands: 0 }
-      : partial.has(name)
-        ? { name, status: "partial", reason: "release-evidence-excluded", commands: 1, excluded: `${name}-release` }
-        : { name, status: "passed", commands: 1 }),
+    units,
+    phases: PHASES.map((name) => !needed.has(name)
+      ? { name, status: "skipped", reason: "not-in-release-plan", commands: 0 }
+      : name === "inventory"
+        ? { name, status: "not-run", reason: "excluded-in-development-mode", commands: 0 }
+        : partial.has(name)
+          ? { name, status: "partial", reason: "release-evidence-excluded", commands: 1, excluded: `${name}-release` }
+          : { name, status: "passed", commands: 1 }),
   });
 }
 
@@ -85,12 +100,24 @@ function securityReport() {
   });
 }
 
+function stageOutput(overrides = {}) {
+  return jsonLine({
+    artifacts: 19,
+    outputDirectory: RELEASE_ROOT,
+    releaseSet: SET,
+    sourceCommit: COMMIT,
+    units: STAGED_UNITS,
+    ...overrides,
+  });
+}
+
 function inventoryReport(overrides = {}) {
   return jsonLine({
-    schemaVersion: 1,
+    schemaVersion: 2,
     ok: true,
-    version: VERSION,
+    releaseSet: SET,
     sourceCommit: COMMIT,
+    units: REPORTED_UNITS,
     artifacts: 19,
     manifestSha256: MANIFEST_SHA256,
     checksumsSha256: CHECKSUMS_SHA256,
@@ -184,19 +211,12 @@ function createSuccessfulRunner(calls, {
     if (command === process.execPath && args[0]?.endsWith("/version.mjs")) return commandResult(versionReport());
     if (command === process.execPath && args[0]?.endsWith("/verify.mjs")) return commandResult(developmentReport());
     if (command === "pnpm" && ["test:composer:consumer", "test:java:release"].includes(args[0])) return commandResult();
-    if (command === process.execPath && args[0]?.endsWith("/stage.mjs")) {
-      return commandResult(jsonLine({
-        artifacts: 19,
-        outputDirectory: `${ROOT}/.artifacts/release/${VERSION}`,
-        sourceCommit: COMMIT,
-        version: VERSION,
-      }));
-    }
+    if (command === process.execPath && args[0]?.endsWith("/stage.mjs")) return commandResult(stageOutput());
     if (command === process.execPath && args[0]?.endsWith("/security.mjs")) return commandResult(securityReport());
     if (command === process.execPath && args[0]?.endsWith("/verify-inventory.mjs")) return commandResult(inventoryReport());
     if (command === "pnpm" && args[0] === "docs:verify-commands") {
       return commandResult(jsonLine({ exitCode: 0, ok: true }), {
-        stderr: `$ node scripts/docs/verify-documented-commands.mjs --release-root .artifacts/release/${VERSION}\n`,
+        stderr: `$ node scripts/docs/verify-documented-commands.mjs --release-root .artifacts/release/${SET}\n`,
       });
     }
     if (command === "docker" && args[0] === "context") return commandResult('"unix:///var/run/docker.sock"\n');
@@ -267,7 +287,7 @@ function createSuccessfulRunner(calls, {
 
 test("uses a pinned registry and permits only task-owned loopback registry commands", () => {
   assert.equal(LOCAL_REGISTRY_IMAGE, REGISTRY_IMAGE);
-  assert.deepEqual(parseDryRunArguments([]), {});
+  assert.deepEqual(parseDryRunArguments([]), { planPath: null, releaseSet: null });
   for (const invalid of [["--help"], ["--keep"], [undefined], ""] ) {
     assert.throws(() => parseDryRunArguments(invalid), /Usage: dry-run\.mjs/u);
   }
@@ -275,11 +295,31 @@ test("uses a pinned registry and permits only task-owned loopback registry comma
   const workspace = fakeWorkspace().owned;
   const plan = createLocalRegistryPlan({
     root: ROOT,
-    releaseRoot: `${ROOT}/.artifacts/release/${VERSION}`,
+    releaseRoot: RELEASE_ROOT,
     version: VERSION,
     workspace,
     port: 49152,
   });
+  assert.equal(plan.imageArchive, `${RELEASE_ROOT}/image/gauntlet-${VERSION}.docker.tar`);
+  assert.equal(plan.chartArchive, `${RELEASE_ROOT}/helm/gauntlet-${VERSION}.tgz`);
+  assert.equal(
+    createLocalRegistryPlan({
+      root: ROOT, releaseRoot: `${ROOT}/.artifacts/release/release-2026-10-03.1`, version: VERSION, workspace, port: 49152,
+    }).imageArchive,
+    `${ROOT}/.artifacts/release/release-2026-10-03.1/image/gauntlet-${VERSION}.docker.tar`,
+  );
+  for (const releaseRoot of [
+    `${ROOT}/.artifacts/release/${VERSION}`,
+    `${ROOT}/.artifacts/release/local-1111`,
+    `${ROOT}/.artifacts/other/${SET}`,
+    `/tmp/.artifacts/release/${SET}`,
+  ]) {
+    assert.throws(
+      () => createLocalRegistryPlan({ root: ROOT, releaseRoot, version: VERSION, workspace, port: 49152 }),
+      /Local registry plan is invalid/u,
+      releaseRoot,
+    );
+  }
   assert.equal(plan.start.command, "docker");
   assert.equal(plan.start.args.includes(REGISTRY_IMAGE), true);
   assert.equal(plan.start.args.includes("127.0.0.1::5000"), true);
@@ -303,7 +343,7 @@ test("uses a pinned registry and permits only task-owned loopback registry comma
 test("the complete dry-run orders every gate, rechecks source identity, and cleans only owned resources", async () => {
   const calls = [];
   const workspace = fakeWorkspace();
-  const report = await runDryRun({
+  const report = await runDryRun({ readPlan: ALL_UNITS,
     root: ROOT,
     runner: createSuccessfulRunner(calls),
     workspace: workspace.lifecycle,
@@ -320,7 +360,17 @@ test("the complete dry-run orders every gate, rechecks source identity, and clea
   assert.ok(index("scripts/release/verify-inventory.mjs") < index("docs:verify-commands"));
   assert.equal(rendered.some((line) => line.includes("sha256sum")), false);
   assert.ok(index("docs:verify-commands") < index(`docker run --detach`));
-  assert.equal(rendered.includes(`pnpm docs:verify-commands --release-root .artifacts/release/${VERSION}`), true);
+  assert.equal(rendered.includes(`pnpm docs:verify-commands --release-root .artifacts/release/${SET}`), true);
+  const stageCall = calls.find(({ args }) => args[0]?.endsWith("/stage.mjs"));
+  assert.deepEqual(stageCall.args, [`${ROOT}/scripts/release/stage.mjs`, "--output", RELEASE_ROOT, "--release-set", SET]);
+  assert.deepEqual(calls.find(({ args }) => args[0]?.endsWith("/verify.mjs")).args, [`${ROOT}/scripts/release/verify.mjs`]);
+  assert.equal(rendered.some((line) => line.includes("--plan")), false);
+  assert.deepEqual(report.units, ALL_UNITS_PLAN.units);
+  assert.equal(
+    rendered.includes(`${process.execPath} ${ROOT}/scripts/release/security.mjs --image-archive .artifacts/release/${SET}/image/gauntlet-${VERSION}.docker.tar`),
+    true,
+  );
+  assert.equal(rendered.includes(`${process.execPath} ${ROOT}/scripts/release/verify-inventory.mjs --release-root ${RELEASE_ROOT}`), true);
   assert.ok(index("docker image push 127.0.0.1:49152") < index("helm push"));
   assert.equal(calls.filter(({ command, args }) => command === "git" && args.includes("HEAD^{commit}")).length, 3);
   assert.equal(calls.filter(({ command, args }) => command === "git" && args.includes("status")).length, 3);
@@ -337,6 +387,7 @@ test("the complete dry-run orders every gate, rechecks source identity, and clea
     releaseReady: report.releaseReady,
     version: report.version,
     sourceCommit: report.sourceCommit,
+    releaseSet: report.releaseSet,
   }, {
     mode: "dry-run",
     scope: "complete-local-rehearsal",
@@ -346,6 +397,7 @@ test("the complete dry-run orders every gate, rechecks source identity, and clea
     releaseReady: true,
     version: VERSION,
     sourceCommit: COMMIT,
+    releaseSet: SET,
   });
   assert.deepEqual(report.evidence, {
     inventory: {
@@ -378,7 +430,7 @@ test("the complete dry-run orders every gate, rechecks source identity, and clea
     },
   });
   assert.deepEqual(workspace.events, [
-    ["output-exists", `${ROOT}/.artifacts/release/${VERSION}`],
+    ["output-exists", RELEASE_ROOT],
     ["create", workspace.owned.root],
     ["remove", workspace.owned.root],
   ]);
@@ -389,7 +441,7 @@ test("the complete dry-run orders every gate, rechecks source identity, and clea
 test("the complete dry-run accepts the verified manifest digest reported by OrbStack", async () => {
   const calls = [];
   const workspace = fakeWorkspace();
-  const report = await runDryRun({
+  const report = await runDryRun({ readPlan: ALL_UNITS,
     root: ROOT,
     runner: createSuccessfulRunner(calls, {
       orbStackAbsenceOutput: true,
@@ -408,7 +460,7 @@ test("the complete dry-run accepts the verified manifest digest reported by OrbS
 test("the complete dry-run accepts canonical Helm 4 push and pull evidence on stderr", async () => {
   const calls = [];
   const workspace = fakeWorkspace();
-  const report = await runDryRun({
+  const report = await runDryRun({ readPlan: ALL_UNITS,
     root: ROOT,
     runner: createSuccessfulRunner(calls, { helmStatusChannel: "stderr" }),
     workspace: workspace.lifecycle,
@@ -421,7 +473,7 @@ test("the complete dry-run accepts canonical Helm 4 push and pull evidence on st
 test("the complete dry-run accepts cold-cache pull progress from the pinned registry image", async () => {
   const calls = [];
   const workspace = fakeWorkspace();
-  const report = await runDryRun({
+  const report = await runDryRun({ readPlan: ALL_UNITS,
     root: ROOT,
     runner: createSuccessfulRunner(calls, {
       registryStartStderr: `Unable to find image '${REGISTRY_IMAGE}' locally\nDigest: ${REGISTRY_IMAGE.slice(REGISTRY_IMAGE.indexOf("sha256:"))}\n`,
@@ -445,7 +497,7 @@ test("the dry-run rejects malformed runtime image identity evidence before docke
     const calls = [];
     const workspace = fakeWorkspace();
     await assert.rejects(
-      runDryRun({
+      runDryRun({ readPlan: ALL_UNITS,
         root: ROOT,
         runner: createSuccessfulRunner(calls),
         workspace: workspace.lifecycle,
@@ -465,7 +517,7 @@ test("dirty source and occupied release output short-circuit before any mutation
   const dirtyCalls = [];
   const dirtyWorkspace = fakeWorkspace();
   await assert.rejects(
-    runDryRun({
+    runDryRun({ readPlan: ALL_UNITS,
       root: ROOT,
       workspace: dirtyWorkspace.lifecycle,
       runner: createSuccessfulRunner(dirtyCalls, {
@@ -482,7 +534,7 @@ test("dirty source and occupied release output short-circuit before any mutation
   const occupiedCalls = [];
   const occupiedWorkspace = fakeWorkspace({ occupied: true });
   await assert.rejects(
-    runDryRun({ root: ROOT, runner: createSuccessfulRunner(occupiedCalls), workspace: occupiedWorkspace.lifecycle }),
+    runDryRun({ readPlan: ALL_UNITS, root: ROOT, runner: createSuccessfulRunner(occupiedCalls), workspace: occupiedWorkspace.lifecycle }),
     (error) => error.code === "OUTPUT_OCCUPIED" && error.phase === "source",
   );
   assert.equal(occupiedCalls.some(({ args }) => args.some((value) => value.endsWith?.("/verify.mjs"))), false);
@@ -493,7 +545,7 @@ test("a changed HEAD at either identity recheck fails before later release work"
   const calls = [];
   const workspace = fakeWorkspace();
   await assert.rejects(
-    runDryRun({
+    runDryRun({ readPlan: ALL_UNITS,
       root: ROOT,
       workspace: workspace.lifecycle,
       runner: createSuccessfulRunner(calls, { headSequence: [COMMIT, "2".repeat(40)] }),
@@ -520,18 +572,30 @@ test("malformed command results and unevidenced outputs fail closed at their own
       phase: "packages",
       override: ({ args }) => args[0]?.endsWith("/stage.mjs") ? commandResult("staged\n") : undefined,
     },
-    ...[18, 20].map((artifacts) => ({
-      name: `stage output reports ${artifacts} artifacts`,
+    {
+      name: "verify reports other units than the plan",
+      code: "OUTPUT_INVALID",
+      phase: "source",
+      override: ({ args }) => args[0]?.endsWith("/verify.mjs")
+        ? commandResult(developmentReport(VERSION, { units: ["php-core"] }))
+        : undefined,
+    },
+    ...[
+      ["18 artifacts", { artifacts: 18 }],
+      ["20 artifacts", { artifacts: 20 }],
+      ["another release set", { releaseSet: "local-222222222222" }],
+      ["another output directory", { outputDirectory: `${ROOT}/.artifacts/release/${VERSION}` }],
+      ["another source commit", { sourceCommit: "2".repeat(40) }],
+      ["no application unit", { artifacts: 12, units: STAGED_UNITS.filter(({ id }) => id !== "gauntlet") }],
+      ["an application at another version", { units: STAGED_UNITS.map((unit) => unit.id === "gauntlet" ? { ...unit, version: "0.1.1" } : unit) }],
+      ["units out of dependency order", { units: [...STAGED_UNITS].reverse() }],
+      ["no units", { artifacts: 0, units: [] }],
+      ["a schema 1 version field", { version: VERSION }],
+    ].map(([name, overrides]) => ({
+      name: `stage output reports ${name}`,
       code: "OUTPUT_INVALID",
       phase: "packages",
-      override: ({ args }) => args[0]?.endsWith("/stage.mjs")
-        ? commandResult(jsonLine({
-            artifacts,
-            outputDirectory: `${ROOT}/.artifacts/release/${VERSION}`,
-            sourceCommit: COMMIT,
-            version: VERSION,
-          }))
-        : undefined,
+      override: ({ args }) => args[0]?.endsWith("/stage.mjs") ? commandResult(stageOutput(overrides)) : undefined,
     })),
     {
       name: "security is not a full pass",
@@ -555,6 +619,30 @@ test("malformed command results and unevidenced outputs fail closed at their own
       phase: "inventory",
       override: ({ args }) => args[0]?.endsWith("/verify-inventory.mjs")
         ? commandResult(inventoryReport({ artifacts: 18 }))
+        : undefined,
+    },
+    {
+      name: "inventory report belongs to another release set",
+      code: "OUTPUT_INVALID",
+      phase: "inventory",
+      override: ({ args }) => args[0]?.endsWith("/verify-inventory.mjs")
+        ? commandResult(inventoryReport({ releaseSet: "release-2026-10-03.1" }))
+        : undefined,
+    },
+    {
+      name: "inventory report has other units than the stage",
+      code: "OUTPUT_INVALID",
+      phase: "inventory",
+      override: ({ args }) => args[0]?.endsWith("/verify-inventory.mjs")
+        ? commandResult(inventoryReport({ units: REPORTED_UNITS.slice(1) }))
+        : undefined,
+    },
+    {
+      name: "inventory report is schema 1",
+      code: "OUTPUT_INVALID",
+      phase: "inventory",
+      override: ({ args }) => args[0]?.endsWith("/verify-inventory.mjs")
+        ? commandResult(inventoryReport({ schemaVersion: 1 }))
         : undefined,
     },
     {
@@ -641,7 +729,7 @@ test("malformed command results and unevidenced outputs fail closed at their own
     const calls = [];
     const workspace = fakeWorkspace();
     await assert.rejects(
-      runDryRun({
+      runDryRun({ readPlan: ALL_UNITS,
         root: ROOT,
         workspace: workspace.lifecycle,
         archiveInspector,
@@ -660,7 +748,7 @@ test("phase failures short-circuit but registry failures still clean images, con
   const earlyCalls = [];
   const earlyWorkspace = fakeWorkspace();
   await assert.rejects(
-    runDryRun({
+    runDryRun({ readPlan: ALL_UNITS,
       root: ROOT,
       workspace: earlyWorkspace.lifecycle,
       runner: createSuccessfulRunner(earlyCalls, {
@@ -688,7 +776,7 @@ test("phase failures short-circuit but registry failures still clean images, con
   const registryCalls = [];
   const registryWorkspace = fakeWorkspace();
   await assert.rejects(
-    runDryRun({
+    runDryRun({ readPlan: ALL_UNITS,
       root: ROOT,
       workspace: registryWorkspace.lifecycle,
       archiveInspector,
@@ -762,7 +850,7 @@ test("load, tag and pull are registered before mutation and reconciled after mal
     const calls = [];
     const workspace = fakeWorkspace();
     await assert.rejects(
-      runDryRun({
+      runDryRun({ readPlan: ALL_UNITS,
         root: ROOT,
         runner: createSuccessfulRunner(calls, { override: scenario.override }),
         workspace: workspace.lifecycle,
@@ -784,7 +872,7 @@ test("image reconciliation refuses a changed image ID and requires confirmed abs
   const mismatchedCalls = [];
   const mismatchedWorkspace = fakeWorkspace();
   await assert.rejects(
-    runDryRun({
+    runDryRun({ readPlan: ALL_UNITS,
       root: ROOT,
       workspace: mismatchedWorkspace.lifecycle,
       archiveInspector,
@@ -810,7 +898,7 @@ test("image reconciliation refuses a changed image ID and requires confirmed abs
   const retainedCalls = [];
   const retainedWorkspace = fakeWorkspace();
   await assert.rejects(
-    runDryRun({
+    runDryRun({ readPlan: ALL_UNITS,
       root: ROOT,
       workspace: retainedWorkspace.lifecycle,
       archiveInspector,
@@ -827,7 +915,7 @@ test("image reconciliation refuses a changed image ID and requires confirmed abs
 test("image reconciliation trusts confirmed absence even if remove output is malformed", async () => {
   const calls = [];
   const workspace = fakeWorkspace();
-  const report = await runDryRun({
+  const report = await runDryRun({ readPlan: ALL_UNITS,
     root: ROOT,
     workspace: workspace.lifecycle,
     archiveInspector,
@@ -848,7 +936,7 @@ test("any container or temporary-directory cleanup failure overrides success and
   const containerCalls = [];
   const containerWorkspace = fakeWorkspace();
   await assert.rejects(
-    runDryRun({
+    runDryRun({ readPlan: ALL_UNITS,
       root: ROOT,
       workspace: containerWorkspace.lifecycle,
       archiveInspector,
@@ -865,7 +953,7 @@ test("any container or temporary-directory cleanup failure overrides success and
   const directoryCalls = [];
   const directoryWorkspace = fakeWorkspace({ removeFails: true });
   await assert.rejects(
-    runDryRun({
+    runDryRun({ readPlan: ALL_UNITS,
       root: ROOT,
       workspace: directoryWorkspace.lifecycle,
       archiveInspector,
@@ -885,7 +973,7 @@ test("malformed workspace ownership is rejected and handed back to its creating 
   };
 
   await assert.rejects(
-    runDryRun({ root: ROOT, runner: createSuccessfulRunner(calls), workspace: workspace.lifecycle, archiveInspector }),
+    runDryRun({ readPlan: ALL_UNITS, root: ROOT, runner: createSuccessfulRunner(calls), workspace: workspace.lifecycle, archiveInspector }),
     (error) => error.code === "MALFORMED_RESULT" && error.phase === "image",
   );
   assert.deepEqual(workspace.events.at(-1), ["remove", returned.root]);
@@ -913,6 +1001,7 @@ test("the dry-run CLI is strict and never returns child diagnostics", async () =
   let called = false;
   const invalid = await runDryRunCli(["--keep"], {
     root: ROOT,
+    readPlan: ALL_UNITS,
     runner: async () => {
       called = true;
       return commandResult();
@@ -923,11 +1012,12 @@ test("the dry-run CLI is strict and never returns child diagnostics", async () =
   assert.deepEqual(invalid, {
     exitCode: 2,
     stdout: "",
-    stderr: '{"error":{"code":"INVALID_ARGUMENTS","message":"Usage: dry-run.mjs"},"ok":false,"releaseReady":false}\n',
+    stderr: '{"error":{"code":"INVALID_ARGUMENTS","message":"Usage: dry-run.mjs [--plan PATH] [--release-set release-YYYY-MM-DD.N|local-<12 hex>]"},"ok":false,"releaseReady":false}\n',
   });
 
   const failed = await runDryRunCli([], {
     root: ROOT,
+    readPlan: ALL_UNITS,
     runner: async () => { throw new Error("secret diagnostic 1730"); },
     workspace: fakeWorkspace().lifecycle,
   });
@@ -938,5 +1028,170 @@ test("the dry-run CLI is strict and never returns child diagnostics", async () =
     code: "EXECUTION_FAILED",
     message: "Release dry-run failed safely",
     phase: "source",
+  });
+
+  assert.deepEqual(
+    parseDryRunArguments(["--plan", ".release/plan.json", "--release-set", "release-2026-10-03.1"]),
+    { planPath: ".release/plan.json", releaseSet: "release-2026-10-03.1" },
+  );
+  assert.deepEqual(
+    parseDryRunArguments(["--release-set", SET, "--plan", ".release/plan.json"]),
+    { planPath: ".release/plan.json", releaseSet: SET },
+  );
+  assert.deepEqual(parseDryRunArguments(["--plan", ".release/plan.json"]), { planPath: ".release/plan.json", releaseSet: null });
+  for (const argv of [
+    ["--plan", "a.json", "--plan", "b.json"],
+    ["--release-set", SET, "--release-set", SET],
+    ["--release-set", "0.1.0"],
+    ["--release-set", "release-2026-13-01.1"],
+    ["--plan", "a.json", "extra"],
+    ["--plan"],
+    ["--plan", "../outside.json"],
+  ]) {
+    let invoked = false;
+    const rejected = await runDryRunCli(argv, {
+      root: ROOT,
+      runner: async () => { invoked = true; return commandResult(); },
+      workspace: fakeWorkspace().lifecycle,
+    });
+    assert.equal(rejected.exitCode, 2, argv.join(" "));
+    assert.equal(JSON.parse(rejected.stderr).error.code, "INVALID_ARGUMENTS", argv.join(" "));
+    assert.equal(invoked, false);
+  }
+
+  const forwarded = [];
+  const cli = await runDryRunCli(["--plan", ".release/plan.json"], {
+    root: ROOT,
+    runner: createSuccessfulRunner([]),
+    workspace: fakeWorkspace().lifecycle,
+    archiveInspector,
+    readPlan: (root, planPath) => {
+      forwarded.push([root, planPath]);
+      return { plan: ALL_UNITS_PLAN, path: planPath };
+    },
+  });
+  assert.equal(cli.exitCode, 0, cli.stderr);
+  assert.deepEqual(forwarded, [[ROOT, ".release/plan.json"]]);
+});
+
+test("the CI all-units plan path reaches verification and staging", async () => {
+  const calls = [];
+  const path = ".artifacts/ci/all-units-plan.json";
+  const cli = await runDryRunCli(["--plan", path], {
+    root: ROOT,
+    runner: createSuccessfulRunner(calls),
+    workspace: fakeWorkspace().lifecycle,
+    archiveInspector,
+    readPlan: (root, planPath) => ({ plan: ALL_UNITS_PLAN, path: planPath }),
+  });
+  assert.equal(cli.exitCode, 0, cli.stderr);
+  const childArgs = (name) => calls.find(({ args }) => args[0]?.endsWith(`/${name}`)).args;
+  assert.deepEqual(childArgs("verify.mjs").slice(1), ["--plan", path]);
+  assert.deepEqual(childArgs("stage.mjs").slice(3, 5), ["--plan", path]);
+});
+
+test("a php-core plan runs only its release work and skips the application rehearsal", async () => {
+  const calls = [];
+  const workspace = fakeWorkspace();
+  const runner = createSuccessfulRunner(calls, { override: (invocation) => {
+    const [script] = invocation.args;
+    if (invocation.command === process.execPath && script?.endsWith("/verify.mjs")) return commandResult(developmentReport(VERSION, { units: ["php-core"] }));
+    if (invocation.command === process.execPath && script?.endsWith("/stage.mjs")) {
+      return commandResult(jsonLine({
+        artifacts: 1, outputDirectory: `${ROOT}/.artifacts/release/local-111111111111`, releaseSet: "local-111111111111",
+        sourceCommit: COMMIT, units: [{ id: "php-core", version: "0.1.1" }],
+      }));
+    }
+    if (invocation.command === process.execPath && script?.endsWith("/verify-inventory.mjs")) {
+      return commandResult(inventoryReport({ units: [{ id: "php-core", version: "0.1.1", tag: "php-core-v0.1.1" }], artifacts: 1, nativeImage: null, multiPlatformOci: null, helmChart: null }));
+    }
+    return undefined;
+  } });
+  const report = await runDryRun({
+    root: ROOT, runner, workspace: workspace.lifecycle, archiveInspector, planPath: ".release/plan.json",
+    readPlan: () => ({ plan: PHP_PLAN, path: ".release/plan.json" }),
+  });
+  assert.equal(report.releaseReady, true);
+  assert.deepEqual(report.units, [{ id: "php-core", from: "0.1.0", to: "0.1.1" }]);
+  assert.equal(report.releaseSet, SET);
+  assert.equal(report.version, VERSION);
+  const commands = calls.map(({ command, args }) => `${command} ${args.join(" ")}`);
+  assert.ok(commands.some((line) => line === "pnpm test:composer:consumer"));
+  for (const absent of ["test:java:release", "security.mjs", "docs:verify-commands", "docker", "helm"]) {
+    assert.ok(!commands.some((line) => line.includes(absent)), absent);
+  }
+  assert.ok(calls.find(({ args }) => args[0]?.endsWith("/stage.mjs")).args.includes("--plan"));
+  assert.deepEqual(calls.find(({ args }) => args[0]?.endsWith("/stage.mjs")).args, [
+    `${ROOT}/scripts/release/stage.mjs`, "--output", RELEASE_ROOT, "--plan", ".release/plan.json", "--release-set", SET,
+  ]);
+  assert.ok(calls.find(({ args }) => args[0]?.endsWith("/verify.mjs")).args.join(" ").endsWith("--plan .release/plan.json"));
+  for (const name of ["java", "image", "helm", "security", "dashboard"]) {
+    assert.equal(report.phases.find((phase) => phase.name === name).status, "skipped", name);
+  }
+  assert.deepEqual(report.phases.find((phase) => phase.name === "dashboard"), { name: "dashboard", status: "skipped", reason: "not-in-release-plan" });
+  for (const name of ["source", "php", "conformance", "packages", "inventory", "documentation"]) {
+    assert.equal(report.phases.find((phase) => phase.name === name).status, "passed", name);
+  }
+  assert.equal(report.evidence.localRegistryRehearsal, null);
+  assert.equal(workspace.events.some(([name]) => name === "create"), false);
+});
+
+test("a planned release set names the release root and must match the source commit when local", async () => {
+  const calls = [];
+  const named = "release-2026-10-03.1";
+  const namedRoot = `${ROOT}/.artifacts/release/${named}`;
+  const report = await runDryRun({
+    root: ROOT, workspace: fakeWorkspace().lifecycle, archiveInspector, releaseSet: named, readPlan: ALL_UNITS,
+    runner: createSuccessfulRunner(calls, { override: ({ command, args }) => {
+      if (command === process.execPath && args[0]?.endsWith("/stage.mjs")) {
+        return commandResult(stageOutput({ outputDirectory: namedRoot, releaseSet: named }));
+      }
+      if (command === process.execPath && args[0]?.endsWith("/verify-inventory.mjs")) return commandResult(inventoryReport({ releaseSet: named }));
+      if (command === "pnpm" && args[0] === "docs:verify-commands") {
+        return commandResult(jsonLine({ exitCode: 0, ok: true }), {
+          stderr: `$ node scripts/docs/verify-documented-commands.mjs --release-root .artifacts/release/${named}\n`,
+        });
+      }
+      return undefined;
+    } }),
+  });
+  assert.equal(report.releaseSet, named);
+  assert.deepEqual(calls.find(({ args }) => args[0]?.endsWith("/stage.mjs")).args.slice(-2), ["--release-set", named]);
+
+  await assert.rejects(
+    runDryRun({
+      root: ROOT, workspace: fakeWorkspace().lifecycle, archiveInspector, releaseSet: "local-222222222222", readPlan: ALL_UNITS,
+      runner: createSuccessfulRunner([]),
+    }),
+    (error) => error.code === "RELEASE_SET_MISMATCH" && error.phase === "source",
+  );
+});
+
+test("an empty or unreadable release plan fails at source before verification", async () => {
+  for (const readPlan of [
+    () => ({ plan: createReleasePlan([]), path: ".release/plan.json" }),
+    () => { throw new Error("private plan detail"); },
+  ]) {
+    const calls = [];
+    await assert.rejects(
+      runDryRun({ root: ROOT, workspace: fakeWorkspace().lifecycle, archiveInspector, readPlan, runner: createSuccessfulRunner(calls) }),
+      (error) => error.code === "OUTPUT_INVALID" && error.phase === "source" && !JSON.stringify(error.report).includes("private"),
+    );
+    assert.equal(calls.some(({ args }) => args[0]?.endsWith?.("/verify.mjs")), false);
+  }
+});
+
+test("every dry-run phase runs with its raised timeout", async () => {
+  const calls = [];
+  await runDryRun({ root: ROOT, runner: createSuccessfulRunner(calls), workspace: fakeWorkspace().lifecycle, archiveInspector, readPlan: ALL_UNITS });
+  const timeouts = new Map(calls.map(({ phase, timeoutMs }) => [phase, timeoutMs]));
+  assert.equal(timeouts.get("source"), 180 * 60_000);
+  assert.equal(timeouts.get("packages"), 60 * 60_000);
+  assert.equal(timeouts.get("documentation"), 60 * 60_000);
+  assert.equal(timeouts.get("helm"), 60 * 60_000);
+  assert.equal(timeouts.get("security"), 90 * 60_000);
+  assert.deepEqual({ ...DRY_RUN_PHASE_TIMEOUT_MS }, {
+    source: 180 * 60_000, php: 90 * 60_000, java: 90 * 60_000, packages: 60 * 60_000, security: 90 * 60_000,
+    inventory: 30 * 60_000, documentation: 60 * 60_000, image: 60 * 60_000, helm: 60 * 60_000,
   });
 });

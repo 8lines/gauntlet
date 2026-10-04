@@ -22,14 +22,16 @@ import test from "node:test";
 import {
   collectUnitVersionMismatches,
   collectVersionMismatches,
-  javaLockstepVersion,
+  LOCKSTEP_RELEASES,
   readReleaseVersion,
+  readUnitVersion,
   RELEASE_ARTIFACTS,
-  RELEASE_STAGE_ARTIFACT_COUNT,
   VERSION_LOCATIONS,
   parseReleaseVersion,
   setReleaseVersion,
+  setUnitVersions,
 } from "../release-model.mjs";
+import { createReleasePlan, serializeReleasePlan } from "../plan.mjs";
 import { RELEASE_UNITS } from "../units.mjs";
 import { parseVersionCommand, runVersionCli } from "../version.mjs";
 
@@ -96,7 +98,6 @@ const PACKAGE_IDENTITIES = [
 const RELEASE_TEXT_PATHS = [
   "tests/consumers/java/build.gradle.kts",
   "tests/consumers/java/gradle.lockfile",
-  "skills/gauntlet-app-integration/SKILL.md",
   "skills/gauntlet-app-integration/references/node.md",
   "skills/gauntlet-app-integration/references/nextjs.md",
   "skills/gauntlet-app-integration/references/symfony.md",
@@ -110,10 +111,9 @@ const RELEASE_TEXT_PATHS = [
 const RELEASE_TEXT_UNITS = [
   ["tests/consumers/java/build.gradle.kts", [["spring-boot-starter", 1]]],
   ["tests/consumers/java/gradle.lockfile", [["java-core", 1], ["spring-boot-starter", 1]]],
-  ["skills/gauntlet-app-integration/SKILL.md", [["skills", 1]]],
   ["skills/gauntlet-app-integration/references/node.md", [["protocol", 1], ["typescript-core", 1], ["typescript-node", 1]]],
   ["skills/gauntlet-app-integration/references/nextjs.md", [["protocol", 1], ["typescript-core", 1], ["next-adapter", 1]]],
-  ["skills/gauntlet-app-integration/references/symfony.md", [["php-core", 1]]],
+  ["skills/gauntlet-app-integration/references/symfony.md", [["php-core", 1], ["symfony-bundle", 1]]],
   ["skills/gauntlet-app-integration/references/spring.md", [["spring-boot-starter", 3]]],
   ["skills/gauntlet-app-integration/references/deployment.md", [["gauntlet", 3]]],
   ["skills/gauntlet-app-integration/references/safety-gates.md", [["gauntlet", 1]]],
@@ -184,10 +184,6 @@ function releaseTextFixtures(version) {
       `dev.eightlines.gauntlet:core:${version}=compileClasspath,runtimeClasspath\ndev.eightlines.gauntlet:spring-boot-starter:${version}=compileClasspath,runtimeClasspath\nempty=annotationProcessor\n`,
     ],
     [
-      "skills/gauntlet-app-integration/SKILL.md",
-      `Consume exact \`${version}\` artifacts; preserve PHP 8.3 and Symfony 7.4.\n`,
-    ],
-    [
       "skills/gauntlet-app-integration/references/node.md",
       `Support Node.js 24–26.\npnpm add @8lines/gauntlet-protocol@${version} \\\n  @8lines/gauntlet-typescript-core@${version} \\\n  @8lines/gauntlet-typescript-node@${version}\n`,
     ],
@@ -197,7 +193,7 @@ function releaseTextFixtures(version) {
     ],
     [
       "skills/gauntlet-app-integration/references/symfony.md",
-      `Support PHP 8.3+ and Symfony 7.4. Declare repositories and install exact release \`${version}\` of \`8lines/gauntlet-php-core\` and \`8lines/gauntlet-symfony-bundle\`.\n`,
+      `Support PHP 8.3+ and Symfony 7.4. Declare repositories and install exact release \`${version}\` of \`8lines/gauntlet-php-core\` and exact release \`${version}\` of \`8lines/gauntlet-symfony-bundle\`.\n`,
     ],
     [
       "skills/gauntlet-app-integration/references/spring.md",
@@ -351,7 +347,6 @@ test("accepts only an exact stable ASCII SemVer VERSION record", () => {
 });
 
 test("freezes the fifteen fixed release artifact identities and destinations", () => {
-  assert.equal(RELEASE_STAGE_ARTIFACT_COUNT, 19);
   assert.deepEqual(
     RELEASE_ARTIFACTS.npm.map(({ name, directory, registry }) => [name, directory, registry]),
     EXPECTED_ARTIFACTS.npm,
@@ -483,12 +478,9 @@ test("reads the canonical VERSION bytes without trimming or fallback", () => {
   });
 });
 
-test("accepts a consistent fixture and the one exact optional release tag", () => {
+test("accepts a consistent fixture", () => {
   withVersionFixture((root) => {
     assert.deepEqual(collectVersionMismatches(root), []);
-    assert.deepEqual(collectVersionMismatches(root, "v0.1.0"), []);
-    assert.deepEqual(collectVersionMismatches(root, "v0.1.1"), ["tag: must equal v0.1.0"]);
-    assert.deepEqual(collectVersionMismatches(root, "v0.1.0\nsecret"), ["tag: must equal v0.1.0"]);
   });
 });
 
@@ -523,7 +515,7 @@ test("reports stale and additional versions only in fixed release-text positions
   });
 });
 
-test("reports every drifting slot against its own unit in fixed order, then the lockstep guard", () => {
+test("reports every drifting slot against its own unit in fixed order", () => {
   withVersionFixture((root) => {
     for (const [path, name] of PACKAGE_IDENTITIES) {
       writeFixtureFile(root, path, `${JSON.stringify({ name, version: "0.1.1" })}\n`);
@@ -572,15 +564,10 @@ test("reports every drifting slot against its own unit in fixed order, then the 
       "tests/consumers/java/build.gradle.kts: release references must equal spring-boot-starter 0.1.0",
       "tests/consumers/java/gradle.lockfile: release references must equal java-core 0.1.0",
       "tests/consumers/java/gradle.lockfile: release references must equal spring-boot-starter 0.1.0",
-      "skills/gauntlet-app-integration/SKILL.md: release references must equal skills 0.1.0",
       "skills/gauntlet-app-integration/references/spring.md: release references must equal spring-boot-starter 0.1.0",
       "skills/gauntlet-app-integration/references/deployment.md: release references must equal gauntlet 0.1.0",
       "skills/gauntlet-app-integration/references/safety-gates.md: release references must equal gauntlet 0.1.0",
       "docs/ai-skills.md: release references must equal skills 0.1.0",
-      ...[
-        "protocol", "dashboard-client", "typescript-core", "typescript-node", "next-adapter", "conformance-runner",
-        "widget", "php-core", "symfony-bundle",
-      ].map((unit) => `${unit}: version 0.1.1 must equal VERSION 0.1.0 until plan-driven publishing`),
     ]);
   });
 });
@@ -678,7 +665,7 @@ test("sets every version span through bound descriptors while preserving surroun
 
     assert.deepEqual(result, { version: "0.1.1", changedPaths: EXPECTED_UPDATE_PATHS });
     assert.equal(readReleaseVersion(root), "0.1.1");
-    assert.deepEqual(collectVersionMismatches(root, "v0.1.1"), []);
+    assert.deepEqual(collectVersionMismatches(root), []);
     assert.equal(
       readFileSync(protocolPath, "utf8"),
       '{"name":"@8lines/gauntlet-protocol", "version" : "0.1.1", "note":"keep 0.1.0 in prose"}\n',
@@ -1237,6 +1224,8 @@ test("reports an inconsistent state after a failure at every descriptor rollback
       withVersionFixture((root) => {
         let promotionFailureInjected = false;
         let rollbackFailureInjected = false;
+        const contents = () => EXPECTED_UPDATE_PATHS.map((path) => readFileSync(join(root, path), "utf8"));
+        const original = contents();
 
         assert.throws(
           () =>
@@ -1267,8 +1256,15 @@ test("reports an inconsistent state after a failure at every descriptor rollback
 
         assert.equal(promotionFailureInjected, true, boundary + ":" + failureIndex + ":promote");
         assert.equal(rollbackFailureInjected, true, boundary + ":" + failureIndex + ":rollback");
-        if (boundary === "before-write") assert.notDeepEqual(collectVersionMismatches(root), []);
-        else assert.deepEqual(collectVersionMismatches(root), []);
+        // A rollback that fails before its write leaves exactly that file at the new version. With
+        // independent units that state can be per-unit consistent, so compare bytes, not mismatches.
+        const changed = contents().filter((text, index) => text !== original[index]);
+        if (boundary === "before-write") {
+          assert.equal(changed.length, 1, boundary + ":" + failureIndex + ":changed");
+        } else {
+          assert.deepEqual(changed, []);
+          assert.deepEqual(collectVersionMismatches(root), []);
+        }
         assert.deepEqual(findUpdaterScratch(root), []);
       });
     }
@@ -1310,30 +1306,40 @@ test("never removes foreign scratch-like entries on commit or rollback", () => {
   });
 });
 
-test("accepts only the three closed version CLI command shapes", () => {
+test("accepts only the closed version CLI command shapes", () => {
   assert.deepEqual(parseVersionCommand(["--check"]), { command: "check" });
-  assert.deepEqual(parseVersionCommand(["--check", "--tag", "v0.1.0"]), {
+  assert.deepEqual(parseVersionCommand(["--check", "--plan", ".release/plan.json"]), {
     command: "check",
-    tag: "v0.1.0",
+    plan: ".release/plan.json",
   });
   assert.deepEqual(parseVersionCommand(["--set", "0.1.1"]), { command: "set", version: "0.1.1" });
+  assert.deepEqual(parseVersionCommand(["--set-unit", "php-core", "0.2.0"]), {
+    command: "set-unit",
+    unit: "php-core",
+    version: "0.2.0",
+  });
 
   for (const invalid of [
     [],
     ["--help"],
-    ["--check", "--tag"],
-    ["--tag", "v0.1.0", "--check"],
-    ["--check", "--tag", "0.1.0"],
-    ["--check", "--tag", "v0.1.0", "extra"],
+    ["--check", "--tag", "v0.1.0"],
+    ["--check", "--plan"],
+    ["--check", "--plan", ""],
+    ["--plan", ".release/plan.json", "--check"],
+    ["--check", "--plan", ".release/plan.json", "extra"],
     ["--set"],
     ["--set", "v0.1.1"],
     ["--set", "0.1.1", "extra"],
+    ["--set-unit", "nope", "0.2.0"],
+    ["--set-unit", "php-core"],
+    ["--set-unit", "php-core", "v0.2.0"],
+    ["--set-unit", "php-core", "0.2.0", "extra"],
     ["--root", "/tmp/SECRET_ROOT"],
   ]) {
     assert.throws(
       () => parseVersionCommand(invalid),
       (error) => {
-        assert.equal(error.message, "Usage: version.mjs --check [--tag vX.Y.Z] | --set X.Y.Z");
+        assert.equal(error.message, "Usage: version.mjs --check [--plan PATH] | --set X.Y.Z | --set-unit UNIT X.Y.Z");
         assert.doesNotMatch(error.message, /SECRET_ROOT/);
         return true;
       },
@@ -1343,7 +1349,7 @@ test("accepts only the three closed version CLI command shapes", () => {
 
 test("returns bounded one-line JSON for checks, mismatches, sets, and invalid CLI input", () => {
   withVersionFixture((root) => {
-    const checked = runVersionCli(["--check", "--tag", "v0.1.0"], { root });
+    const checked = runVersionCli(["--check"], { root });
     assert.equal(checked.exitCode, 0);
     assert.equal(checked.stderr, "");
     assert.equal(checked.stdout.endsWith("\n"), true);
@@ -1352,7 +1358,7 @@ test("returns bounded one-line JSON for checks, mismatches, sets, and invalid CL
       command: "check",
       mismatches: [],
       ok: true,
-      tag: "v0.1.0",
+      plan: null,
       units: RELEASE_UNITS.map(({ id }) => `${id} 0.1.0`),
       version: "0.1.0",
     });
@@ -1370,7 +1376,7 @@ test("returns bounded one-line JSON for checks, mismatches, sets, and invalid CL
       command: "check",
       mismatches: ["apps/server/package.json: version must equal gauntlet 0.1.0"],
       ok: false,
-      tag: null,
+      plan: null,
       units: [],
       version: "0.1.0",
     });
@@ -1389,14 +1395,14 @@ test("returns bounded one-line JSON for checks, mismatches, sets, and invalid CL
       ok: true,
       version: "0.1.1",
     });
-    assert.deepEqual(collectVersionMismatches(root, "v0.1.1"), []);
+    assert.deepEqual(collectVersionMismatches(root), []);
   });
 
   const invalid = runVersionCli(["--root", "/tmp/SECRET_ROOT"], { root: "/does/not/exist" });
   assert.equal(invalid.exitCode, 2);
   assert.equal(invalid.stdout, "");
   assert.deepEqual(JSON.parse(invalid.stderr), {
-    error: { code: "INVALID_ARGUMENTS", message: "Usage: version.mjs --check [--tag vX.Y.Z] | --set X.Y.Z" },
+    error: { code: "INVALID_ARGUMENTS", message: "Usage: version.mjs --check [--plan PATH] | --set X.Y.Z | --set-unit UNIT X.Y.Z" },
     ok: false,
   });
   assert.doesNotMatch(invalid.stderr, /SECRET_ROOT/);
@@ -1424,6 +1430,25 @@ test("a slot is checked against its own unit", () => {
   }
 });
 
+test("the Symfony reference names each PHP package's own exact version", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    const result = setUnitVersions(root, { "symfony-bundle": "0.2.0" });
+    assert.deepEqual(result.changedPaths, [
+      "packages/php/symfony-bundle/composer.json",
+      "tests/consumers/php-symfony/composer.json",
+      "skills/gauntlet-app-integration/references/symfony.md",
+    ]);
+    assert.deepEqual(collectUnitVersionMismatches(root), []);
+    assert.match(
+      readFileSync(join(root, "skills/gauntlet-app-integration/references/symfony.md"), "utf8"),
+      /install exact release `0\.1\.8` of `8lines\/gauntlet-php-core` and exact release `0\.2\.0` of `8lines\/gauntlet-symfony-bundle`/u,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("a Java core move changes only the lockfile core slot, never the starter slots", () => {
   const root = createVersionFixture("0.1.8");
   try {
@@ -1437,12 +1462,11 @@ test("a Java core move changes only the lockfile core slot, never the starter sl
   }
 });
 
-test("a unit that moves alone is consistent for its own slots and only the lockstep guard objects", () => {
+test("a unit that moves alone reports only its own slots", () => {
   const root = createVersionFixture("0.1.8");
   try {
     writeFixtureFile(root, "skills/VERSION", "0.1.9\n");
     assert.deepEqual(collectUnitVersionMismatches(root), [
-      "skills/gauntlet-app-integration/SKILL.md: release references must equal skills 0.1.9",
       "docs/ai-skills.md: release references must equal skills 0.1.9",
     ]);
   } finally {
@@ -1450,16 +1474,11 @@ test("a unit that moves alone is consistent for its own slots and only the locks
   }
 });
 
-test("the lockstep guard rejects diverged units until plan-driven publishing", () => {
+test("diverged units are consistent once lockstep releases end", () => {
+  assert.equal(LOCKSTEP_RELEASES, false);
   const root = createVersionFixture("0.1.8");
   try {
-    writeFixtureFile(root, "skills/VERSION", "0.1.9\n");
-    assert.ok(collectVersionMismatches(root).some((line) =>
-      line.startsWith("skills: version 0.1.9 must equal VERSION 0.1.8")));
-    assert.ok(collectVersionMismatches(root).includes(
-      "skills: version 0.1.9 must equal VERSION 0.1.8 until plan-driven publishing",
-    ));
-    writeFixtureFile(root, "skills/VERSION", "0.1.8\n");
+    setUnitVersions(root, { skills: "0.1.9", "php-core": "0.2.0" });
     assert.deepEqual(collectVersionMismatches(root), []);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -1488,7 +1507,7 @@ test("setReleaseVersion moves every unit and the new VERSION files together", ()
   try {
     const result = setReleaseVersion(root, "0.1.9");
     assert.deepEqual(result.changedPaths, EXPECTED_UPDATE_PATHS);
-    assert.deepEqual(collectVersionMismatches(root, "v0.1.9"), []);
+    assert.deepEqual(collectVersionMismatches(root), []);
     for (const path of ["VERSION", ...UNIT_VERSION_FILES]) {
       assert.equal(readFileSync(join(root, path), "utf8"), "0.1.9\n", path);
     }
@@ -1497,29 +1516,151 @@ test("setReleaseVersion moves every unit and the new VERSION files together", ()
   }
 });
 
-test("setReleaseVersion refuses a repository whose units have diverged", () => {
+test("setReleaseVersion moves every unit from its own version", () => {
   const root = createVersionFixture("0.1.8");
   try {
-    writeFixtureFile(root, "packages/java/core/VERSION", "0.1.9\n");
-    assert.throws(() => setReleaseVersion(root, "0.1.10"), /preflight failed/);
-    assert.equal(readFileSync(join(root, "VERSION"), "utf8"), "0.1.8\n");
+    setUnitVersions(root, { "java-core": "0.1.9" });
+    setReleaseVersion(root, "0.1.10");
+    assert.deepEqual(collectVersionMismatches(root), []);
+    for (const id of ["gauntlet", "java-core", "spring-boot-starter", "skills"]) assert.equal(readUnitVersion(root, id), "0.1.10", id);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("javaLockstepVersion needs both Java VERSION records and rejects a mismatch", () => {
-  const core = "packages/java/core/VERSION";
-  const starter = "packages/java/spring-boot-starter/VERSION";
-  const record = (relativePath, version) => ({ relativePath, bytes: Buffer.from(`${version}\n`, "ascii") });
-  const error = "Release version must be an exact stable ASCII semantic version followed by one LF";
+test("the version check validates a plan instead of a tag", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    setUnitVersions(root, { widget: "0.1.9" });
+    mkdirSync(join(root, ".release"));
+    writeFileSync(join(root, ".release/plan.json"), serializeReleasePlan(createReleasePlan([{ id: "widget", from: "0.1.8", to: "0.1.9" }])));
+    const ok = JSON.parse(runVersionCli(["--check", "--plan", ".release/plan.json"], { root }).stdout);
+    assert.deepEqual([ok.ok, ok.plan, ok.mismatches], [true, ".release/plan.json", []]);
+    writeFileSync(join(root, ".release/plan.json"), serializeReleasePlan(createReleasePlan([{ id: "widget", from: "0.1.8", to: "0.2.0" }])));
+    const drifted = runVersionCli(["--check", "--plan", ".release/plan.json"], { root });
+    assert.equal(drifted.exitCode, 1);
+    assert.deepEqual(JSON.parse(drifted.stdout).mismatches, ["plan: widget: plan version 0.2.0 does not equal manifest version 0.1.9"]);
+    assert.equal(runVersionCli(["--check", "--tag", "v0.1.8"], { root }).exitCode, 2);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
-  assert.equal(javaLockstepVersion([record(core, "0.1.8"), record(starter, "0.1.8")]), "0.1.8");
-  assert.throws(() => javaLockstepVersion([record(core, "0.1.8"), record(starter, "0.1.9")]), { message: error });
-  assert.throws(() => javaLockstepVersion([record(core, "0.1.8")]), { message: error });
-  assert.throws(() => javaLockstepVersion([record(starter, "0.1.8")]), { message: error });
-  assert.throws(() => javaLockstepVersion([]), { message: error });
-  assert.throws(() => javaLockstepVersion([record(core, "0.1.8"), { relativePath: starter, bytes: Buffer.from("0.1.8") }]), {
-    message: error,
-  });
+test("an unreadable plan is a version check mismatch", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    const missing = runVersionCli(["--check", "--plan", ".release/plan.json"], { root });
+    assert.equal(missing.exitCode, 1);
+    assert.equal(missing.stderr, "");
+    assert.deepEqual(JSON.parse(missing.stdout), {
+      command: "check",
+      mismatches: ["plan: Release plan is missing or unsafe"],
+      ok: false,
+      plan: ".release/plan.json",
+      units: [],
+      version: "0.1.8",
+    });
+    const outside = runVersionCli(["--check", "--plan", "../SECRET_PLAN.json"], { root });
+    assert.equal(outside.exitCode, 1);
+    assert.deepEqual(JSON.parse(outside.stdout).mismatches, ["plan: Release plan path must stay inside the repository"]);
+    mkdirSync(join(root, ".release"));
+    writeFileSync(join(root, ".release/plan.json"), '{"schemaVersion":1,"units":"SECRET_VALUE","order":[]}\n');
+    const invalid = runVersionCli(["--check", "--plan", ".release/plan.json"], { root });
+    assert.equal(invalid.exitCode, 1);
+    assert.deepEqual(JSON.parse(invalid.stdout).mismatches, ["plan: Release plan is invalid"]);
+    assert.doesNotMatch(invalid.stdout, /SECRET_VALUE/);
+    writeFileSync(join(root, ".release/plan.json"), serializeReleasePlan(createReleasePlan([{ id: "widget", from: "0.1.8", to: "0.1.9" }])));
+    rmSync(join(root, "skills/VERSION"));
+    const unreadableUnit = runVersionCli(["--check", "--plan", ".release/plan.json"], { root });
+    assert.equal(unreadableUnit.exitCode, 1);
+    assert.equal(unreadableUnit.stderr, "");
+    assert.deepEqual(JSON.parse(unreadableUnit.stdout).mismatches, ["skills/VERSION: canonical release version is missing or invalid"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("setUnitVersions moves one unit and every slot bound to it, and nothing else", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    const result = setUnitVersions(root, new Map([["php-core", "0.2.0"]]));
+    assert.deepEqual(result, {
+      versions: { "php-core": "0.2.0" },
+      changedPaths: [
+        "packages/php/core/composer.json",
+        "packages/php/symfony-bundle/composer.json",
+        "tests/consumers/php-core/composer.json",
+        "tests/consumers/php-symfony/composer.json",
+        "skills/gauntlet-app-integration/references/symfony.md",
+      ],
+    });
+    assert.deepEqual(collectUnitVersionMismatches(root), []);
+    assert.equal(readUnitVersion(root, "php-core"), "0.2.0");
+    assert.equal(readUnitVersion(root, "symfony-bundle"), "0.1.8");
+    const bundle = JSON.parse(readFileSync(join(root, "packages/php/symfony-bundle/composer.json"), "utf8"));
+    assert.equal(bundle.version, "0.1.8");
+    assert.equal(bundle.require["8lines/gauntlet-php-core"], "^0.2.0");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("setUnitVersions moves the application and the skills archive slots independently", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    assert.deepEqual(setUnitVersions(root, { gauntlet: "0.1.9" }).changedPaths, [
+      "apps/dashboard/package.json",
+      "apps/server/package.json",
+      "deploy/helm/gauntlet/Chart.yaml",
+      "deploy/helm/gauntlet/values.yaml",
+      "deploy/compose/.env.example",
+      "skills/gauntlet-app-integration/references/deployment.md",
+      "skills/gauntlet-app-integration/references/safety-gates.md",
+      "VERSION",
+    ]);
+    assert.deepEqual(setUnitVersions(root, { skills: "0.1.9" }).changedPaths, [
+      "docs/ai-skills.md",
+      "skills/VERSION",
+    ]);
+    assert.deepEqual(collectUnitVersionMismatches(root), []);
+    assert.equal(readUnitVersion(root, "protocol"), "0.1.8");
+    assert.equal(readUnitVersion(root, "gauntlet"), "0.1.9");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("setUnitVersions rejects unknown units, invalid versions and inconsistent repositories before writing", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    const before = fixtureSnapshot(root);
+    for (const requested of [new Map(), { nope: "0.1.9" }, { widget: "0.1.9-rc.1" }, [["widget", "0.1.9"]]]) {
+      assert.throws(() => setUnitVersions(root, requested));
+    }
+    assert.deepEqual(fixtureSnapshot(root), before);
+    writeFixtureFile(root, "skills/gauntlet-app-integration/references/symfony.md",
+      readFileSync(join(root, "skills/gauntlet-app-integration/references/symfony.md"), "utf8").replace("`0.1.8`", "`0.1.7`"));
+    const inconsistent = fixtureSnapshot(root);
+    assert.throws(() => setUnitVersions(root, { widget: "0.1.9" }), /preflight failed/u);
+    assert.equal(readUnitVersion(root, "widget"), "0.1.8");
+    assert.deepEqual(fixtureSnapshot(root), inconsistent);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the version CLI sets one unit", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    const result = runVersionCli(["--set-unit", "widget", "0.2.0"], { root });
+    assert.equal(result.exitCode, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      changedPaths: ["packages/widget/package.json"], command: "set-unit", ok: true, unit: "widget", version: "0.2.0",
+    });
+    for (const argv of [["--set-unit", "nope", "0.2.0"], ["--set-unit", "widget"], ["--set-unit", "widget", "v0.2.0"]]) {
+      assert.equal(runVersionCli(argv, { root }).exitCode, 2, argv.join(" "));
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

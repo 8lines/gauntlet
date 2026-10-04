@@ -15,10 +15,10 @@ import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 
 import { verifyReleaseInventory } from "./inventory.mjs";
-import { parseReleaseVersion, RELEASE_STAGE_ARTIFACT_COUNT } from "./release-model.mjs";
+import { parseReleaseSetId } from "./plan.mjs";
 
 const ROOT = realpathSync(fileURLToPath(new URL("../../", import.meta.url)));
-const USAGE = "Usage: discard-staged.mjs --release-root .artifacts/release/VERSION --source-commit FULL_SHA";
+const USAGE = "Usage: discard-staged.mjs --release-root .artifacts/release/<set-id> --source-commit FULL_SHA";
 const FAILURE = "Staged release discard failed safely";
 const COMMIT = /^[0-9a-f]{40}$/u;
 const TOKEN = /^[0-9a-f]{32}$/u;
@@ -27,8 +27,8 @@ function jsonLine(value) {
   return `${JSON.stringify(value)}\n`;
 }
 
-function stableVersion(value) {
-  try { return parseReleaseVersion(`${value}\n`); } catch { throw new TypeError(USAGE); }
+function commitReleaseSet(value, sourceCommit) {
+  try { return parseReleaseSetId(value, sourceCommit); } catch { throw new TypeError(USAGE); }
 }
 
 export function parseDiscardStagedArguments(argv, root = ROOT) {
@@ -36,8 +36,8 @@ export function parseDiscardStagedArguments(argv, root = ROOT) {
       || argv[2] !== "--source-commit" || typeof argv[1] !== "string" || typeof argv[3] !== "string"
       || typeof root !== "string" || !isAbsolute(root) || resolve(root) !== root || root === sep
       || !COMMIT.test(argv[3])) throw new TypeError(USAGE);
-  const match = /^\.artifacts\/release\/((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))$/u.exec(argv[1]);
-  if (match === null || stableVersion(match[1]) !== match[1]) throw new TypeError(USAGE);
+  const match = /^\.artifacts\/release\/([A-Za-z0-9.-]+)$/u.exec(argv[1]);
+  if (match === null || commitReleaseSet(match[1], argv[3]) !== match[1]) throw new TypeError(USAGE);
   return { releaseRoot: resolve(root, ...argv[1].split("/")), sourceCommit: argv[3] };
 }
 
@@ -64,6 +64,11 @@ function ownedCanonicalDirectory(path) {
   return stat;
 }
 
+function verifiedReport(report, releaseSet, sourceCommit) {
+  return report?.schemaVersion === 2 && report.ok === true && report.releaseSet === releaseSet
+    && report.sourceCommit === sourceCommit && Number.isInteger(report.artifacts) && report.artifacts > 0;
+}
+
 function sameIdentity(left, right) {
   return left.dev === right.dev && left.ino === right.ino && left.uid === right.uid;
 }
@@ -82,13 +87,11 @@ export async function discardStagedRelease(options) {
     if (root !== values.root || root === sep || !COMMIT.test(sourceCommit)) throw new Error();
     releaseRoot = values.releaseRoot;
     if (typeof releaseRoot !== "string" || !isAbsolute(releaseRoot) || resolve(releaseRoot) !== releaseRoot) throw new Error();
-    const version = stableVersion(basename(releaseRoot));
-    if (releaseRoot !== resolve(root, ".artifacts", "release", version)) throw new Error();
+    const releaseSet = commitReleaseSet(basename(releaseRoot), sourceCommit);
+    if (releaseRoot !== resolve(root, ".artifacts", "release", releaseSet)) throw new Error();
     before = ownedCanonicalDirectory(releaseRoot);
-    const verified = await verifier({ outputDirectory: releaseRoot, version, sourceCommit });
-    if (verified?.schemaVersion !== 1 || verified?.ok !== true
-        || verified?.artifacts !== RELEASE_STAGE_ARTIFACT_COUNT
-        || verified?.version !== version || verified?.sourceCommit !== sourceCommit) throw new Error();
+    const verified = await verifier({ outputDirectory: releaseRoot, releaseSet, sourceCommit });
+    if (!verifiedReport(verified, releaseSet, sourceCommit)) throw new Error();
     const confirmed = ownedCanonicalDirectory(releaseRoot);
     if (!sameIdentity(before, confirmed)) throw new Error();
 
@@ -105,15 +108,13 @@ export async function discardStagedRelease(options) {
     if ((quarantineStat.mode & 0o077n) !== 0n) throw new Error();
     const token = tokenFactory();
     if (typeof token !== "string" || !TOKEN.test(token)) throw new Error();
-    destination = resolve(quarantine, `${version}-${sourceCommit.slice(0, 12)}-${token}`);
+    destination = resolve(quarantine, `${releaseSet}-${sourceCommit.slice(0, 12)}-${token}`);
     renameSync(releaseRoot, destination);
     moved = true;
     const movedStat = ownedCanonicalDirectory(destination);
     if (!sameIdentity(before, movedStat) || relative(quarantine, destination).startsWith("..")) throw new Error();
-    const reverified = await verifier({ outputDirectory: destination, version, sourceCommit });
-    if (reverified?.schemaVersion !== 1 || reverified?.ok !== true
-        || reverified?.artifacts !== RELEASE_STAGE_ARTIFACT_COUNT
-        || reverified?.version !== version || reverified?.sourceCommit !== sourceCommit
+    const reverified = await verifier({ outputDirectory: destination, releaseSet, sourceCommit });
+    if (!verifiedReport(reverified, releaseSet, sourceCommit)
         || !sameIdentity(before, ownedCanonicalDirectory(destination))) throw new Error();
     rmSync(destination, { recursive: true, force: false });
     moved = false;
@@ -125,10 +126,10 @@ export async function discardStagedRelease(options) {
     }
     try { rmdirSync(quarantine); } catch { /* The empty private quarantine parent may be reused. */ }
     return Object.freeze({
-      schemaVersion: 1,
+      schemaVersion: 2,
       ok: true,
-      removed: `.artifacts/release/${version}`,
-      version,
+      removed: `.artifacts/release/${releaseSet}`,
+      releaseSet,
       sourceCommit,
     });
   } catch {

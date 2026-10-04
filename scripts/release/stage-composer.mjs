@@ -21,7 +21,9 @@ import { promisify, TextDecoder, types as utilTypes } from "node:util";
 
 import { parseDocument } from "yaml";
 
+import { unitIdForArtifact } from "./plan.mjs";
 import { parseReleaseVersion, RELEASE_ARTIFACTS } from "./release-model.mjs";
+import { RELEASE_UNITS, dependencyOrder } from "./units.mjs";
 
 const execFileAsync = promisify(execFile);
 const UTF8 = new TextDecoder("utf-8", { fatal: true });
@@ -29,6 +31,9 @@ const MAX_TREE_BYTES = 2 * 1024 * 1024;
 const MAX_BLOB_BYTES = 16 * 1024 * 1024;
 const MAX_PACKAGE_BYTES = 64 * 1024 * 1024;
 const MAX_FILES = 1_024;
+export const COMPOSER_UNIT_IDS = Object.freeze(
+  RELEASE_UNITS.filter(({ kind }) => kind === "composer").map(({ id }) => id),
+);
 const SYMFONY_CONSTRAINT = "^7.4 || ^8.0";
 const CONTRACTS = Object.freeze({
   "8lines/gauntlet-php-core": Object.freeze({
@@ -60,13 +65,55 @@ function validateOptions(options) {
   }
   const descriptors = Object.getOwnPropertyDescriptors(options);
   const keys = Reflect.ownKeys(descriptors);
-  const wanted = ["root", "outputDirectory", "sourceCommit"];
+  const wanted = ["root", "outputDirectory", "sourceCommit", "versions", "include"];
   if (keys.length !== wanted.length || wanted.some((key) => !keys.includes(key))
       || keys.some((key) => typeof key !== "string" || !wanted.includes(key)
         || descriptors[key].enumerable !== true || !("value" in descriptors[key]))) {
     throw new TypeError("Composer staging options must be a closed data object");
   }
-  return Object.freeze(Object.fromEntries(wanted.map((key) => [key, descriptors[key].value])));
+  return Object.freeze({
+    root: descriptors.root.value,
+    outputDirectory: descriptors.outputDirectory.value,
+    sourceCommit: descriptors.sourceCommit.value,
+    versions: validateUnitVersions(descriptors.versions.value),
+    include: validateInclude(descriptors.include.value),
+  });
+}
+
+function validateUnitVersions(versions) {
+  try {
+    if (versions === null || typeof versions !== "object" || Array.isArray(versions) || utilTypes.isProxy(versions)
+        || ![Object.prototype, null].includes(Object.getPrototypeOf(versions))) throw new Error();
+    const descriptors = Object.getOwnPropertyDescriptors(versions);
+    const keys = Reflect.ownKeys(descriptors);
+    if (keys.length !== COMPOSER_UNIT_IDS.length
+        || keys.some((key) => typeof key !== "string" || !COMPOSER_UNIT_IDS.includes(key)
+          || descriptors[key].enumerable !== true || !("value" in descriptors[key])
+          || typeof descriptors[key].value !== "string"
+          || parseReleaseVersion(`${descriptors[key].value}\n`) !== descriptors[key].value)) throw new Error();
+    return Object.freeze(Object.fromEntries(COMPOSER_UNIT_IDS.map((id) => [id, descriptors[id].value])));
+  } catch {
+    return fixedFailure();
+  }
+}
+
+function validateInclude(include) {
+  try {
+    if (!Array.isArray(include) || utilTypes.isProxy(include) || include.length === 0
+        || Object.getPrototypeOf(include) !== Array.prototype
+        || Reflect.ownKeys(include).length !== include.length + 1) throw new Error();
+    const ids = [];
+    for (let index = 0; index < include.length; index += 1) {
+      const descriptor = Object.getOwnPropertyDescriptor(include, String(index));
+      if (descriptor === undefined || !("value" in descriptor) || !COMPOSER_UNIT_IDS.includes(descriptor.value)) throw new Error();
+      ids.push(descriptor.value);
+    }
+    if (new Set(ids).size !== ids.length
+        || JSON.stringify(dependencyOrder(ids)) !== JSON.stringify(ids)) throw new Error();
+    return Object.freeze(ids);
+  } catch {
+    return fixedFailure();
+  }
 }
 
 function validateDirectory(path, label, { privateDirectory = false } = {}) {
@@ -244,7 +291,7 @@ function parseJson(bytes) {
   }
 }
 
-function validateManifest(manifest, artifact, version) {
+function validateManifest(manifest, artifact, version, coreVersion) {
   try {
     if (manifest.name !== artifact.name || manifest.version !== version || manifest.license !== "Apache-2.0"
         || manifest.require?.php !== ">=8.3" || manifest.config?.["allow-plugins"] !== false) throw new Error();
@@ -253,7 +300,7 @@ function validateManifest(manifest, artifact, version) {
     } else {
       if (!Array.isArray(manifest.repositories) || manifest.repositories.length !== 1
           || !exactJson(manifest.repositories[0], { type: "path", url: "../core", options: { symlink: false } })
-          || manifest.require["8lines/gauntlet-php-core"] !== `^${version}`) throw new Error();
+          || manifest.require["8lines/gauntlet-php-core"] !== `^${coreVersion}`) throw new Error();
       for (const [name, constraint] of [
         ...Object.entries(manifest.require ?? {}),
         ...Object.entries(manifest["require-dev"] ?? {}),
@@ -266,9 +313,9 @@ function validateManifest(manifest, artifact, version) {
   }
 }
 
-function projectManifest(bytes, artifact, version) {
+function projectManifest(bytes, artifact, version, coreVersion) {
   const manifest = parseJson(bytes);
-  validateManifest(manifest, artifact, version);
+  validateManifest(manifest, artifact, version, coreVersion);
   if (artifact.name === "8lines/gauntlet-symfony-bundle") delete manifest.repositories;
   return Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`);
 }
@@ -324,7 +371,7 @@ function snapshotProjection(root, records) {
   if (!exactJson(found.sort(binaryCompare), [...expected.keys()].sort(binaryCompare))) fixedFailure();
 }
 
-async function capturePackage(root, artifact, version, commit, environment, guards, rootLicense) {
+async function capturePackage(root, artifact, version, coreVersion, commit, environment, guards, rootLicense) {
   const contract = CONTRACTS[artifact.name];
   if (contract === undefined) fixedFailure();
   const treeBytes = await runGit(root, ["ls-tree", "-rz", "--full-tree", commit, "--", artifact.directory], environment, guards);
@@ -344,7 +391,7 @@ async function capturePackage(root, artifact, version, commit, environment, guar
   const license = records.find(({ path }) => path === "LICENSE");
   const manifest = records.find(({ path }) => path === "composer.json");
   if (license === undefined || manifest === undefined || !license.bytes.equals(rootLicense)) fixedFailure();
-  const projectedManifest = projectManifest(manifest.bytes, artifact, version);
+  const projectedManifest = projectManifest(manifest.bytes, artifact, version, coreVersion);
   const projected = records.map((record) => record.path === "composer.json"
     ? Object.freeze({ path: record.path, bytes: projectedManifest })
     : record);
@@ -360,7 +407,7 @@ async function capturePackage(root, artifact, version, commit, environment, guar
 }
 
 export async function stageComposerPackages(options) {
-  const { root, outputDirectory, sourceCommit } = validateOptions(options);
+  const { root, outputDirectory, sourceCommit, versions, include } = validateOptions(options);
   validateDirectory(root, "Composer staging root");
   validateDirectory(outputDirectory, "Composer staging output", { privateDirectory: true });
   if (typeof sourceCommit !== "string" || !/^[0-9a-f]{40}$/.test(sourceCommit)
@@ -387,12 +434,6 @@ export async function stageComposerPackages(options) {
     const topLevel = await runGit(root, ["rev-parse", "--show-toplevel"], environment, rootGuards);
     if (!topLevel.equals(Buffer.from(`${root}\n`))) fixedFailure();
     await runGit(root, ["cat-file", "-e", `${sourceCommit}^{commit}`], environment, rootGuards, 1024);
-    const versionTree = parseTree(
-      await runGit(root, ["ls-tree", "-z", "--full-tree", sourceCommit, "--", "VERSION"], environment, rootGuards, 4096),
-      "",
-    );
-    if (versionTree.length !== 1 || versionTree[0].relativePath !== "VERSION") fixedFailure();
-    const version = parseReleaseVersion(await readBlob(root, versionTree[0].oid, environment, rootGuards));
     const licenseTree = parseTree(
       await runGit(root, ["ls-tree", "-z", "--full-tree", sourceCommit, "--", "LICENSE"], environment, rootGuards, 4096),
       "",
@@ -400,8 +441,12 @@ export async function stageComposerPackages(options) {
     if (licenseTree.length !== 1 || licenseTree[0].relativePath !== "LICENSE") fixedFailure();
     const rootLicense = await readBlob(root, licenseTree[0].oid, environment, rootGuards);
     const captures = [];
-    for (const artifact of RELEASE_ARTIFACTS.composer) {
-      captures.push(await capturePackage(root, artifact, version, sourceCommit, environment, rootGuards, rootLicense));
+    for (const id of include) {
+      const artifact = RELEASE_ARTIFACTS.composer.find(({ name }) => unitIdForArtifact(name) === id);
+      if (artifact === undefined) fixedFailure();
+      captures.push(await capturePackage(
+        root, artifact, versions[id], versions["php-core"], sourceCommit, environment, rootGuards, rootLicense,
+      ));
     }
     rmSync(workspace, { recursive: true, force: false });
     for (const capture of captures) {
@@ -424,7 +469,7 @@ export async function stageComposerPackages(options) {
       return Object.freeze({
         kind: "composer",
         name: capture.artifact.name,
-        version,
+        version: versions[unitIdForArtifact(capture.artifact.name)],
         path,
         repository: capture.artifact.repository,
         repositoryUrl: capture.artifact.repositoryUrl,

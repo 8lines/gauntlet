@@ -18,7 +18,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 
-import { stageComposerPackages } from "../stage-composer.mjs";
+import { COMPOSER_UNIT_IDS, stageComposerPackages } from "../stage-composer.mjs";
 
 const NOTICE = readFileSync(resolve(import.meta.dirname, "../../../LICENSE"));
 
@@ -69,11 +69,14 @@ function manifest(name, type, require_, extra = {}, version = "0.1.0") {
   }, null, 2)}\n`;
 }
 
-function createFixture(version = "0.1.0") {
+function composerVersions(version) {
+  return Object.fromEntries(COMPOSER_UNIT_IDS.map((id) => [id, version]));
+}
+
+function createFixture(version = "0.1.0", { bundleVersion = version } = {}) {
   const sandbox = realpathSync(mkdtempSync(resolve(tmpdir(), "gauntlet-composer-stage-test-")));
   const root = resolve(sandbox, "source");
   mkdirSync(root, { mode: 0o700 });
-  write(root, "VERSION", `${version}\n`);
   write(root, "LICENSE", NOTICE);
   write(root, "packages/php/core/LICENSE", NOTICE);
   write(root, "packages/php/core/README.md", "# Core\n");
@@ -105,7 +108,7 @@ function createFixture(version = "0.1.0") {
       "symfony/framework-bundle": "^7.4 || ^8.0",
     },
     { repositories: [{ type: "path", url: "../core", options: { symlink: false } }] },
-    version,
+    bundleVersion,
   ));
   runGit(root, ["init", "--initial-branch=main"]);
   runGit(root, ["add", "."]);
@@ -130,6 +133,8 @@ test("stages Composer packages after a release bump to 0.1.1", async () => {
       root: fixture.root,
       outputDirectory: fixture.output,
       sourceCommit: fixture.commit,
+      versions: composerVersions("0.1.1"),
+      include: COMPOSER_UNIT_IDS,
     });
     assert.deepEqual(artifacts.map(({ version }) => version), ["0.1.1", "0.1.1"]);
     assert.equal(
@@ -175,6 +180,8 @@ test("stages two deterministic Composer VCS trees from exact Git blobs", async (
       root: fixture.root,
       outputDirectory: fixture.output,
       sourceCommit: fixture.commit,
+      versions: composerVersions("0.1.0"),
+      include: COMPOSER_UNIT_IDS,
     });
     assert.deepEqual(artifacts.map(({ name }) => name), [
       "8lines/gauntlet-php-core",
@@ -206,7 +213,10 @@ test("stages two deterministic Composer VCS trees from exact Git blobs", async (
     const secondOutput = resolve(fixture.sandbox, "second-output");
     mkdirSync(secondOutput, { mode: 0o700 });
     chmodSync(secondOutput, 0o700);
-    const second = await stageComposerPackages({ root: fixture.root, outputDirectory: secondOutput, sourceCommit: fixture.commit });
+    const second = await stageComposerPackages({
+      root: fixture.root, outputDirectory: secondOutput, sourceCommit: fixture.commit,
+      versions: composerVersions("0.1.0"), include: COMPOSER_UNIT_IDS,
+    });
     assert.deepEqual(second.map(({ name, sha256 }) => [name, sha256]), artifacts.map(({ name, sha256 }) => [name, sha256]));
   } finally {
     fixture.cleanup();
@@ -214,12 +224,23 @@ test("stages two deterministic Composer VCS trees from exact Git blobs", async (
 });
 
 test("rejects malformed options, commits, outputs, and tracked unsafe content without clobbering", async () => {
+  const base = (fixture) => ({
+    root: fixture.root,
+    outputDirectory: fixture.output,
+    sourceCommit: fixture.commit,
+    versions: composerVersions("0.1.0"),
+    include: COMPOSER_UNIT_IDS,
+  });
   for (const mutate of [
-    (fixture) => ({ root: fixture.root, outputDirectory: fixture.output, sourceCommit: "A".repeat(40) }),
-    (fixture) => ({ root: fixture.root, outputDirectory: fixture.output, sourceCommit: fixture.commit, extra: true }),
+    (fixture) => ({ ...base(fixture), sourceCommit: "A".repeat(40) }),
+    (fixture) => ({ ...base(fixture), extra: true }),
+    (fixture) => ({ ...base(fixture), versions: { "php-core": "0.1.0" } }),
+    (fixture) => ({ ...base(fixture), include: [] }),
+    (fixture) => ({ ...base(fixture), include: ["symfony-bundle", "php-core"] }),
+    (fixture) => ({ ...base(fixture), include: ["java-core"] }),
     (fixture) => {
       write(fixture.output, "FOREIGN", "KEEP\n");
-      return { root: fixture.root, outputDirectory: fixture.output, sourceCommit: fixture.commit };
+      return base(fixture);
     },
   ]) {
     const fixture = createFixture();
@@ -240,7 +261,10 @@ test("rejects malformed options, commits, outputs, and tracked unsafe content wi
       runGit(fixture.root, ["commit", "-m", "hostile"]);
       const commit = runGit(fixture.root, ["rev-parse", "HEAD"]);
       await assert.rejects(
-        stageComposerPackages({ root: fixture.root, outputDirectory: fixture.output, sourceCommit: commit }),
+        stageComposerPackages({
+          root: fixture.root, outputDirectory: fixture.output, sourceCommit: commit,
+          versions: composerVersions("0.1.0"), include: COMPOSER_UNIT_IDS,
+        }),
         { message: "Composer package staging failed closed" },
       );
       assert.deepEqual(readdirSync(fixture.output), []);
@@ -261,12 +285,56 @@ test("rejects tracked links and executable package files", async () => {
       runGit(fixture.root, ["commit", "-m", behavior]);
       const commit = runGit(fixture.root, ["rev-parse", "HEAD"]);
       await assert.rejects(
-        stageComposerPackages({ root: fixture.root, outputDirectory: fixture.output, sourceCommit: commit }),
+        stageComposerPackages({
+          root: fixture.root, outputDirectory: fixture.output, sourceCommit: commit,
+          versions: composerVersions("0.1.0"), include: COMPOSER_UNIT_IDS,
+        }),
         { message: "Composer package staging failed closed" },
       );
       assert.deepEqual(readdirSync(fixture.output), []);
     } finally {
       fixture.cleanup();
     }
+  }
+});
+
+test("stages one Composer package at its own version without reading the root VERSION", async () => {
+  const fixture = createFixture("0.2.0", { bundleVersion: "0.1.9" });
+  try {
+    const versions = { "php-core": "0.2.0", "symfony-bundle": "0.1.9" };
+    const core = await stageComposerPackages({
+      root: fixture.root, outputDirectory: fixture.output, sourceCommit: fixture.commit, versions, include: ["php-core"],
+    });
+    assert.deepEqual(core.map(({ name, version }) => [name, version]), [["8lines/gauntlet-php-core", "0.2.0"]]);
+    assert.deepEqual(readdirSync(resolve(fixture.output, "8lines")), ["gauntlet-php-core"]);
+    const source = JSON.parse(readFileSync(resolve(fixture.output, "8lines/gauntlet-php-core/.gauntlet-source.json"), "utf8"));
+    assert.equal(source.version, "0.2.0");
+  } finally {
+    rmSync(fixture.sandbox, { recursive: true, force: true });
+  }
+});
+
+test("binds the bundle to its own version and the core constraint to php-core", async () => {
+  const fixture = createFixture("0.2.0", { bundleVersion: "0.1.9" });
+  try {
+    const both = await stageComposerPackages({
+      root: fixture.root, outputDirectory: fixture.output, sourceCommit: fixture.commit,
+      versions: { "php-core": "0.2.0", "symfony-bundle": "0.1.9" }, include: ["php-core", "symfony-bundle"],
+    });
+    assert.deepEqual(both.map(({ version }) => version), ["0.2.0", "0.1.9"]);
+    const bundle = JSON.parse(readFileSync(resolve(fixture.output, "8lines/gauntlet-symfony-bundle/composer.json"), "utf8"));
+    assert.equal(bundle.require["8lines/gauntlet-php-core"], "^0.2.0");
+  } finally {
+    rmSync(fixture.sandbox, { recursive: true, force: true });
+  }
+  const mismatched = createFixture("0.2.0", { bundleVersion: "0.1.9" });
+  try {
+    await assert.rejects(stageComposerPackages({
+      root: mismatched.root, outputDirectory: mismatched.output, sourceCommit: mismatched.commit,
+      versions: { "php-core": "0.2.0", "symfony-bundle": "0.2.0" }, include: ["symfony-bundle"],
+    }));
+    assert.deepEqual(readdirSync(mismatched.output), []);
+  } finally {
+    rmSync(mismatched.sandbox, { recursive: true, force: true });
   }
 });
