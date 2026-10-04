@@ -17,13 +17,13 @@ import { types as utilTypes } from "node:util";
 import { parse } from "yaml";
 
 import { expectedReleaseArtifacts } from "./inventory.mjs";
-import { localReleaseSetId, parseReleaseSetId } from "./plan.mjs";
+import { localReleaseSetId, parseReleaseSetId, resolveReleasePlan } from "./plan.mjs";
 import { inspectDockerArchive } from "./stage-image.mjs";
 import { dependencyOrder, unitById, unitTag } from "./units.mjs";
-import { createProcessRunner, plannedReleasePhases } from "./verify.mjs";
+import { createProcessRunner, phasesForUnits, plannedReleasePhases } from "./verify.mjs";
 
 const ROOT = realpathSync(fileURLToPath(new URL("../../", import.meta.url)));
-const USAGE = "Usage: dry-run.mjs";
+const USAGE = "Usage: dry-run.mjs [--plan PATH] [--release-set release-YYYY-MM-DD.N|local-<12 hex>]";
 const FAILURE = "Release dry-run failed safely";
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 const FULL_COMMIT = /^[0-9a-f]{40}$/u;
@@ -32,6 +32,24 @@ const SHA256 = /^sha256:[0-9a-f]{64}$/u;
 const TOKEN = /^[0-9a-f]{32}$/u;
 const CONTAINER = /^gauntlet-release-registry-[0-9a-f]{24}$/u;
 const PHASES = Object.freeze(plannedReleasePhases());
+
+export const DRY_RUN_PHASE_TIMEOUT_MS = Object.freeze({
+  source: 180 * 60_000,
+  php: 90 * 60_000,
+  java: 90 * 60_000,
+  packages: 60 * 60_000,
+  security: 90 * 60_000,
+  inventory: 30 * 60_000,
+  documentation: 60 * 60_000,
+  image: 60 * 60_000,
+  helm: 60 * 60_000,
+});
+
+function phaseTimeout(phase) {
+  const timeout = DRY_RUN_PHASE_TIMEOUT_MS[phase];
+  if (!Number.isSafeInteger(timeout)) throw new TypeError();
+  return timeout;
+}
 
 export const LOCAL_REGISTRY_IMAGE = "registry:3.0.0@sha256:6c5666b861f3505b116bb9aa9b25175e71210414bd010d92035ff64018f9457e";
 
@@ -219,9 +237,25 @@ export function assertLocalRegistryInvocation(candidate, plan) {
   }
 }
 
+function safePlanPath(value) {
+  if (typeof value !== "string" || value === "" || value.includes("\\") || /[\u0000-\u001f\u007f,]/u.test(value)) return false;
+  if (isAbsolute(value)) return resolve(value) === value && value !== sep;
+  return value.split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
+}
+
 export function parseDryRunArguments(argv) {
-  if (!Array.isArray(argv) || argv.length !== 0) throw new TypeError(USAGE);
-  return {};
+  if (!Array.isArray(argv) || argv.length % 2 !== 0 || argv.some((value) => typeof value !== "string")) {
+    throw new TypeError(USAGE);
+  }
+  let planPath = null;
+  let releaseSet = null;
+  for (let index = 0; index < argv.length; index += 2) {
+    const [flag, value] = [argv[index], argv[index + 1]];
+    if (flag === "--plan" && planPath === null && safePlanPath(value)) planPath = value;
+    else if (flag === "--release-set" && releaseSet === null && isReleaseSetId(value)) releaseSet = value;
+    else throw new TypeError(USAGE);
+  }
+  return { planPath, releaseSet };
 }
 
 function defaultWorkspaceLifecycle() {
@@ -288,14 +322,21 @@ function optionsValues(options) {
       || ![Object.prototype, null].includes(Object.getPrototypeOf(options))) throw new TypeError();
   const descriptors = Object.getOwnPropertyDescriptors(options);
   const keys = Reflect.ownKeys(descriptors);
-  if (keys.some((key) => typeof key !== "string" || !["root", "runner", "workspace", "archiveInspector"].includes(key)
+  if (keys.some((key) => typeof key !== "string"
+      || !["root", "runner", "workspace", "archiveInspector", "planPath", "releaseSet", "readPlan"].includes(key)
       || descriptors[key].enumerable !== true || !("value" in descriptors[key]))) throw new TypeError();
   const root = canonicalAbsolute(descriptors.root?.value ?? ROOT);
   const runner = descriptors.runner?.value ?? createProcessRunner();
   const workspace = validateLifecycle(descriptors.workspace?.value ?? defaultWorkspaceLifecycle());
   const archiveInspector = descriptors.archiveInspector?.value ?? inspectDockerArchive;
-  if (typeof runner !== "function" || typeof archiveInspector !== "function") throw new TypeError();
-  return { root, runner, workspace, archiveInspector };
+  const planPath = descriptors.planPath?.value ?? null;
+  const releaseSet = descriptors.releaseSet?.value ?? null;
+  const readPlan = descriptors.readPlan?.value ?? resolveReleasePlan;
+  if (typeof runner !== "function" || typeof archiveInspector !== "function" || typeof readPlan !== "function"
+      || (planPath !== null && !safePlanPath(planPath)) || (releaseSet !== null && !isReleaseSetId(releaseSet))) {
+    throw new TypeError();
+  }
+  return { root, runner, workspace, archiveInspector, planPath, releaseSet, readPlan };
 }
 
 function closeCommandResult(value) {
@@ -328,8 +369,12 @@ function deepFreeze(value) {
   return Object.freeze(value);
 }
 
+function recordSettled(record) {
+  return record.status === "passed" || record.status === "skipped";
+}
+
 function dryReport(records, {
-  ok, sourceChecksOk, status, version = null, sourceCommit = null, releaseSet, failure, evidence,
+  ok, sourceChecksOk, status, version = null, sourceCommit = null, releaseSet, units, failure, evidence,
 } = {}) {
   return Object.freeze({
     schemaVersion: 1,
@@ -338,10 +383,11 @@ function dryReport(records, {
     status,
     ok,
     sourceChecksOk,
-    releaseReady: ok === true && records.every((record) => record.status === "passed"),
+    releaseReady: ok === true && records.every(recordSettled),
     version,
     sourceCommit,
     ...(releaseSet === undefined ? {} : { releaseSet }),
+    ...(units === undefined ? {} : { units: deepFreeze(units.map(({ id, from, to }) => ({ id, from, to }))) }),
     phases: freezeRecords(records),
     ...(failure === undefined ? {} : { failure: Object.freeze({ ...failure }) }),
     ...(evidence === undefined ? {} : { evidence: deepFreeze(evidence) }),
@@ -384,7 +430,7 @@ function failure(code, phase, exitCode, records, version, sourceCommit) {
 async function execute(runner, call, phase, records, state, { expectedStatus = 0 } = {}) {
   let raw;
   try {
-    raw = await runner({ ...call, phase, timeoutMs: phase === "security" ? 90 * 60_000 : 30 * 60_000 });
+    raw = await runner({ ...call, phase, timeoutMs: phaseTimeout(phase) });
   } catch {
     throw failure("EXECUTION_FAILED", phase, 1, records, state.version, state.sourceCommit);
   }
@@ -399,7 +445,7 @@ async function execute(runner, call, phase, records, state, { expectedStatus = 0
 async function executeRaw(runner, call, phase, records, state) {
   let raw;
   try {
-    raw = await runner({ ...call, phase, timeoutMs: 30 * 60_000 });
+    raw = await runner({ ...call, phase, timeoutMs: phaseTimeout(phase) });
   } catch {
     throw failure("EXECUTION_FAILED", phase, 1, records, state.version, state.sourceCommit);
   }
@@ -445,20 +491,23 @@ async function observeSource(root, runner, records, state, initial) {
   return { sourceCommit, version };
 }
 
-function validateDevelopmentReport(result, version) {
+const DEVELOPMENT_STATUS = new Map([
+  ["source", "passed"], ["node", "passed"], ["php", "partial"], ["java", "partial"],
+  ["conformance", "passed"], ["skills", "passed"], ["dashboard", "passed"], ["image", "passed"],
+  ["compose", "passed"], ["helm", "passed"], ["security", "partial"], ["packages", "partial"],
+  ["inventory", "not-run"], ["documentation", "partial"],
+]);
+
+function validateDevelopmentReport(result, version, plan) {
   const value = oneJsonLine(result.stdout);
-  const expectedStatus = new Map([
-    ["source", "passed"], ["node", "passed"], ["php", "partial"], ["java", "partial"],
-    ["conformance", "passed"], ["skills", "passed"], ["dashboard", "passed"], ["image", "passed"],
-    ["compose", "passed"], ["helm", "passed"], ["security", "partial"], ["packages", "partial"],
-    ["inventory", "not-run"], ["documentation", "partial"],
-  ]);
+  const needed = new Set(phasesForUnits(plan.order));
   if (result.stderr !== "" || value.schemaVersion !== 1 || value.mode !== "development"
       || value.scope !== "source-only" || value.status !== "partial" || value.ok !== false
       || value.sourceChecksOk !== true || value.releaseReady !== false || value.version !== version
+      || JSON.stringify(value.units) !== JSON.stringify(plan.order)
       || !Array.isArray(value.phases) || value.phases.length !== PHASES.length
       || value.phases.some((phase, index) => phase?.name !== PHASES[index]
-        || phase.status !== expectedStatus.get(phase.name))) throw new Error();
+        || phase.status !== (needed.has(phase.name) ? DEVELOPMENT_STATUS.get(phase.name) : "skipped"))) throw new Error();
   return value;
 }
 
@@ -475,16 +524,19 @@ function stagedUnits(value) {
   return Object.freeze(units);
 }
 
-// Until plan scoping reaches the dry run, the staged set must include the application at the
-// observed repository version; every staged unit must account for exactly its expected artifacts.
-function validateStageOutput(result, root, releaseRoot, releaseSet, sourceCommit, version) {
+// The staged set must be exactly the planned units at their planned versions, a planned application must
+// be the observed repository version, and every staged unit must account for exactly its expected artifacts.
+function validateStageOutput(result, root, releaseRoot, releaseSet, sourceCommit, version, plan) {
   const value = oneJsonLine(result.stdout);
   const output = exactObject(value, ["artifacts", "outputDirectory", "releaseSet", "sourceCommit", "units"]);
   if (result.stderr !== "" || output === undefined || output.outputDirectory !== releaseRoot
       || output.releaseSet !== releaseSet || output.sourceCommit !== sourceCommit
       || releaseRoot !== resolve(root, ".artifacts", "release", releaseSet)) throw new Error();
   const units = stagedUnits(output.units);
-  if (units.find(({ id }) => id === "gauntlet")?.version !== version
+  const planned = plan.units.map(({ id, to }) => ({ id, version: to }));
+  const application = units.find(({ id }) => id === "gauntlet");
+  if (JSON.stringify(units) !== JSON.stringify(planned)
+      || (application !== undefined && application.version !== version)
       || output.artifacts !== expectedReleaseArtifacts(units).length) throw new Error();
   return units;
 }
@@ -532,6 +584,17 @@ function validateInventoryOutput(result, releaseSet, sourceCommit, units, versio
       || report.artifacts !== expectedReleaseArtifacts(units).length
       || typeof report.manifestSha256 !== "string" || !/^[0-9a-f]{64}$/u.test(report.manifestSha256)
       || typeof report.checksumsSha256 !== "string" || !/^[0-9a-f]{64}$/u.test(report.checksumsSha256)) throw new Error();
+  if (!units.some(({ id }) => id === "gauntlet")) {
+    if (report.nativeImage !== null || report.multiPlatformOci !== null || report.helmChart !== null) throw new Error();
+    return Object.freeze({
+      artifacts: report.artifacts,
+      manifestSha256: report.manifestSha256,
+      checksumsSha256: report.checksumsSha256,
+      nativeImage: null,
+      multiPlatformOci: null,
+      helmChart: null,
+    });
+  }
   const nativeImage = exactArtifactEvidence(report.nativeImage, `image/gauntlet-${version}.docker.tar`);
   const helmChart = exactArtifactEvidence(report.helmChart, `helm/gauntlet-${version}.tgz`);
   const oci = exactObject(report.multiPlatformOci, ["path", "sha256", "platforms", "verification"]);
@@ -660,7 +723,7 @@ function validateChart(result, version) {
 
 async function cleanupCommand(runner, call, phase) {
   try {
-    return closeCommandResult(await runner({ ...call, phase, timeoutMs: 30 * 60_000 }));
+    return closeCommandResult(await runner({ ...call, phase, timeoutMs: phaseTimeout(phase) }));
   } catch {
     return undefined;
   }
@@ -904,6 +967,26 @@ async function rehearseRegistry({
   if (primary !== undefined) throw primary;
 }
 
+function planHasKind(plan, kind) {
+  return plan.order.some((id) => unitById(id).kind === kind);
+}
+
+function setRecord(records, name, status, reason) {
+  records[PHASES.indexOf(name)] = reason === undefined ? { name, status } : { name, status, reason };
+}
+
+function readReleasePlanSafely(readPlan, root, planPath) {
+  const resolved = readPlan(root, planPath);
+  const plan = resolved?.plan;
+  const path = resolved?.path;
+  if (plan === null || typeof plan !== "object" || !Array.isArray(plan.units) || !Array.isArray(plan.order)
+      || plan.units.length === 0 || plan.units.length !== plan.order.length
+      || plan.units.some((entry, index) => entry?.id !== plan.order[index] || typeof entry.to !== "string")
+      || (path !== null && !safePlanPath(path))) throw new Error();
+  phasesForUnits(plan.order);
+  return { plan, path };
+}
+
 export async function runDryRun(options = {}) {
   const records = freshRecords();
   const state = { version: null, sourceCommit: null };
@@ -911,11 +994,25 @@ export async function runDryRun(options = {}) {
   try { values = optionsValues(options); } catch {
     throw failure("INVALID_OPTIONS", null, 1, records, state.version, state.sourceCommit);
   }
-  const { root, runner, workspace, archiveInspector } = values;
+  const { root, runner, workspace, archiveInspector, planPath, readPlan } = values;
   let observed = await observeSource(root, runner, records, state, true);
   state.version = observed.version;
   state.sourceCommit = observed.sourceCommit;
-  const releaseSet = localReleaseSetId(state.sourceCommit);
+  let plan;
+  let resolvedPlanPath;
+  try {
+    ({ plan, path: resolvedPlanPath } = readReleasePlanSafely(readPlan, root, planPath));
+  } catch {
+    throw failure("OUTPUT_INVALID", "source", 1, records, state.version, state.sourceCommit);
+  }
+  let releaseSet;
+  try {
+    releaseSet = parseReleaseSetId(values.releaseSet ?? localReleaseSetId(state.sourceCommit), state.sourceCommit);
+  } catch {
+    throw failure("RELEASE_SET_MISMATCH", "source", 1, records, state.version, state.sourceCommit);
+  }
+  const planArgs = resolvedPlanPath === null ? [] : ["--plan", resolvedPlanPath];
+  const releasesApplication = plan.order.includes("gauntlet");
   const releaseRoot = resolve(root, ".artifacts", "release", releaseSet);
   let occupied;
   try { occupied = await workspace.outputExists(releaseRoot); } catch {
@@ -926,18 +1023,21 @@ export async function runDryRun(options = {}) {
   }
   if (occupied) throw failure("OUTPUT_OCCUPIED", "source", 1, records, state.version, state.sourceCommit);
 
-  const verifyCall = invocation(process.execPath, [resolve(root, "scripts/release/verify.mjs")], root);
+  const verifyCall = invocation(process.execPath, [resolve(root, "scripts/release/verify.mjs"), ...planArgs], root);
   const verifyResult = await execute(runner, verifyCall, "source", records, state);
   let development;
-  try { development = validateDevelopmentReport(verifyResult, state.version); } catch {
+  try { development = validateDevelopmentReport(verifyResult, state.version, plan); } catch {
     throw failure("OUTPUT_INVALID", "source", 1, records, state.version, state.sourceCommit);
   }
   for (const [index, phase] of development.phases.entries()) {
-    records[index] = { name: phase.name, status: phase.status };
+    records[index] = phase.status === "skipped"
+      ? { name: phase.name, status: "skipped", reason: "not-in-release-plan" }
+      : { name: phase.name, status: phase.status };
   }
   records[0] = { name: "source", status: "passed" };
   for (const phase of ["image", "helm"]) {
-    records[PHASES.indexOf(phase)] = { name: phase, status: "not-run", reason: "release-rehearsal-not-reached" };
+    if (releasesApplication) setRecord(records, phase, "not-run", "release-rehearsal-not-reached");
+    else setRecord(records, phase, "skipped", "not-in-release-plan");
   }
 
   observed = await observeSource(root, runner, records, state, false);
@@ -945,34 +1045,44 @@ export async function runDryRun(options = {}) {
     throw failure("SOURCE_MUTATED", "source", 1, records, state.version, state.sourceCommit);
   }
 
-  const composer = invocation("pnpm", ["test:composer:consumer"], root);
-  await execute(runner, composer, "php", records, state);
-  records[PHASES.indexOf("php")] = { name: "php", status: "passed" };
+  if (planHasKind(plan, "composer")) {
+    const composer = invocation("pnpm", ["test:composer:consumer"], root);
+    await execute(runner, composer, "php", records, state);
+    setRecord(records, "php", "passed");
+  }
 
-  const java = invocation("pnpm", ["test:java:release"], root);
-  await execute(runner, java, "java", records, state);
-  records[PHASES.indexOf("java")] = { name: "java", status: "passed" };
+  if (planHasKind(plan, "maven")) {
+    const java = invocation("pnpm", ["test:java:release"], root);
+    await execute(runner, java, "java", records, state);
+    setRecord(records, "java", "passed");
+  }
 
   const stage = invocation(process.execPath, [
-    resolve(root, "scripts/release/stage.mjs"), "--output", releaseRoot, "--release-set", releaseSet,
+    resolve(root, "scripts/release/stage.mjs"), "--output", releaseRoot, ...planArgs, "--release-set", releaseSet,
   ], root);
   const staged = await execute(runner, stage, "packages", records, state);
   let units;
-  try { units = validateStageOutput(staged, root, releaseRoot, releaseSet, state.sourceCommit, state.version); } catch {
+  try {
+    units = validateStageOutput(staged, root, releaseRoot, releaseSet, state.sourceCommit, state.version, plan);
+  } catch {
     throw failure("OUTPUT_INVALID", "packages", 1, records, state.version, state.sourceCommit);
   }
-  records[PHASES.indexOf("packages")] = { name: "packages", status: "passed" };
+  setRecord(records, "packages", "passed");
 
   const relativeReleaseRoot = `.artifacts/release/${releaseSet}`;
-  const imageArchive = `${relativeReleaseRoot}/image/gauntlet-${state.version}.docker.tar`;
-  const security = invocation(process.execPath, [
-    resolve(root, "scripts/release/security.mjs"), "--image-archive", imageArchive,
-  ], root);
-  const secured = await execute(runner, security, "security", records, state);
-  try { validateSecurityOutput(secured, state.sourceCommit); } catch {
-    throw failure("OUTPUT_INVALID", "security", 1, records, state.version, state.sourceCommit);
+  if (releasesApplication) {
+    const imageArchive = `${relativeReleaseRoot}/image/gauntlet-${state.version}.docker.tar`;
+    const security = invocation(process.execPath, [
+      resolve(root, "scripts/release/security.mjs"), "--image-archive", imageArchive,
+    ], root);
+    const secured = await execute(runner, security, "security", records, state);
+    try { validateSecurityOutput(secured, state.sourceCommit); } catch {
+      throw failure("OUTPUT_INVALID", "security", 1, records, state.version, state.sourceCommit);
+    }
+    setRecord(records, "security", "passed");
+  } else {
+    setRecord(records, "security", "skipped", "not-in-release-plan");
   }
-  records[PHASES.indexOf("security")] = { name: "security", status: "passed" };
 
   const inventoryCall = invocation(process.execPath, [
     resolve(root, "scripts/release/verify-inventory.mjs"), "--release-root", releaseRoot,
@@ -982,53 +1092,60 @@ export async function runDryRun(options = {}) {
   try { inventory = validateInventoryOutput(checked, releaseSet, state.sourceCommit, units, state.version); } catch {
     throw failure("OUTPUT_INVALID", "inventory", 1, records, state.version, state.sourceCommit);
   }
-  records[PHASES.indexOf("inventory")] = { name: "inventory", status: "passed" };
+  setRecord(records, "inventory", "passed");
 
-  const documentation = invocation("pnpm", [
-    "docs:verify-commands", "--release-root", relativeReleaseRoot,
-  ], root);
-  const documented = await execute(runner, documentation, "documentation", records, state);
-  try { validateDocumentationOutput(documented, relativeReleaseRoot); } catch {
-    throw failure("OUTPUT_INVALID", "documentation", 1, records, state.version, state.sourceCommit);
-  }
-  records[PHASES.indexOf("documentation")] = { name: "documentation", status: "passed" };
+  let registryEvidence = null;
+  if (releasesApplication) {
+    const documentation = invocation("pnpm", [
+      "docs:verify-commands", "--release-root", relativeReleaseRoot,
+    ], root);
+    const documented = await execute(runner, documentation, "documentation", records, state);
+    try { validateDocumentationOutput(documented, relativeReleaseRoot); } catch {
+      throw failure("OUTPUT_INVALID", "documentation", 1, records, state.version, state.sourceCommit);
+    }
+    setRecord(records, "documentation", "passed");
 
-  let archive;
-  try {
-    archive = archiveInspector({
-      archivePath: resolve(releaseRoot, inventory.nativeImage.path),
-      platform: localImagePlatform(),
-      sourceCommit: state.sourceCommit,
+    let archive;
+    try {
+      archive = archiveInspector({
+        archivePath: resolve(releaseRoot, inventory.nativeImage.path),
+        platform: localImagePlatform(),
+        sourceCommit: state.sourceCommit,
+        version: state.version,
+      });
+      const expectedArchive = exactObject(archive, ["platform", "runtimeImageIds", "tag"]);
+      const expectedPlatform = localImagePlatform();
+      const runtimeImageIds = verifiedRuntimeImageIds(expectedArchive?.runtimeImageIds);
+      if (expectedArchive === undefined || expectedArchive.platform !== expectedPlatform
+          || expectedArchive.tag !== `gauntlet.local/gauntlet:${state.version}`
+          || runtimeImageIds === undefined) throw new Error();
+      archive = Object.freeze({ ...expectedArchive, runtimeImageIds });
+    } catch {
+      throw failure("OUTPUT_INVALID", "image", 1, records, state.version, state.sourceCommit);
+    }
+
+    registryEvidence = await rehearseRegistry({
+      root,
+      releaseRoot,
       version: state.version,
+      runner,
+      workspaceLifecycle: workspace,
+      records,
+      state,
+      inventory,
+      archive,
     });
-    const expectedArchive = exactObject(archive, ["platform", "runtimeImageIds", "tag"]);
-    const expectedPlatform = localImagePlatform();
-    const runtimeImageIds = verifiedRuntimeImageIds(expectedArchive?.runtimeImageIds);
-    if (expectedArchive === undefined || expectedArchive.platform !== expectedPlatform
-        || expectedArchive.tag !== `gauntlet.local/gauntlet:${state.version}`
-        || runtimeImageIds === undefined) throw new Error();
-    archive = Object.freeze({ ...expectedArchive, runtimeImageIds });
-  } catch {
-    throw failure("OUTPUT_INVALID", "image", 1, records, state.version, state.sourceCommit);
+  } else {
+    // Documented commands exercise the application's staged artifacts; without it the development
+    // docs:check inside verify is the complete documentation evidence.
+    setRecord(records, "documentation", "passed");
   }
-
-  const registryEvidence = await rehearseRegistry({
-    root,
-    releaseRoot,
-    version: state.version,
-    runner,
-    workspaceLifecycle: workspace,
-    records,
-    state,
-    inventory,
-    archive,
-  });
 
   observed = await observeSource(root, runner, records, state, false);
   if (observed.sourceCommit !== state.sourceCommit || observed.version !== state.version) {
     throw failure("SOURCE_MUTATED", "source", 1, records, state.version, state.sourceCommit);
   }
-  if (!records.every(({ status }) => status === "passed")) {
+  if (!records.every(recordSettled)) {
     throw failure("EVIDENCE_INCOMPLETE", null, 1, records, state.version, state.sourceCommit);
   }
   return dryReport(records, {
@@ -1038,6 +1155,7 @@ export async function runDryRun(options = {}) {
     version: state.version,
     sourceCommit: state.sourceCommit,
     releaseSet,
+    units: plan.units,
     evidence: {
       inventory: {
         artifacts: inventory.artifacts,
@@ -1050,7 +1168,8 @@ export async function runDryRun(options = {}) {
 }
 
 export async function runDryRunCli(argv, options = {}) {
-  try { parseDryRunArguments(argv); } catch {
+  let parsed;
+  try { parsed = parseDryRunArguments(argv); } catch {
     return {
       exitCode: 2,
       stdout: "",
@@ -1058,7 +1177,11 @@ export async function runDryRunCli(argv, options = {}) {
     };
   }
   try {
-    const result = await runDryRun(options);
+    const result = await runDryRun(Object.defineProperties({}, {
+      ...Object.getOwnPropertyDescriptors(options),
+      planPath: { value: parsed.planPath, enumerable: true, configurable: true, writable: true },
+      releaseSet: { value: parsed.releaseSet, enumerable: true, configurable: true, writable: true },
+    }));
     return { exitCode: 0, stdout: jsonLine(result), stderr: "" };
   } catch (error) {
     const code = error instanceof DryRunFailure ? error.code : "EXECUTION_FAILED";
