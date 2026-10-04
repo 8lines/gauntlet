@@ -23,11 +23,17 @@ import { delimiter, resolve } from "node:path";
 import test from "node:test";
 import { gunzipSync } from "node:zlib";
 
-import { readReleaseVersion, RELEASE_ARTIFACTS } from "../release-model.mjs";
-import { stageNpmPackages } from "../stage-npm.mjs";
+import { unitIdForArtifact } from "../plan.mjs";
+import { readUnitVersions, RELEASE_ARTIFACTS } from "../release-model.mjs";
+import { NPM_UNIT_IDS, stageNpmPackages } from "../stage-npm.mjs";
 
 const REPOSITORY_ROOT = resolve(import.meta.dirname, "../../..");
-const RELEASE_VERSION = readReleaseVersion(REPOSITORY_ROOT);
+const UNIT_VERSIONS = readUnitVersions(REPOSITORY_ROOT);
+const NPM_VERSIONS = Object.freeze(Object.fromEntries(NPM_UNIT_IDS.map((id) => [id, UNIT_VERSIONS.get(id)])));
+
+function stageAll(root, outputDirectory) {
+  return stageNpmPackages({ root, outputDirectory, versions: NPM_VERSIONS, include: NPM_UNIT_IDS });
+}
 const FIXTURE_ROOTS = new Map([
   ["@8lines/gauntlet-protocol", ["dist", "schemas", "openapi", "fixtures"]],
   ["@8lines/gauntlet-dashboard-client", ["dist"]],
@@ -332,7 +338,7 @@ test("stages the seven catalogued npm artifacts without mutating their built sou
   );
 
   try {
-    const artifacts = await stageNpmPackages({ root: REPOSITORY_ROOT, outputDirectory });
+    const artifacts = await stageAll(REPOSITORY_ROOT, outputDirectory);
     assert.equal(artifacts.length, 7);
     assert.deepEqual(artifacts.map(({ kind }) => kind), Array(7).fill("npm"));
     assert.deepEqual(
@@ -340,7 +346,7 @@ test("stages the seven catalogued npm artifacts without mutating their built sou
       [...RELEASE_ARTIFACTS.npm.map(({ name }) => name)].sort(),
     );
     for (const artifact of artifacts) {
-      assert.equal(artifact.version, RELEASE_VERSION);
+      assert.equal(artifact.version, NPM_VERSIONS[unitIdForArtifact(artifact.name)]);
       assert.match(artifact.sha256, /^[a-f0-9]{64}$/);
       assert.equal(resolve(artifact.path), artifact.path);
       assert.equal(statSync(artifact.path).mode & 0o777, 0o600);
@@ -362,7 +368,7 @@ test("stages the seven catalogued npm artifacts without mutating their built sou
       assert.deepEqual(licenseEntry.payload, readFileSync(resolve(REPOSITORY_ROOT, "LICENSE")));
       const manifest = JSON.parse(manifestEntry.payload.toString("utf8"));
       assert.equal(manifest.name, artifact.name);
-      assert.equal(manifest.version, RELEASE_VERSION);
+      assert.equal(manifest.version, NPM_VERSIONS[unitIdForArtifact(artifact.name)]);
       assert.equal(manifest.license, "Apache-2.0");
       assert.deepEqual(manifest.files, EXACT_FILES.get(artifact.name));
       assert.deepEqual(manifest.publishConfig, {
@@ -397,7 +403,7 @@ test("rejects a credential-bearing dependency before producing any archive", asy
     manifest.dependencies["credential-bearing-fixture"] = "https://admin:SECRET@example.invalid/archive.tgz";
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     await assert.rejects(
-      stageNpmPackages({ root: fixture.root, outputDirectory }),
+      stageAll(fixture.root, outputDirectory),
       { message: "NPM package staging failed closed" },
     );
     assert.deepEqual(readdirSync(outputDirectory), []);
@@ -415,7 +421,7 @@ test("rejects an undeclared stable dependency instead of trusting the source man
     manifest.dependencies["undeclared-fixture"] = "1.2.3";
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     await assert.rejects(
-      stageNpmPackages({ root: fixture.root, outputDirectory }),
+      stageAll(fixture.root, outputDirectory),
       { message: "NPM package staging failed closed" },
     );
     assert.deepEqual(readdirSync(outputDirectory), []);
@@ -428,9 +434,9 @@ test("is deterministic, mutation-sensitive, and never executes source lifecycle 
   const fixture = createFixture();
   try {
     const before = snapshotTree(fixture.root);
-    const first = await stageNpmPackages({ root: fixture.root, outputDirectory: fixture.output("first") });
+    const first = await stageAll(fixture.root, fixture.output("first"));
     assert.deepEqual(snapshotTree(fixture.root), before);
-    const second = await stageNpmPackages({ root: fixture.root, outputDirectory: fixture.output("second") });
+    const second = await stageAll(fixture.root, fixture.output("second"));
     assert.deepEqual(snapshotTree(fixture.root), before);
     assert.deepEqual(
       second.map(({ name, sha256 }) => [name, sha256]),
@@ -439,7 +445,7 @@ test("is deterministic, mutation-sensitive, and never executes source lifecycle 
 
     const changedSource = resolve(fixture.root, "packages/dashboard-client/dist/index.js");
     writeFileSync(changedSource, Buffer.concat([readFileSync(changedSource), Buffer.from("\n")]), { mode: 0o644 });
-    const third = await stageNpmPackages({ root: fixture.root, outputDirectory: fixture.output("third") });
+    const third = await stageAll(fixture.root, fixture.output("third"));
     const firstHashes = new Map(first.map(({ name, sha256 }) => [name, sha256]));
     for (const { name, sha256 } of third) {
       assert.equal(
@@ -462,7 +468,7 @@ test("rejects a control-character payload path before packaging", async () => {
       { mode: 0o644 },
     );
     await assert.rejects(
-      stageNpmPackages({ root: fixture.root, outputDirectory }),
+      stageAll(fixture.root, outputDirectory),
       { message: "NPM package staging failed closed" },
     );
     assert.deepEqual(readdirSync(outputDirectory), []);
@@ -475,7 +481,7 @@ test("the staging interface rejects exotic objects without invoking accessors", 
   const temporaryRoot = realpathSync(mkdtempSync(resolve(tmpdir(), "gauntlet-stage-npm-options-")));
   const outputDirectory = createOutput(temporaryRoot, "output");
   let getterCalls = 0;
-  const getterOptions = { outputDirectory };
+  const getterOptions = { outputDirectory, versions: NPM_VERSIONS, include: NPM_UNIT_IDS };
   Object.defineProperty(getterOptions, "root", {
     enumerable: true,
     get() {
@@ -483,16 +489,17 @@ test("the staging interface rejects exotic objects without invoking accessors", 
       return REPOSITORY_ROOT;
     },
   });
-  const symbolOptions = { root: REPOSITORY_ROOT, outputDirectory };
+  const symbolOptions = { root: REPOSITORY_ROOT, outputDirectory, versions: NPM_VERSIONS, include: NPM_UNIT_IDS };
   symbolOptions[Symbol("hostile")] = true;
   const cases = [
     null,
     [],
     { root: REPOSITORY_ROOT },
-    { root: REPOSITORY_ROOT, outputDirectory, extra: true },
+    { root: REPOSITORY_ROOT, outputDirectory },
+    { root: REPOSITORY_ROOT, outputDirectory, versions: NPM_VERSIONS, include: NPM_UNIT_IDS, extra: true },
     getterOptions,
     symbolOptions,
-    new Proxy({ root: REPOSITORY_ROOT, outputDirectory }, {}),
+    new Proxy({ root: REPOSITORY_ROOT, outputDirectory, versions: NPM_VERSIONS, include: NPM_UNIT_IDS }, {}),
   ];
   try {
     for (const options of cases) {
@@ -513,7 +520,7 @@ test("refuses non-private, linked, and non-empty outputs without clobbering fore
   try {
     const permissive = fixture.output("permissive");
     chmodSync(permissive, 0o755);
-    await assert.rejects(stageNpmPackages({ root: fixture.root, outputDirectory: permissive }), {
+    await assert.rejects(stageAll(fixture.root, permissive), {
       name: "TypeError",
       message: "NPM staging output must be a safe canonical directory",
     });
@@ -521,7 +528,7 @@ test("refuses non-private, linked, and non-empty outputs without clobbering fore
     const realOutput = fixture.output("real-output");
     const linkedOutput = resolve(fixture.sandbox, "linked-output");
     symlinkSync(realOutput, linkedOutput, "dir");
-    await assert.rejects(stageNpmPackages({ root: fixture.root, outputDirectory: linkedOutput }), {
+    await assert.rejects(stageAll(fixture.root, linkedOutput), {
       name: "TypeError",
       message: "NPM staging output must be a safe canonical directory",
     });
@@ -531,7 +538,7 @@ test("refuses non-private, linked, and non-empty outputs without clobbering fore
     const sentinel = Buffer.from("foreign archive\n");
     writeFileSync(foreign, sentinel, { mode: 0o600 });
     await assert.rejects(
-      stageNpmPackages({ root: fixture.root, outputDirectory: occupied }),
+      stageAll(fixture.root, occupied),
       { message: "NPM package staging failed closed" },
     );
     assert.deepEqual(readFileSync(foreign), sentinel);
@@ -566,7 +573,7 @@ test("rejects linked, undeclared, and manifest-expanded package sources before p
     try {
       mutate(fixture);
       await assert.rejects(
-        stageNpmPackages({ root: fixture.root, outputDirectory }),
+        stageAll(fixture.root, outputDirectory),
         { message: "NPM package staging failed closed" },
       );
       assert.deepEqual(readdirSync(outputDirectory), []);
@@ -581,7 +588,7 @@ test("invokes only pinned offline pnpm packing with a positive credential-free e
   const outputDirectory = fixture.output();
   const wrapper = createPnpmWrapper(fixture, "pass");
   try {
-    await withPath(wrapper.path, () => stageNpmPackages({ root: fixture.root, outputDirectory }));
+    await withPath(wrapper.path, () => stageAll(fixture.root, outputDirectory));
     const records = wrapper.records();
     assert.equal(records.length, 8);
     assert.deepEqual(records[0].args, ["--version"]);
@@ -639,7 +646,7 @@ test("rejects a promoted archive replaced by a same-UID watcher without touching
   let watcher;
   try {
     watcher = await startPromotionReplacementWatcher(fixture, outputDirectory);
-    const staging = stageNpmPackages({ root: fixture.root, outputDirectory });
+    const staging = stageAll(fixture.root, outputDirectory);
     const [filename] = await Promise.all([
       watcher.replacement(),
       assert.rejects(staging, { message: "NPM package staging failed closed" }),
@@ -711,7 +718,7 @@ test("late pack failure, source race, and hostile archives leave the output empt
       const wrapper = createPnpmWrapper(fixture, behavior);
       try {
         await assert.rejects(
-          withPath(wrapper.path, () => stageNpmPackages({ root: fixture.root, outputDirectory })),
+          withPath(wrapper.path, () => stageAll(fixture.root, outputDirectory)),
           { message: "NPM package staging failed closed" },
         );
         assert.deepEqual(readdirSync(outputDirectory), []);
@@ -719,5 +726,63 @@ test("late pack failure, source race, and hostile archives leave the output empt
         fixture.cleanup();
       }
     });
+  }
+});
+
+test("stages only included packages and pins each internal dependency to its own unit version", async () => {
+  const fixture = createFixture();
+  try {
+    const versions = { ...NPM_VERSIONS, protocol: "0.2.0", "typescript-node": "0.1.9" };
+    for (const [id, directory] of [["protocol", "packages/protocol"], ["typescript-node", "packages/typescript/node"]]) {
+      const path = resolve(fixture.root, directory, "package.json");
+      const manifest = JSON.parse(readFileSync(path, "utf8"));
+      manifest.version = versions[id];
+      writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
+    }
+    const outputDirectory = fixture.output();
+    const artifacts = await stageNpmPackages({
+      root: fixture.root, outputDirectory, versions, include: ["protocol", "typescript-node"],
+    });
+    assert.deepEqual(artifacts.map(({ name, version }) => [name, version]), [
+      ["@8lines/gauntlet-protocol", "0.2.0"],
+      ["@8lines/gauntlet-typescript-node", "0.1.9"],
+    ]);
+    assert.deepEqual(readdirSync(outputDirectory).sort(), [
+      "8lines-gauntlet-protocol-0.2.0.tgz",
+      "8lines-gauntlet-typescript-node-0.1.9.tgz",
+    ]);
+    const node = artifacts.find(({ name }) => name === "@8lines/gauntlet-typescript-node");
+    const packed = JSON.parse(readArchive(node.path).get("package/package.json").payload.toString("utf8"));
+    assert.equal(packed.version, "0.1.9");
+    assert.equal(packed.dependencies["@8lines/gauntlet-protocol"], "0.2.0");
+    assert.equal(packed.dependencies["@8lines/gauntlet-typescript-core"], versions["typescript-core"]);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test("rejects version maps and include lists that do not describe the npm units exactly", async () => {
+  const fixture = createFixture();
+  try {
+    const { protocol: _omitted, ...missing } = NPM_VERSIONS;
+    for (const [versions, include] of [
+      [missing, ["widget"]],
+      [{ ...NPM_VERSIONS, gauntlet: "0.1.9" }, ["widget"]],
+      [NPM_VERSIONS, []],
+      [NPM_VERSIONS, ["typescript-node", "protocol"]],
+      [NPM_VERSIONS, ["protocol", "protocol"]],
+      [NPM_VERSIONS, ["php-core"]],
+      [{ ...NPM_VERSIONS, widget: "9.9.9" }, ["widget"]],
+      [{ ...NPM_VERSIONS, widget: "1.0.0-rc.1" }, ["widget"]],
+    ]) {
+      await assert.rejects(stageNpmPackages({
+        root: fixture.root,
+        outputDirectory: fixture.output(`o-${Math.random().toString(16).slice(2)}`),
+        versions,
+        include,
+      }));
+    }
+  } finally {
+    fixture.cleanup();
   }
 });

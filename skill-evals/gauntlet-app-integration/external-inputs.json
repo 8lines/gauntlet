@@ -23,7 +23,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "5c6674cd7f6bd54b4e7ea60e9e51d1bdffc4136d38c204af926ff460cbd15b49"
+      "sha256": "3c6b253e9be3f7ae90b63ca4b63b50b1f3a773dd9e592f28c3134a296d8b0dc3"
     },
     {
       "path": "pnpm-lock.yaml",
@@ -35,11 +35,11 @@
     },
     {
       "path": "scripts/release/release-model.mjs",
-      "sha256": "93c75a977cf8beec0a31235c1b31748eb85b6b5492629aa98fd57ab7c332b4ad"
+      "sha256": "e076a629f3de2f7f4a868c401c2ff6f359bed3331769002ad04d4ee8e84c9910"
     },
     {
       "path": "scripts/release/stage-composer.mjs",
-      "sha256": "6222bc7bc51d8255ea948c860abab994a8c81d14ad5f64f82443801e072e3e8c"
+      "sha256": "d738ddf377833a4c5ab677e396408d0dfb573487e11851d5e2c3f337b538aded"
     },
     {
       "path": "scripts/release/units.mjs",

@@ -5,9 +5,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
+import { unitIdForArtifact } from "../plan.mjs";
 import {
   RELEASE_ARTIFACTS,
-  readReleaseVersion,
+  readUnitVersion,
 } from "../release-model.mjs";
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -205,14 +206,13 @@ test("the root NOTICE names the project and its copyright holder", () => {
 });
 
 test("seven npm artifacts expose exact Apache-2.0 public release metadata", () => {
-  const version = readReleaseVersion(REPOSITORY_ROOT);
   assert.equal(RELEASE_ARTIFACTS.npm.length, 7);
   assert.equal(NPM_DESCRIPTIONS.size, 7);
 
   for (const { name, directory, registry } of RELEASE_ARTIFACTS.npm) {
     const manifest = readJson(`${directory}/package.json`);
     assert.equal(manifest.name, name);
-    assert.equal(manifest.version, version);
+    assert.equal(manifest.version, readUnitVersion(REPOSITORY_ROOT, unitIdForArtifact(name)));
     assert.equal(manifest.description, NPM_DESCRIPTIONS.get(name));
     assert.equal(manifest.private, undefined);
     assert.equal(
@@ -236,13 +236,12 @@ test("seven npm artifacts expose exact Apache-2.0 public release metadata", () =
 });
 
 test("two Composer artifacts expose exact Apache-2.0 project and support metadata", () => {
-  const version = readReleaseVersion(REPOSITORY_ROOT);
   assert.equal(RELEASE_ARTIFACTS.composer.length, 2);
 
   for (const { name, directory } of RELEASE_ARTIFACTS.composer) {
     const manifest = readJson(`${directory}/composer.json`);
     assert.equal(manifest.name, name);
-    assert.equal(manifest.version, version);
+    assert.equal(manifest.version, readUnitVersion(REPOSITORY_ROOT, unitIdForArtifact(name)));
     assert.equal(manifest.license, "Apache-2.0");
     assert.equal(manifest.homepage, PROJECT_HOMEPAGE);
     assert.deepEqual(manifest.support, {
@@ -253,7 +252,8 @@ test("two Composer artifacts expose exact Apache-2.0 project and support metadat
 });
 
 test("PHP packages and the Symfony example expose the supported PHP 8.3 floor and Symfony 7.4 and 8.x lines", () => {
-  const version = readReleaseVersion(CANONICAL_ROOT);
+  const coreVersion = readUnitVersion(CANONICAL_ROOT, "php-core");
+  const bundleVersion = readUnitVersion(CANONICAL_ROOT, "symfony-bundle");
   const core = readJson("packages/php/core/composer.json");
   const bundle = readJson("packages/php/symfony-bundle/composer.json");
   const example = readJson("examples/symfony/composer.json");
@@ -263,7 +263,7 @@ test("PHP packages and the Symfony example expose the supported PHP 8.3 floor an
   assert.equal(example.require.php, ">=8.3");
   assert.equal(example.license, "Apache-2.0");
 
-  assert.equal(bundle.require["8lines/gauntlet-php-core"], `^${version}`);
+  assert.equal(bundle.require["8lines/gauntlet-php-core"], `^${coreVersion}`);
   assert.deepEqual(
     Object.fromEntries(
       [...Object.entries(bundle.require), ...Object.entries(bundle["require-dev"])]
@@ -283,8 +283,8 @@ test("PHP packages and the Symfony example expose the supported PHP 8.3 floor an
     },
   );
 
-  assert.equal(example.require["8lines/gauntlet-php-core"], `^${version}`);
-  assert.equal(example.require["8lines/gauntlet-symfony-bundle"], `^${version}`);
+  assert.equal(example.require["8lines/gauntlet-php-core"], `^${coreVersion}`);
+  assert.equal(example.require["8lines/gauntlet-symfony-bundle"], `^${bundleVersion}`);
   assert.deepEqual(
     Object.fromEntries(
       [...Object.entries(example.require), ...Object.entries(example["require-dev"])]

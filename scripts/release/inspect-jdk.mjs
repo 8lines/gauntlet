@@ -38,29 +38,42 @@ final class GauntletMavenInspector {
           "Spring Boot auto-configuration and Adapter v1 HTTP transport for explicitly registered Gauntlet features."));
 
   public static void main(String[] args) throws Exception {
-    require(args.length == 3);
+    require(args.length >= 5 && args.length <= 6);
     Path repository = canonicalDirectory(Path.of(args[0]));
     Path licensePath = canonicalFile(Path.of(args[1]));
-    String version = args[2];
-    require(version.matches("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"));
+    String coreVersion = args[2];
+    String starterVersion = args[3];
+    require(coreVersion.matches("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"));
+    require(starterVersion.matches("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"));
+    List<String> requested = Arrays.asList(args).subList(4, args.length);
+    List<Module> selected = new ArrayList<>();
+    for (Module module : MODULES) {
+      if (requested.contains(module.artifact())) selected.add(module);
+    }
+    // The requested names must be distinct catalog modules given in catalog order.
+    require(selected.stream().map(Module::artifact).toList().equals(requested));
     byte[] license = boundedRead(licensePath);
-    for (Module module : MODULES) inspectModule(repository, module, version, license);
+    for (Module module : selected) {
+      String version = module.artifact().equals("core") ? coreVersion : starterVersion;
+      inspectModule(repository, module, version, coreVersion, license);
+    }
     System.out.print("MAVEN_INSPECTION_OK\n");
   }
 
-  private static void inspectModule(Path repository, Module module, String version, byte[] license)
-      throws Exception {
+  private static void inspectModule(Path repository, Module module, String version, String coreVersion,
+      byte[] license) throws Exception {
     Path directory = canonicalDirectory(repository.resolve(
         "dev/eightlines/gauntlet/" + module.artifact() + "/" + version));
     String base = module.artifact() + "-" + version;
-    inspectPom(canonicalFile(directory.resolve(base + ".pom")), module, version);
+    inspectPom(canonicalFile(directory.resolve(base + ".pom")), module, version, coreVersion);
     inspectModuleMetadata(canonicalFile(directory.resolve(base + ".module")), module, version);
     inspectJar(canonicalFile(directory.resolve(base + ".jar")), "binary", module.artifact(), license);
     inspectJar(canonicalFile(directory.resolve(base + "-sources.jar")), "sources", module.artifact(), license);
     inspectJar(canonicalFile(directory.resolve(base + "-javadoc.jar")), "javadoc", module.artifact(), license);
   }
 
-  private static void inspectPom(Path path, Module module, String version) throws Exception {
+  private static void inspectPom(Path path, Module module, String version, String coreVersion)
+      throws Exception {
     byte[] bytes = boundedRead(path);
     String text = new String(bytes, StandardCharsets.UTF_8);
     require(Arrays.equals(bytes, text.getBytes(StandardCharsets.UTF_8)));
@@ -110,7 +123,7 @@ final class GauntletMavenInspector {
       require(child(project, "dependencyManagement", false) == null);
     } else {
       require(dependencies.equals(List.of(
-          "dev.eightlines.gauntlet:core:" + version + ":compile",
+          "dev.eightlines.gauntlet:core:" + coreVersion + ":compile",
           "org.apache.tomcat.embed:tomcat-embed-core:11.0.25:compile",
           "org.apache.tomcat.embed:tomcat-embed-el:11.0.25:compile",
           "org.apache.tomcat.embed:tomcat-embed-websocket:11.0.25:compile",

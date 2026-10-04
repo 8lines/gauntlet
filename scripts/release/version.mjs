@@ -8,9 +8,11 @@ import {
   readReleaseVersion,
   readUnitVersions,
   setReleaseVersion,
+  setUnitVersions,
 } from "./release-model.mjs";
+import { unitById } from "./units.mjs";
 
-const USAGE = "Usage: version.mjs --check [--tag vX.Y.Z] | --set X.Y.Z";
+const USAGE = "Usage: version.mjs --check [--tag vX.Y.Z] | --set X.Y.Z | --set-unit UNIT X.Y.Z";
 const REPOSITORY_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 
 function invalidArguments() {
@@ -36,6 +38,14 @@ export function parseVersionCommand(argv) {
   }
   if (argv.length === 2 && argv[0] === "--set") {
     return { command: "set", version: parseArgumentVersion(argv[1]) };
+  }
+  if (argv.length === 3 && argv[0] === "--set-unit") {
+    try {
+      unitById(argv[1]);
+    } catch {
+      throw invalidArguments();
+    }
+    return { command: "set-unit", unit: argv[1], version: parseArgumentVersion(argv[2]) };
   }
   throw invalidArguments();
 }
@@ -85,6 +95,21 @@ export function runVersionCli(argv, { root = REPOSITORY_ROOT } = {}) {
           tag: command.tag ?? null,
           units,
           version,
+        }),
+        stderr: "",
+      };
+    }
+
+    if (command.command === "set-unit") {
+      const result = setUnitVersions(root, { [command.unit]: command.version });
+      return {
+        exitCode: 0,
+        stdout: jsonLine({
+          changedPaths: result.changedPaths,
+          command: "set-unit",
+          ok: true,
+          unit: command.unit,
+          version: command.version,
         }),
         stderr: "",
       };

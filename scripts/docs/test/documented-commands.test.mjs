@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -9,9 +9,11 @@ import {
   planDocumentedCommandChecks,
   runDocumentedCommandChecks,
 } from "../verify-documented-commands.mjs";
-import { RELEASE_STAGE_ARTIFACT_COUNT } from "../../release/release-model.mjs";
+import { createReleaseManifest, expectedUnitArtifacts } from "../../release/inventory.mjs";
 
 const VERSION = "0.1.0";
+const SET = "release-2026-10-03.1";
+const COMMIT = "1".repeat(40);
 const LOCAL_IMAGE = `gauntlet.local/gauntlet:${VERSION}`;
 const EXPECTED_IMAGE_ID = `sha256:${"7".repeat(64)}`;
 const MANIFEST_IMAGE_ID = `sha256:${"9".repeat(64)}`;
@@ -55,13 +57,25 @@ function archiveInspection(versionOrOptions = VERSION) {
   };
 }
 
-function inventoryReport(version = VERSION) {
+function stagedManifest(version = VERSION, releaseSet = SET, unitIds = ["gauntlet", "skills"]) {
+  const units = unitIds.map((id) => ({ id, version }));
+  return createReleaseManifest({
+    releaseSet,
+    sourceCommit: COMMIT,
+    units,
+    artifacts: units.flatMap(({ id }) => expectedUnitArtifacts(id, version))
+      .map((artifact) => ({ ...artifact, sha256: "0".repeat(64) })),
+  });
+}
+
+function inventoryReport(version = VERSION, overrides = {}) {
   return `${JSON.stringify({
-    schemaVersion: 1,
+    schemaVersion: 2,
     ok: true,
-    version,
-    sourceCommit: "1".repeat(40),
-    artifacts: RELEASE_STAGE_ARTIFACT_COUNT,
+    releaseSet: SET,
+    sourceCommit: COMMIT,
+    units: stagedManifest(version).units,
+    artifacts: 8,
     manifestSha256: "2".repeat(64),
     checksumsSha256: "3".repeat(64),
     nativeImage: {
@@ -78,6 +92,7 @@ function inventoryReport(version = VERSION) {
       path: `helm/gauntlet-${version}.tgz`,
       sha256: "6".repeat(64),
     },
+    ...overrides,
   })}\n`;
 }
 
@@ -126,9 +141,9 @@ function localFlow({
   };
 }
 
-function fixture(t, version = VERSION) {
+function fixture(t, version = VERSION, manifest = stagedManifest(version)) {
   const root = realpathSync(mkdtempSync(resolve(tmpdir(), "gauntlet-doc-command-test-")));
-  const releaseRoot = resolve(root, ".artifacts/release", version);
+  const releaseRoot = resolve(root, ".artifacts/release", SET);
   const temporaryRoot = resolve(root, ".tmp");
   for (const path of [
     resolve(root, "deploy/compose"),
@@ -145,7 +160,7 @@ function fixture(t, version = VERSION) {
     [resolve(root, "deploy/helm/ci/staging-values.yaml"), "config: {}\n"],
     [resolve(releaseRoot, `image/gauntlet-${version}.docker.tar`), "image\n"],
     [resolve(releaseRoot, `helm/gauntlet-${version}.tgz`), "chart\n"],
-    [resolve(releaseRoot, "release-manifest.json"), "{}\n"],
+    [resolve(releaseRoot, "release-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`],
     [resolve(releaseRoot, "SHA256SUMS"), "checksums\n"],
   ]) {
     writeFileSync(path, bytes, { mode: 0o600 });
@@ -159,6 +174,9 @@ test("plans only local checks against exact staged 0.1.0 artifacts", (t) => {
   const paths = fixture(t);
   const plan = planDocumentedCommandChecks(paths);
 
+  assert.equal(plan.version, VERSION);
+  assert.equal(plan.releaseSet, SET);
+  assert.equal(plan.releaseRoot, resolve(paths.root, ".artifacts/release", SET));
   assert.equal(plan.imageArchive, resolve(paths.releaseRoot, "image/gauntlet-0.1.0.docker.tar"));
   assert.equal(plan.localImage, "gauntlet.local/gauntlet:0.1.0");
   assert.equal(plan.chartArchive, resolve(paths.releaseRoot, "helm/gauntlet-0.1.0.tgz"));
@@ -233,9 +251,69 @@ test("derives every documented-command check from a bumped 0.1.1 VERSION", async
   assert.equal(plan.version, version);
   assert.equal(plan.imageArchive, resolve(paths.releaseRoot, `image/gauntlet-${version}.docker.tar`));
   assert.deepEqual(
-    parseDocumentedCommandArguments(["--release-root", `.artifacts/release/${version}`], paths.root),
+    parseDocumentedCommandArguments(["--release-root", `.artifacts/release/${SET}`], paths.root),
     { releaseRoot: paths.releaseRoot },
   );
+});
+
+test("parses only an in-repository release-set root", () => {
+  const root = "/workspace/gauntlet";
+  for (const releaseSet of [SET, "local-0123456789ab"]) {
+    assert.deepEqual(
+      parseDocumentedCommandArguments(["--release-root", `.artifacts/release/${releaseSet}`], root),
+      { releaseRoot: `${root}/.artifacts/release/${releaseSet}` },
+    );
+  }
+  assert.deepEqual(
+    parseDocumentedCommandArguments(["--release-root", `${root}/.artifacts/release/${SET}`], root),
+    { releaseRoot: `${root}/.artifacts/release/${SET}` },
+  );
+  for (const argv of [
+    [],
+    ["--release-root", ".artifacts/release/0.1.0"],
+    ["--release-root", ".artifacts/release/local-0123"],
+    ["--release-root", `.artifacts/other/${SET}`],
+    ["--release-root", `/tmp/.artifacts/release/${SET}`],
+    ["--release-root", `.artifacts/release/${SET}`, "extra"],
+  ]) {
+    assert.throws(
+      () => parseDocumentedCommandArguments(argv, root),
+      /Usage: node scripts\/docs\/verify-documented-commands\.mjs --release-root \.artifacts\/release\/<set-id>/u,
+    );
+  }
+});
+
+test("rejects a staged release without the application, a foreign release set and a mismatched inventory", async (t) => {
+  const withoutApplication = fixture(t, VERSION, stagedManifest(VERSION, SET, ["skills"]));
+  assert.throws(() => planDocumentedCommandChecks(withoutApplication), /Documented command verification failed closed/u);
+
+  const paths = fixture(t);
+  const moved = resolve(paths.root, ".artifacts/release/release-2026-10-03.2");
+  cpSync(paths.releaseRoot, moved, { recursive: true });
+  assert.throws(
+    () => planDocumentedCommandChecks({ ...paths, releaseRoot: moved }),
+    /Documented command verification failed closed/u,
+  );
+
+  for (const overrides of [
+    { releaseSet: "release-2026-10-03.2" },
+    { units: [] },
+    { units: stagedManifest(VERSION, SET, ["skills"]).units },
+    { units: stagedManifest("0.1.1").units },
+    { artifacts: 0 },
+    { version: VERSION },
+  ]) {
+    const calls = [];
+    const result = await runDocumentedCommandChecks({
+      ...paths,
+      runner: async ({ phase }) => {
+        calls.push(phase);
+        return commandResult(inventoryReport(VERSION, overrides));
+      },
+    });
+    assert.deepEqual(result, { code: "OUTPUT_INVALID", exitCode: 1, ok: false, phase: "inventory" }, JSON.stringify(overrides));
+    assert.deepEqual(calls, ["inventory"]);
+  }
 });
 
 test("rejects a zero-exit inventory verifier result without its complete success report", async (t) => {
@@ -268,7 +346,7 @@ test("rejects a wrong release version, unsafe paths, and missing artifacts", (t)
   assert.throws(
     () => planDocumentedCommandChecks({
       ...paths,
-      releaseRoot: resolve(paths.root, ".artifacts/release/0.2.0"),
+      releaseRoot: resolve(paths.root, ".artifacts/release/release-2026-10-03.9"),
     }),
     /Documented command verification failed closed/u,
   );

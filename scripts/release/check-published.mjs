@@ -10,23 +10,26 @@ import {
   fsyncSync,
   linkSync,
   lstatSync,
+  mkdirSync,
   openSync,
   readSync,
-  readFileSync,
   realpathSync,
   renameSync,
   unlinkSync,
   writeSync,
 } from "node:fs";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, isAbsolute, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify, types as utilTypes } from "node:util";
 
 import { parseDocument } from "yaml";
 
 import { withMaterializedCanonicalTree, withOwnedTemporaryWorkspace } from "./archive-consumer.mjs";
+import { createReleaseManifest, expectedReleaseArtifacts, expectedUnitArtifacts, readReleaseManifest } from "./inventory.mjs";
+import { parseReleaseSetId } from "./plan.mjs";
 import { parseReleaseVersion, RELEASE_ARTIFACTS } from "./release-model.mjs";
 import { publishComposerPackage } from "./publish-composer.mjs";
+import { unitById, unitTag } from "./units.mjs";
 
 const execFileAsync = promisify(execFile);
 const ROOT = realpathSync(fileURLToPath(new URL("../../", import.meta.url)));
@@ -41,108 +44,98 @@ const GITHUB_ASSET_REDIRECTS = 3;
 const GITHUB_API_VERSION = "2026-03-10";
 const PUBLICATION_POLL_INTERVAL_MS = 15_000;
 const PUBLICATION_MAX_POLLS = 40;
+// GitHub can report a just-published release before it reports it immutable.
+const IMMUTABILITY_POLL_INTERVAL_MS = 5_000;
+const IMMUTABILITY_MAX_POLLS = 12;
+const MIB = 1024 * 1024;
+const GITHUB_RELEASES = "https://github.com/8lines/gauntlet/releases/tag";
+// Every staged kind a unit attaches to its GitHub Release; `docker` and `oci` image archives never are.
+const RELEASE_ASSET_LIMITS = new Map([
+  ["npm", 64 * MIB],
+  ["composer", 64 * MIB],
+  ["maven", 512 * MIB],
+  ["skills", 64 * MIB],
+  ["compose", 512 * MIB],
+  ["helm", 64 * MIB],
+  ["provenance", 16 * MIB],
+  ["sbom", 128 * MIB],
+]);
+const GENERATED_ASSETS = Object.freeze([
+  Object.freeze({ name: "release-manifest.json", maximumBytes: MIB }),
+  Object.freeze({ name: "publication-receipt.json", maximumBytes: 64 * 1024 }),
+  Object.freeze({ name: "SHA256SUMS", maximumBytes: MIB }),
+]);
+const RECEIPT_KEYS = Object.freeze(["schemaVersion", "releaseSet", "unit", "version", "sourceCommit", "manifestSha256"]);
+const DIGEST_KEYS = Object.freeze(["imageDigest", "chartDigest"]);
+const CHECK_KEYS = Object.freeze(["id", "unit", "kind", "destination", "expectedEvidence", "version", "tag"]);
+const PLAN_INVALID = "Published unit check plan is invalid";
+
+// A published, non-draft release that GitHub does not (yet) report immutable. Its message stays
+// the generic failure; post-publication verification alone retries it for a bounded time.
+class ReleaseNotImmutableError extends Error {
+  constructor() {
+    super(FAILURE);
+  }
+}
 
 function wait(milliseconds) {
   return new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
 }
 
-function githubReleaseAssetCatalog(releaseVersion) {
-  const version = stableVersion(releaseVersion);
-  const mib = 1024 * 1024;
-  return Object.freeze([
-    { name: `gauntlet-compose-${version}.tar.gz`, maximumBytes: 512 * mib },
-    { name: `gauntlet-skills-${version}.tgz`, maximumBytes: 64 * mib },
-    { name: `gauntlet-${version}.tgz`, maximumBytes: 64 * mib },
-    { name: "release-manifest.json", maximumBytes: 1 * mib },
-    { name: "publication-receipt.json", maximumBytes: 64 * 1024 },
-    { name: "SHA256SUMS", maximumBytes: 1 * mib },
-    { name: `gauntlet-${version}.provenance.json`, maximumBytes: 16 * mib },
-    { name: "gauntlet-linux-amd64.spdx.json", maximumBytes: 128 * mib },
-    { name: "gauntlet-linux-arm64.spdx.json", maximumBytes: 128 * mib },
-  ].map((record) => Object.freeze(record)));
-}
-
-function stagedArtifactCatalog(version) {
+export function githubReleaseAssetCatalog(unitId, version) {
   const records = [
-    ...RELEASE_ARTIFACTS.npm.map(({ name }) => ({
-      kind: "npm",
-      name,
-      path: `npm/${name.replace(/^@/u, "").replaceAll("/", "-")}-${version}.tgz`,
-    })),
-    ...RELEASE_ARTIFACTS.composer.map(({ name, repository }) => ({
-      kind: "composer",
-      name,
-      path: `composer/artifacts/${repository.split("/").at(-1)}-${version}.tar.gz`,
-    })),
-    ...RELEASE_ARTIFACTS.maven.map(({ name }) => ({
-      kind: "maven",
-      name,
-      path: `maven/artifacts/gauntlet-${name.split(":")[1]}-${version}.tar.gz`,
-    })),
-    {
-      kind: "compose",
-      name: RELEASE_ARTIFACTS.compose.name,
-      path: `compose/gauntlet-compose-${version}.tar.gz`,
-    },
-    {
-      kind: "skills",
-      name: RELEASE_ARTIFACTS.skills.name,
-      path: `skills/gauntlet-skills-${version}.tgz`,
-    },
-    { kind: "helm", name: RELEASE_ARTIFACTS.chart.name, path: `helm/gauntlet-${version}.tgz` },
-    { kind: "docker", name: "gauntlet.local/gauntlet", path: `image/gauntlet-${version}.docker.tar` },
-    { kind: "oci", name: RELEASE_ARTIFACTS.image.name, path: `image/gauntlet-${version}.oci.tar` },
-    {
-      kind: "provenance",
-      name: `${RELEASE_ARTIFACTS.image.name}@buildkit-unsigned`,
-      path: `image/gauntlet-${version}.provenance.json`,
-    },
-    {
-      kind: "sbom",
-      name: `${RELEASE_ARTIFACTS.image.name}@linux/amd64`,
-      path: "sbom/gauntlet-linux-amd64.spdx.json",
-    },
-    {
-      kind: "sbom",
-      name: `${RELEASE_ARTIFACTS.image.name}@linux/arm64`,
-      path: "sbom/gauntlet-linux-arm64.spdx.json",
-    },
+    ...expectedUnitArtifacts(unitId, stableVersion(version))
+      .filter(({ kind }) => RELEASE_ASSET_LIMITS.has(kind))
+      .map(({ kind, path }) => Object.freeze({ name: path.split("/").at(-1), maximumBytes: RELEASE_ASSET_LIMITS.get(kind) })),
+    ...GENERATED_ASSETS,
   ];
-  if (records.length !== 19) throw new Error(FAILURE);
-  return Object.freeze(records.map((record) => Object.freeze(record)));
+  if (new Set(records.map(({ name }) => name)).size !== records.length) throw new Error(FAILURE);
+  return Object.freeze(records);
 }
 
-function deeplyFreeze(value) {
-  if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
-    for (const child of Object.values(value)) deeplyFreeze(child);
-    Object.freeze(value);
-  }
-  return value;
+function sha256Bytes(bytes) {
+  return createHash("sha256").update(bytes).digest("hex");
 }
 
-const publishedDestinations = [
-  ...RELEASE_ARTIFACTS.npm.map((artifact) => ({
-    id: `npm:${artifact.name.slice("@8lines/gauntlet-".length)}`,
-    kind: "npm",
-    target: artifact.name,
-  })),
-  ...RELEASE_ARTIFACTS.maven.map((artifact) => ({
-    id: `maven:${artifact.name.split(":")[1]}`,
-    kind: "maven",
-    target: artifact.name,
-  })),
-  { id: "image:semantic", kind: "image", target: RELEASE_ARTIFACTS.image.name },
-  { id: "image:commit", kind: "image", target: RELEASE_ARTIFACTS.image.name },
-  { id: "chart:semantic", kind: "chart", target: RELEASE_ARTIFACTS.chart.repository },
-  ...RELEASE_ARTIFACTS.composer.map((artifact) => ({
-    id: `composer:${artifact.name.slice("8lines/gauntlet-".length)}`,
-    kind: "composer",
-    target: artifact.repositoryUrl,
-  })),
-  { id: "github:release", kind: "release", target: "https://github.com/8lines/gauntlet/releases/tag" },
-];
+function manifestUnit(manifest, unitId) {
+  const matches = Array.isArray(manifest?.units) ? manifest.units.filter((entry) => entry?.id === unitId) : [];
+  if (matches.length !== 1) throw new TypeError(`Release unit ${String(unitId)} is not in the release manifest`);
+  return matches[0];
+}
 
-export const PUBLISHED_DESTINATIONS = deeplyFreeze(publishedDestinations);
+export function unitReleaseManifest(manifest, unitId) {
+  const entry = manifestUnit(manifest, unitId);
+  return createReleaseManifest({
+    releaseSet: manifest.releaseSet,
+    sourceCommit: manifest.sourceCommit,
+    units: [entry],
+    artifacts: manifest.artifacts.filter((artifact) => artifact.unit === entry.id),
+  });
+}
+
+function unitManifestBytes(manifest, unitId) {
+  return Buffer.from(`${JSON.stringify(unitReleaseManifest(manifest, unitId), null, 2)}\n`, "utf8");
+}
+
+export function unitReleaseAssets(manifest, unitId) {
+  const entry = manifestUnit(manifest, unitId);
+  const catalog = githubReleaseAssetCatalog(entry.id, entry.version);
+  const paths = [
+    ...manifest.artifacts
+      .filter((artifact) => artifact.unit === entry.id && RELEASE_ASSET_LIMITS.has(artifact.kind))
+      .map(({ path }) => path),
+    ...GENERATED_ASSETS.map(({ name }) => `units/${entry.id}/${name}`),
+  ];
+  if (paths.length !== catalog.length) throw new Error(FAILURE);
+  return Object.freeze(catalog.map(({ name, maximumBytes }, index) => {
+    if (typeof paths[index] !== "string" || paths[index].split("/").at(-1) !== name) throw new Error(FAILURE);
+    return Object.freeze({ name, maximumBytes, path: paths[index] });
+  }));
+}
+
+function evidencePattern(kind) {
+  return kind === "npm" ? NPM_INTEGRITY : kind === "image" ? OCI_DIGEST : kind === "composer" ? COMMIT : SHA256;
+}
 
 function ownData(value, keys, label) {
   if (value === null || typeof value !== "object" || Array.isArray(value) || utilTypes.isProxy(value)
@@ -173,34 +166,6 @@ function sourceCommit(value) {
     throw new TypeError("Published destination source commit must be a lowercase full SHA-1");
   }
   return value;
-}
-
-function exactEvidence(evidence, source) {
-  if (evidence === null || typeof evidence !== "object" || Array.isArray(evidence) || utilTypes.isProxy(evidence)
-      || ![Object.prototype, null].includes(Object.getPrototypeOf(evidence))) {
-    throw new TypeError("Published evidence must be a closed data object");
-  }
-  const descriptors = Object.getOwnPropertyDescriptors(evidence);
-  const keys = Reflect.ownKeys(descriptors);
-  const expectedKeys = PUBLISHED_DESTINATIONS.map(({ id }) => id);
-  if (keys.length !== expectedKeys.length || expectedKeys.some((key) => !keys.includes(key))
-      || keys.some((key) => typeof key !== "string" || !expectedKeys.includes(key)
-        || descriptors[key].enumerable !== true || !("value" in descriptors[key]))) {
-    throw new TypeError("Published evidence must name every fixed destination exactly once");
-  }
-  const result = Object.create(null);
-  for (const destination of PUBLISHED_DESTINATIONS) {
-    const value = descriptors[destination.id].value;
-    const accepted = destination.kind === "npm" ? NPM_INTEGRITY
-      : destination.kind === "image" ? OCI_DIGEST
-      : destination.kind === "composer" ? COMMIT
-        : SHA256;
-    if (typeof value !== "string" || !accepted.test(value)) {
-      throw new TypeError(`Published evidence for ${destination.id} is invalid`);
-    }
-    result[destination.id] = value;
-  }
-  return Object.freeze(result);
 }
 
 export function parseOciLayoutIndex(source) {
@@ -234,29 +199,40 @@ export function parseImageInspection(output) {
   }
 }
 
+function receiptKeys(unitId) {
+  return unitId === "gauntlet" ? [...RECEIPT_KEYS, ...DIGEST_KEYS] : RECEIPT_KEYS;
+}
+
 function publicationReceiptBytes(receipt) {
-  const keys = ["schemaVersion", "version", "sourceCommit", "imageDigest", "chartDigest", "manifestSha256"];
+  const keys = receiptKeys(receipt.unit);
   return Buffer.from(`${JSON.stringify(Object.fromEntries(keys.map((key) => [key, receipt[key]])), null, 2)}\n`, "utf8");
 }
 
 export function parsePublicationReceipt(source, expected) {
   try {
-    const values = ownData(expected, ["version", "sourceCommit", "manifestSha256"], "Publication receipt expectation");
-    const version = stableVersion(values.version);
+    const values = ownData(
+      expected,
+      ["releaseSet", "unit", "version", "sourceCommit", "manifestSha256"],
+      "Publication receipt expectation",
+    );
     const commit = sourceCommit(values.sourceCommit);
+    const releaseSet = parseReleaseSetId(values.releaseSet, commit);
+    const unit = unitById(values.unit);
+    const version = stableVersion(values.version);
     if (typeof values.manifestSha256 !== "string" || !SHA256.test(values.manifestSha256)
         || typeof source !== "string" || Buffer.byteLength(source) === 0 || Buffer.byteLength(source) > 64 * 1024
         || source.includes("\0") || source.includes("\r")) throw new Error();
     const document = parseDocument(source, { json: true, prettyErrors: false, strict: true, uniqueKeys: true });
     if (document.errors.length !== 0 || document.warnings.length !== 0) throw new Error();
     const receipt = JSON.parse(source);
-    const keys = ["schemaVersion", "version", "sourceCommit", "imageDigest", "chartDigest", "manifestSha256"];
+    const keys = receiptKeys(unit.id);
     if (receipt === null || typeof receipt !== "object" || Array.isArray(receipt)
         || Object.keys(receipt).length !== keys.length || keys.some((key) => !Object.hasOwn(receipt, key))
-        || receipt.schemaVersion !== 1 || receipt.version !== version || receipt.sourceCommit !== commit
-        || typeof receipt.imageDigest !== "string" || !OCI_DIGEST.test(receipt.imageDigest)
-        || typeof receipt.chartDigest !== "string" || !OCI_DIGEST.test(receipt.chartDigest)
+        || receipt.schemaVersion !== 2 || receipt.releaseSet !== releaseSet || receipt.unit !== unit.id
+        || receipt.version !== version || receipt.sourceCommit !== commit
         || receipt.manifestSha256 !== values.manifestSha256) throw new Error();
+    if (unit.id === "gauntlet"
+        && DIGEST_KEYS.some((key) => typeof receipt[key] !== "string" || !OCI_DIGEST.test(receipt[key]))) throw new Error();
     const result = Object.freeze(Object.fromEntries(keys.map((key) => [key, receipt[key]])));
     if (!Buffer.from(source, "utf8").equals(publicationReceiptBytes(result))) throw new Error();
     return result;
@@ -265,10 +241,9 @@ export function parsePublicationReceipt(source, expected) {
   }
 }
 
-export function parseReleaseAssets(assets, releaseVersion) {
+export function parseReleaseAssets(assets, unitId, releaseVersion) {
   try {
-    const version = stableVersion(releaseVersion);
-    const expected = githubReleaseAssetCatalog(version).map(({ name }) => name);
+    const expected = githubReleaseAssetCatalog(unitId, releaseVersion).map(({ name }) => name);
     if (!Array.isArray(assets) || utilTypes.isProxy(assets) || assets.length !== expected.length) throw new Error();
     const result = Object.create(null);
     const ids = new Set();
@@ -306,38 +281,102 @@ function destinationUrl(template, version, commit) {
       return `${template.target}/${RELEASE_ARTIFACTS.chart.name}:${version}`;
     case "composer":
       return `${template.target}#v${version}`;
-    case "release":
-      return `${template.target}/v${version}`;
     default:
       throw new Error(FAILURE);
   }
 }
 
-export function createPublishedCheckPlan(options) {
-  const values = ownData(options, ["version", "sourceCommit", "evidence"], "Published check plan options");
-  const version = stableVersion(values.version);
-  const commit = sourceCommit(values.sourceCommit);
-  const evidence = exactEvidence(values.evidence, commit);
-  const plan = PUBLISHED_DESTINATIONS.map((template) => Object.freeze({
-    id: template.id,
-    kind: template.kind,
-    destination: destinationUrl(template, version, commit),
-    expectedEvidence: evidence[template.id],
-    version,
-  }));
-  return Object.freeze(plan);
+export function unitDestinations(unitId) {
+  const unit = unitById(unitId);
+  const name = unit.artifacts[0];
+  const records = unit.kind === "npm" ? [{ id: `npm:${name.slice("@8lines/gauntlet-".length)}`, kind: "npm", target: name }]
+    : unit.kind === "composer" ? [{
+      id: `composer:${name.slice("8lines/gauntlet-".length)}`,
+      kind: "composer",
+      target: RELEASE_ARTIFACTS.composer.find((artifact) => artifact.name === name).repositoryUrl,
+    }]
+      : unit.kind === "maven" ? [{ id: `maven:${name.split(":")[1]}`, kind: "maven", target: name }]
+        : unit.kind === "application" ? [
+          { id: "image:semantic", kind: "image", target: RELEASE_ARTIFACTS.image.name },
+          { id: "image:commit", kind: "image", target: RELEASE_ARTIFACTS.image.name },
+          { id: "chart:semantic", kind: "chart", target: RELEASE_ARTIFACTS.chart.repository },
+        ]
+          : [];
+  return Object.freeze(records.map((record) => Object.freeze(record)));
 }
 
-function assertPlan(plan) {
-  if (!Array.isArray(plan) || utilTypes.isProxy(plan) || plan.length !== PUBLISHED_DESTINATIONS.length) {
-    throw new TypeError("Published check plan is invalid");
+function unitTemplates(unitId, tag) {
+  return [...unitDestinations(unitId), Object.freeze({ id: `github:${tag}`, kind: "release", target: GITHUB_RELEASES })];
+}
+
+function unitDestinationUrl(template, version, commit, tag) {
+  return template.kind === "release" ? `${template.target}/${tag}` : destinationUrl(template, version, commit);
+}
+
+export function createUnitCheckPlan(options) {
+  const values = ownData(options, ["unit", "version", "sourceCommit", "evidence"], "Unit check plan options");
+  const unit = unitById(values.unit);
+  const version = stableVersion(values.version);
+  const commit = sourceCommit(values.sourceCommit);
+  const tag = unitTag(unit, version);
+  const templates = unitTemplates(unit.id, tag);
+  const evidence = ownData(values.evidence, templates.map(({ id }) => id), "Unit evidence");
+  return Object.freeze(templates.map((template) => {
+    const expectedEvidence = evidence[template.id];
+    if (typeof expectedEvidence !== "string" || !evidencePattern(template.kind).test(expectedEvidence)) {
+      throw new TypeError(`Published evidence for ${template.id} is invalid`);
+    }
+    return Object.freeze({
+      id: template.id, unit: unit.id, kind: template.kind,
+      destination: unitDestinationUrl(template, version, commit, tag), expectedEvidence, version, tag,
+    });
+  }));
+}
+
+// Validates one check against its unit's templates: exact keys, a known unit, the unit's own tag,
+// a known destination id and kind, the canonical destination URL and well-formed evidence.
+function validatedCheck(candidate) {
+  const values = ownData(candidate, CHECK_KEYS, "Published unit check");
+  const unit = unitById(values.unit);
+  const version = stableVersion(values.version);
+  const tag = unitTag(unit, version);
+  if (values.tag !== tag) throw new Error(PLAN_INVALID);
+  const template = unitTemplates(unit.id, tag).find(({ id }) => id === values.id);
+  if (template === undefined || values.kind !== template.kind || typeof values.destination !== "string"
+      || typeof values.expectedEvidence !== "string" || !evidencePattern(template.kind).test(values.expectedEvidence)) {
+    throw new Error(PLAN_INVALID);
   }
-  for (const [index, check] of plan.entries()) {
-    if (!Object.isFrozen(check) || check.id !== PUBLISHED_DESTINATIONS[index].id
-        || check.kind !== PUBLISHED_DESTINATIONS[index].kind || typeof check.destination !== "string"
-        || typeof check.expectedEvidence !== "string") throw new TypeError("Published check plan is invalid");
+  const destinationMatches = template.id === "image:commit"
+    ? new RegExp(`^${template.target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:sha-[0-9a-f]{12}$`, "u").test(values.destination)
+    : values.destination === unitDestinationUrl(template, version, "0".repeat(40), tag);
+  if (!destinationMatches) throw new Error(PLAN_INVALID);
+  return Object.freeze({ ...values, version });
+}
+
+function assertUnitChecks(checks) {
+  try {
+    if (!Array.isArray(checks) || utilTypes.isProxy(checks) || !Object.isFrozen(checks) || checks.length === 0) {
+      throw new Error();
+    }
+    const validated = Array.from(checks, (check) => {
+      if (utilTypes.isProxy(check) || !Object.isFrozen(check)) throw new Error();
+      return validatedCheck(check);
+    });
+    const { unit, version, tag } = validated[0];
+    const templates = unitTemplates(unit, tag);
+    if (validated.length !== templates.length || validated.some((check, index) => check.unit !== unit
+        || check.version !== version || check.tag !== tag || check.id !== templates[index].id)) throw new Error();
+  } catch {
+    throw new TypeError(PLAN_INVALID);
   }
-  return plan;
+  return checks;
+}
+
+function assertUnitPlans(plans) {
+  if (!Array.isArray(plans) || utilTypes.isProxy(plans) || plans.length === 0) throw new TypeError(PLAN_INVALID);
+  const checked = Array.from(plans, (checks) => assertUnitChecks(checks));
+  if (new Set(checked.map((checks) => checks[0].unit)).size !== checked.length) throw new TypeError(PLAN_INVALID);
+  return checked;
 }
 
 function observationValue(candidate, expected) {
@@ -362,41 +401,52 @@ function observationValue(candidate, expected) {
   return Object.freeze({ id, state, evidence: descriptors.evidence.value });
 }
 
-export function evaluatePublishedState(plan, observations) {
-  const checks = assertPlan(plan);
+export function evaluateUnitState(checks, observations) {
+  assertUnitChecks(checks);
   if (!Array.isArray(observations) || utilTypes.isProxy(observations) || observations.length !== checks.length) {
     throw new Error("Remote probes did not return a complete observation set");
   }
   const byId = new Map();
   for (const candidate of observations) {
-    const id = candidate?.id;
-    const expected = checks.find((check) => check.id === id);
-    if (expected === undefined || byId.has(id)) throw new Error("Remote probes did not return a complete observation set");
-    byId.set(id, observationValue(candidate, expected));
+    const expected = checks.find((check) => check.id === candidate?.id);
+    if (expected === undefined || byId.has(expected.id)) throw new Error("Remote probes did not return a complete observation set");
+    byId.set(expected.id, observationValue(candidate, expected));
   }
-  if (byId.size !== checks.length) throw new Error("Remote probes did not return a complete observation set");
   const ordered = checks.map(({ id }) => byId.get(id));
   const present = ordered.filter(({ state }) => state === "present");
-  if (present.length !== 0 && present.length !== checks.length) {
-    throw new Error("Remote destinations have mixed published state");
-  }
   if (present.length === 0) return "clean";
   for (const [index, observation] of ordered.entries()) {
-    if (observation.evidence !== checks[index].expectedEvidence) {
+    if (observation.state === "present" && observation.evidence !== checks[index].expectedEvidence) {
       throw new Error(`Remote destination ${observation.id} has different evidence`);
     }
   }
+  if (present.length !== checks.length) throw new Error(`Release unit ${checks[0].unit} is partially published`);
   return "already-identical";
 }
 
-export async function checkPublishedDestinations(options) {
-  const values = ownData(options, ["plan", "probe"], "Published destination check options");
-  const plan = assertPlan(values.plan);
+export function evaluateReleaseSetState(plans, observations) {
+  const checked = assertUnitPlans(plans);
+  if (!Array.isArray(observations) || utilTypes.isProxy(observations)
+      || observations.length !== checked.reduce((total, checks) => total + checks.length, 0)) {
+    throw new Error("Remote probes did not return a complete observation set");
+  }
+  return Object.freeze(checked.map((checks) => {
+    const ids = new Set(checks.map(({ id }) => id));
+    const state = evaluateUnitState(checks, observations.filter((observation) => ids.has(observation?.id)));
+    return Object.freeze({ id: checks[0].unit, state });
+  }));
+}
+
+export async function checkUnitDestinations(options) {
+  const values = ownData(options, ["plans", "probe"], "Published unit check options");
   if (typeof values.probe !== "function") throw new TypeError("Published destination probe must be a function");
-  const settled = await Promise.allSettled(plan.map((check) => Promise.resolve().then(() => values.probe(check))));
+  // Every plan, including duplicate units, is rejected before the first probe runs.
+  const plans = assertUnitPlans(values.plans);
+  const checks = plans.flat();
+  const settled = await Promise.allSettled(checks.map((check) => Promise.resolve().then(() => values.probe(check))));
   const failure = settled.find(({ status }) => status === "rejected");
   if (failure !== undefined) throw failure.reason;
-  return evaluatePublishedState(plan, settled.map(({ value }) => value));
+  return evaluateReleaseSetState(plans, settled.map(({ value }) => value));
 }
 
 async function collectRemoteObservations(plan, probe) {
@@ -406,11 +456,11 @@ async function collectRemoteObservations(plan, probe) {
   return settled.map(({ value }) => value);
 }
 
-function evaluatePublishedArtifactsBeforeRelease(plan, observations) {
-  if (!Array.isArray(observations) || observations.length !== plan.length) {
+function evaluatePublishedArtifactsBeforeRelease(checks, observations) {
+  if (!Array.isArray(observations) || observations.length !== checks.length) {
     throw new Error("Remote probes did not return a complete observation set");
   }
-  const releaseCheck = plan.find(({ kind }) => kind === "release");
+  const releaseCheck = checks.find(({ kind }) => kind === "release");
   const releaseObservation = observations.find(({ id }) => id === releaseCheck?.id);
   if (releaseCheck === undefined || releaseObservation === undefined
       || observationValue(releaseObservation, releaseCheck).state !== "absent") {
@@ -419,7 +469,7 @@ function evaluatePublishedArtifactsBeforeRelease(plan, observations) {
   const simulatedComplete = observations.map((observation) => observation.id === releaseCheck.id
     ? { id: releaseCheck.id, state: "present", evidence: releaseCheck.expectedEvidence }
     : observation);
-  if (evaluatePublishedState(plan, simulatedComplete) !== "already-identical") {
+  if (evaluateUnitState(checks, simulatedComplete) !== "already-identical") {
     throw new Error("Post-publication verification required every artifact to be identical");
   }
   return "published-artifacts-identical";
@@ -461,21 +511,22 @@ const DEFAULT_RELEASE_CHECK_DEPENDENCIES = Object.freeze({
   probe: probeRemoteDestination,
 });
 
-async function verifyPublishedArtifactsWithRetry(plan, probe, sleep) {
+async function verifyPublishedArtifactsWithRetry(checks, probe, sleep) {
+  assertUnitChecks(checks);
   for (let attempt = 0; attempt <= PUBLICATION_MAX_POLLS; attempt += 1) {
-    const observations = await collectRemoteObservations(plan, probe);
+    const observations = await collectRemoteObservations(checks, probe);
     try {
-      if (evaluatePublishedState(plan, observations) === "already-identical") return "already-identical";
+      if (evaluateUnitState(checks, observations) === "already-identical") return "already-identical";
     } catch {
-      // A partial set is retried only when every visible item still matches.
+      // A partial unit is retried only when every visible item still matches.
     }
-    if (observations.length !== plan.length) throw new Error("Remote probes did not return a complete observation set");
+    if (observations.length !== checks.length) throw new Error("Remote probes did not return a complete observation set");
     const byId = new Map(observations.map((observation) => [observation?.id, observation]));
-    const releaseCheck = plan.find(({ kind }) => kind === "release");
-    if (releaseCheck === undefined || byId.size !== plan.length) {
+    const releaseCheck = checks.find(({ kind }) => kind === "release");
+    if (releaseCheck === undefined || byId.size !== checks.length) {
       throw new Error("Remote probes did not return a complete observation set");
     }
-    for (const check of plan) {
+    for (const check of checks) {
       const observation = observationValue(byId.get(check.id), check);
       if (check.id === releaseCheck.id) {
         if (observation.state !== "absent") throw new Error("Post-publication verification found invalid GitHub Release state");
@@ -483,63 +534,141 @@ async function verifyPublishedArtifactsWithRetry(plan, probe, sleep) {
         throw new Error(`Remote destination ${check.id} has different evidence`);
       }
     }
-    const pending = plan.some(({ id, kind }) => kind !== "release" && byId.get(id)?.state === "absent");
-    if (!pending) return evaluatePublishedArtifactsBeforeRelease(plan, observations);
+    const pending = checks.some(({ id, kind }) => kind !== "release" && byId.get(id)?.state === "absent");
+    if (!pending) return evaluatePublishedArtifactsBeforeRelease(checks, observations);
     if (attempt === PUBLICATION_MAX_POLLS) break;
     await sleep(PUBLICATION_POLL_INTERVAL_MS);
   }
   throw new Error("Post-publication verification required every destination to be identical");
 }
 
+function knownUnitId(value) {
+  try {
+    return unitById(value).id;
+  } catch {
+    throw new TypeError("Release unit is unknown");
+  }
+}
+
+// Validates collected evidence into one check plan per unit, in the collector's (plan) order.
+function collectedUnitPlans(collected, commit) {
+  const values = ownData(collected, ["releaseSet", "units"], "Collected release evidence");
+  const releaseSet = parseReleaseSetId(values.releaseSet, commit);
+  if (!Array.isArray(values.units) || utilTypes.isProxy(values.units) || values.units.length === 0) {
+    throw new TypeError("Collected release evidence must name at least one unit");
+  }
+  const entries = Array.from(values.units, (candidate) => {
+    const entry = ownData(candidate, ["id", "version", "tag", "evidence"], "Collected unit evidence");
+    const plan = createUnitCheckPlan({ unit: entry.id, version: entry.version, sourceCommit: commit, evidence: entry.evidence });
+    if (entry.tag !== plan[0].tag) throw new TypeError("Collected unit evidence has a foreign tag");
+    return Object.freeze({ id: plan[0].unit, version: plan[0].version, tag: plan[0].tag, plan });
+  });
+  if (new Set(entries.map(({ id }) => id)).size !== entries.length) {
+    throw new TypeError("Collected release evidence names a unit twice");
+  }
+  return Object.freeze({ releaseSet, entries });
+}
+
 export async function checkReleasePublication(options, dependencyOverrides) {
   const values = ownData(
     options,
-    ["releaseDirectory", "version", "sourceCommit", "requireIdentical"],
+    ["releaseDirectory", "sourceCommit", "requireIdentical", "unit"],
     "Release publication check options",
   );
   const releaseDirectory = syntacticAbsolutePath(values.releaseDirectory, "Release directory");
-  const version = stableVersion(values.version);
   const commit = sourceCommit(values.sourceCommit);
   if (typeof values.requireIdentical !== "boolean") {
     throw new TypeError("Release publication requireIdentical must be boolean");
   }
+  const unit = values.unit === null ? null : knownUnitId(values.unit);
   const dependencies = dependencySet(dependencyOverrides);
-  const collectorOptions = { releaseDirectory, version, sourceCommit: commit };
-  const evidence = await dependencies.collectEvidence(collectorOptions);
-  const plan = createPublishedCheckPlan({ version, sourceCommit: commit, evidence });
-  if (!values.requireIdentical) return checkPublishedDestinations({ plan, probe: dependencies.probe });
-  return verifyPublishedArtifactsWithRetry(plan, dependencies.probe, dependencies.sleep);
+  const run = () => evaluateReleasePublication({
+    releaseDirectory, commit, unit, requireIdentical: values.requireIdentical, dependencies,
+  });
+  if (!values.requireIdentical) return run();
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await run();
+    } catch (error) {
+      if (!(error instanceof ReleaseNotImmutableError) || attempt === IMMUTABILITY_MAX_POLLS) throw error;
+    }
+    await dependencies.sleep(IMMUTABILITY_POLL_INTERVAL_MS);
+  }
 }
 
-export async function checkDraftReleasePublication(options) {
+async function evaluateReleasePublication({ releaseDirectory, commit, unit, requireIdentical, dependencies }) {
+  const collected = collectedUnitPlans(
+    await dependencies.collectEvidence({ releaseDirectory, sourceCommit: commit }),
+    commit,
+  );
+  const selected = unit === null ? collected.entries : collected.entries.filter(({ id }) => id === unit);
+  if (selected.length === 0) throw new TypeError(`Release unit ${unit} is not in release set ${collected.releaseSet}`);
+  const plans = selected.map(({ plan }) => plan);
+  const states = [];
+  if (!requireIdentical) {
+    for (const { state } of await checkUnitDestinations({ plans, probe: dependencies.probe })) states.push(state);
+  } else {
+    for (const plan of plans) states.push(await verifyPublishedArtifactsWithRetry(plan, dependencies.probe, dependencies.sleep));
+  }
+  return Object.freeze({
+    releaseSet: collected.releaseSet,
+    units: Object.freeze(selected.map(({ id, version, tag }, index) => Object.freeze({
+      id,
+      kind: unitById(id).kind,
+      version,
+      tag,
+      state: states[index],
+    }))),
+  });
+}
+
+// Verifies one unit's draft GitHub Release against its local finalized files and reports the unit,
+// tag and asset count from the same commit-bound manifest read.
+async function verifyDraftRelease(options, probeDraft) {
   try {
-    const values = ownData(
-      options,
-      ["releaseDirectory", "version", "sourceCommit"],
-      "Draft release verification options",
-    );
+    const values = ownData(options, ["releaseDirectory", "sourceCommit", "unit"], "Draft release verification options");
     const releaseDirectory = canonicalDirectory(
       syntacticAbsolutePath(values.releaseDirectory, "Release directory"),
       "Release directory",
     );
-    const version = stableVersion(values.version);
     const commit = sourceCommit(values.sourceCommit);
-    const local = await localGithubReleaseEvidence(releaseDirectory, version, commit);
-    const template = PUBLISHED_DESTINATIONS.find(({ id }) => id === "github:release");
-    if (template === undefined) throw new Error();
+    const unit = unitById(values.unit);
+    const { manifest } = readStagedManifest(releaseDirectory, commit);
+    const entry = manifestUnit(manifest, unit.id);
+    const finalized = localFinalizedUnit(releaseDirectory, manifest, unit.id);
+    if (finalized === undefined) throw new Error();
+    if (unit.id === "gauntlet" && finalized.receipt.imageDigest !== await stagedImageDigest(releaseDirectory, manifest)) {
+      throw new Error();
+    }
     const check = Object.freeze({
-      id: template.id,
-      kind: template.kind,
-      destination: destinationUrl(template, version, commit),
-      expectedEvidence: local.evidence,
-      version,
+      id: `github:${entry.tag}`,
+      unit: entry.id,
+      kind: "release",
+      destination: `${GITHUB_RELEASES}/${entry.tag}`,
+      expectedEvidence: githubReleaseEvidence(
+        entry.id,
+        entry.version,
+        commit,
+        unitAssetHashes(releaseDirectory, manifest, entry.id, finalized.generated),
+      ),
+      version: entry.version,
+      tag: entry.tag,
     });
-    const observation = observationValue(await probeDraftRelease(check), check);
+    const observation = observationValue(await probeDraft(validatedCheck(check)), check);
     if (observation.state !== "present" || observation.evidence !== check.expectedEvidence) throw new Error();
-    return "draft-identical";
+    return Object.freeze({
+      unit: entry.id,
+      tag: entry.tag,
+      assets: githubReleaseAssetCatalog(entry.id, entry.version).length,
+      state: "draft-identical",
+    });
   } catch {
     throw new Error(FAILURE);
   }
+}
+
+export async function checkDraftReleasePublication(options) {
+  return (await verifyDraftRelease(options, probeDraftRelease)).state;
 }
 
 export function parseProbeObservation(output, check) {
@@ -627,66 +756,80 @@ function atomicReplace(path, bytes, mode = 0o600) {
 export function writePublicationReceipt(options) {
   const values = ownData(
     options,
-    ["releaseDirectory", "imageDigest", "chartDigest"],
-    "Published manifest finalization options",
+    ["releaseDirectory", "unit", "imageDigest", "chartDigest"],
+    "Published unit finalization options",
   );
   const releaseDirectory = canonicalDirectory(values.releaseDirectory, "Release directory");
-  if (typeof values.imageDigest !== "string" || !OCI_DIGEST.test(values.imageDigest)
-      || typeof values.chartDigest !== "string" || !OCI_DIGEST.test(values.chartDigest)) {
-    throw new TypeError("Published OCI digests are invalid");
-  }
-  const manifestPath = canonicalFile(join(releaseDirectory, "release-manifest.json"), "Release manifest");
-  let manifest;
-  let manifestBytes;
+  const unit = unitById(knownUnitId(values.unit));
+  const digestsValid = unit.id === "gauntlet"
+    ? [values.imageDigest, values.chartDigest].every((digest) => typeof digest === "string" && OCI_DIGEST.test(digest))
+    : values.imageDigest === null && values.chartDigest === null;
+  if (!digestsValid) throw new TypeError("Published OCI digests are required exactly for the gauntlet unit");
+  const { manifest } = readStagedManifest(releaseDirectory);
+  let entry;
+  let unitManifest;
   try {
-    const parsed = readManifestDocument(manifestPath);
-    const version = stableVersion(parsed.value?.version);
-    const commit = sourceCommit(parsed.value?.sourceCommit);
-    manifest = validateStagedManifest(parsed.value, version, commit);
-    manifestBytes = parsed.bytes;
+    entry = manifestUnit(manifest, unit.id);
+    unitManifest = unitReleaseManifest(manifest, unit.id);
   } catch {
     throw new Error(FAILURE);
   }
-  const records = ["release-manifest.json", "publication-receipt.json"];
-  const seen = new Set(records);
-  for (const artifact of manifest.artifacts) {
-    const path = releaseArtifactPath(releaseDirectory, artifact);
-    const relativePath = relative(releaseDirectory, path).split(sep).join("/");
-    if (seen.has(relativePath)) throw new Error(FAILURE);
-    seen.add(relativePath);
-    records.push(relativePath);
-  }
-  const receipt = {
-    schemaVersion: 1,
-    version: manifest.version,
+  const manifestBytes = unitManifestBytes(manifest, unit.id);
+  const receiptBytes = publicationReceiptBytes({
+    schemaVersion: 2,
+    releaseSet: manifest.releaseSet,
+    unit: unit.id,
+    version: entry.version,
     sourceCommit: manifest.sourceCommit,
+    manifestSha256: sha256Bytes(manifestBytes),
     imageDigest: values.imageDigest,
     chartDigest: values.chartDigest,
-    manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"),
-  };
-  const receiptPath = join(releaseDirectory, "publication-receipt.json");
-  const receiptBytes = publicationReceiptBytes(receipt);
+  });
+  const directory = privateDirectory(join(privateDirectory(join(releaseDirectory, "units")), unit.id));
+  createOrRequireIdentical(join(directory, "release-manifest.json"), manifestBytes, GENERATED_ASSETS[0].maximumBytes);
+  createOrRequireIdentical(join(directory, "publication-receipt.json"), receiptBytes, GENERATED_ASSETS[1].maximumBytes);
+  const checksums = finalizedUnitChecksums(unitManifest, manifestBytes, receiptBytes);
+  atomicReplace(join(directory, "SHA256SUMS"), checksums);
+  return Object.freeze({ unit: unit.id, files: checksums.toString("ascii").split("\n").length - 1 });
+}
+
+// Creates a task-owned private directory or accepts an existing real one; a symlink, a non-directory
+// or a directory reached through a symlink fails closed.
+function privateDirectory(path) {
   try {
-    const existing = readFileSync(canonicalFile(receiptPath, "Publication receipt"));
-    if (!existing.equals(receiptBytes)) throw new Error();
+    mkdirSync(path, { mode: 0o700 });
   } catch (error) {
-    if (error instanceof Error && error.code === "ENOENT") atomicCreate(receiptPath, receiptBytes);
-    else if (error instanceof TypeError && error.message.startsWith("Publication receipt")) {
-      try {
-        lstatSync(receiptPath);
-        throw new Error(FAILURE);
-      } catch (missing) {
-        if (missing?.code !== "ENOENT") throw new Error(FAILURE);
-        atomicCreate(receiptPath, receiptBytes);
-      }
-    } else if (error instanceof Error && error.message === FAILURE) throw error;
-    else throw new Error(FAILURE);
+    if (error?.code !== "EEXIST") throw new Error(FAILURE);
   }
-  if (digestFile(receiptPath) !== createHash("sha256").update(receiptBytes).digest("hex")) throw new Error(FAILURE);
-  records.sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right)));
-  const checksums = records.map((relativePath) => `${digestFile(resolve(releaseDirectory, ...relativePath.split("/")))}  ${relativePath}\n`).join("");
-  atomicReplace(join(releaseDirectory, "SHA256SUMS"), Buffer.from(checksums, "ascii"));
-  return Object.freeze({ files: records.length });
+  try {
+    const stat = lstatSync(path, { bigint: true });
+    if (!stat.isDirectory() || stat.isSymbolicLink() || realpathSync(path) !== path) throw new Error();
+  } catch {
+    throw new Error(FAILURE);
+  }
+  return path;
+}
+
+function createOrRequireIdentical(path, bytes, maximumBytes) {
+  let exists = true;
+  try {
+    lstatSync(path);
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw new Error(FAILURE);
+    exists = false;
+  }
+  if (!exists) {
+    atomicCreate(path, bytes);
+  } else {
+    let existing;
+    try {
+      existing = readCanonicalFile(path, "Finalized release file", maximumBytes);
+    } catch {
+      throw new Error(FAILURE);
+    }
+    if (!existing.equals(bytes)) throw new Error(FAILURE);
+  }
+  if (digestFile(path) !== sha256Bytes(bytes)) throw new Error(FAILURE);
 }
 
 function atomicCreate(path, bytes, mode = 0o600) {
@@ -746,176 +889,158 @@ function releaseArtifactPath(releaseDirectory, record) {
   return path;
 }
 
-function readManifestDocument(manifestPath) {
-  const bytes = readFileSync(manifestPath);
-  const source = bytes.toString("utf8");
-  if (source.includes("\0") || source.includes("\r")) throw new Error(FAILURE);
-  const document = parseDocument(source, { json: true, prettyErrors: false, strict: true, uniqueKeys: true });
-  if (document.errors.length !== 0 || document.warnings.length !== 0) throw new Error(FAILURE);
-  return Object.freeze({ bytes, value: JSON.parse(source) });
+// Reads a canonical file without following a symlink at any point of its path.
+function readCanonicalFile(path, label, maximumBytes) {
+  canonicalFile(path, label, BigInt(maximumBytes));
+  let descriptor;
+  try {
+    descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_CLOEXEC);
+    const before = fstatSync(descriptor, { bigint: true });
+    if (!before.isFile() || before.nlink !== 1n || before.size <= 0n || before.size > BigInt(maximumBytes)) throw new Error();
+    const bytes = Buffer.alloc(Number(before.size));
+    let position = 0;
+    while (position < bytes.length) {
+      const count = readSync(descriptor, bytes, position, bytes.length - position, position);
+      if (count <= 0) throw new Error();
+      position += count;
+    }
+    const after = fstatSync(descriptor, { bigint: true });
+    if (after.dev !== before.dev || after.ino !== before.ino || after.size !== before.size
+        || after.mtimeNs !== before.mtimeNs || after.ctimeNs !== before.ctimeNs) throw new Error();
+    return bytes;
+  } catch {
+    throw new Error(FAILURE);
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
 }
 
-function validateStagedManifest(manifest, version, commit) {
+// Reads the canonical schema 2 manifest of a staged release-set root: it must be bound to `commit`
+// (when given) and to the directory's own set id, name exactly the artifacts of its units, and every
+// artifact file must still hash to its record.
+function readStagedManifest(releaseDirectory, commit) {
   try {
-    const expectedArtifacts = stagedArtifactCatalog(version);
-    const expectedPaths = new Map(expectedArtifacts.map((record) => [`${record.kind}\0${record.name}`, record.path]));
-    if (expectedPaths.size !== expectedArtifacts.length) throw new Error();
-    const manifestKeys = ["schemaVersion", "version", "sourceTag", "sourceCommit", "artifacts"];
-    if (manifest === null || typeof manifest !== "object" || Array.isArray(manifest)
-        || Object.keys(manifest).sort().join("\0") !== manifestKeys.sort().join("\0")
-        || manifest.schemaVersion !== 1 || manifest.version !== version || manifest.sourceTag !== `v${version}`
-        || manifest.sourceCommit !== commit || !Array.isArray(manifest.artifacts)
-        || manifest.artifacts.length !== expectedArtifacts.length) throw new Error();
-    const identities = new Set();
-    const paths = new Set();
-    for (const record of manifest.artifacts) {
-      if (record === null || typeof record !== "object" || Array.isArray(record)
-          || typeof record.kind !== "string" || typeof record.name !== "string" || typeof record.path !== "string"
-          || typeof record.sha256 !== "string" || !SHA256.test(record.sha256)
-          || Object.keys(record).sort().join("\0") !== ["kind", "name", "path", "sha256"].sort().join("\0")) throw new Error();
-      const identity = `${record.kind}\0${record.name}`;
-      if (identities.has(identity) || paths.has(record.path) || expectedPaths.get(identity) !== record.path) throw new Error();
-      identities.add(identity);
-      paths.add(record.path);
+    const staged = readReleaseManifest(releaseDirectory);
+    const { manifest } = staged;
+    if ((commit !== undefined && manifest.sourceCommit !== commit) || manifest.releaseSet !== basename(releaseDirectory)) {
+      throw new Error();
     }
-    if ([...expectedPaths.keys()].some((identity) => !identities.has(identity))) throw new Error();
-    return manifest;
+    const expected = expectedReleaseArtifacts(manifest.units);
+    const actual = manifest.artifacts.map(({ unit, kind, name, path }) => ({ unit, kind, name, path }));
+    if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error();
+    for (const artifact of manifest.artifacts) releaseArtifactPath(releaseDirectory, artifact);
+    return staged;
   } catch {
     throw new Error(FAILURE);
   }
 }
 
-function readStagedManifest(releaseDirectory, version, commit) {
-  const manifestPath = canonicalFile(join(releaseDirectory, "release-manifest.json"), "Release manifest");
-  const parsed = readManifestDocument(manifestPath);
-  return Object.freeze({ bytes: parsed.bytes, manifest: validateStagedManifest(parsed.value, version, commit) });
-}
-
-function oneArtifact(manifest, kind, name) {
-  const matches = manifest.artifacts.filter((record) => record.kind === kind && record.name === name);
+function oneArtifact(artifacts, kind, name) {
+  const matches = artifacts.filter((record) => record.kind === kind && record.name === name);
   if (matches.length !== 1) throw new Error(FAILURE);
   return matches[0];
 }
 
-function finalizedChecksumsBytes(manifest, manifestBytes, receiptBytes) {
+function finalizedUnitChecksums(unitManifest, manifestBytes, receiptBytes) {
   const records = [
-    { path: "release-manifest.json", sha256: createHash("sha256").update(manifestBytes).digest("hex") },
-    { path: "publication-receipt.json", sha256: createHash("sha256").update(receiptBytes).digest("hex") },
-    ...manifest.artifacts.map(({ path, sha256 }) => ({ path, sha256 })),
+    { path: "release-manifest.json", sha256: sha256Bytes(manifestBytes) },
+    { path: "publication-receipt.json", sha256: sha256Bytes(receiptBytes) },
+    ...unitManifest.artifacts.map(({ path, sha256 }) => ({ path, sha256 })),
   ];
+  if (new Set(records.map(({ path }) => path)).size !== records.length) throw new Error(FAILURE);
   records.sort((left, right) => Buffer.compare(Buffer.from(left.path), Buffer.from(right.path)));
   return Buffer.from(records.map(({ path, sha256 }) => `${sha256}  ${path}\n`).join(""), "ascii");
 }
 
-function releaseAssetHashes(releaseDirectory, version, manifest, manifestBytes, receiptBytes, checksumsBytes) {
-  const catalog = githubReleaseAssetCatalog(version);
-  const paths = new Map([
-    [`gauntlet-compose-${version}.tar.gz`, releaseArtifactPath(
-      releaseDirectory,
-      oneArtifact(manifest, "compose", RELEASE_ARTIFACTS.compose.name),
-    )],
-    [`gauntlet-skills-${version}.tgz`, releaseArtifactPath(
-      releaseDirectory,
-      oneArtifact(manifest, "skills", RELEASE_ARTIFACTS.skills.name),
-    )],
-    [`gauntlet-${version}.tgz`, releaseArtifactPath(
-      releaseDirectory,
-      oneArtifact(manifest, "helm", RELEASE_ARTIFACTS.chart.name),
-    )],
-    [`gauntlet-${version}.provenance.json`, releaseArtifactPath(
-      releaseDirectory,
-      oneArtifact(manifest, "provenance", `${RELEASE_ARTIFACTS.image.name}@buildkit-unsigned`),
-    )],
-    ["gauntlet-linux-amd64.spdx.json", releaseArtifactPath(
-      releaseDirectory,
-      oneArtifact(manifest, "sbom", `${RELEASE_ARTIFACTS.image.name}@linux/amd64`),
-    )],
-    ["gauntlet-linux-arm64.spdx.json", releaseArtifactPath(
-      releaseDirectory,
-      oneArtifact(manifest, "sbom", `${RELEASE_ARTIFACTS.image.name}@linux/arm64`),
-    )],
-  ]);
-  const generated = new Map([
-    ["release-manifest.json", manifestBytes],
-    ["publication-receipt.json", receiptBytes],
-    ["SHA256SUMS", checksumsBytes],
-  ]);
+// Hashes one unit's GitHub Release assets: staged artifacts are re-verified on disk, the three generated
+// files come from `generated` (name to exact bytes).
+function unitAssetHashes(releaseDirectory, manifest, unitId, generated) {
   const result = Object.create(null);
-  for (const { name, maximumBytes } of catalog) {
-    const path = paths.get(name);
-    const bytes = generated.get(name);
-    if ((path === undefined) === (bytes === undefined)) throw new Error(FAILURE);
-    if (path !== undefined) {
-      const size = lstatSync(path, { bigint: true }).size;
-      if (size <= 0n || size > BigInt(maximumBytes)) throw new Error(FAILURE);
-      result[name] = digestFile(path);
+  for (const asset of unitReleaseAssets(manifest, unitId)) {
+    const bytes = generated.get(asset.name);
+    if ((bytes !== undefined) !== asset.path.startsWith(`units/${unitId}/`)) throw new Error(FAILURE);
+    if (bytes !== undefined) {
+      if (!Buffer.isBuffer(bytes) || bytes.length === 0 || bytes.length > asset.maximumBytes) throw new Error(FAILURE);
+      result[asset.name] = sha256Bytes(bytes);
     } else {
-      if (!Buffer.isBuffer(bytes) || bytes.length === 0 || bytes.length > maximumBytes) throw new Error(FAILURE);
-      result[name] = createHash("sha256").update(bytes).digest("hex");
+      const matches = manifest.artifacts.filter((record) => record.unit === unitId && record.path === asset.path);
+      if (matches.length !== 1) throw new Error(FAILURE);
+      const [artifact] = matches;
+      const path = releaseArtifactPath(releaseDirectory, artifact);
+      const size = lstatSync(path, { bigint: true }).size;
+      if (size <= 0n || size > BigInt(asset.maximumBytes)) throw new Error(FAILURE);
+      result[asset.name] = artifact.sha256;
     }
   }
   return Object.freeze(result);
 }
 
-function githubReleaseEvidence(version, commit, assetHashes) {
+function githubReleaseEvidence(unitId, version, commit, assetHashes) {
+  const unit = unitById(unitId);
   const releaseVersion = stableVersion(version);
   const source = sourceCommit(commit);
-  const expected = githubReleaseAssetCatalog(releaseVersion).map(({ name }) => name);
+  const expected = githubReleaseAssetCatalog(unit.id, releaseVersion).map(({ name }) => name);
   const hashes = ownData(assetHashes, expected, "GitHub Release asset hashes");
   const assets = expected.map((name) => {
     if (typeof hashes[name] !== "string" || !SHA256.test(hashes[name])) throw new Error(FAILURE);
     return { name, sha256: hashes[name] };
   });
-  return createHash("sha256").update(JSON.stringify({ schemaVersion: 1, version: releaseVersion, sourceCommit: source, assets })).digest("hex");
+  return sha256Bytes(JSON.stringify({
+    schemaVersion: 2,
+    unit: unit.id,
+    tag: unitTag(unit, releaseVersion),
+    sourceCommit: source,
+    assets,
+  }));
 }
 
-function localPublication(releaseDirectory, version, commit, manifestBytes) {
-  const path = join(releaseDirectory, "publication-receipt.json");
+function localUnitPublication(releaseDirectory, manifest, unitId) {
+  const entry = manifestUnit(manifest, unitId);
+  const path = join(releaseDirectory, "units", entry.id, "publication-receipt.json");
   try {
     lstatSync(path);
   } catch (error) {
     if (error?.code === "ENOENT") return undefined;
     throw new Error(FAILURE);
   }
-  const bytes = readFileSync(canonicalFile(path, "Publication receipt", 64n * 1024n));
+  const bytes = readCanonicalFile(path, "Publication receipt", GENERATED_ASSETS[1].maximumBytes);
   const receipt = parsePublicationReceipt(bytes.toString("utf8"), {
-    version,
-    sourceCommit: commit,
-    manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"),
+    releaseSet: manifest.releaseSet,
+    unit: entry.id,
+    version: entry.version,
+    sourceCommit: manifest.sourceCommit,
+    manifestSha256: sha256Bytes(unitManifestBytes(manifest, entry.id)),
   });
   if (!bytes.equals(publicationReceiptBytes(receipt))) throw new Error(FAILURE);
   return Object.freeze({ receipt, bytes });
 }
 
-async function localGithubReleaseEvidence(releaseDirectory, version, commit) {
-  const staged = readStagedManifest(releaseDirectory, version, commit);
-  for (const artifact of staged.manifest.artifacts) releaseArtifactPath(releaseDirectory, artifact);
-  const publication = localPublication(releaseDirectory, version, commit, staged.bytes);
-  if (publication === undefined) throw new Error(FAILURE);
-  const ociPath = releaseArtifactPath(
-    releaseDirectory,
-    oneArtifact(staged.manifest, "oci", RELEASE_ARTIFACTS.image.name),
-  );
-  const stagedImageDigest = await ociLayoutDigest(ociPath);
-  if (publication.receipt.imageDigest !== stagedImageDigest) throw new Error(FAILURE);
-  const checksumsBytes = readFileSync(canonicalFile(join(releaseDirectory, "SHA256SUMS"), "Release checksums"));
-  const expectedChecksums = finalizedChecksumsBytes(staged.manifest, staged.bytes, publication.bytes);
-  if (!checksumsBytes.equals(expectedChecksums)) throw new Error(FAILURE);
+// A finalized unit's three generated files; each must equal the bytes computed from the staged manifest
+// and the unit's own receipt. Absent receipt means the unit is not finalized.
+function localFinalizedUnit(releaseDirectory, manifest, unitId) {
+  const publication = localUnitPublication(releaseDirectory, manifest, unitId);
+  if (publication === undefined) return undefined;
+  const directory = join(releaseDirectory, "units", unitId);
+  const manifestBytes = unitManifestBytes(manifest, unitId);
+  if (!readCanonicalFile(join(directory, "release-manifest.json"), "Unit release manifest", GENERATED_ASSETS[0].maximumBytes)
+    .equals(manifestBytes)) throw new Error(FAILURE);
+  const checksums = finalizedUnitChecksums(unitReleaseManifest(manifest, unitId), manifestBytes, publication.bytes);
+  if (!readCanonicalFile(join(directory, "SHA256SUMS"), "Unit release checksums", GENERATED_ASSETS[2].maximumBytes)
+    .equals(checksums)) throw new Error(FAILURE);
   return Object.freeze({
-    evidence: githubReleaseEvidence(
-      version,
-      commit,
-      releaseAssetHashes(
-        releaseDirectory,
-        version,
-        staged.manifest,
-        staged.bytes,
-        publication.bytes,
-        checksumsBytes,
-      ),
-    ),
-    imageDigest: stagedImageDigest,
+    receipt: publication.receipt,
+    bytes: publication.bytes,
+    generated: new Map([
+      ["release-manifest.json", manifestBytes],
+      ["publication-receipt.json", publication.bytes],
+      ["SHA256SUMS", checksums],
+    ]),
   });
+}
+
+async function stagedImageDigest(releaseDirectory, manifest) {
+  const artifacts = manifest.artifacts.filter(({ unit }) => unit === "gauntlet");
+  return ociLayoutDigest(releaseArtifactPath(releaseDirectory, oneArtifact(artifacts, "oci", RELEASE_ARTIFACTS.image.name)));
 }
 
 function commandEnvironment(extra = {}) {
@@ -991,103 +1116,104 @@ async function ociLayoutDigest(path) {
   return parseOciLayoutIndex(result.stdout);
 }
 
-export async function collectReleaseEvidence(options) {
-  const values = ownData(options, ["releaseDirectory", "version", "sourceCommit"], "Release evidence options");
-  const releaseDirectory = canonicalDirectory(values.releaseDirectory, "Release directory");
-  const version = stableVersion(values.version);
-  const commit = sourceCommit(values.sourceCommit);
-  const staged = readStagedManifest(releaseDirectory, version, commit);
-  const manifest = staged.manifest;
-  const manifestBytes = staged.bytes;
-  for (const artifact of manifest.artifacts) releaseArtifactPath(releaseDirectory, artifact);
-  const result = Object.create(null);
+function optionalDigest(name) {
+  const value = process.env[name];
+  if (value === undefined || value === "") return undefined;
+  if (!OCI_DIGEST.test(value)) throw new Error(FAILURE);
+  return value;
+}
 
-  for (const template of PUBLISHED_DESTINATIONS.filter(({ kind }) => kind === "npm")) {
-    const artifact = RELEASE_ARTIFACTS.npm.find(({ name }) => `npm:${name.slice("@8lines/gauntlet-".length)}` === template.id);
-    if (artifact === undefined) throw new Error(FAILURE);
-    const path = releaseArtifactPath(releaseDirectory, oneArtifact(manifest, "npm", artifact.name));
-    result[template.id] = `sha512-${hashFile(path, "sha512", "base64")}`;
-  }
+async function collectUnitEvidence(releaseDirectory, manifest, entry, expected) {
+  const unit = unitById(entry.id);
+  const commit = manifest.sourceCommit;
+  const artifacts = manifest.artifacts.filter((artifact) => artifact.unit === unit.id);
+  const name = unit.artifacts[0];
+  const values = new Map();
+  const finalized = localFinalizedUnit(releaseDirectory, manifest, unit.id);
+  const remote = await publishedUnitReceipt(manifest, unit.id);
+  if (finalized !== undefined && remote !== undefined && !finalized.bytes.equals(remote.bytes)) throw new Error(FAILURE);
+  const publication = finalized ?? remote;
 
-  for (const template of PUBLISHED_DESTINATIONS.filter(({ kind }) => kind === "maven")) {
-    const artifact = RELEASE_ARTIFACTS.maven.find(({ name }) => `maven:${name.split(":")[1]}` === template.id);
-    if (artifact === undefined) throw new Error(FAILURE);
-    const record = oneArtifact(manifest, "maven", artifact.name);
-    const archivePath = releaseArtifactPath(releaseDirectory, record);
-    const artifactId = artifact.name.split(":")[1];
-    const expectedPrefix = `gauntlet-${artifactId}-${version}`;
-    result[template.id] = await consumeManifestTree({
-      archivePath,
-      expectedPrefix,
+  if (unit.kind === "npm") {
+    const path = releaseArtifactPath(releaseDirectory, oneArtifact(artifacts, "npm", name));
+    values.set(unitDestinations(unit.id)[0].id, `sha512-${hashFile(path, "sha512", "base64")}`);
+  } else if (unit.kind === "maven") {
+    const record = oneArtifact(artifacts, "maven", name);
+    const artifactId = name.split(":")[1];
+    values.set(unitDestinations(unit.id)[0].id, await consumeManifestTree({
+      archivePath: releaseArtifactPath(releaseDirectory, record),
+      expectedPrefix: `gauntlet-${artifactId}-${entry.version}`,
       expectedSha256: record.sha256,
     }, (source) => digestFile(canonicalFile(
-      resolve(source, `${artifactId}-${version}.jar`),
+      resolve(source, `${artifactId}-${entry.version}.jar`),
       "Materialized Maven binary",
       512n * 1024n * 1024n,
-    )));
-  }
-
-  const ociPath = releaseArtifactPath(
-    releaseDirectory,
-    oneArtifact(manifest, "oci", RELEASE_ARTIFACTS.image.name),
-  );
-  const imageDigest = await ociLayoutDigest(ociPath);
-  const localFinalization = localPublication(releaseDirectory, version, commit, manifestBytes);
-  const remotePublication = await publishedReceipt(version, commit, manifestBytes);
-  if (localFinalization !== undefined && remotePublication !== undefined
-      && !localFinalization.bytes.equals(remotePublication.bytes)) throw new Error(FAILURE);
-  const publication = localFinalization ?? remotePublication;
-  const publishedImageDigest = process.env.GAUNTLET_EXPECTED_IMAGE_DIGEST;
-  if (publishedImageDigest !== undefined && !OCI_DIGEST.test(publishedImageDigest)) throw new Error(FAILURE);
-  if (publishedImageDigest !== undefined && publishedImageDigest !== imageDigest) throw new Error(FAILURE);
-  if (publication !== undefined && publication.receipt.imageDigest !== imageDigest) throw new Error(FAILURE);
-  const expectedImageDigest = imageDigest;
-  result["image:semantic"] = expectedImageDigest;
-  result["image:commit"] = expectedImageDigest;
-
-  const chartPath = releaseArtifactPath(
-    releaseDirectory,
-    oneArtifact(manifest, "helm", RELEASE_ARTIFACTS.chart.name),
-  );
-  const chartSha256 = digestFile(chartPath);
-  result["chart:semantic"] = chartSha256;
-  const publishedChartDigest = process.env.GAUNTLET_EXPECTED_CHART_DIGEST;
-  if (publishedChartDigest !== undefined && !OCI_DIGEST.test(publishedChartDigest)) throw new Error(FAILURE);
-  if (publishedChartDigest !== undefined && publication !== undefined
-      && publishedChartDigest !== publication.receipt.chartDigest) throw new Error(FAILURE);
-
-  for (const artifact of RELEASE_ARTIFACTS.composer) {
-    const record = oneArtifact(manifest, "composer", artifact.name);
-    const archivePath = releaseArtifactPath(releaseDirectory, record);
-    const id = `composer:${artifact.name.slice("8lines/gauntlet-".length)}`;
-    const expectedPrefix = `${artifact.repository.split("/").at(-1)}-${version}`;
-    result[id] = await consumeManifestTree({
-      archivePath,
-      expectedPrefix,
+    ))));
+  } else if (unit.kind === "composer") {
+    const record = oneArtifact(artifacts, "composer", name);
+    const composer = RELEASE_ARTIFACTS.composer.find((artifact) => artifact.name === name);
+    values.set(unitDestinations(unit.id)[0].id, await consumeManifestTree({
+      archivePath: releaseArtifactPath(releaseDirectory, record),
+      expectedPrefix: `${composer.repository.split("/").at(-1)}-${entry.version}`,
       expectedSha256: record.sha256,
-    }, (source) => composerTreeEvidence(source, version, commit));
+    }, (source) => composerTreeEvidence(source, entry.version, commit)));
   }
-  const receipt = publication?.receipt ?? Object.freeze({
-    schemaVersion: 1,
-    version,
-    sourceCommit: commit,
-    imageDigest: expectedImageDigest,
-    chartDigest: publishedChartDigest ?? `sha256:${chartSha256}`,
-    manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"),
-  });
-  const receiptBytes = publication?.bytes ?? publicationReceiptBytes(receipt);
-  const expectedChecksumsBytes = finalizedChecksumsBytes(manifest, manifestBytes, receiptBytes);
-  let checksumsBytes = expectedChecksumsBytes;
-  if (localFinalization !== undefined) {
-    checksumsBytes = readFileSync(canonicalFile(join(releaseDirectory, "SHA256SUMS"), "Release checksums"));
-    if (!checksumsBytes.equals(expectedChecksumsBytes)) throw new Error(FAILURE);
+
+  let digests = {};
+  if (unit.id === "gauntlet") {
+    const imageDigest = await stagedImageDigest(releaseDirectory, manifest);
+    if (expected.imageDigest !== undefined && expected.imageDigest !== imageDigest) throw new Error(FAILURE);
+    if (publication !== undefined && publication.receipt.imageDigest !== imageDigest) throw new Error(FAILURE);
+    values.set("image:semantic", imageDigest);
+    values.set("image:commit", imageDigest);
+    const chartSha256 = digestFile(releaseArtifactPath(releaseDirectory, oneArtifact(artifacts, "helm", RELEASE_ARTIFACTS.chart.name)));
+    values.set("chart:semantic", chartSha256);
+    if (expected.chartDigest !== undefined && publication !== undefined
+        && expected.chartDigest !== publication.receipt.chartDigest) throw new Error(FAILURE);
+    digests = { imageDigest, chartDigest: expected.chartDigest ?? `sha256:${chartSha256}` };
   }
-  result["github:release"] = githubReleaseEvidence(
-    version,
+
+  let generated = finalized?.generated;
+  if (generated === undefined) {
+    const manifestBytes = unitManifestBytes(manifest, unit.id);
+    const receiptBytes = remote?.bytes ?? publicationReceiptBytes({
+      schemaVersion: 2,
+      releaseSet: manifest.releaseSet,
+      unit: unit.id,
+      version: entry.version,
+      sourceCommit: commit,
+      manifestSha256: sha256Bytes(manifestBytes),
+      ...digests,
+    });
+    generated = new Map([
+      ["release-manifest.json", manifestBytes],
+      ["publication-receipt.json", receiptBytes],
+      ["SHA256SUMS", finalizedUnitChecksums(unitReleaseManifest(manifest, unit.id), manifestBytes, receiptBytes)],
+    ]);
+  }
+  values.set(`github:${entry.tag}`, githubReleaseEvidence(
+    unit.id,
+    entry.version,
     commit,
-    releaseAssetHashes(releaseDirectory, version, manifest, manifestBytes, receiptBytes, checksumsBytes),
-  );
-  return exactEvidence(result, commit);
+    unitAssetHashes(releaseDirectory, manifest, unit.id, generated),
+  ));
+  const evidence = Object.freeze(Object.fromEntries(unitTemplates(unit.id, entry.tag).map(({ id }) => [id, values.get(id)])));
+  createUnitCheckPlan({ unit: unit.id, version: entry.version, sourceCommit: commit, evidence });
+  return Object.freeze({ id: unit.id, version: entry.version, tag: entry.tag, evidence });
+}
+
+export async function collectReleaseEvidence(options) {
+  const values = ownData(options, ["releaseDirectory", "sourceCommit"], "Release evidence options");
+  const releaseDirectory = canonicalDirectory(values.releaseDirectory, "Release directory");
+  const commit = sourceCommit(values.sourceCommit);
+  const expected = Object.freeze({
+    imageDigest: optionalDigest("GAUNTLET_EXPECTED_IMAGE_DIGEST"),
+    chartDigest: optionalDigest("GAUNTLET_EXPECTED_CHART_DIGEST"),
+  });
+  const { manifest } = readStagedManifest(releaseDirectory, commit);
+  const units = [];
+  for (const entry of manifest.units) units.push(await collectUnitEvidence(releaseDirectory, manifest, entry, expected));
+  return Object.freeze({ releaseSet: manifest.releaseSet, units: Object.freeze(units) });
 }
 
 function validatedToken(name) {
@@ -1130,13 +1256,13 @@ async function githubJson(path, token) {
   }
 }
 
-async function githubDraftByTag(version, token) {
+async function githubDraftByTag(tag, token) {
   // GitHub's release-by-tag endpoint omits drafts and returns 404 for them.
   // Authenticated list releases includes drafts, so use it for the pre-publication gate.
   const listing = await githubJson("/repos/8lines/gauntlet/releases?per_page=100", token);
   if (listing.state !== "present") return listing;
   if (!Array.isArray(listing.value)) throw new Error(FAILURE);
-  const matches = listing.value.filter((release) => release?.tag_name === `v${version}`);
+  const matches = listing.value.filter((release) => release?.tag_name === tag);
   if (matches.length > 1) throw new Error(FAILURE);
   return matches.length === 0
     ? Object.freeze({ state: "absent" })
@@ -1223,25 +1349,28 @@ async function downloadGithubReleaseAsset(assetId, token, maximumBytes, captureB
   }
 }
 
-async function publishedReceipt(version, commit, manifestBytes) {
+async function publishedUnitReceipt(manifest, unitId) {
   if (process.env.GAUNTLET_USE_REMOTE_RECEIPT !== "true") return undefined;
+  const entry = manifestUnit(manifest, unitId);
   const token = validatedToken("GH_TOKEN");
-  const release = await githubJson(`/repos/8lines/gauntlet/releases/tags/v${version}`, token);
+  const release = await githubJson(`/repos/8lines/gauntlet/releases/tags/${entry.tag}`, token);
   if (release.state === "absent") return undefined;
-  if (release.value?.tag_name !== `v${version}` || release.value?.draft !== false || release.value?.prerelease !== false
-      || release.value?.immutable !== true || !Array.isArray(release.value?.assets)) throw new Error(FAILURE);
-  const assets = parseReleaseAssets(release.value.assets, version);
+  if (release.value?.tag_name !== entry.tag || release.value?.draft !== false || release.value?.prerelease !== false
+      || typeof release.value?.immutable !== "boolean" || !Array.isArray(release.value?.assets)) throw new Error(FAILURE);
+  if (release.value.immutable !== true) throw new ReleaseNotImmutableError();
+  const assets = parseReleaseAssets(release.value.assets, entry.id, entry.version);
   const downloaded = await downloadGithubReleaseAsset(
     assets["publication-receipt.json"],
     token,
-    githubReleaseAssetCatalog(version).find(({ name }) => name === "publication-receipt.json").maximumBytes,
+    GENERATED_ASSETS[1].maximumBytes,
     true,
   );
-  const source = downloaded.bytes.toString("utf8");
-  const receipt = parsePublicationReceipt(source, {
-    version,
-    sourceCommit: commit,
-    manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"),
+  const receipt = parsePublicationReceipt(downloaded.bytes.toString("utf8"), {
+    releaseSet: manifest.releaseSet,
+    unit: entry.id,
+    version: entry.version,
+    sourceCommit: manifest.sourceCommit,
+    manifestSha256: sha256Bytes(unitManifestBytes(manifest, entry.id)),
   });
   if (!downloaded.bytes.equals(publicationReceiptBytes(receipt))) throw new Error(FAILURE);
   return Object.freeze({ receipt, bytes: downloaded.bytes });
@@ -1268,7 +1397,8 @@ function missingRegistryCommand(result) {
 }
 
 async function probeNpm(check) {
-  const template = PUBLISHED_DESTINATIONS.find(({ id }) => id === check.id);
+  const template = unitDestinations(check.unit).find(({ id }) => id === check.id);
+  if (template === undefined) throw new Error(FAILURE);
   // The public npm registry serves published version metadata without authentication.
   const encodedName = template.target.replace("/", "%2F");
   const response = await fetch(`https://registry.npmjs.org/${encodedName}/${check.version}`, {
@@ -1363,8 +1493,8 @@ function anonymousGitEnvironment(workspace) {
 }
 
 async function probeComposer(check) {
-  const template = PUBLISHED_DESTINATIONS.find(({ id }) => id === check.id);
-  const artifact = RELEASE_ARTIFACTS.composer.find(({ repositoryUrl }) => repositoryUrl === template.target);
+  const template = unitDestinations(check.unit).find(({ id }) => id === check.id);
+  const artifact = RELEASE_ARTIFACTS.composer.find(({ repositoryUrl }) => repositoryUrl === template?.target);
   if (artifact === undefined || artifact.repositoryUrl !== `https://github.com/${artifact.repository}.git`) {
     throw new Error(FAILURE);
   }
@@ -1404,23 +1534,31 @@ async function probeGithubRelease(check, expectedDraft) {
   const repositoryAccess = await githubJson("/repos/8lines/gauntlet", token);
   if (repositoryAccess.state !== "present") throw new Error(FAILURE);
   const release = expectedDraft
-    ? await githubDraftByTag(check.version, token)
-    : await githubJson(`/repos/8lines/gauntlet/releases/tags/v${check.version}`, token);
+    ? await githubDraftByTag(check.tag, token)
+    : await githubJson(`/repos/8lines/gauntlet/releases/tags/${check.tag}`, token);
   if (release.state === "absent") return { id: check.id, state: "absent" };
-  if (release.value?.tag_name !== `v${check.version}` || release.value?.draft !== expectedDraft
-      || release.value?.prerelease !== false || release.value?.immutable !== !expectedDraft) {
+  if (release.value?.tag_name !== check.tag || release.value?.draft !== expectedDraft
+      || release.value?.prerelease !== false || typeof release.value?.immutable !== "boolean") {
     throw new Error(FAILURE);
   }
-  const assets = parseReleaseAssets(release.value?.assets, check.version);
-  const downloads = await Promise.allSettled(githubReleaseAssetCatalog(check.version).map(async ({ name, maximumBytes }) => {
+  if (release.value.immutable !== !expectedDraft) {
+    if (expectedDraft) throw new Error(FAILURE);
+    throw new ReleaseNotImmutableError();
+  }
+  const assets = parseReleaseAssets(release.value?.assets, check.unit, check.version);
+  const downloads = await Promise.allSettled(githubReleaseAssetCatalog(check.unit, check.version).map(async ({ name, maximumBytes }) => {
     const downloaded = await downloadGithubReleaseAsset(assets[name], token, maximumBytes);
     return Object.freeze({ name, sha256: downloaded.sha256 });
   }));
   if (downloads.some(({ status }) => status === "rejected")) throw new Error(FAILURE);
   const hashes = Object.fromEntries(downloads.map(({ value }) => [value.name, value.sha256]));
-  const tagged = await githubTagCommit("gauntlet", `v${check.version}`, token);
+  const tagged = await githubTagCommit("gauntlet", check.tag, token);
   if (tagged.state !== "present") throw new Error(FAILURE);
-  return { id: check.id, state: "present", evidence: githubReleaseEvidence(check.version, tagged.commit, hashes) };
+  return {
+    id: check.id,
+    state: "present",
+    evidence: githubReleaseEvidence(check.unit, check.version, tagged.commit, hashes),
+  };
 }
 
 async function probeRelease(check) {
@@ -1434,20 +1572,7 @@ async function probeDraftRelease(check) {
 export async function probeRemoteDestination(check) {
   let validated;
   try {
-    const values = ownData(check, ["id", "kind", "destination", "expectedEvidence", "version"], "Remote probe check");
-    const template = PUBLISHED_DESTINATIONS.find(({ id }) => id === values.id);
-    const version = stableVersion(values.version);
-    if (template === undefined || values.kind !== template.kind || typeof values.destination !== "string") throw new Error();
-    const semanticDestination = destinationUrl(template, version, "0".repeat(40));
-    const destinationMatches = template.id === "image:commit"
-      ? new RegExp(`^${template.target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:sha-[0-9a-f]{12}$`, "u").test(values.destination)
-      : values.destination === semanticDestination;
-    const evidenceMatches = template.kind === "npm" ? NPM_INTEGRITY.test(values.expectedEvidence)
-      : template.kind === "image" ? OCI_DIGEST.test(values.expectedEvidence)
-        : template.kind === "composer" ? COMMIT.test(values.expectedEvidence)
-          : SHA256.test(values.expectedEvidence);
-    if (!destinationMatches || !evidenceMatches) throw new Error();
-    validated = Object.freeze({ ...values, version });
+    validated = validatedCheck(check);
   } catch {
     throw new TypeError("Remote probe check is invalid");
   }
@@ -1462,41 +1587,38 @@ export async function probeRemoteDestination(check) {
   }
 }
 
-const CLI_USAGE = "Usage: check-published.mjs --release-directory ABSOLUTE_PATH --version X.Y.Z --source-commit SHA [--require-identical|--require-draft-identical] | --finalize ABSOLUTE_PATH --image-digest sha256:... --chart-digest sha256:...";
+const CLI_USAGE = "Usage: check-published.mjs --release-directory ABSOLUTE_PATH --source-commit SHA [--unit ID] [--require-identical | --require-draft-identical] | --finalize ABSOLUTE_PATH --unit ID [--image-digest sha256:... --chart-digest sha256:...] (--require-draft-identical needs --unit; the digests are given exactly for the gauntlet unit)";
 
 export function parsePublishedArguments(argv) {
   try {
-    if (!Array.isArray(argv)) throw new Error();
-    if (argv.length === 7
-        && argv[0] === "--release-directory" && argv[2] === "--version" && argv[4] === "--source-commit"
-        && argv[6] === "--require-draft-identical") {
-      return Object.freeze({
-        command: "verify-draft",
-        releaseDirectory: syntacticAbsolutePath(argv[1], "Release directory"),
-        version: stableVersion(argv[3]),
-        sourceCommit: sourceCommit(argv[5]),
-      });
+    if (!Array.isArray(argv) || argv.some((argument) => typeof argument !== "string")) throw new Error();
+    if (argv[0] === "--finalize") {
+      if (![4, 8].includes(argv.length) || argv[2] !== "--unit") throw new Error();
+      const releaseDirectory = syntacticAbsolutePath(argv[1], "Release directory");
+      const unit = unitById(argv[3]).id;
+      if (argv.length === 4) {
+        if (unit === "gauntlet") throw new Error();
+        return Object.freeze({ command: "finalize", releaseDirectory, unit, imageDigest: null, chartDigest: null });
+      }
+      if (unit !== "gauntlet" || argv[4] !== "--image-digest" || argv[6] !== "--chart-digest"
+          || !OCI_DIGEST.test(argv[5]) || !OCI_DIGEST.test(argv[7])) throw new Error();
+      return Object.freeze({ command: "finalize", releaseDirectory, unit, imageDigest: argv[5], chartDigest: argv[7] });
     }
-    if ((argv.length === 6 || argv.length === 7)
-        && argv[0] === "--release-directory" && argv[2] === "--version" && argv[4] === "--source-commit"
-        && (argv.length === 6 || argv[6] === "--require-identical")) {
-      return Object.freeze({
-        command: "check",
-        releaseDirectory: syntacticAbsolutePath(argv[1], "Release directory"),
-        version: stableVersion(argv[3]),
-        sourceCommit: sourceCommit(argv[5]),
-        requireIdentical: argv.length === 7,
-      });
+    if (argv.length < 4 || argv[0] !== "--release-directory" || argv[2] !== "--source-commit") throw new Error();
+    const releaseDirectory = syntacticAbsolutePath(argv[1], "Release directory");
+    const commit = sourceCommit(argv[3]);
+    let rest = argv.slice(4);
+    let unit = null;
+    if (rest[0] === "--unit") {
+      if (rest.length < 2) throw new Error();
+      unit = unitById(rest[1]).id;
+      rest = rest.slice(2);
     }
-    if (argv.length === 6 && argv[0] === "--finalize" && argv[2] === "--image-digest" && argv[4] === "--chart-digest"
-        && typeof argv[3] === "string" && OCI_DIGEST.test(argv[3])
-        && typeof argv[5] === "string" && OCI_DIGEST.test(argv[5])) {
-      return Object.freeze({
-        command: "finalize",
-        releaseDirectory: syntacticAbsolutePath(argv[1], "Release directory"),
-        imageDigest: argv[3],
-        chartDigest: argv[5],
-      });
+    if (rest.length === 0 || (rest.length === 1 && rest[0] === "--require-identical")) {
+      return Object.freeze({ command: "check", releaseDirectory, sourceCommit: commit, unit, requireIdentical: rest.length === 1 });
+    }
+    if (rest.length === 1 && rest[0] === "--require-draft-identical" && unit !== null) {
+      return Object.freeze({ command: "verify-draft", releaseDirectory, sourceCommit: commit, unit });
     }
     throw new Error();
   } catch {
@@ -1504,34 +1626,68 @@ export function parsePublishedArguments(argv) {
   }
 }
 
-if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+function cliDependencies(overrides) {
+  if (overrides === undefined) return Object.freeze({ check: undefined, probeDraft: probeDraftRelease });
+  if (overrides === null || typeof overrides !== "object" || Array.isArray(overrides) || utilTypes.isProxy(overrides)
+      || ![Object.prototype, null].includes(Object.getPrototypeOf(overrides))) {
+    throw new TypeError("Published CLI dependencies must be a closed data object");
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(overrides);
+  const keys = Reflect.ownKeys(descriptors);
+  if (keys.some((key) => typeof key !== "string" || !["collectEvidence", "probe", "sleep", "probeDraft"].includes(key)
+      || descriptors[key].enumerable !== true || !("value" in descriptors[key])
+      || typeof descriptors[key].value !== "function")) {
+    throw new TypeError("Published CLI dependencies must be a closed data object");
+  }
+  const checkKeys = keys.filter((key) => key !== "probeDraft");
+  return Object.freeze({
+    check: checkKeys.length === 0 ? undefined : Object.fromEntries(checkKeys.map((key) => [key, descriptors[key].value])),
+    probeDraft: descriptors.probeDraft?.value ?? probeDraftRelease,
+  });
+}
+
+export async function runPublishedCli(argv, dependencyOverrides) {
   try {
-    const command = parsePublishedArguments(process.argv.slice(2));
+    const dependencies = cliDependencies(dependencyOverrides);
+    const command = parsePublishedArguments(argv);
+    let output;
     if (command.command === "finalize") {
-      const result = writePublicationReceipt({
-        releaseDirectory: command.releaseDirectory,
-        imageDigest: command.imageDigest,
-        chartDigest: command.chartDigest,
-      });
-      process.stdout.write(`${JSON.stringify({ command: "finalize", ...result })}\n`);
+      output = {
+        command: "finalize",
+        ...writePublicationReceipt({
+          releaseDirectory: command.releaseDirectory,
+          unit: command.unit,
+          imageDigest: command.imageDigest,
+          chartDigest: command.chartDigest,
+        }),
+      };
     } else if (command.command === "verify-draft") {
-      const state = await checkDraftReleasePublication({
-        releaseDirectory: command.releaseDirectory,
-        version: command.version,
-        sourceCommit: command.sourceCommit,
-      });
-      process.stdout.write(`${JSON.stringify({ command: "verify-draft", assets: 9, state })}\n`);
+      output = {
+        command: "verify-draft",
+        ...await verifyDraftRelease({
+          releaseDirectory: command.releaseDirectory,
+          sourceCommit: command.sourceCommit,
+          unit: command.unit,
+        }, dependencies.probeDraft),
+      };
     } else {
-      const state = await checkReleasePublication({
+      const result = await checkReleasePublication({
         releaseDirectory: command.releaseDirectory,
-        version: command.version,
         sourceCommit: command.sourceCommit,
         requireIdentical: command.requireIdentical,
-      });
-      process.stdout.write(`${JSON.stringify({ command: "check", destinations: PUBLISHED_DESTINATIONS.length, state })}\n`);
+        unit: command.unit,
+      }, dependencies.check);
+      output = { command: "check", releaseSet: result.releaseSet, units: result.units };
     }
+    return { exitCode: 0, stdout: `${JSON.stringify(output)}\n`, stderr: "" };
   } catch (error) {
-    process.stderr.write(`${error instanceof Error ? error.message : FAILURE}\n`);
-    process.exitCode = 1;
+    return { exitCode: 1, stdout: "", stderr: `${error instanceof Error ? error.message : FAILURE}\n` };
   }
+}
+
+if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const result = await runPublishedCli(process.argv.slice(2));
+  if (result.stdout !== "") process.stdout.write(result.stdout);
+  if (result.stderr !== "") process.stderr.write(result.stderr);
+  process.exitCode = result.exitCode;
 }

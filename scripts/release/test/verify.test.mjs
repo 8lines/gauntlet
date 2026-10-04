@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import { resolve } from "node:path";
 import test from "node:test";
 
+import { allUnitsPlan, createReleasePlan } from "../plan.mjs";
+import { RELEASE_UNITS } from "../units.mjs";
 import {
   commandsForPhase,
   createProcessRunner,
   parseVerifyArguments,
+  phasesForUnits,
   plannedReleasePhases,
   runPhases,
   runVerifyCli,
@@ -28,6 +31,10 @@ const PHASES = [
   "documentation",
 ];
 const ROOT = resolve(import.meta.dirname, "../../..");
+const SET = "release-2026-10-03.1";
+const SET_ROOT = `.artifacts/release/${SET}`;
+const ALL_UNITS_PLAN = allUnitsPlan(new Map(RELEASE_UNITS.map(({ id }) => [id, "0.1.0"])));
+const ALL_UNIT_IDS = ALL_UNITS_PLAN.order;
 
 function result(stdout = "", overrides = {}) {
   return {
@@ -98,53 +105,66 @@ function successfulRunner(calls) {
   };
 }
 
+const RELEASE_SCOPE = Object.freeze({ releaseSet: SET, version: "0.1.0" });
+
 test("publishes the exact release phase order and strict empty CLI", () => {
   assert.deepEqual(plannedReleasePhases(), PHASES);
-  assert.deepEqual(parseVerifyArguments([]), {});
-  for (const invalid of [["--help"], ["--release"], [undefined], ""] ) {
+  assert.deepEqual(parseVerifyArguments([]), { planPath: null });
+  assert.deepEqual(parseVerifyArguments(["--plan", ".release/plan.json"]), { planPath: ".release/plan.json" });
+  for (const invalid of [
+    ["--help"], ["--release"], [undefined], "", ["--plan"], ["--plan", ""], ["--plan", "a", "--plan", "b"],
+    ["--plan", "a", "extra"], ["--plan", "../outside.json"],
+  ]) {
     assert.throws(() => parseVerifyArguments(invalid), /Usage: verify\.mjs/u);
   }
 
-  assert.deepEqual(commandsForPhase("documentation", { version: "0.1.0" }), [
+  assert.deepEqual(commandsForPhase("documentation", RELEASE_SCOPE), [
     ["pnpm", ["docs:check"]],
-    ["pnpm", ["docs:verify-commands", "--release-root", ".artifacts/release/0.1.0"]],
+    ["pnpm", ["docs:verify-commands", "--release-root", SET_ROOT]],
   ]);
-  assert.deepEqual(commandsForPhase("dashboard", { version: "0.1.0" }), [
+  assert.deepEqual(commandsForPhase("dashboard", RELEASE_SCOPE), [
     ["pnpm", ["--filter", "@8lines/gauntlet-dashboard", "build"]],
     ["pnpm", ["--filter", "@8lines/gauntlet-dashboard", "test"]],
     ["pnpm", ["dashboard:test:e2e"]],
   ]);
-  assert.deepEqual(commandsForPhase("php", { version: "0.1.0" }), [
+  assert.deepEqual(commandsForPhase("php", RELEASE_SCOPE), [
     ["pnpm", ["test:php:compatibility"]],
     ["pnpm", ["test:composer:consumer"]],
   ]);
-  assert.deepEqual(commandsForPhase("node", { version: "0.1.0" }), [
+  assert.deepEqual(commandsForPhase("node", RELEASE_SCOPE), [
     ["pnpm", ["verify:protocol-sdk", "--node-only"]],
   ]);
-  assert.deepEqual(commandsForPhase("java", { version: "0.1.0" }), [
+  assert.deepEqual(commandsForPhase("java", RELEASE_SCOPE), [
     [process.execPath, ["scripts/release/test-java-source.mjs"]],
     ["pnpm", ["test:java:release"]],
   ]);
-  assert.deepEqual(commandsForPhase("inventory", { version: "0.1.0" }), [
+  assert.deepEqual(commandsForPhase("inventory", RELEASE_SCOPE), [
     [process.execPath, [
       "scripts/release/verify-inventory.mjs",
       "--release-root",
-      resolve(ROOT, ".artifacts/release/0.1.0"),
+      resolve(ROOT, SET_ROOT),
     ]],
   ]);
-  assert.deepEqual(commandsForPhase("skills", { version: "0.1.0" }), [
+  assert.deepEqual(commandsForPhase("skills", RELEASE_SCOPE), [
     ["pnpm", ["skills:test-install"]],
     ["pnpm", ["skills:test-evals"]],
     ["pnpm", ["skills:validate"]],
     [process.execPath, ["--test", "scripts/skills/test/release-artifact.test.mjs"]],
   ]);
-  assert.throws(() => commandsForPhase("documentation"), /version is invalid/u);
-  assert.throws(() => commandsForPhase("deployment", { version: "0.1.0" }), /Unknown release phase/u);
+  assert.deepEqual(commandsForPhase("security", RELEASE_SCOPE), [
+    [process.execPath, ["scripts/release/security.mjs", "--source-only"]],
+    [process.execPath, ["scripts/release/security.mjs", "--image-archive", `${SET_ROOT}/image/gauntlet-0.1.0.docker.tar`]],
+  ]);
+  assert.throws(() => commandsForPhase("documentation"), /invalid/u);
+  assert.throws(() => commandsForPhase("documentation", { version: "0.1.0" }), /release set is invalid/u);
+  assert.throws(() => commandsForPhase("documentation", { releaseSet: "0.1.0", version: "0.1.0" }), /release set is invalid/u);
+  assert.throws(() => commandsForPhase("documentation", { releaseSet: SET }), /version is invalid/u);
+  assert.throws(() => commandsForPhase("deployment", RELEASE_SCOPE), /Unknown release phase/u);
 });
 
 test("development verification runs only source-safe work and reports explicit partial evidence", async () => {
   const calls = [];
-  const report = await runPhases({ root: "/workspace/gauntlet", runner: successfulRunner(calls) });
+  const report = await runPhases({ root: "/workspace/gauntlet", plan: ALL_UNITS_PLAN, runner: successfulRunner(calls) });
 
   assert.deepEqual([...new Set(calls.map(({ phase }) => phase))], [
     "source",
@@ -206,6 +226,7 @@ test("development verification runs only source-safe work and reports explicit p
       sourceChecksOk: report.sourceChecksOk,
       releaseReady: report.releaseReady,
       version: report.version,
+      units: report.units,
     },
     {
       mode: "development",
@@ -215,6 +236,7 @@ test("development verification runs only source-safe work and reports explicit p
       sourceChecksOk: true,
       releaseReady: false,
       version: "0.1.0",
+      units: ALL_UNIT_IDS,
     },
   );
 });
@@ -250,7 +272,7 @@ test("a phase failure stops immediately and sanitizes all later phase state", as
   };
 
   await assert.rejects(
-    runPhases({ root: "/workspace/gauntlet", runner }),
+    runPhases({ root: "/workspace/gauntlet", plan: ALL_UNITS_PLAN, runner }),
     (error) => {
       assert.match(error.message, /java phase failed/u);
       assert.equal(error.code, "PHASE_FAILED");
@@ -304,7 +326,7 @@ test("malformed command results and dishonest source-security summaries fail clo
 
   for (const scenario of cases) {
     await assert.rejects(
-      runPhases({ root: "/workspace/gauntlet", runner: scenario.runner }),
+      runPhases({ root: "/workspace/gauntlet", plan: ALL_UNITS_PLAN, runner: scenario.runner }),
       (error) => {
         assert.equal(error.code, scenario.code, scenario.name);
         assert.equal(error.phase, scenario.phase, scenario.name);
@@ -343,11 +365,12 @@ test("the verify CLI rejects arguments without execution and emits only bounded 
   assert.deepEqual(invalid, {
     exitCode: 2,
     stdout: "",
-    stderr: '{"error":{"code":"INVALID_ARGUMENTS","message":"Usage: verify.mjs"},"ok":false,"releaseReady":false}\n',
+    stderr: '{"error":{"code":"INVALID_ARGUMENTS","message":"Usage: verify.mjs [--plan PATH]"},"ok":false,"releaseReady":false}\n',
   });
 
   const failed = await runVerifyCli([], {
     root: "/workspace/gauntlet",
+    plan: ALL_UNITS_PLAN,
     runner: async () => {
       throw new Error("sensitive process detail");
     },
@@ -362,4 +385,72 @@ test("the verify CLI rejects arguments without execution and emits only bounded 
   });
   assert.equal(parsed.releaseReady, false);
   assert.equal(JSON.stringify(failed).includes("sensitive process detail"), false);
+});
+
+test("a plan selects only the phases its units need", () => {
+  assert.deepEqual(phasesForUnits(["gauntlet", "skills"]), [
+    "source", "node", "skills", "dashboard", "image", "compose", "helm", "security", "inventory", "documentation",
+  ]);
+  assert.deepEqual(phasesForUnits(["php-core"]), ["source", "php", "conformance", "inventory", "documentation"]);
+  assert.deepEqual(phasesForUnits(["protocol"]), ["source", "node", "conformance", "packages", "inventory", "documentation"]);
+  assert.deepEqual(phasesForUnits(ALL_UNIT_IDS), PHASES);
+  assert.throws(() => phasesForUnits(["unknown-unit"]), /Unknown release unit/u);
+});
+
+test("unneeded phases are skipped and never invoked", async () => {
+  const calls = [];
+  const plan = createReleasePlan([{ id: "php-core", from: "0.1.8", to: "0.1.9" }]);
+  const report = await runPhases({ root: "/workspace/gauntlet", plan, runner: async (invocation) => {
+    calls.push(invocation.phase);
+    return { status: 0, signal: null, stderr: "", stdout: invocation.args[0] === "scripts/release/version.mjs"
+      ? `${JSON.stringify({ command: "check", mismatches: [], ok: true, tag: null, version: "0.1.8" })}\n` : "" };
+  } });
+  assert.deepEqual([...new Set(calls)], ["source", "php", "conformance", "documentation"]);
+  assert.deepEqual(report.units, ["php-core"]);
+  assert.deepEqual(report.phases.find(({ name }) => name === "dashboard"), { name: "dashboard", status: "skipped", reason: "not-in-release-plan", commands: 0 });
+  assert.deepEqual(
+    Object.fromEntries(report.phases.map(({ name, status }) => [name, status])),
+    {
+      source: "passed", node: "skipped", php: "partial", java: "skipped", conformance: "passed", skills: "skipped",
+      dashboard: "skipped", image: "skipped", compose: "skipped", helm: "skipped", security: "skipped",
+      packages: "skipped", inventory: "not-run", documentation: "partial",
+    },
+  );
+});
+
+test("verification phases run with their raised timeouts", async () => {
+  const calls = [];
+  await runPhases({ root: "/workspace/gauntlet", plan: ALL_UNITS_PLAN, runner: successfulRunner(calls) });
+  const timeouts = new Map(calls.map(({ phase, timeoutMs }) => [phase, timeoutMs]));
+  assert.equal(timeouts.get("helm"), 60 * 60_000);
+  assert.equal(timeouts.get("packages"), 60 * 60_000);
+  assert.equal(timeouts.get("documentation"), 60 * 60_000);
+  assert.equal(timeouts.get("security"), 90 * 60_000);
+  assert.equal(timeouts.get("source"), 10 * 60_000);
+});
+
+test("runPhases requires a release plan with units", async () => {
+  for (const plan of [undefined, null, { order: [] }, { order: ["unknown-unit"] }, createReleasePlan([])]) {
+    await assert.rejects(
+      runPhases({ root: "/workspace/gauntlet", plan, runner: async () => result() }),
+      (error) => error.code === "INVALID_OPTIONS" && error.phase === null,
+    );
+  }
+});
+
+test("the verify CLI rejects an empty or unreadable plan without execution", async () => {
+  let called = false;
+  const runner = async () => {
+    called = true;
+    return result();
+  };
+  const empty = await runVerifyCli([], { root: "/workspace/gauntlet", plan: createReleasePlan([]), runner });
+  assert.equal(empty.exitCode, 2);
+  assert.deepEqual(JSON.parse(empty.stderr), {
+    error: { code: "INVALID_ARGUMENTS", message: "Release plan has no units" }, ok: false, releaseReady: false,
+  });
+  const missing = await runVerifyCli(["--plan", "missing-plan.json"], { root: ROOT, runner });
+  assert.equal(missing.exitCode, 2);
+  assert.equal(JSON.parse(missing.stderr).error.code, "INVALID_ARGUMENTS");
+  assert.equal(called, false);
 });

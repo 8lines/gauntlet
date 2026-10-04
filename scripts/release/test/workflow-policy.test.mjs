@@ -142,10 +142,16 @@ test("CI exposes the bounded, read-only product and release gates", () => {
   assert.match(commands.skills, /pnpm skills:validate/);
   assert.match(commands.skills, /pnpm docs:check/);
   assert.match(commands.skills, /apt-get install --yes --no-install-recommends acl/u);
-  assert.match(commands.security, /pnpm release:stage/);
+  assert.match(commands.security, /SET="local-\$\(git rev-parse HEAD \| cut -c1-12\)"/u);
+  // CI scans the application image whatever a committed plan releases: it stages every unit.
+  const allUnits = commands.security.indexOf("node scripts/release/plan.mjs --write-all-units .artifacts/ci/all-units-plan.json\n");
+  const stage = commands.security.search(
+    /pnpm release:stage --output "\$PWD\/\.artifacts\/release\/\$SET" --plan \.artifacts\/ci\/all-units-plan\.json --release-set "\$SET"$/mu,
+  );
+  assert.equal(allUnits >= 0 && allUnits < stage, true, "the all-units plan is written before staging");
   assert.match(
     commands.security,
-    /pnpm release:security --image-archive "\.artifacts\/release\/\$VERSION\/image\/gauntlet-\$VERSION\.docker\.tar"/u,
+    /pnpm release:security --image-archive "\.artifacts\/release\/\$SET\/image\/gauntlet-\$VERSION\.docker\.tar"/u,
   );
   assert.doesNotMatch(commands.security, /--source-only/u);
   assert.match(commands["release-metadata"], /playwright install --with-deps chromium/);
@@ -227,7 +233,16 @@ test("release workflows use pnpm's direct option forwarding contract", () => {
     const workflow = readYaml(path);
     const installSteps = Object.values(workflow.jobs).flatMap((job) => job.steps)
       .filter(({ run }) => typeof run === "string" && run.startsWith("pnpm install "));
+    // Every job installs the locked workspace, including the release workflow's plan job.
     assert.equal(installSteps.length, Object.keys(workflow.jobs).length, `${path} install coverage`);
+    if (path.endsWith("release.yml")) {
+      assert.equal(Object.hasOwn(workflow.jobs, "plan"), true, `${path} plan job`);
+      assert.equal(
+        workflow.jobs.plan.steps.some(({ run }) => run === "pnpm install --frozen-lockfile --package-import-method=copy"),
+        true,
+        `${path} plan install`,
+      );
+    }
     for (const step of installSteps) {
       assert.equal(
         step.run,
@@ -298,6 +313,8 @@ test("every workflow-facing gate resolves to one exact local root script", () =>
     "test:java:source": "node scripts/release/test-java-source.mjs",
     "verify:official-adapters": "node scripts/release/verify-official-adapters.mjs",
     "dashboard:test:e2e": "pnpm --filter @8lines/gauntlet-dashboard exec playwright test --reporter=line",
+    "release:plan": "node scripts/release/plan.mjs --write",
+    "release:tag": "node scripts/release/release-tag.mjs",
     "release:security": "node scripts/release/security.mjs",
     "release:stage": "node scripts/release/stage.mjs",
     "release:verify": "node scripts/release/verify.mjs",

@@ -24,11 +24,13 @@ import {
   collectVersionMismatches,
   javaLockstepVersion,
   readReleaseVersion,
+  readUnitVersion,
   RELEASE_ARTIFACTS,
   RELEASE_STAGE_ARTIFACT_COUNT,
   VERSION_LOCATIONS,
   parseReleaseVersion,
   setReleaseVersion,
+  setUnitVersions,
 } from "../release-model.mjs";
 import { RELEASE_UNITS } from "../units.mjs";
 import { parseVersionCommand, runVersionCli } from "../version.mjs";
@@ -1310,13 +1312,18 @@ test("never removes foreign scratch-like entries on commit or rollback", () => {
   });
 });
 
-test("accepts only the three closed version CLI command shapes", () => {
+test("accepts only the closed version CLI command shapes", () => {
   assert.deepEqual(parseVersionCommand(["--check"]), { command: "check" });
   assert.deepEqual(parseVersionCommand(["--check", "--tag", "v0.1.0"]), {
     command: "check",
     tag: "v0.1.0",
   });
   assert.deepEqual(parseVersionCommand(["--set", "0.1.1"]), { command: "set", version: "0.1.1" });
+  assert.deepEqual(parseVersionCommand(["--set-unit", "php-core", "0.2.0"]), {
+    command: "set-unit",
+    unit: "php-core",
+    version: "0.2.0",
+  });
 
   for (const invalid of [
     [],
@@ -1328,12 +1335,16 @@ test("accepts only the three closed version CLI command shapes", () => {
     ["--set"],
     ["--set", "v0.1.1"],
     ["--set", "0.1.1", "extra"],
+    ["--set-unit", "nope", "0.2.0"],
+    ["--set-unit", "php-core"],
+    ["--set-unit", "php-core", "v0.2.0"],
+    ["--set-unit", "php-core", "0.2.0", "extra"],
     ["--root", "/tmp/SECRET_ROOT"],
   ]) {
     assert.throws(
       () => parseVersionCommand(invalid),
       (error) => {
-        assert.equal(error.message, "Usage: version.mjs --check [--tag vX.Y.Z] | --set X.Y.Z");
+        assert.equal(error.message, "Usage: version.mjs --check [--tag vX.Y.Z] | --set X.Y.Z | --set-unit UNIT X.Y.Z");
         assert.doesNotMatch(error.message, /SECRET_ROOT/);
         return true;
       },
@@ -1396,7 +1407,7 @@ test("returns bounded one-line JSON for checks, mismatches, sets, and invalid CL
   assert.equal(invalid.exitCode, 2);
   assert.equal(invalid.stdout, "");
   assert.deepEqual(JSON.parse(invalid.stderr), {
-    error: { code: "INVALID_ARGUMENTS", message: "Usage: version.mjs --check [--tag vX.Y.Z] | --set X.Y.Z" },
+    error: { code: "INVALID_ARGUMENTS", message: "Usage: version.mjs --check [--tag vX.Y.Z] | --set X.Y.Z | --set-unit UNIT X.Y.Z" },
     ok: false,
   });
   assert.doesNotMatch(invalid.stderr, /SECRET_ROOT/);
@@ -1522,4 +1533,90 @@ test("javaLockstepVersion needs both Java VERSION records and rejects a mismatch
   assert.throws(() => javaLockstepVersion([record(core, "0.1.8"), { relativePath: starter, bytes: Buffer.from("0.1.8") }]), {
     message: error,
   });
+});
+
+test("setUnitVersions moves one unit and every slot bound to it, and nothing else", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    const result = setUnitVersions(root, new Map([["php-core", "0.2.0"]]));
+    assert.deepEqual(result, {
+      versions: { "php-core": "0.2.0" },
+      changedPaths: [
+        "packages/php/core/composer.json",
+        "packages/php/symfony-bundle/composer.json",
+        "tests/consumers/php-core/composer.json",
+        "tests/consumers/php-symfony/composer.json",
+        "skills/gauntlet-app-integration/references/symfony.md",
+      ],
+    });
+    assert.deepEqual(collectUnitVersionMismatches(root), []);
+    assert.equal(readUnitVersion(root, "php-core"), "0.2.0");
+    assert.equal(readUnitVersion(root, "symfony-bundle"), "0.1.8");
+    const bundle = JSON.parse(readFileSync(join(root, "packages/php/symfony-bundle/composer.json"), "utf8"));
+    assert.equal(bundle.version, "0.1.8");
+    assert.equal(bundle.require["8lines/gauntlet-php-core"], "^0.2.0");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("setUnitVersions moves the application and the skills archive slots independently", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    assert.deepEqual(setUnitVersions(root, { gauntlet: "0.1.9" }).changedPaths, [
+      "apps/dashboard/package.json",
+      "apps/server/package.json",
+      "deploy/helm/gauntlet/Chart.yaml",
+      "deploy/helm/gauntlet/values.yaml",
+      "deploy/compose/.env.example",
+      "skills/gauntlet-app-integration/references/deployment.md",
+      "skills/gauntlet-app-integration/references/safety-gates.md",
+      "VERSION",
+    ]);
+    assert.deepEqual(setUnitVersions(root, { skills: "0.1.9" }).changedPaths, [
+      "skills/gauntlet-app-integration/SKILL.md",
+      "docs/ai-skills.md",
+      "skills/VERSION",
+    ]);
+    assert.deepEqual(collectUnitVersionMismatches(root), []);
+    assert.equal(readUnitVersion(root, "protocol"), "0.1.8");
+    assert.equal(readUnitVersion(root, "gauntlet"), "0.1.9");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("setUnitVersions rejects unknown units, invalid versions and inconsistent repositories before writing", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    const before = fixtureSnapshot(root);
+    for (const requested of [new Map(), { nope: "0.1.9" }, { widget: "0.1.9-rc.1" }, [["widget", "0.1.9"]]]) {
+      assert.throws(() => setUnitVersions(root, requested));
+    }
+    assert.deepEqual(fixtureSnapshot(root), before);
+    writeFixtureFile(root, "skills/gauntlet-app-integration/references/symfony.md",
+      readFileSync(join(root, "skills/gauntlet-app-integration/references/symfony.md"), "utf8").replace("`0.1.8`", "`0.1.7`"));
+    const inconsistent = fixtureSnapshot(root);
+    assert.throws(() => setUnitVersions(root, { widget: "0.1.9" }), /preflight failed/u);
+    assert.equal(readUnitVersion(root, "widget"), "0.1.8");
+    assert.deepEqual(fixtureSnapshot(root), inconsistent);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the version CLI sets one unit", () => {
+  const root = createVersionFixture("0.1.8");
+  try {
+    const result = runVersionCli(["--set-unit", "widget", "0.2.0"], { root });
+    assert.equal(result.exitCode, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      changedPaths: ["packages/widget/package.json"], command: "set-unit", ok: true, unit: "widget", version: "0.2.0",
+    });
+    for (const argv of [["--set-unit", "nope", "0.2.0"], ["--set-unit", "widget"], ["--set-unit", "widget", "v0.2.0"]]) {
+      assert.equal(runVersionCli(argv, { root }).exitCode, 2, argv.join(" "));
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

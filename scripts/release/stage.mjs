@@ -18,31 +18,39 @@ import {
   rmdirSync,
   unlinkSync,
 } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify, types as utilTypes } from "node:util";
 
 import { stageSkills } from "../skills/release-artifact.mjs";
-import { writeReleaseInventory } from "./inventory.mjs";
+import { compareArtifacts, expectedReleaseArtifacts, writeReleaseInventory } from "./inventory.mjs";
 import { packageComposeBundle } from "./package-compose.mjs";
 import {
+  localReleaseSetId,
+  parseReleaseSetId,
+  resolveReleasePlan,
+  unitIdForArtifact,
+  validatePlanAgainstManifests,
+} from "./plan.mjs";
+import {
   readReleaseVersion,
+  readUnitVersions,
   parseReleaseVersion,
   RELEASE_ARTIFACTS,
-  RELEASE_STAGE_ARTIFACT_COUNT,
 } from "./release-model.mjs";
-import { stageComposerPackages } from "./stage-composer.mjs";
+import { COMPOSER_UNIT_IDS, stageComposerPackages } from "./stage-composer.mjs";
 import { packageHelmChart } from "./stage-helm.mjs";
 import { exportImageAndAttestations } from "./stage-image.mjs";
-import { publishMavenLocally } from "./stage-maven.mjs";
-import { stageNpmPackages } from "./stage-npm.mjs";
+import { MAVEN_UNIT_IDS, publishMavenLocally } from "./stage-maven.mjs";
+import { NPM_UNIT_IDS, stageNpmPackages } from "./stage-npm.mjs";
 import { generateSpdxSbom } from "./stage-sbom.mjs";
 import { packageCanonicalTree } from "./tree-archive.mjs";
+import { RELEASE_UNITS, dependencyOrder, unitById } from "./units.mjs";
 
 const execFileAsync = promisify(execFile);
 const ROOT = realpathSync(fileURLToPath(new URL("../../", import.meta.url)));
 const FAILURE = "Release staging failed closed";
-const USAGE = "Usage: stage.mjs --output PATH";
+const USAGE = "Usage: stage.mjs --output PATH [--plan PATH] [--release-set ID]";
 const MAX_COMMAND_OUTPUT_BYTES = 4 * 1024 * 1024;
 const FULL_COMMIT = /^[0-9a-f]{40}$/;
 const QUARANTINE_TOKEN = /^[0-9a-f]{32}$/;
@@ -427,12 +435,12 @@ function validateVersionedRecord(record, kind, expected, version, directory = fa
   return record;
 }
 
-function validateRecordArray(records, kind, expected, version, directory = false, expectedParent) {
+function validateRecordArray(records, kind, expected, versionOf, directory = false, expectedParent) {
   if (!Array.isArray(records) || records.length !== expected.length) failClosed();
   const byName = new Map(records.map((record) => [record?.name, record]));
   if (byName.size !== expected.length) failClosed();
   return expected.map((artifact) => validateVersionedRecord(
-    byName.get(artifact.name), kind, artifact, version, directory, expectedParent,
+    byName.get(artifact.name), kind, artifact, versionOf(artifact.name), directory, expectedParent,
   ));
 }
 
@@ -444,8 +452,9 @@ function artifactDescriptor(workDirectory, record) {
   });
 }
 
-function archiveTrees(workDirectory, kind, records, outputDirectory, version, packager) {
+function archiveTrees(workDirectory, kind, records, outputDirectory, packager) {
   return records.map((record) => {
+    const { version } = record;
     const leaf = kind === "composer" ? record.repository.split("/").at(-1) : record.name.split(":")[1];
     if (typeof leaf !== "string" || !/^[a-z0-9][a-z0-9-]*$/.test(leaf)) failClosed();
     const filename = kind === "composer"
@@ -472,10 +481,42 @@ function assertDistinctDescriptors(records) {
   }
 }
 
+function stageUnits(value) {
+  if (!Array.isArray(value) || value.length === 0) throw new TypeError("Release staging units must be a non-empty array");
+  const units = value.map((entry) => {
+    const record = exactDataObject(entry, ["id", "version"], "Release staging unit");
+    try {
+      unitById(record.id);
+    } catch {
+      throw new TypeError("Release staging unit is unknown");
+    }
+    return Object.freeze({ id: record.id, version: stableVersion(record.version) });
+  });
+  const ids = units.map(({ id }) => id);
+  if (new Set(ids).size !== ids.length || JSON.stringify(dependencyOrder(ids)) !== JSON.stringify(ids)) {
+    throw new TypeError("Release staging units must be distinct and in dependency order");
+  }
+  return Object.freeze(units);
+}
+
+function stageVersions(value, units) {
+  const record = exactDataObject(value, RELEASE_UNITS.map(({ id }) => id), "Release staging unit versions");
+  const versions = Object.freeze(Object.fromEntries(Object.entries(record).map(([id, version]) => [id, stableVersion(version)])));
+  if (units.some(({ id, version }) => versions[id] !== version)) failClosed();
+  return versions;
+}
+
+const pick = (versions, ids) => Object.freeze(Object.fromEntries(ids.map((id) => [id, versions[id]])));
+
+function descriptorUnit(record) {
+  const imageEvidence = record.kind === "docker" || record.kind === "provenance" || record.kind === "sbom";
+  return unitIdForArtifact(imageEvidence ? RELEASE_ARTIFACTS.image.name : record.name);
+}
+
 export async function executeReleaseStage(options, dependencyOverrides) {
   const values = exactDataObject(
     options,
-    ["root", "sourceCommit", "version", "workDirectory"],
+    ["root", "sourceCommit", "releaseSet", "units", "versions", "workDirectory"],
     "Release staging execution options",
   );
   const root = values.root;
@@ -485,154 +526,188 @@ export async function executeReleaseStage(options, dependencyOverrides) {
   if (workDirectory.startsWith(`${root}${sep}`) || root.startsWith(`${workDirectory}${sep}`)
       || readdirSync(workDirectory).length !== 0) failClosed();
   const sourceCommit = fullCommit(values.sourceCommit);
-  const version = stableVersion(values.version);
+  let releaseSet;
+  try {
+    releaseSet = parseReleaseSetId(values.releaseSet, sourceCommit);
+  } catch {
+    throw new TypeError("Release staging release set is invalid");
+  }
+  const units = stageUnits(values.units);
+  const versions = stageVersions(values.versions, units);
+  const planned = new Set(units.map(({ id }) => id));
+  const included = (ids) => ids.filter((id) => planned.has(id));
+  const catalogFor = (records, ids) => ids.map((id) => records.find(({ name }) => unitIdForArtifact(name) === id));
+  const versionOfName = (name) => versions[unitIdForArtifact(name)];
   const dependencies = dependencySet(dependencyOverrides);
   const descriptors = [];
+  const add = (record) => descriptors.push(Object.freeze({
+    unit: descriptorUnit(record),
+    ...artifactDescriptor(workDirectory, record),
+  }));
 
-  const npmDirectory = makePrivateDirectory(join(workDirectory, "npm"));
-  const npm = validateRecordArray(
-    await dependencies.stageNpmPackages({ root, outputDirectory: npmDirectory }),
-    "npm",
-    RELEASE_ARTIFACTS.npm,
-    version,
-    false,
-    npmDirectory,
-  );
-  descriptors.push(...npm.map((record) => artifactDescriptor(workDirectory, record)));
-
-  const composerRoot = makePrivateDirectory(join(workDirectory, "composer"));
-  const composerRepositories = makePrivateDirectory(join(composerRoot, "repositories"));
-  const composer = validateRecordArray(
-    await dependencies.stageComposerPackages({ root, outputDirectory: composerRepositories, sourceCommit }),
-    "composer",
-    RELEASE_ARTIFACTS.composer,
-    version,
-    true,
-    composerRepositories,
-  );
-  for (const [index, expected] of RELEASE_ARTIFACTS.composer.entries()) {
-    if (composer[index].repository !== expected.repository || composer[index].repositoryUrl !== expected.repositoryUrl
-        || composer[index].sourceCommit !== sourceCommit) failClosed();
-  }
-  const composerSupportTree = ownedSupportTree(workDirectory, composerRepositories);
-  const composerArchives = makePrivateDirectory(join(composerRoot, "artifacts"));
-  descriptors.push(...archiveTrees(
-    workDirectory, "composer", composer, composerArchives, version, dependencies.packageCanonicalTree,
-  )
-    .map((record) => artifactDescriptor(workDirectory, record)));
-  await removeOwnedSupportTree(composerSupportTree);
-
-  const mavenRoot = makePrivateDirectory(join(workDirectory, "maven"));
-  const mavenRepository = makePrivateDirectory(join(mavenRoot, "repository"));
-  const maven = validateRecordArray(
-    await dependencies.publishMavenLocally({ root, outputDirectory: mavenRepository }),
-    "maven",
-    RELEASE_ARTIFACTS.maven,
-    version,
-    true,
-    mavenRepository,
-  );
-  const mavenSupportTree = ownedSupportTree(workDirectory, mavenRepository);
-  const mavenArchives = makePrivateDirectory(join(mavenRoot, "artifacts"));
-  descriptors.push(...archiveTrees(
-    workDirectory, "maven", maven, mavenArchives, version, dependencies.packageCanonicalTree,
-  )
-    .map((record) => artifactDescriptor(workDirectory, record)));
-  await removeOwnedSupportTree(mavenSupportTree);
-
-  const skillsDirectory = makePrivateDirectory(join(workDirectory, "skills"));
-  const skills = validateVersionedRecord(
-    await dependencies.stageSkills({ root, outputDirectory: skillsDirectory, version }),
-    "skills",
-    RELEASE_ARTIFACTS.skills,
-    version,
-    false,
-    skillsDirectory,
-  );
-  descriptors.push(artifactDescriptor(workDirectory, skills));
-
-  const composeDirectory = makePrivateDirectory(join(workDirectory, "compose"));
-  const compose = validateVersionedRecord(
-    dependencies.packageComposeBundle({ root, outputDirectory: composeDirectory }),
-    "compose",
-    RELEASE_ARTIFACTS.compose,
-    version,
-    false,
-    composeDirectory,
-  );
-  descriptors.push(artifactDescriptor(workDirectory, compose));
-
-  const helmDirectory = makePrivateDirectory(join(workDirectory, "helm"));
-  const helm = validateVersionedRecord(
-    dependencies.packageHelmChart({ root, outputDirectory: helmDirectory }),
-    "helm",
-    RELEASE_ARTIFACTS.chart,
-    version,
-    false,
-    helmDirectory,
-  );
-  descriptors.push(artifactDescriptor(workDirectory, helm));
-
-  const imageDirectory = makePrivateDirectory(join(workDirectory, "image"));
-  const image = await dependencies.exportImageAndAttestations({ root, outputDirectory: imageDirectory, sourceCommit, version });
-  if (image === null || typeof image !== "object" || !Array.isArray(image.artifacts)
-      || image.artifacts.length !== 3 || !RELEASE_PLATFORMS.includes(image.hostPlatform)) failClosed();
-  const imageKinds = new Map(image.artifacts.map((record) => [record?.kind, record]));
-  if (imageKinds.size !== 3) failClosed();
-  const docker = validateVersionedRecord(
-    imageKinds.get("docker"),
-    "docker",
-    { name: "gauntlet.local/gauntlet" },
-    version,
-    false,
-    imageDirectory,
-  );
-  const oci = validateVersionedRecord(
-    imageKinds.get("oci"), "oci", RELEASE_ARTIFACTS.image, version, false, imageDirectory,
-  );
-  const provenance = validateVersionedRecord(
-    imageKinds.get("provenance"),
-    "provenance",
-    { name: `${RELEASE_ARTIFACTS.image.name}@buildkit-unsigned` },
-    version,
-    false,
-    imageDirectory,
-  );
-  descriptors.push(
-    artifactDescriptor(workDirectory, docker),
-    artifactDescriptor(workDirectory, oci),
-    artifactDescriptor(workDirectory, provenance),
-  );
-
-  const sbomDirectory = makePrivateDirectory(join(workDirectory, "sbom"));
-  for (const platform of RELEASE_PLATFORMS) {
-    const platformName = platform.replace("/", "-");
-    const sbom = validateVersionedRecord(
-      dependencies.generateSpdxSbom({
-        imageInspection: image.inspection,
-        outputPath: join(sbomDirectory, `gauntlet-${platformName}.spdx.json`),
-        platform,
-        version,
+  const npmUnits = included(NPM_UNIT_IDS);
+  if (npmUnits.length > 0) {
+    const npmDirectory = makePrivateDirectory(join(workDirectory, "npm"));
+    validateRecordArray(
+      await dependencies.stageNpmPackages({
+        root,
+        outputDirectory: npmDirectory,
+        versions: pick(versions, NPM_UNIT_IDS),
+        include: npmUnits,
       }),
-      "sbom",
-      { name: `${RELEASE_ARTIFACTS.image.name}@${platform}` },
+      "npm",
+      catalogFor(RELEASE_ARTIFACTS.npm, npmUnits),
+      versionOfName,
+      false,
+      npmDirectory,
+    ).forEach(add);
+  }
+
+  const composerUnits = included(COMPOSER_UNIT_IDS);
+  if (composerUnits.length > 0) {
+    const composerCatalog = catalogFor(RELEASE_ARTIFACTS.composer, composerUnits);
+    const composerRoot = makePrivateDirectory(join(workDirectory, "composer"));
+    const composerRepositories = makePrivateDirectory(join(composerRoot, "repositories"));
+    const composer = validateRecordArray(
+      await dependencies.stageComposerPackages({
+        root,
+        outputDirectory: composerRepositories,
+        sourceCommit,
+        versions: pick(versions, COMPOSER_UNIT_IDS),
+        include: composerUnits,
+      }),
+      "composer",
+      composerCatalog,
+      versionOfName,
+      true,
+      composerRepositories,
+    );
+    for (const [index, expected] of composerCatalog.entries()) {
+      if (composer[index].repository !== expected.repository || composer[index].repositoryUrl !== expected.repositoryUrl
+          || composer[index].sourceCommit !== sourceCommit) failClosed();
+    }
+    const composerSupportTree = ownedSupportTree(workDirectory, composerRepositories);
+    const composerArchives = makePrivateDirectory(join(composerRoot, "artifacts"));
+    archiveTrees(workDirectory, "composer", composer, composerArchives, dependencies.packageCanonicalTree).forEach(add);
+    await removeOwnedSupportTree(composerSupportTree);
+  }
+
+  const mavenUnits = included(MAVEN_UNIT_IDS);
+  if (mavenUnits.length > 0) {
+    const mavenRoot = makePrivateDirectory(join(workDirectory, "maven"));
+    const mavenRepository = makePrivateDirectory(join(mavenRoot, "repository"));
+    const maven = validateRecordArray(
+      await dependencies.publishMavenLocally({
+        root,
+        outputDirectory: mavenRepository,
+        versions: pick(versions, MAVEN_UNIT_IDS),
+        include: mavenUnits,
+      }),
+      "maven",
+      catalogFor(RELEASE_ARTIFACTS.maven, mavenUnits),
+      versionOfName,
+      true,
+      mavenRepository,
+    );
+    const mavenSupportTree = ownedSupportTree(workDirectory, mavenRepository);
+    const mavenArchives = makePrivateDirectory(join(mavenRoot, "artifacts"));
+    archiveTrees(workDirectory, "maven", maven, mavenArchives, dependencies.packageCanonicalTree).forEach(add);
+    await removeOwnedSupportTree(mavenSupportTree);
+  }
+
+  if (planned.has("skills")) {
+    const skillsDirectory = makePrivateDirectory(join(workDirectory, "skills"));
+    add(validateVersionedRecord(
+      await dependencies.stageSkills({ root, outputDirectory: skillsDirectory, version: versions.skills }),
+      "skills",
+      RELEASE_ARTIFACTS.skills,
+      versions.skills,
+      false,
+      skillsDirectory,
+    ));
+  }
+
+  if (planned.has("gauntlet")) {
+    const version = versions.gauntlet;
+    const composeDirectory = makePrivateDirectory(join(workDirectory, "compose"));
+    add(validateVersionedRecord(
+      dependencies.packageComposeBundle({ root, outputDirectory: composeDirectory }),
+      "compose",
+      RELEASE_ARTIFACTS.compose,
       version,
       false,
-      sbomDirectory,
-    );
-    descriptors.push(artifactDescriptor(workDirectory, sbom));
+      composeDirectory,
+    ));
+
+    const helmDirectory = makePrivateDirectory(join(workDirectory, "helm"));
+    add(validateVersionedRecord(
+      dependencies.packageHelmChart({ root, outputDirectory: helmDirectory }),
+      "helm",
+      RELEASE_ARTIFACTS.chart,
+      version,
+      false,
+      helmDirectory,
+    ));
+
+    const imageDirectory = makePrivateDirectory(join(workDirectory, "image"));
+    const image = await dependencies.exportImageAndAttestations({ root, outputDirectory: imageDirectory, sourceCommit, version });
+    if (image === null || typeof image !== "object" || !Array.isArray(image.artifacts)
+        || image.artifacts.length !== 3 || !RELEASE_PLATFORMS.includes(image.hostPlatform)) failClosed();
+    const imageKinds = new Map(image.artifacts.map((record) => [record?.kind, record]));
+    if (imageKinds.size !== 3) failClosed();
+    add(validateVersionedRecord(
+      imageKinds.get("docker"),
+      "docker",
+      { name: "gauntlet.local/gauntlet" },
+      version,
+      false,
+      imageDirectory,
+    ));
+    add(validateVersionedRecord(
+      imageKinds.get("oci"), "oci", RELEASE_ARTIFACTS.image, version, false, imageDirectory,
+    ));
+    add(validateVersionedRecord(
+      imageKinds.get("provenance"),
+      "provenance",
+      { name: `${RELEASE_ARTIFACTS.image.name}@buildkit-unsigned` },
+      version,
+      false,
+      imageDirectory,
+    ));
+
+    const sbomDirectory = makePrivateDirectory(join(workDirectory, "sbom"));
+    for (const platform of RELEASE_PLATFORMS) {
+      const platformName = platform.replace("/", "-");
+      add(validateVersionedRecord(
+        dependencies.generateSpdxSbom({
+          imageInspection: image.inspection,
+          outputPath: join(sbomDirectory, `gauntlet-${platformName}.spdx.json`),
+          platform,
+          version,
+        }),
+        "sbom",
+        { name: `${RELEASE_ARTIFACTS.image.name}@${platform}` },
+        version,
+        false,
+        sbomDirectory,
+      ));
+    }
   }
 
-  if (descriptors.length !== RELEASE_STAGE_ARTIFACT_COUNT) failClosed();
+  const expected = expectedReleaseArtifacts(units);
+  const actual = [...descriptors].sort(compareArtifacts).map(({ unit, kind, name, path }) => ({ unit, kind, name, path }));
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) failClosed();
   assertDistinctDescriptors(descriptors);
   const manifest = await dependencies.writeReleaseInventory({
     outputDirectory: workDirectory,
-    version,
+    releaseSet,
     sourceCommit,
+    units,
     artifacts: descriptors,
   });
-  if (manifest === null || typeof manifest !== "object" || manifest.version !== version
-      || manifest.sourceCommit !== sourceCommit || manifest.sourceTag !== `v${version}`
+  if (manifest === null || typeof manifest !== "object" || manifest.schemaVersion !== 2 || manifest.releaseSet !== releaseSet
+      || manifest.sourceCommit !== sourceCommit || !Array.isArray(manifest.units)
+      || JSON.stringify(manifest.units.map(({ id, version }) => ({ id, version }))) !== JSON.stringify(units)
       || !Array.isArray(manifest.artifacts) || manifest.artifacts.length !== descriptors.length) failClosed();
   return manifest;
 }
@@ -688,7 +763,12 @@ async function verifySource(root, sourceCommit) {
 }
 
 function stageLifecycle(overrides) {
-  const defaults = { executeReleaseStage, verifySource };
+  const defaults = {
+    executeReleaseStage,
+    verifySource,
+    resolvePlan: (root, path) => resolveReleasePlan(root, path),
+    readVersions: readUnitVersions,
+  };
   if (overrides === undefined) return defaults;
   if (overrides === null || typeof overrides !== "object" || Array.isArray(overrides) || utilTypes.isProxy(overrides)
       || ![Object.prototype, null].includes(Object.getPrototypeOf(overrides))) {
@@ -761,7 +841,11 @@ function fsyncDirectory(path) {
 }
 
 export async function stageRelease(options, lifecycleOverrides) {
-  const values = exactDataObject(options, ["root", "outputDirectory", "sourceCommit"], "Release staging options");
+  const values = exactDataObject(
+    options,
+    ["root", "outputDirectory", "sourceCommit", "releaseSet", "planPath"],
+    "Release staging options",
+  );
   const lifecycle = stageLifecycle(lifecycleOverrides);
   const root = values.root;
   const outputDirectory = values.outputDirectory;
@@ -772,15 +856,34 @@ export async function stageRelease(options, lifecycleOverrides) {
     throw new TypeError("Release staging output must be an absolute safe path outside the source ancestry");
   }
   const sourceCommit = fullCommit(values.sourceCommit);
+  if (values.planPath !== null && typeof values.planPath !== "string") {
+    throw new TypeError("Release staging plan path must be a string or null");
+  }
+  const releaseSet = parseReleaseSetId(values.releaseSet ?? localReleaseSetId(sourceCommit), sourceCommit);
+  if (isReleaseSetName(basename(outputDirectory)) && basename(outputDirectory) !== releaseSet) {
+    throw new Error("Release staging output does not match the release set");
+  }
   assertAbsent(outputDirectory);
   await lifecycle.verifySource(root, sourceCommit);
-  const version = readReleaseVersion(root);
+  const { plan } = lifecycle.resolvePlan(root, values.planPath);
+  if (plan.units.length === 0) throw new Error("Release plan has no units");
+  const versions = lifecycle.readVersions(root);
+  const problems = validatePlanAgainstManifests(plan, versions);
+  if (problems.length > 0) throw new Error(`Release plan disagrees with manifests: ${problems[0]}`);
+  const units = plan.units.map(({ id, to }) => ({ id, version: to }));
   const outputParent = ensureOutputParent(outputDirectory);
   const scratchParent = outputDirectory.startsWith(`${root}${sep}`) ? dirname(root) : outputParent;
   canonicalDirectory(scratchParent, "Release staging scratch parent");
   const workDirectory = realpathSync(mkdtempSync(join(scratchParent, ".gauntlet-release-stage-")));
   chmodSync(workDirectory, 0o700);
-  const manifest = await lifecycle.executeReleaseStage({ root, sourceCommit, version, workDirectory });
+  const manifest = await lifecycle.executeReleaseStage({
+    root,
+    sourceCommit,
+    releaseSet,
+    units,
+    versions: Object.fromEntries(versions),
+    workDirectory,
+  });
   await lifecycle.verifySource(root, sourceCommit);
   assertAbsent(outputDirectory);
   renameSync(workDirectory, outputDirectory);
@@ -789,16 +892,35 @@ export async function stageRelease(options, lifecycleOverrides) {
   return manifest;
 }
 
-export function parseStageArguments(argv) {
-  if (!Array.isArray(argv) || argv.length !== 2 || argv[0] !== "--output"
-      || typeof argv[1] !== "string" || argv[1] === "" || argv[1].includes("\\")
-      || /[\u0000-\u001f\u007f,]/u.test(argv[1])) throw new TypeError(USAGE);
-  if (!isAbsolute(argv[1]) && argv[1].split("/").some((segment) => segment === "" || segment === "." || segment === "..")) {
-    throw new TypeError(USAGE);
+function safeArgumentPath(value) {
+  if (typeof value !== "string" || value === "" || value.includes("\\") || /[\u0000-\u001f\u007f,]/u.test(value)) return false;
+  if (isAbsolute(value)) return resolve(value) === value && value !== sep;
+  return value.split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
+}
+
+function isReleaseSetName(value) {
+  try {
+    parseReleaseSetId(value);
+    return true;
+  } catch {
+    return false;
   }
+}
+
+export function parseStageArguments(argv) {
+  if (!Array.isArray(argv) || argv.length < 2 || argv.length % 2 !== 0 || argv[0] !== "--output"
+      || argv.some((value) => typeof value !== "string") || !safeArgumentPath(argv[1])) throw new TypeError(USAGE);
   const outputDirectory = isAbsolute(argv[1]) ? argv[1] : resolve(ROOT, argv[1]);
   if (resolve(outputDirectory) !== outputDirectory || outputDirectory === sep) throw new TypeError(USAGE);
-  return { outputDirectory };
+  let planPath = null;
+  let releaseSet = null;
+  for (let index = 2; index < argv.length; index += 2) {
+    const [flag, value] = [argv[index], argv[index + 1]];
+    if (flag === "--plan" && planPath === null && safeArgumentPath(value)) planPath = value;
+    else if (flag === "--release-set" && releaseSet === null && isReleaseSetName(value)) releaseSet = value;
+    else throw new TypeError(USAGE);
+  }
+  return { outputDirectory, planPath, releaseSet };
 }
 
 export async function readHeadCommit(root = ROOT) {
@@ -810,14 +932,15 @@ export async function readHeadCommit(root = ROOT) {
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    const { outputDirectory } = parseStageArguments(process.argv.slice(2));
+    const { outputDirectory, planPath, releaseSet } = parseStageArguments(process.argv.slice(2));
     const sourceCommit = await readHeadCommit(ROOT);
-    const manifest = await stageRelease({ root: ROOT, outputDirectory, sourceCommit });
+    const manifest = await stageRelease({ root: ROOT, outputDirectory, sourceCommit, releaseSet, planPath });
     process.stdout.write(`${JSON.stringify({
       artifacts: manifest.artifacts.length,
       outputDirectory,
+      releaseSet: manifest.releaseSet,
       sourceCommit: manifest.sourceCommit,
-      version: manifest.version,
+      units: manifest.units.map(({ id, version }) => ({ id, version })),
     })}\n`);
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : FAILURE}\n`);

@@ -23,11 +23,12 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { RELEASE_ARTIFACTS, readReleaseVersion } from "./release/release-model.mjs";
-import { stageNpmPackages } from "./release/stage-npm.mjs";
+import { unitIdForArtifact } from "./release/plan.mjs";
+import { RELEASE_ARTIFACTS, readUnitVersions } from "./release/release-model.mjs";
+import { NPM_UNIT_IDS, stageNpmPackages } from "./release/stage-npm.mjs";
 
 const ROOT = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), ".."));
-const VERSION = readReleaseVersion(ROOT);
+const UNIT_VERSIONS = readUnitVersions(ROOT);
 const MAX_OUTPUT_BYTES = 64 * 1024;
 const MAX_FIXTURE_FILE_BYTES = 512 * 1024;
 const MAX_FIXTURE_FILES = 1_000;
@@ -305,12 +306,17 @@ try {
   const stagingDirectory = join(sandbox, "staged");
   mkdirSync(stagingDirectory, { mode: 0o700 });
   chmodSync(stagingDirectory, 0o700);
-  const artifacts = await stageNpmPackages({ root: ROOT, outputDirectory: stagingDirectory });
+  const artifacts = await stageNpmPackages({
+    root: ROOT,
+    outputDirectory: stagingDirectory,
+    versions: Object.fromEntries(NPM_UNIT_IDS.map((id) => [id, UNIT_VERSIONS.get(id)])),
+    include: NPM_UNIT_IDS,
+  });
   assert.deepEqual(artifacts.map(({ name }) => name), [...PACKAGE_NAMES].sort(binaryCompare));
   assert.equal(artifacts.length, 7);
   for (const artifact of artifacts) {
     assert.equal(artifact.kind, "npm");
-    assert.equal(artifact.version, VERSION);
+    assert.equal(artifact.version, UNIT_VERSIONS.get(unitIdForArtifact(artifact.name)));
     assert.equal(realpathSync(artifact.path), artifact.path);
     assert.equal(statSync(artifact.path).size < 50 * 1024 * 1024, true);
     assert.equal(statSync(artifact.path).mode & 0o777, 0o600);
