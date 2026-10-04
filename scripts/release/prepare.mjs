@@ -47,6 +47,7 @@ function assertPreparable(git) {
   if (changes.status !== 0 || changes.stdout !== "") throw new Error("Commit every change file before preparing a release");
   const branch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
   if (branch.status !== 0 || branch.stdout.trim() === "main") throw new Error("Prepare a release on a branch from main, not on main");
+  if (branch.stdout.trim() === "HEAD") throw new Error("Prepare a release on a branch from main, not on a detached HEAD");
 }
 
 export function assertVersionsAtLatestTags(versions, tags) {
@@ -59,6 +60,35 @@ export function assertVersionsAtLatestTags(versions, tags) {
   if (problems.length > 0) {
     throw new Error(`Release preparation needs every unit at its latest tag; run git fetch --tags origin, and release an already prepared plan first: ${problems.join("; ")}`);
   }
+}
+
+function readChangelog(root, path) {
+  const absolute = resolve(root, path);
+  let stat;
+  try {
+    stat = lstatSync(absolute);
+  } catch {
+    throw new Error(`${path}: changelog is missing`);
+  }
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`${path}: changelog is not a regular file`);
+  return readFileSync(absolute, "utf8");
+}
+
+// Every changelog insertion is rendered and validated before the first write, so a hand-written
+// Unreleased entry or an existing version section refuses before any version moves or Docker runs.
+function renderChangelogs(root, units, date) {
+  return Object.freeze(units.map((unit) => {
+    const path = changelogPath(unit.id);
+    try {
+      return Object.freeze({
+        path,
+        source: insertChangelogSection(readChangelog(root, path), renderChangelogSection({ version: unit.to, date, entries: unit.entries })),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(message.startsWith(`${path}: `) ? message : `${path}: ${message}`);
+    }
+  }));
 }
 
 function exists(path) {
@@ -136,17 +166,14 @@ export async function prepareRelease({
   const incompatible = compatibilityProblems(plan, recorded);
   if (incompatible.length > 0) throw new Error(`Release plan is incompatible: ${incompatible.join("; ")}`);
   const date = now.toISOString().slice(0, 10);
+  const changelogs = renderChangelogs(root, release.units, date);
   const created = [];
   const untracked = untrackedPaths(git);
   const previousPlan = exists(resolve(root, RELEASE_PLAN_PATH)) ? readFileSync(resolve(root, RELEASE_PLAN_PATH)) : null;
   try {
     setUnitVersions(root, new Map(release.units.map(({ id, to }) => [id, to])));
     const composerLocks = await repinComposer({ root, versions: readUnitVersions(root), moved: release.units.map(({ id }) => id) });
-    for (const unit of release.units) {
-      const path = resolve(root, changelogPath(unit.id));
-      writeFileSync(path, insertChangelogSection(readFileSync(path, "utf8"),
-        renderChangelogSection({ version: unit.to, date, entries: unit.entries })));
-    }
+    for (const { path, source } of changelogs) writeFileSync(resolve(root, path), source);
     writeFileSync(resolve(root, COMPATIBILITY_PATH), renderCompatibilityDocument(updateCompatibilityEntries(recorded, plan)));
     for (const name of release.consumed) unlinkSync(resolve(root, CHANGES_DIRECTORY, name));
     if (!exists(resolve(root, ".release"))) created.push(".release");

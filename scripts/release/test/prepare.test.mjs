@@ -5,10 +5,10 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { changelogPath, newUnitChangelog } from "../changelog.mjs";
-import { COMPATIBILITY_PATH, catalogEntries, renderCompatibilityDocument } from "../compatibility.mjs";
-import { parseReleasePlan } from "../plan.mjs";
+import { COMPATIBILITY_PATH, compatibilityDocumentProblems } from "../compatibility.mjs";
+import { parseReleasePlan, runPlanCli } from "../plan.mjs";
 import { prepareRelease, runPrepareCli } from "../prepare.mjs";
-import { readUnitVersion } from "../release-model.mjs";
+import { collectUnitVersionMismatches, readUnitVersion, readUnitVersions } from "../release-model.mjs";
 import { RELEASE_UNITS, unitTag } from "../units.mjs";
 import { createVersionFixture } from "./version-fixture.mjs";
 
@@ -36,8 +36,6 @@ function repository(t, changes) {
   t.after(() => rmSync(root, { recursive: true, force: true }));
   writeFileSync(join(root, "CHANGELOG.md"), "# Changelog\n\n## Unreleased\n\n## [0.1.8] - 2026-10-03\n\n### Fixed\n\n- Baseline.\n");
   for (const { id } of RELEASE_UNITS) if (id !== "gauntlet") writeFileSync(join(root, changelogPath(id)), newUnitChangelog(id));
-  mkdirSync(join(root, "docs/reference"), { recursive: true });
-  writeFileSync(join(root, COMPATIBILITY_PATH), renderCompatibilityDocument(catalogEntries(new Map(RELEASE_UNITS.map(({ id }) => [id, "0.1.8"])))));
   mkdirSync(join(root, ".changes"));
   for (const [name, source] of Object.entries(changes)) writeFileSync(join(root, ".changes", name), source);
   git(root, "init", "--initial-branch=main");
@@ -94,6 +92,11 @@ test("a dashboard-only change prepares the application and the skills archive wi
     changes: ["sidebar.md"],
   });
   assert.match(readFileSync(join(root, COMPATIBILITY_PATH), "utf8"), /^\| `gauntlet` \| 0\.1\.9 \|/mu);
+  // The prepared tree passes the checks the release workflow runs before it publishes anything.
+  assert.deepEqual(collectUnitVersionMismatches(root), []);
+  assert.deepEqual(compatibilityDocumentProblems(readFileSync(join(root, COMPATIBILITY_PATH), "utf8"), readUnitVersions(root)), []);
+  const checked = runPlanCli(["--check"], { root, readTags: () => baselineTags() });
+  assert.deepEqual([checked.exitCode, JSON.parse(checked.stdout).problems], [0, []]);
   assert.deepEqual(calls.repin.map(({ moved }) => moved), [["gauntlet", "skills"]]);
   assert.deepEqual(calls.rebind, [{ reason: "Release preparation moved gauntlet to 0.1.9, skills to 0.1.9.", date: "2026-10-04" }]);
 });
@@ -158,6 +161,36 @@ test("refuses unsafe starting points and leaves the tree untouched", async (t) =
   const onMain = repository(t, { "sidebar.md": change({ gauntlet: "patch" }) });
   git(onMain, "switch", "main");
   await assert.rejects(prepare(onMain), /on a branch from main/u);
+
+  const detached = repository(t, { "sidebar.md": change({ gauntlet: "patch" }) });
+  git(detached, "switch", "--detach");
+  await assert.rejects(prepare(detached),
+    /^Error: Prepare a release on a branch from main, not on a detached HEAD$/u);
+  assert.equal(status(detached), "");
+});
+
+test("a changelog that cannot take the new section is refused before anything is written or Docker runs", async (t) => {
+  const unreleased = repository(t, { "sidebar.md": change({ gauntlet: "patch" }) });
+  writeFileSync(join(unreleased, "CHANGELOG.md"),
+    "# Changelog\n\n## Unreleased\n\n- Hand-written entry.\n\n## [0.1.8] - 2026-10-03\n\n### Fixed\n\n- Baseline.\n");
+  git(unreleased, "commit", "-am", "hand-written entry");
+  const first = recorder();
+  await assert.rejects(prepareRelease({ root: unreleased, now: NOW, readTags: () => baselineTags(), ...first }),
+    /^Error: CHANGELOG\.md: Changelog has entries under ## Unreleased; move them into change files$/u);
+  assert.equal(status(unreleased), "");
+  assert.equal(readUnitVersion(unreleased, "gauntlet"), "0.1.8");
+  assert.deepEqual(first.calls, { repin: [], rebind: [] });
+
+  // The cascaded skills changelog already holds the version the plan would release.
+  const released = repository(t, { "sidebar.md": change({ gauntlet: "patch" }) });
+  writeFileSync(join(released, "skills/CHANGELOG.md"), `${newUnitChangelog("skills")}\n## [0.1.9] - 2026-10-01\n\n### Fixed\n\n- Early.\n`);
+  git(released, "commit", "-am", "early section");
+  const second = recorder();
+  await assert.rejects(prepareRelease({ root: released, now: NOW, readTags: () => baselineTags(), ...second }),
+    /^Error: skills\/CHANGELOG\.md: Changelog already has a section for 0\.1\.9$/u);
+  assert.equal(status(released), "");
+  assert.equal(readUnitVersion(released, "skills"), "0.1.8");
+  assert.deepEqual(second.calls, { repin: [], rebind: [] });
 });
 
 test("a failure after the first write restores every tracked file and keeps the change files", async (t) => {
