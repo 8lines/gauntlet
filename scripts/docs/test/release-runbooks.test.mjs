@@ -56,6 +56,23 @@ test("release runbook requires a clean rehearsal and equality-checked retry", ()
   assert.match(source, /Never delete or rewrite|Never delete|Do not retag or\s+overwrite/isu);
 });
 
+test("release runbook describes per-unit publication, reruns and recovery without lockstep leftovers", () => {
+  const source = read("docs/releases/releasing.md");
+  assert.doesNotMatch(source, /npm\/Composer\/Maven manifests[^.]*all agree/su);
+  assert.doesNotMatch(source, /overwrite `0\.1\.8`/u);
+  assert.match(source, /git fetch --tags origin\npnpm release:plan\n/u);
+  assert.match(source, /tagged and\s+released right after its own registry artifacts/u);
+  assert.match(source, /Publish and release package units/u);
+  const failure = source.slice(source.indexOf("## Failure handling"));
+  assert.match(failure, /Re-running the same release-set tag/u);
+  assert.match(failure, /new version,\s+a\s+new release plan and a new\s+release-set tag/u);
+  assert.match(failure, /stale draft/u);
+  assert.match(failure, /delete/u);
+  const verify = source.slice(source.indexOf("## Verify the published release"), source.indexOf("## Failure handling"));
+  assert.match(verify, /For each released unit/u);
+  assert.match(verify, /A correction requires a new version of that\s+unit/u);
+});
+
 test("upgrade and rollback retain immutable identities and repeat safety checks", () => {
   const upgrade = read("docs/releases/upgrading.md");
   const rollback = read("docs/releases/rollback.md");

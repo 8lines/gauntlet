@@ -36,9 +36,8 @@ embeds the fixture contracts, whose versions are now read from each unit's
 manifest. Hashes were re-bound to current bytes without generating new model
 samples. This confirms content integrity, not behaviour.
 
-Plan-driven publishing (2026-10-03) changed bound release tooling and the
-skill's version wording (each reference now names its own exact version)
-without changing prompts, scenarios, scorecards or verifiers. Hashes were
+Plan-driven publishing (2026-10-03) changed none of this evaluation's bound
+inputs or skill text; only the wording of this file changed. Hashes were
 re-bound to current bytes without generating new model samples. This confirms
 content integrity, not behaviour.
 

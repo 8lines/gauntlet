@@ -1,6 +1,6 @@
 # Native Node.js
 
-Support Node.js 24–26. Install matching exact releases from the public npm registry; no scope mapping or registry token is needed:
+Support Node.js 24–26. Install each package's own exact release from the public npm registry; no scope mapping or registry token is needed:
 
 ```sh
 pnpm add @8lines/gauntlet-protocol@0.1.8 \
@@ -16,8 +16,8 @@ Operation closures execute in the current Node process. A shared store/coordinat
 
 Create one `createAdapterFetchHandler` and invoke it once at the raw HTTP server boundary for every ordinary request, before Express, Fastify, or another path-aware router can normalize or select a route. Enable only when `GAUNTLET_ENABLED` is exactly `true`. Capture `IncomingMessage.url` before constructing a `URL` or Web `Request`, pass the unchanged value as `rawTarget`, and let only the handler's documented non-adapter canonical-origin-form 404 fall through to the application router. Never prefilter on decoded `pathname`.
 
-Own every native Node path that can bypass that callback. Before constructing a Web `Request`, classify Fetch-forbidden methods such as `TRACE` and `TRACK`. Install bounded `clientError`, `connect`, `upgrade`, and non-100 `checkExpectation` listeners. For each, classify the unchanged or bounded extracted request target with the package-exported `isAdapterTarget`, never a prefix regex. An adapter-equivalent request must receive the canonical disabled 503 while disabled and an owned fixed 4xx while enabled; unrelated traffic gets only a generic host response. Use the complete compile-checked helper in `examples/node-adapter/src/client-error.ts` from the matching release.
+Own every native Node path that can bypass that callback. Before constructing a Web `Request`, classify Fetch-forbidden methods such as `TRACE` and `TRACK`. Install bounded `clientError`, `connect`, `upgrade`, and non-100 `checkExpectation` listeners. For each, classify the unchanged or bounded extracted request target with the package-exported `isAdapterTarget`, never a prefix regex. An adapter-equivalent request must receive the canonical disabled 503 while disabled and an owned fixed 4xx while enabled; unrelated traffic gets only a generic host response. Use the complete compile-checked helper in `examples/node-adapter/src/client-error.ts` from the `typescript-node` release you install.
 
 Keep the application port unpublished or behind a private service. Explicitly deny the adapter prefix on every public ingress. Use one control-plane target whose internal `adapterUrl` and `expectedEnvironment` exactly match the adapter manifest.
 
-Verify the disabled prefix, malformed raw targets, `TRACE`, `TRACK`, `CONNECT`, upgrade, non-100 `Expect`, ordinary-route fallthrough, exact one-handler routing, target mismatch, application callback inputs, application-specific live protocol checks, public denial, and browser-to-adapter isolation. Use `packages/typescript/node/README.md` and `examples/node-adapter` in a matching Gauntlet checkout as API examples; adapt them to the target application rather than copying package sources.
+Verify the disabled prefix, malformed raw targets, `TRACE`, `TRACK`, `CONNECT`, upgrade, non-100 `Expect`, ordinary-route fallthrough, exact one-handler routing, target mismatch, application callback inputs, application-specific live protocol checks, public denial, and browser-to-adapter isolation. Use `packages/typescript/node/README.md` and `examples/node-adapter` in a Gauntlet checkout of that `typescript-node` release as API examples; adapt them to the target application rather than copying package sources.

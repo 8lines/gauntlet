@@ -51,7 +51,8 @@ const PHASE_TIMEOUTS = Object.freeze({
   documentation: 60 * 60_000,
 });
 
-// Phases every plan runs, and the phases each unit gate adds; widget gates run inside node and dashboard.
+// Phases every plan runs, and the phases each unit gate adds. The widget and widget-panel gates add no
+// phase here: they run only as workflow jobs (release.yml and ci.yml), not inside node or dashboard.
 const ALWAYS_PHASES = Object.freeze(["source", "inventory", "documentation"]);
 const GATE_PHASES = Object.freeze({
   node: Object.freeze(["node"]),

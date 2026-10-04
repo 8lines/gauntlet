@@ -8,8 +8,9 @@ the explicit publication trigger.
 ## Preconditions
 
 - `main` contains the reviewed change and has no local modifications;
-- `VERSION`, npm/Composer/Maven manifests, Helm metadata, image labels, and
-  documentation all agree;
+- every unit's version slots agree with that unit's own manifest or `VERSION`
+  file (for `gauntlet` also the Helm metadata, image labels, and documentation),
+  and `.release/plan.json` names exactly the units whose version moved;
 - CI passes the Node.js, PHP/Symfony, Java/Spring, conformance, dashboard,
   widget, widget-panel, deployment, skills, security, package-consumer, and
   documentation gates;
@@ -68,9 +69,9 @@ single `publish` job that runs in the protected GitHub environment named
 | Setting | Purpose |
 | --- | --- |
 | `release` environment | Holds the secrets below; restrict it to tag deployments and require reviewer approval. |
-| `NPM_TOKEN` secret | npm automation or granular access token that may publish the `@8lines` scope on `https://registry.npmjs.org`. Only the "Publish staged npm packages" step receives it, as `NODE_AUTH_TOKEN`. |
-| `COMPOSER_SPLIT_CORE_DEPLOY_KEY` secret | Private half of a passphrase-less OpenSSH deploy key with write access on `github.com/8lines/gauntlet-php-core`. |
-| `COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY` secret | Private half of a passphrase-less OpenSSH deploy key with write access on `github.com/8lines/gauntlet-symfony-bundle`. |
+| `NPM_TOKEN` secret | npm automation or granular access token that may publish the `@8lines` scope on `https://registry.npmjs.org`. Only the "Publish and release package units" step receives it, and only its `npm publish` command sees it, as `NODE_AUTH_TOKEN`. |
+| `COMPOSER_SPLIT_CORE_DEPLOY_KEY` secret | Private half of a passphrase-less OpenSSH deploy key with write access on `github.com/8lines/gauntlet-php-core`. Only the `php-core` publication command sees it. |
+| `COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY` secret | Private half of a passphrase-less OpenSSH deploy key with write access on `github.com/8lines/gauntlet-symfony-bundle`. Only the `symfony-bundle` publication command sees it. |
 
 The workflow's own `GITHUB_TOKEN` pushes the image and chart to
 `ghcr.io/8lines`, publishes the Maven artifacts to GitHub Packages, and creates
@@ -117,6 +118,11 @@ The full form is
 `--release-set` names the staged release set; without it the set is
 `local-<first 12 characters of HEAD>`. The release workflow passes the
 `release-*` tag it runs for, so a local rehearsal normally omits the flag.
+CI always rehearses every unit, whatever a committed plan lists: it writes
+`.artifacts/ci/all-units-plan.json` with
+`node scripts/release/plan.mjs --write-all-units .artifacts/ci/all-units-plan.json`
+and passes that file as `--plan`. The release workflow rehearses exactly its
+`.release/plan.json`.
 
 `PLAYWRIGHT_BROWSER_CHANNEL` is deliberately restricted to `chromium` or
 `chrome`. Use `chromium` with the pinned Playwright download above. A machine
@@ -154,8 +160,16 @@ The generated directory is reproducible evidence, not a credential store.
 ## Trigger
 
 `pnpm release:plan` compares every unit's version with its latest tag and
-writes `.release/plan.json`. Commit the plan together with the version changes
-it describes, and review it with the change.
+writes `.release/plan.json`. It reads the local tag view, so fetch the remote
+tags first; it refuses to write an empty plan when no unit version moved:
+
+```sh
+git fetch --tags origin
+pnpm release:plan
+```
+
+Commit the plan together with the version changes it describes, and review it
+with the change.
 
 Create the release-set tag only after the clean dry-run, code review, and
 merge. The tag must point at a commit contained in `main`. Fetch the remote tags
@@ -179,13 +193,16 @@ Pushing that one tag starts one workflow run. The run:
 3. repeats the dry run for exactly the planned units;
 4. preflights each unit: every unit must be clean or already identical, and a
    partially published unit fails the run before anything is published;
-5. publishes the clean units in dependency order (the commit-tagged image and
-   its scan, then npm, Maven, and Composer, then the semantic image tag and the
-   Helm chart);
-6. creates each unit's tag and GitHub Release in plan order: the release is
-   created as a draft, its assets are compared byte-for-byte with the local
-   finalized files, the draft is published, and the published release is
-   verified again once GitHub reports it immutable.
+5. publishes the clean units one at a time; each unit is tagged and
+   released right after its own registry artifacts are published and
+   verified: first the npm, Maven, and Composer units in dependency order
+   (the "Publish and release package units" step), then the
+   application (the commit-tagged image and its scan, the semantic image tag,
+   and the Helm chart), then the skills, which have no registry destination;
+6. releases each unit through `scripts/release/release-unit.sh`: it creates
+   the unit tag, creates the release as a draft, compares its assets
+   byte-for-byte with the local finalized files, publishes the draft, and
+   verifies the published release again once GitHub reports it immutable.
 
 Only the application release (`v<version>`) is marked Latest. Each release
 carries its unit's assets, `release-manifest.json`, `publication-receipt.json`
@@ -209,19 +226,21 @@ the staged manifest and source commit.
 
 ## Verify the published release
 
-Record the workflow run URL and immutable identities for all artifacts:
+Record the workflow run URL. For each released unit, record the immutable
+identities of its own destinations:
 
-- npm package version and integrity;
-- annotated Composer tag target for both split repositories;
-- Maven POM/JAR/checksum identities;
-- multi-platform image digest plus attestations;
-- Helm chart digest;
-- release archive and `SHA256SUMS`.
+- an npm unit: its package version and integrity;
+- a Composer unit: the annotated tag target in its split repository;
+- a Maven unit: its POM/JAR/checksum identities;
+- `gauntlet`: the multi-platform image digest plus attestations, and the Helm
+  chart digest;
+- every unit: its GitHub Release assets and `SHA256SUMS`.
 
-Run clean consumers through each public registry (and GitHub Packages for
-Maven) and deploy the exact image or chart into an isolated non-production
-validation environment. Do not retag or overwrite `0.1.8`. A correction
-requires a new version.
+Run clean consumers of each released package through its public registry (and
+GitHub Packages for Maven), and deploy a released application image or chart
+into an isolated non-production validation environment. Do not retag or
+overwrite a released unit version. A correction requires a new version of that
+unit.
 
 ## Failure handling
 
@@ -248,6 +267,32 @@ investigation. A public partial release is rejected by the fixed-destination
 preflight; if any destination differs, stop and choose a new version for
 that unit. Never delete or rewrite an already consumed tag as an ordinary retry
 mechanism.
+
+Re-running the same release-set tag completes the set only where nothing
+public conflicts. Its preflight treats each unit independently:
+
+- a unit already released by the failed run, with identical bytes, is
+  `already-identical` and is skipped;
+- a unit the failed run never pushed is `clean` and is published and released;
+- a unit whose release step failed before anything of it became public is
+  still `clean` and is released again. In practice this is only the
+  release-only `skills` unit: a package unit or the application has already
+  pushed its registry artifacts when its release step runs.
+
+The re-run stays blocked by any unit that is pushed to its registry without a
+published GitHub Release, and by a partially pushed application (for example
+the commit-tagged image without the semantic tag or the chart). The preflight
+reports such a unit as partially published and publishes nothing, so the
+units that run never released stay unreleased too. Recover by giving the
+blocked unit a new version (`node scripts/release/version.mjs --set-unit
+<unit> X.Y.Z`), writing a new release plan (it also lists every unit still
+unreleased), merging it, and creating a new release-set tag: a new version, a
+new release plan and a new release-set tag.
+
+A failed run can leave a stale draft GitHub Release. A draft is not public,
+but the release script refuses to create a second draft for the same tag, so
+the operator must delete the stale draft (after preserving its evidence) before
+re-running. Never publish the stale draft by hand.
 
 Publishing does not authorize deployment. Operators separately follow the
 [upgrade](upgrading.md) and [non-production safety](../safety/non-production-boundary.md)

@@ -38,17 +38,17 @@ manifest. Hashes were re-bound to current bytes without generating new model
 samples. This confirms content integrity, not behaviour.
 
 Plan-driven publishing (2026-10-03) changed bound release tooling and the
-skill's version wording (each reference now names its own exact version)
-without changing prompts, scenarios, scorecards or verifiers. Hashes were
-re-bound to current bytes without generating new model samples. This confirms
-content integrity, not behaviour.
+skill's version wording (each reference now names its own exact version and
+the unit release it comes from) without changing prompts, scenarios,
+scorecards or verifiers. Hashes were re-bound to current bytes without
+generating new model samples. This confirms content integrity, not behaviour.
 
 The preserved prompts, results, and evidence describe the original evaluation
 and have not been rewritten. The forward Node Compose fixture remains pinned
 to 0.1.6 so its recorded response is checked against the exact package version
 named in its frozen prompt. Passing self-tests do not establish that the
 recorded model samples ran on the current package versions. A new model
-evaluation would need prompts and samples prepared for that version.
+evaluation would need prompts and samples prepared for those versions.
 
 Every sample in the matrix is a fresh generation by a new evaluator process
 run against the frozen skill and evaluation inputs. Every started sample
