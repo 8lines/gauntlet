@@ -166,18 +166,32 @@ test("CI exposes the bounded, read-only product and release gates", () => {
   assert.doesNotMatch(commands.security, /--source-only/u);
   assert.match(commands["release-metadata"], /playwright install --with-deps chromium/);
   assert.match(commands["release-metadata"], /pnpm release:dry-run/);
-  // CI always rehearses every unit, not a committed plan that may name only already released units.
+  // CI rehearses every unit, except that a release pull request rehearses exactly its committed plan.
   const rehearsal = workflow.jobs["release-metadata"].steps.find(({ name }) => name === "Reproduce the complete release without publishing");
   assert.equal(rehearsal.shell, "bash");
-  assert.equal(rehearsal.env?.PLAYWRIGHT_BROWSER_CHANNEL, "chromium");
+  assert.deepEqual(rehearsal.env, {
+    PLAYWRIGHT_BROWSER_CHANNEL: "chromium",
+    EVENT_NAME: "${{ github.event_name }}",
+    BASE_SHA: "${{ github.event.pull_request.base.sha }}",
+  });
   assert.deepEqual(rehearsal.run.split("\n").filter((line) => line !== "" && !line.trimStart().startsWith("#")), [
     "set -euo pipefail",
     "node scripts/release/version.mjs --check",
     "if [ -e .release/plan.json ]; then node scripts/release/version.mjs --check --plan .release/plan.json; fi",
-    "node scripts/release/plan.mjs --write-all-units .artifacts/ci/all-units-plan.json",
-    "pnpm release:dry-run --plan .artifacts/ci/all-units-plan.json",
+    "plan_changed=false",
+    'if [ "$EVENT_NAME" = "pull_request" ] && [ -e .release/plan.json ]; then',
+    '  plan_diff="$(git diff --name-only "$BASE_SHA" HEAD -- .release/plan.json)"',
+    '  if [ -n "$plan_diff" ]; then plan_changed=true; fi',
+    "fi",
+    'if [ "$plan_changed" = true ]; then',
+    "  node scripts/release/plan.mjs --check",
+    "  pnpm release:dry-run --plan .release/plan.json",
+    "else",
+    "  node scripts/release/plan.mjs --write-all-units .artifacts/ci/all-units-plan.json",
+    "  pnpm release:dry-run --plan .artifacts/ci/all-units-plan.json",
+    "fi",
   ]);
-  assert.equal(commands["release-metadata"].match(/pnpm release:dry-run/gu).length, 1);
+  assert.equal(commands["release-metadata"].match(/pnpm release:dry-run/gu).length, 2);
   const metadataSteps = workflow.jobs["release-metadata"].steps;
   const metadataBuild = metadataSteps.findIndex(({ run }) => run === "pnpm build");
   const metadataPreload = metadataSteps.findIndex(({ run }) => run === "node scripts/prepare-ci-images.mjs");
