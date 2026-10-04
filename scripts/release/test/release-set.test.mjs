@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -175,7 +175,7 @@ test("state commands read JSON files and refuse invalid input", (t) => {
   const state = write("state.json", { command: "check", units: [{ id: "skills", kind: "skills", state: "clean" }] });
   assert.equal(runReleaseSetCli(["preflight-outputs", "--state-file", state]).stdout.split("\n")[0], 'clean=["skills"]');
   assert.equal(runReleaseSetCli(["require-state", "--state-file", state, "--unit", "skills", "--state", "clean"]).exitCode, 0);
-  assert.equal(runReleaseSetCli(["require-state", "--state-file", state, "--unit", "skills", "--state", "partial"]).exitCode, 1);
+  assert.equal(runReleaseSetCli(["require-state", "--state-file", state, "--unit", "skills", "--state", "already-identical"]).exitCode, 1);
 
   symlinkSync(state, resolve(directory, "link.json"));
   assert.equal(runReleaseSetCli(["preflight-outputs", "--state-file", resolve(directory, "link.json")]).exitCode, 1);
@@ -195,4 +195,64 @@ test("invalid arguments exit 2 with a usage error", () => {
     assert.equal(result.stdout, "");
     assert.equal(JSON.parse(result.stderr).error.code, "INVALID_ARGUMENTS");
   }
+});
+
+test("plan outputs validate unit ids, dependency order and gates against the catalog", () => {
+  const base = { command: "check", ok: true, order: ["protocol", "typescript-core"], gates: ["node"] };
+  assert.doesNotThrow(() => planOutputs(base));
+  for (const mutation of [
+    { order: ["typescript-core", "protocol"] }, { order: ["protocol", "protocol"] }, { order: ["nope"] }, { order: ["__proto__"] },
+    { order: [] }, { order: "protocol" }, { gates: ["node", "node"] }, { gates: ["nope"] }, { gates: "node" }, { gates: [1] },
+  ]) assert.throws(() => planOutputs({ ...base, ...mutation }), undefined, JSON.stringify(mutation));
+});
+
+test("preflight outputs validate unit ids and kinds against the catalog", () => {
+  const unit = { id: "protocol", kind: "npm", state: "clean" };
+  const result = (units) => ({ command: "check", units });
+  assert.doesNotThrow(() => preflightOutputs(result([unit])));
+  for (const units of [
+    [unit, unit], [{ ...unit, id: "nope" }], [{ ...unit, id: "__proto__" }], [{ ...unit, kind: "maven" }], [{ id: "protocol", state: "clean" }],
+    [null],
+  ]) assert.throws(() => preflightOutputs(result(units)), undefined, JSON.stringify(units));
+});
+
+test("staged paths must stay canonical inside the release directory", (t) => {
+  const { root, temporaryRoot } = finalizedFixture(t, [{ id: "protocol", version: "0.1.0" }, { id: "skills", version: "0.1.0" }]);
+  const outside = resolve(temporaryRoot, "outside");
+  cpSync(resolve(root, "npm"), outside, { recursive: true });
+  rmSync(resolve(root, "npm"), { recursive: true });
+  symlinkSync(outside, resolve(root, "npm"));
+  const artifact = runReleaseSetCli(["artifact", "--release-directory", root, "--unit", "protocol"]);
+  assert.deepEqual([artifact.exitCode, artifact.stdout], [1, ""]);
+
+  const units = resolve(root, "units");
+  const movedUnits = resolve(temporaryRoot, "units-outside");
+  renameSync(units, movedUnits);
+  symlinkSync(movedUnits, units);
+  const assets = runReleaseSetCli(["assets", "--release-directory", root, "--unit", "skills"]);
+  assert.deepEqual([assets.exitCode, assets.stdout], [1, ""]);
+});
+
+test("a symbolic-link release directory is refused", (t) => {
+  const { root, temporaryRoot } = finalizedFixture(t, [{ id: "skills", version: "0.1.0" }]);
+  const link = resolve(temporaryRoot, "link");
+  symlinkSync(root, link);
+  assert.equal(runReleaseSetCli(["assets", "--release-directory", link, "--unit", "skills"]).exitCode, 1);
+});
+
+test("require-state accepts only the states check-published emits", () => {
+  for (const state of ["clean", "already-identical", "published-artifacts-identical", "draft-identical"]) {
+    assert.equal(runReleaseSetCli(["require-state", "--state-file", "/missing.json", "--unit", "skills", "--state", state]).exitCode, 1);
+  }
+  for (const state of ["partial", "published", "Clean"]) {
+    assert.equal(runReleaseSetCli(["require-state", "--state-file", "/missing.json", "--unit", "skills", "--state", state]).exitCode, 2);
+  }
+});
+
+test("a directory named CHANGELOG.md counts as an absent changelog", (t) => {
+  const { root } = releaseFixture(t, [{ id: "skills", version: "0.1.0" }]);
+  const repository = scratchDirectory(t);
+  mkdirSync(resolve(repository, "skills/CHANGELOG.md"), { recursive: true });
+  const result = runReleaseSetCli(["notes", "--release-directory", root, "--unit", "skills", "--output", resolve(repository, "n.md")], { root: repository });
+  assert.deepEqual([result.exitCode, result.stdout], [0, "generated\n"]);
 });

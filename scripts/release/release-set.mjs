@@ -4,14 +4,15 @@ import { fileURLToPath } from "node:url";
 
 import { unitReleaseAssets } from "./check-published.mjs";
 import { readReleaseManifest } from "./inventory.mjs";
-import { unitById } from "./units.mjs";
+import { RELEASE_GATES } from "./plan.mjs";
+import { dependencyOrder, unitById } from "./units.mjs";
 
 const ROOT = realpathSync(fileURLToPath(new URL("../../", import.meta.url)));
 const PUBLISHABLE_STATES = Object.freeze(["clean", "already-identical"]);
 const ARCHIVE_KINDS = Object.freeze(["npm", "composer", "maven"]);
 const FIELDS = Object.freeze(["version", "tag", "title"]);
 const MAXIMUM_INPUT_BYTES = 1024 * 1024;
-const STATE_PATTERN = /^[a-z][a-z-]*$/u;
+const REQUIRABLE_STATES = Object.freeze(["clean", "already-identical", "published-artifacts-identical", "draft-identical"]);
 const PLAN_FAILURE = "Release plan check did not pass";
 const PREFLIGHT_FAILURE = "Release preflight state is not publishable";
 const READ_FAILURE = "Release set input could not be read";
@@ -34,15 +35,24 @@ const COMMANDS = Object.freeze({
   "require-state": Object.freeze(["--state-file", "--unit", "--state"]),
 });
 
+function distinctStrings(values) {
+  return Array.isArray(values) && values.every((value) => typeof value === "string") && new Set(values).size === values.length;
+}
+
 export function planOutputs(result) {
-  if (result?.command !== "check" || result.ok !== true || !Array.isArray(result.order) || result.order.length === 0
-      || !Array.isArray(result.gates)) throw new Error(PLAN_FAILURE);
+  if (result?.command !== "check" || result.ok !== true || !distinctStrings(result.order) || result.order.length === 0
+      || !distinctStrings(result.gates) || result.gates.some((gate) => !RELEASE_GATES.includes(gate))) throw new Error(PLAN_FAILURE);
+  const ordered = dependencyOrder(result.order);
+  if (ordered.length !== result.order.length || ordered.some((id, index) => id !== result.order[index])) throw new Error(PLAN_FAILURE);
   return `gates=${JSON.stringify(result.gates)}\nunits=${JSON.stringify(result.order)}\n`;
 }
 
 export function preflightOutputs(result) {
   if (result?.command !== "check" || !Array.isArray(result.units) || result.units.length === 0
-      || result.units.some((unit) => !PUBLISHABLE_STATES.includes(unit?.state))) throw new Error(PREFLIGHT_FAILURE);
+      || !distinctStrings(result.units.map((unit) => unit?.id))
+      || result.units.some((unit) => !PUBLISHABLE_STATES.includes(unit.state) || unitById(unit.id).kind !== unit.kind)) {
+    throw new Error(PREFLIGHT_FAILURE);
+  }
   const clean = result.units.filter(({ state }) => state === "clean");
   const ofKind = (kind) => clean.filter((unit) => unit.kind === kind).map(({ id }) => id).join(" ");
   return [
@@ -77,10 +87,21 @@ export function unitField(manifest, unitId, field) {
   throw new TypeError("Unknown release unit field");
 }
 
+// Resolves a manifest-relative path to a regular file that is canonical (no symbolic link at any
+// component) and lies inside the canonical release directory.
 function stagedFile(releaseDirectory, relativePath) {
-  const path = resolve(releaseDirectory, ...relativePath.split("/"));
-  const stat = lstatSync(path, { throwIfNoEntry: false });
-  if (stat === undefined || !stat.isFile()) throw new Error(`Staged release file ${relativePath} is missing`);
+  const segments = typeof relativePath === "string" ? relativePath.split("/") : [];
+  if (segments.length === 0 || segments.some((segment) => segment === "" || segment === "." || segment === ".." || segment.includes("\\")
+      || segment.includes("\0"))) throw new Error(`Staged release file ${String(relativePath)} is invalid`);
+  const path = resolve(releaseDirectory, ...segments);
+  let stat;
+  try {
+    if (realpathSync(releaseDirectory) !== releaseDirectory) throw new Error();
+    stat = lstatSync(path);
+    if (!path.startsWith(`${releaseDirectory}${sep}`) || realpathSync(path) !== path || !stat.isFile()) throw new Error();
+  } catch {
+    throw new Error(`Staged release file ${relativePath} is missing or not canonical`);
+  }
   return path;
 }
 
@@ -155,6 +176,8 @@ function readJson(path) {
 
 function unitChangelog(root, unitId, version) {
   const absolute = resolve(root, ...changelogPath(unitId).split("/"));
+  const entry = lstatSync(absolute, { throwIfNoEntry: false });
+  if (entry === undefined || entry.isDirectory()) return null;
   let real;
   try {
     real = realpathSync(absolute);
@@ -182,7 +205,7 @@ function parseCli(argv) {
   }
   if (Object.hasOwn(values, "--unit")) unitById(values["--unit"]);
   if (command === "field" && !FIELDS.includes(values["--field"])) throw new TypeError(USAGE);
-  if (command === "require-state" && !STATE_PATTERN.test(values["--state"])) throw new TypeError(USAGE);
+  if (command === "require-state" && !REQUIRABLE_STATES.includes(values["--state"])) throw new TypeError(USAGE);
   return Object.freeze({ command, values: Object.freeze(values) });
 }
 
