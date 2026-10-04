@@ -44,7 +44,11 @@ Units are versioned and released independently. `pnpm release:version --check`
 validates every slot against its own unit, and `--plan .release/plan.json` also
 checks the plan against the manifests.
 `node scripts/release/version.mjs --set-unit <unit> X.Y.Z` moves one unit and
-every slot bound to it.
+every slot bound to it, including the unit's version cell in
+`docs/reference/compatibility.md`. A moved slot in a bound skill-evaluation
+input (a skill reference under `skills/`, or a path listed in
+`skill-evals/*/external-inputs.json`) needs the receipts re-bound:
+`pnpm skills:rebind --reason "<one sentence>"`, committed with the move.
 
 Each unit needs a baseline tag so later releases can be compared against it.
 The baseline is `e3f80e5`, the v0.1.8 release commit. Preview the tags that
@@ -75,8 +79,16 @@ check runs `pnpm release:changes --check --base <base commit>`: it maps the
 changed paths to the units that release them (tests, READMEs and changelogs
 excluded) and fails when a touched unit is not named by a change file added or
 edited in the same pull request. A release pull request is covered by its
-`.release/plan.json` for the units it plans, and only for those. Run the check
-locally against `origin/main` with `pnpm release:changes --check`.
+`.release/plan.json` for the units it plans, and only for those. To run the
+check locally, commit your change files and run `git fetch origin main` first:
+`pnpm release:changes --check` compares the committed `HEAD` with your local
+`origin/main`, so uncommitted change files and a stale `origin/main` give a
+different answer than CI.
+
+Dependency-update pull requests, such as Dependabot's, that touch a unit's
+released paths fail the `changes` check until a maintainer adds a change file
+to the pull request: `patch` for a dependency change that ships with the unit,
+or `none` with the reason when it does not.
 
 ## Prepare a release
 
@@ -120,13 +132,14 @@ whose changelog says "Updated `<unit>` to X.Y.Z." for each released dependency.
    receipts, and prints one JSON summary.
 
 On any failure it restores every tracked file and removes the files it created,
-so the branch is as it was. It refuses to start on `main`, with modified
-tracked files, with uncommitted change files, without change files, with only
-`none` change files, when a changelog has hand-written entries under
-`## Unreleased`, when a unit is not at its latest tag (fetch the tags, or
-release the plan that is already prepared), and when the plan would release a
-package that implements a contract major the released application does not
-support.
+so the branch is as it was. It refuses to start on `main` or a detached
+`HEAD`, with modified tracked files, with uncommitted change files, without
+change files, with only `none` change files, when a changelog has hand-written
+entries under `## Unreleased` or already has a section for the new version
+(every changelog is checked before anything is written or Docker runs), when a
+unit is not at its latest tag (fetch the tags, or release the plan that is
+already prepared), and when the plan would release a package that implements a
+contract major the released application does not support.
 
 Review `git status`, the changelog sections and `.release/plan.json`, commit
 everything as one release pull request and let CI rehearse it: for a pull
@@ -155,9 +168,12 @@ each unit's tag and GitHub Release. npm packages are published without
 provenance: npm accepts provenance attestations only from GitHub-hosted
 runners, and the `publish` job runs on a self-hosted Blacksmith runner. No other job receives a secret.
 
-Branch protection on `main` requires the `changes` check together with the
-other CI jobs, so a pull request that touches a unit's released paths cannot
-merge without a change file.
+Configure a ruleset or branch protection rule on `main` that requires the
+`changes` check and the other CI jobs to pass before a pull request merges.
+Without it, the `changes` check only reports: a pull request that touches a
+unit's released paths could still merge without a change file. Requiring pull
+requests also blocks direct pushes to `main`, so decide on bypass rules for
+maintainers when you set it up.
 
 Outside the repository:
 
@@ -271,11 +287,15 @@ git push origin refs/tags/release-YYYY-MM-DD.N
 ```
 
 `pnpm release:tag` creates the annotated tag `release-YYYY-MM-DD.N` on the
-merge commit locally and prints the exact push command; it never pushes.
+merge commit locally and prints the exact push command; it never pushes. It
+refuses a plan that does not match the manifests and tags, and a
+`docs/reference/compatibility.md` that does not record every unit at its
+manifest version or that the plan would break.
 Pushing that one tag starts one workflow run. The run:
 
 1. checks that the tag is annotated, that its commit is contained in `main`,
-   and that `.release/plan.json` still matches the manifests and tags;
+   and that `.release/plan.json` still matches the manifests, the tags and the
+   compatibility ledger (`node scripts/release/plan.mjs --check`);
 2. runs only the verification gates of the planned units;
 3. repeats the dry run for exactly the planned units;
 4. preflights each unit: every unit must be clean or already identical, and a

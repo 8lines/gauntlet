@@ -90,6 +90,31 @@ released paths without a change file naming that unit. Tests, READMEs and
 changelogs never need one. Release preparation turns change files into
 changelog entries, so do not edit `CHANGELOG.md` files by hand.
 
+Before running the check locally, commit your change files and run
+`git fetch origin main`: `pnpm release:changes --check` compares the committed
+`HEAD` with your local `origin/main`, so it does not see uncommitted change
+files, and a stale `origin/main` gives a different answer than CI.
+
+Dependency-update pull requests, such as Dependabot's, that touch a unit's
+released paths fail the `changes` check until a maintainer adds a change file
+to the pull request: `patch` when the dependency change ships with the unit, or
+`none` with the reason when it does not.
+
+## Skill evaluation receipts
+
+The evaluation receipts under `skill-evals/` are bound by hash to the skill
+text under `skills/` and to every path listed in
+`skill-evals/*/external-inputs.json`. When your change touches one of these
+bound inputs, re-bind the receipts and commit them with the change:
+
+```sh
+pnpm skills:rebind --reason "<One sentence saying what changed.>"
+pnpm skills:validate
+```
+
+Re-binding updates only the hashes and adds a line to the Re-binding log of
+each affected `EVALUATING.md`; it confirms content integrity, not behaviour.
+
 ## Review and history
 
 Keep commits focused and include test evidence. Describe user-visible behavior, security boundaries, public APIs, package requirements, or deployment changes in a [change file](#change-files). Add migration and rollback notes before merging a breaking or operational change. Do not rewrite, delete, or overwrite an existing release artifact; publish a new version.

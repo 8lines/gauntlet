@@ -93,6 +93,29 @@ test("release runbook covers change files, preparation and its prerequisites", (
   assert.match(source, /builder that can export images/u);
   assert.match(source, /PLAYWRIGHT_BROWSER_CHANNEL=chromium pnpm release:dry-run --plan \.release\/plan\.json/u);
   assert.match(source, /compatibility line/u);
+  assert.match(source, /on `main` or a detached\s+`HEAD`/u);
+  assert.match(source, /every changelog is checked before anything is written or Docker runs/u);
+});
+
+test("release runbook asks for branch protection instead of claiming it", () => {
+  const source = read("docs/releases/releasing.md");
+  const configuration = source.slice(source.indexOf("## Repository configuration"), source.indexOf("## Local rehearsal"));
+  assert.doesNotMatch(source, /Branch protection on `main` requires/u);
+  assert.match(configuration, /Configure a ruleset or branch protection rule on `main` that requires the\s+`changes` check and the other CI jobs/u);
+});
+
+test("release runbook explains the local change check, dependency updates, re-binding and the ledger slots", () => {
+  const source = read("docs/releases/releasing.md");
+  const changes = source.slice(source.indexOf("## Change files"), source.indexOf("## Prepare a release"));
+  assert.match(changes, /git fetch origin main/u);
+  assert.match(changes, /committed `HEAD` with your local\s+`origin\/main`/u);
+  assert.match(changes, /Dependabot/u);
+  assert.match(changes, /`patch`[^.]*`none` with the reason/su);
+  const units = source.slice(source.indexOf("## Release units"), source.indexOf("## Change files"));
+  assert.match(units, /version cell in\s+`docs\/reference\/compatibility\.md`/u);
+  assert.match(units, /pnpm skills:rebind --reason/u);
+  assert.match(units, /skill-evals\/\*\/external-inputs\.json/u);
+  assert.match(source, /`pnpm release:tag`[^]*?refuses a plan[^]*?compatibility\.md` that does not record every unit/u);
 });
 
 test("the upgrade guide no longer names a fixed release", () => {
