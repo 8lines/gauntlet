@@ -124,14 +124,14 @@ export function createAuthenticator(configuration: PasswordAuthConfiguration, se
       const verified = await verifyPassword(password, hash ?? DUMMY_PASSWORD_HASH);
       if (!verified || principal === undefined || hash === undefined) return undefined;
       const issuedAt = Math.floor(now.getTime() / 1000);
-      const expiresAt = new Date(now.getTime() + sessionTtlMs);
+      const expiresAtSeconds = Math.floor((now.getTime() + sessionTtlMs) / 1000);
       const token = signToken(keys, "s", {
         sub: principal.id,
         iat: issuedAt,
-        exp: Math.floor(expiresAt.getTime() / 1000),
+        exp: expiresAtSeconds,
         pv: credentialVersion(principal, hash),
       });
-      return { principal, token, expiresAt };
+      return { principal, token, expiresAt: new Date(expiresAtSeconds * 1000) };
     },
   };
 }

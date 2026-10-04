@@ -68,6 +68,8 @@ export const INTERNAL_ERROR_PROBLEM: Problem = Object.freeze({
 const knownRoutes: ReadonlyArray<{ readonly pattern: RegExp; readonly methods: ReadonlySet<string> }> = [
   { pattern: /^\/health$/, methods: new Set(["GET"]) },
   { pattern: /^\/ready$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/v1\/auth\/session$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/v1\/auth\/(?:login|logout)$/, methods: new Set(["POST"]) },
   { pattern: /^\/api\/v1\/targets$/, methods: new Set(["GET"]) },
   { pattern: /^\/api\/v1\/targets\/([^/]+)\/operations\/([^/]+)$/, methods: new Set(["GET"]) },
   { pattern: /^\/api\/v1\/targets\/([^/]+)\/operations\/([^/]+)\/runs$/, methods: new Set(["POST"]) },
