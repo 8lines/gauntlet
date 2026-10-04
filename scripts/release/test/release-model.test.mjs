@@ -16,16 +16,20 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import test from "node:test";
 
 import {
   collectUnitVersionMismatches,
   collectVersionMismatches,
   LOCKSTEP_RELEASES,
+  readReleaseTextSpans,
   readReleaseVersion,
   readUnitVersion,
+  readUnitVersions,
   RELEASE_ARTIFACTS,
+  RELEASE_TEXT_FILES,
+  renderUnitVersionTable,
   VERSION_LOCATIONS,
   parseReleaseVersion,
   setReleaseVersion,
@@ -34,6 +38,19 @@ import {
 import { createReleasePlan, serializeReleasePlan } from "../plan.mjs";
 import { RELEASE_UNITS } from "../units.mjs";
 import { parseVersionCommand, runVersionCli } from "../version.mjs";
+import {
+  EXPECTED_UPDATE_PATHS,
+  GRADLE_VERSION_DERIVATION,
+  PACKAGE_IDENTITIES,
+  RELEASE_TEXT_PATHS,
+  RELEASE_TEXT_UNITS,
+  UNIT_VERSION_FILES,
+  createVersionFixture,
+  releaseTextFixtures,
+  writeConsumerJsonFixtures,
+  writeFixtureFile,
+  writeReleaseTextFixtures,
+} from "./version-fixture.mjs";
 
 const EXPECTED_ARTIFACTS = {
   npm: [
@@ -81,200 +98,6 @@ function assertDeeplyFrozen(value) {
       assertDeeplyFrozen(child);
     }
   }
-}
-
-const PACKAGE_IDENTITIES = [
-  ["packages/protocol/package.json", "@8lines/gauntlet-protocol"],
-  ["packages/dashboard-client/package.json", "@8lines/gauntlet-dashboard-client"],
-  ["packages/typescript/core/package.json", "@8lines/gauntlet-typescript-core"],
-  ["packages/typescript/node/package.json", "@8lines/gauntlet-typescript-node"],
-  ["packages/typescript/next/package.json", "@8lines/gauntlet-next-adapter"],
-  ["conformance/runner/package.json", "@8lines/gauntlet-conformance-runner"],
-  ["packages/widget/package.json", "@8lines/gauntlet-widget"],
-  ["apps/dashboard/package.json", "@8lines/gauntlet-dashboard"],
-  ["apps/server/package.json", "@8lines/gauntlet-server"],
-];
-
-const RELEASE_TEXT_PATHS = [
-  "tests/consumers/java/build.gradle.kts",
-  "tests/consumers/java/gradle.lockfile",
-  "skills/gauntlet-app-integration/references/node.md",
-  "skills/gauntlet-app-integration/references/nextjs.md",
-  "skills/gauntlet-app-integration/references/symfony.md",
-  "skills/gauntlet-app-integration/references/spring.md",
-  "skills/gauntlet-app-integration/references/deployment.md",
-  "skills/gauntlet-app-integration/references/safety-gates.md",
-  "docs/ai-skills.md",
-];
-
-// Each release-text file with the units whose slots it holds, in slot order, and the slot count per unit.
-const RELEASE_TEXT_UNITS = [
-  ["tests/consumers/java/build.gradle.kts", [["spring-boot-starter", 1]]],
-  ["tests/consumers/java/gradle.lockfile", [["java-core", 1], ["spring-boot-starter", 1]]],
-  ["skills/gauntlet-app-integration/references/node.md", [["protocol", 1], ["typescript-core", 1], ["typescript-node", 1]]],
-  ["skills/gauntlet-app-integration/references/nextjs.md", [["protocol", 1], ["typescript-core", 1], ["next-adapter", 1]]],
-  ["skills/gauntlet-app-integration/references/symfony.md", [["php-core", 1], ["symfony-bundle", 1]]],
-  ["skills/gauntlet-app-integration/references/spring.md", [["spring-boot-starter", 3]]],
-  ["skills/gauntlet-app-integration/references/deployment.md", [["gauntlet", 3]]],
-  ["skills/gauntlet-app-integration/references/safety-gates.md", [["gauntlet", 1]]],
-  ["docs/ai-skills.md", [["skills", 3]]],
-];
-
-const EXPECTED_UPDATE_PATHS = [
-  "packages/protocol/package.json",
-  "packages/dashboard-client/package.json",
-  "packages/typescript/core/package.json",
-  "packages/typescript/node/package.json",
-  "packages/typescript/next/package.json",
-  "conformance/runner/package.json",
-  "packages/widget/package.json",
-  "apps/dashboard/package.json",
-  "apps/server/package.json",
-  "packages/php/core/composer.json",
-  "packages/php/symfony-bundle/composer.json",
-  "deploy/helm/gauntlet/Chart.yaml",
-  "deploy/helm/gauntlet/values.yaml",
-  "deploy/compose/.env.example",
-  "tests/consumers/php-core/composer.json",
-  "tests/consumers/php-symfony/composer.json",
-  ...RELEASE_TEXT_PATHS,
-  "packages/java/core/VERSION",
-  "packages/java/spring-boot-starter/VERSION",
-  "skills/VERSION",
-  "VERSION",
-];
-
-const UNIT_VERSION_FILES = [
-  "packages/java/core/VERSION",
-  "packages/java/spring-boot-starter/VERSION",
-  "skills/VERSION",
-];
-
-const GRADLE_VERSION_DERIVATION = `import java.nio.charset.StandardCharsets
-
-fun projectReleaseVersion(versionFile: java.io.File): String {
-    val bytes = versionFile.readBytes()
-    require(bytes.size in 6..64)
-    require(bytes.all { it.toInt() in 0..127 })
-    val record = bytes.toString(StandardCharsets.US_ASCII)
-    require(Regex("""^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\n$""").matches(record))
-    return record.removeSuffix("\\n")
-}
-
-allprojects {
-    group = "dev.eightlines.gauntlet"
-    version = projectReleaseVersion(project.file("VERSION"))
-}
-`;
-
-function writeFixtureFile(root, relativePath, contents, mode = 0o644) {
-  const path = join(root, relativePath);
-  mkdirSync(join(path, ".."), { recursive: true });
-  writeFileSync(path, contents, { mode });
-}
-
-function releaseTextFixtures(version) {
-  return new Map([
-    [
-      "tests/consumers/java/build.gradle.kts",
-      `dependencies {\n    implementation("dev.eightlines.gauntlet:spring-boot-starter:${version}")\n}\n`,
-    ],
-    [
-      "tests/consumers/java/gradle.lockfile",
-      `dev.eightlines.gauntlet:core:${version}=compileClasspath,runtimeClasspath\ndev.eightlines.gauntlet:spring-boot-starter:${version}=compileClasspath,runtimeClasspath\nempty=annotationProcessor\n`,
-    ],
-    [
-      "skills/gauntlet-app-integration/references/node.md",
-      `Support Node.js 24–26.\npnpm add @8lines/gauntlet-protocol@${version} \\\n  @8lines/gauntlet-typescript-core@${version} \\\n  @8lines/gauntlet-typescript-node@${version}\n`,
-    ],
-    [
-      "skills/gauntlet-app-integration/references/nextjs.md",
-      `Support Next.js on Node.js 24–26.\npnpm add @8lines/gauntlet-protocol@${version} \\\n  @8lines/gauntlet-typescript-core@${version} \\\n  @8lines/gauntlet-next-adapter@${version}\n`,
-    ],
-    [
-      "skills/gauntlet-app-integration/references/symfony.md",
-      `Support PHP 8.3+ and Symfony 7.4. Declare repositories and install exact release \`${version}\` of \`8lines/gauntlet-php-core\` and exact release \`${version}\` of \`8lines/gauntlet-symfony-bundle\`.\n`,
-    ],
-    [
-      "skills/gauntlet-app-integration/references/spring.md",
-      `Support Java 21 and Spring Boot 4.1.\nimplementation("dev.eightlines.gauntlet:spring-boot-starter:${version}")\nPrefer released \`${version}\` metadata; reject \`${version}-SNAPSHOT\` coordinates.\n`,
-    ],
-    [
-      "skills/gauntlet-app-integration/references/deployment.md",
-      `Use exact image \`ghcr.io/8lines/gauntlet:${version}\` or an approved digest. Bind to \`127.0.0.1\`.\nUse exact chart \`oci://ghcr.io/8lines/charts/gauntlet\` version \`${version}\` and exact image \`${version}\` or a reviewed digest. Require Kubernetes \`>=1.35\` and Helm \`4.0.4\`.\n`,
-    ],
-    [
-      "skills/gauntlet-app-integration/references/safety-gates.md",
-      `Confirmation is not authentication. Version \`${version}\` has no built-in Gauntlet authentication.\n`,
-    ],
-    [
-      "docs/ai-skills.md",
-      `The GitHub release contains \`gauntlet-skills-${version}.tgz\` and records its digest.\ntar -xzf gauntlet-skills-${version}.tgz -C "$skills_unpack"\nskills_archive_root="$skills_unpack/gauntlet-skills-${version}"\n`,
-    ],
-  ]);
-}
-
-function writeReleaseTextFixtures(root, version) {
-  for (const [path, contents] of releaseTextFixtures(version)) writeFixtureFile(root, path, contents);
-}
-
-function writeConsumerJsonFixtures(root, version) {
-  writeFixtureFile(root, "tests/consumers/php-core/composer.json", `${JSON.stringify({
-    name: "8lines/gauntlet-php-core-consumer",
-    require: { "8lines/gauntlet-php-core": version },
-  }, null, 2)}\n`);
-  writeFixtureFile(root, "tests/consumers/php-symfony/composer.json", `${JSON.stringify({
-    name: "8lines/gauntlet-symfony-consumer",
-    require: {
-      "8lines/gauntlet-php-core": version,
-      "8lines/gauntlet-symfony-bundle": version,
-    },
-  }, null, 2)}\n`);
-}
-
-function createVersionFixture(version = "0.1.0") {
-  const root = mkdtempSync(join(tmpdir(), "gauntlet-release-model-"));
-  for (const path of ["VERSION", ...UNIT_VERSION_FILES]) writeFixtureFile(root, path, `${version}\n`);
-  for (const [path, name] of PACKAGE_IDENTITIES) {
-    writeFixtureFile(root, path, `${JSON.stringify({ name, version }, null, 2)}\n`);
-  }
-  writeFixtureFile(
-    root,
-    "packages/php/core/composer.json",
-    `${JSON.stringify({ name: "8lines/gauntlet-php-core", version, require: { php: ">=8.5" } }, null, 2)}\n`,
-  );
-  writeFixtureFile(
-    root,
-    "packages/php/symfony-bundle/composer.json",
-    `${JSON.stringify(
-      {
-        name: "8lines/gauntlet-symfony-bundle",
-        version,
-        require: { "8lines/gauntlet-php-core": `^${version}` },
-      },
-      null,
-      2,
-    )}\n`,
-  );
-  writeFixtureFile(root, "packages/java/build.gradle.kts", GRADLE_VERSION_DERIVATION);
-  writeFixtureFile(
-    root,
-    "deploy/helm/gauntlet/Chart.yaml",
-    `apiVersion: v2\nname: gauntlet\nversion: ${version} # chart\nappVersion: "${version}" # app\n`,
-  );
-  writeFixtureFile(
-    root,
-    "deploy/helm/gauntlet/values.yaml",
-    `image:\n  repository: ghcr.io/8lines/gauntlet\n  tag: '${version}' # runtime\n  digest: ""\n`,
-  );
-  writeFixtureFile(
-    root,
-    "deploy/compose/.env.example",
-    `GAUNTLET_IMAGE=ghcr.io/8lines/gauntlet:${version}\nGAUNTLET_BIND=127.0.0.1\n`,
-  );
-  writeConsumerJsonFixtures(root, version);
-  writeReleaseTextFixtures(root, version);
-  return root;
 }
 
 function withVersionFixture(callback) {
@@ -457,6 +280,8 @@ test("binds every version location to a release unit", () => {
   assert.equal(owner("packages/php/symfony-bundle/composer.json", ["require", "8lines/gauntlet-php-core"]), "php-core");
   assert.equal(owner("tests/consumers/php-symfony/composer.json", ["require", "8lines/gauntlet-php-core"]), "php-core");
   assert.equal(owner("tests/consumers/php-symfony/composer.json", ["require", "8lines/gauntlet-symfony-bundle"]), "symfony-bundle");
+  assert.equal(owner("examples/symfony/composer.json", ["require", "8lines/gauntlet-symfony-bundle"]), "symfony-bundle");
+  assert.equal(VERSION_LOCATIONS.find(({ path }) => path === "examples/symfony/composer.json").type, "json-constraint");
   assert.deepEqual(
     VERSION_LOCATIONS.filter(({ type }) => type === "file").map(({ path, unit }) => [path, unit]),
     [
@@ -568,6 +393,17 @@ test("reports every drifting slot against its own unit in fixed order", () => {
       "skills/gauntlet-app-integration/references/deployment.md: release references must equal gauntlet 0.1.0",
       "skills/gauntlet-app-integration/references/safety-gates.md: release references must equal gauntlet 0.1.0",
       "docs/ai-skills.md: release references must equal skills 0.1.0",
+      "deploy/helm/README.md: release references must equal gauntlet 0.1.0",
+      "docs/releases/installing-packages.md: release references must equal java-core 0.1.0",
+      "docs/releases/installing-packages.md: release references must equal spring-boot-starter 0.1.0",
+      "docs/releases/installing-packages.md: release references must equal gauntlet 0.1.0",
+      "docs/releases/installing-packages.md: release references must equal skills 0.1.0",
+      "docs/integrations/index.md: release references must equal java-core 0.1.0",
+      "docs/integrations/index.md: release references must equal spring-boot-starter 0.1.0",
+      "packages/java/README.md: release references must equal java-core 0.1.0",
+      "packages/java/README.md: release references must equal spring-boot-starter 0.1.0",
+      "packages/java/core/README.md: release references must equal java-core 0.1.0",
+      "packages/java/spring-boot-starter/README.md: release references must equal spring-boot-starter 0.1.0",
     ]);
   });
 });
@@ -694,6 +530,7 @@ test("sets every version span through bound descriptors while preserving surroun
         "8lines/gauntlet-symfony-bundle": "0.1.1",
       },
     );
+    assert.deepEqual(JSON.parse(readFileSync(join(root, "examples/symfony/composer.json"), "utf8")).require, { "8lines/gauntlet-php-core": "^0.1.1", "8lines/gauntlet-symfony-bundle": "^0.1.1" });
     assert.deepEqual(readFileSync(join(root, "packages/java/build.gradle.kts")), gradleBefore);
     for (const path of EXPECTED_UPDATE_PATHS) {
       const bytes = readFileSync(join(root, path));
@@ -1417,13 +1254,17 @@ test("a slot is checked against its own unit", () => {
       "packages/php/core/composer.json",
       `${JSON.stringify({ name: "8lines/gauntlet-php-core", version: "0.1.9", require: { php: ">=8.5" } }, null, 2)}\n`,
     );
-    // Only php-core moved: its three consumers follow it, while the symfony-bundle key in the
-    // php-symfony consumer and the starter/core Java slots stay with their own unit.
+    // Only php-core moved: its consumers and documented pins follow it, while the symfony-bundle
+    // keys and slots and the starter/core Java slots stay with their own unit.
     assert.deepEqual(collectUnitVersionMismatches(root), [
       "packages/php/symfony-bundle/composer.json: require.8lines/gauntlet-php-core must equal ^0.1.9",
       "tests/consumers/php-core/composer.json: require.8lines/gauntlet-php-core must equal php-core 0.1.9",
       "tests/consumers/php-symfony/composer.json: require.8lines/gauntlet-php-core must equal php-core 0.1.9",
+      "examples/symfony/composer.json: require.8lines/gauntlet-php-core must equal php-core ^0.1.9",
       "skills/gauntlet-app-integration/references/symfony.md: release references must equal php-core 0.1.9",
+      "docs/releases/installing-packages.md: release references must equal php-core 0.1.9",
+      "docs/integrations/index.md: release references must equal php-core 0.1.9",
+      "packages/php/symfony-bundle/README.md: release references must equal php-core 0.1.9",
     ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -1437,7 +1278,11 @@ test("the Symfony reference names each PHP package's own exact version", () => {
     assert.deepEqual(result.changedPaths, [
       "packages/php/symfony-bundle/composer.json",
       "tests/consumers/php-symfony/composer.json",
+      "examples/symfony/composer.json",
       "skills/gauntlet-app-integration/references/symfony.md",
+      "docs/releases/installing-packages.md",
+      "docs/integrations/index.md",
+      "packages/php/symfony-bundle/README.md",
     ]);
     assert.deepEqual(collectUnitVersionMismatches(root), []);
     assert.match(
@@ -1449,13 +1294,17 @@ test("the Symfony reference names each PHP package's own exact version", () => {
   }
 });
 
-test("a Java core move changes only the lockfile core slot, never the starter slots", () => {
+test("a Java core move reports only java-core slots, never the starter slots", () => {
   const root = createVersionFixture("0.1.8");
   try {
     writeFixtureFile(root, "packages/java/core/VERSION", "0.1.9\n");
-    // The starter slots in build.gradle.kts, gradle.lockfile and spring.md stay bound to spring-boot-starter.
+    // The starter slots in build.gradle.kts, gradle.lockfile, spring.md and the docs stay bound to spring-boot-starter.
     assert.deepEqual(collectUnitVersionMismatches(root), [
       "tests/consumers/java/gradle.lockfile: release references must equal java-core 0.1.9",
+      "docs/releases/installing-packages.md: release references must equal java-core 0.1.9",
+      "docs/integrations/index.md: release references must equal java-core 0.1.9",
+      "packages/java/README.md: release references must equal java-core 0.1.9",
+      "packages/java/core/README.md: release references must equal java-core 0.1.9",
     ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -1468,6 +1317,7 @@ test("a unit that moves alone reports only its own slots", () => {
     writeFixtureFile(root, "skills/VERSION", "0.1.9\n");
     assert.deepEqual(collectUnitVersionMismatches(root), [
       "docs/ai-skills.md: release references must equal skills 0.1.9",
+      "docs/releases/installing-packages.md: release references must equal skills 0.1.9",
     ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -1591,7 +1441,11 @@ test("setUnitVersions moves one unit and every slot bound to it, and nothing els
         "packages/php/symfony-bundle/composer.json",
         "tests/consumers/php-core/composer.json",
         "tests/consumers/php-symfony/composer.json",
+        "examples/symfony/composer.json",
         "skills/gauntlet-app-integration/references/symfony.md",
+        "docs/releases/installing-packages.md",
+        "docs/integrations/index.md",
+        "packages/php/symfony-bundle/README.md",
       ],
     });
     assert.deepEqual(collectUnitVersionMismatches(root), []);
@@ -1600,6 +1454,7 @@ test("setUnitVersions moves one unit and every slot bound to it, and nothing els
     const bundle = JSON.parse(readFileSync(join(root, "packages/php/symfony-bundle/composer.json"), "utf8"));
     assert.equal(bundle.version, "0.1.8");
     assert.equal(bundle.require["8lines/gauntlet-php-core"], "^0.2.0");
+    assert.deepEqual(JSON.parse(readFileSync(join(root, "examples/symfony/composer.json"), "utf8")).require, { "8lines/gauntlet-php-core": "^0.2.0", "8lines/gauntlet-symfony-bundle": "^0.1.8" });
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -1616,10 +1471,13 @@ test("setUnitVersions moves the application and the skills archive slots indepen
       "deploy/compose/.env.example",
       "skills/gauntlet-app-integration/references/deployment.md",
       "skills/gauntlet-app-integration/references/safety-gates.md",
+      "deploy/helm/README.md",
+      "docs/releases/installing-packages.md",
       "VERSION",
     ]);
     assert.deepEqual(setUnitVersions(root, { skills: "0.1.9" }).changedPaths, [
       "docs/ai-skills.md",
+      "docs/releases/installing-packages.md",
       "skills/VERSION",
     ]);
     assert.deepEqual(collectUnitVersionMismatches(root), []);
@@ -1655,7 +1513,7 @@ test("the version CLI sets one unit", () => {
     const result = runVersionCli(["--set-unit", "widget", "0.2.0"], { root });
     assert.equal(result.exitCode, 0, result.stderr);
     assert.deepEqual(JSON.parse(result.stdout), {
-      changedPaths: ["packages/widget/package.json"], command: "set-unit", ok: true, unit: "widget", version: "0.2.0",
+      changedPaths: ["packages/widget/package.json", "docs/releases/installing-packages.md", "docs/integrations/widget.md"], command: "set-unit", ok: true, unit: "widget", version: "0.2.0",
     });
     for (const argv of [["--set-unit", "nope", "0.2.0"], ["--set-unit", "widget"], ["--set-unit", "widget", "v0.2.0"]]) {
       assert.equal(runVersionCli(argv, { root }).exitCode, 2, argv.join(" "));
@@ -1663,4 +1521,35 @@ test("the version CLI sets one unit", () => {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+const REPOSITORY = resolve(import.meta.dirname, "../../..");
+
+test("a counted slot must occur exactly its count of times", () => {
+  withVersionFixture((root) => {
+    const path = "deploy/helm/README.md";
+    writeFixtureFile(root, path, `${readFileSync(join(root, path), "utf8")}helm pull oci://ghcr.io/8lines/charts/gauntlet --version 0.1.0 --destination .\n`);
+    assert.deepEqual(collectVersionMismatches(root), [`${path}: release references are missing or malformed`]);
+  });
+});
+
+test("release text spans are exposed for every slot file and only for slot files", () => {
+  withVersionFixture((root) => {
+    const spans = readReleaseTextSpans(root, "conformance/runner/README.md");
+    assert.deepEqual(spans.map(({ unit, value }) => [unit, value]), [
+      ["conformance-runner", "0.1.0"], ["conformance-runner", "0.1.0"], ["conformance-runner", "0.1.0"],
+    ]);
+    const source = readFileSync(join(root, "conformance/runner/README.md"), "utf8");
+    assert.equal(source.slice(spans[0].start, spans[0].end), "0.1.0");
+    assert.throws(() => readReleaseTextSpans(root, "README.md"), /not a release text file/u);
+    assert.deepEqual(RELEASE_TEXT_FILES.map(({ path }) => path), RELEASE_TEXT_PATHS);
+  });
+});
+
+test("the installation guide lists every unit at its current version in catalog order", () => {
+  const source = readFileSync(join(REPOSITORY, "docs/releases/installing-packages.md"), "utf8");
+  const start = "<!-- gauntlet:unit-versions:start -->\n";
+  const end = "<!-- gauntlet:unit-versions:end -->";
+  assert.equal(source.indexOf(start) >= 0 && source.indexOf(end) > source.indexOf(start), true);
+  assert.equal(source.slice(source.indexOf(start) + start.length, source.indexOf(end)), renderUnitVersionTable(readUnitVersions(REPOSITORY)));
 });

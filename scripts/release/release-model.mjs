@@ -436,6 +436,13 @@ const RELEASE_CONSUMER_JSON_FILES = deeplyFreeze([
       { keyPath: ["require", "8lines/gauntlet-symfony-bundle"], unit: "symfony-bundle" },
     ],
   },
+  {
+    path: "examples/symfony/composer.json",
+    keyPaths: [
+      { keyPath: ["require", "8lines/gauntlet-php-core"], unit: "php-core", constraint: true },
+      { keyPath: ["require", "8lines/gauntlet-symfony-bundle"], unit: "symfony-bundle", constraint: true },
+    ],
+  },
 ]);
 
 function pushConsumerJsonChecks(mismatches, root, { path, keyPaths }, versions) {
@@ -446,17 +453,30 @@ function pushConsumerJsonChecks(mismatches, root, { path, keyPaths }, versions) 
     mismatches.push(`${path}: release references are missing or malformed`);
     return;
   }
-  for (const { keyPath, unit } of keyPaths) {
+  for (const { keyPath, unit, constraint = false } of keyPaths) {
     const version = versions.get(unit);
     if (version === undefined) continue;
+    const expected = constraint ? `^${version}` : version;
     const node = jsonNodeAt(manifest.document, keyPath);
-    if (node?.type !== "string" || node.value !== version) {
-      mismatches.push(`${path}: ${keyPath.join(".")} must equal ${unit} ${version}`);
+    if (node?.type !== "string" || node.value !== expected) {
+      mismatches.push(`${path}: ${keyPath.join(".")} must equal ${unit} ${expected}`);
     }
   }
 }
 
-const RELEASE_TEXT_FILES = deeplyFreeze([
+export function unitVersionTableRowPrefix(unit) {
+  return `| \`${unit.id}\` | ${unit.artifacts.map((name) => `\`${name}\``).join(", ")} | `;
+}
+
+export function renderUnitVersionTable(versions) {
+  return `${[
+    "| Unit | Published as | Version |",
+    "| --- | --- | --- |",
+    ...RELEASE_UNITS.map((unit) => `${unitVersionTableRowPrefix(unit)}${versions.get(unit.id)} |`),
+  ].join("\n")}\n`;
+}
+
+export const RELEASE_TEXT_FILES = deeplyFreeze([
   {
     path: "tests/consumers/java/build.gradle.kts",
     slots: [{ unit: "spring-boot-starter", prefix: "implementation(\"dev.eightlines.gauntlet:spring-boot-starter:", suffix: "\")" }],
@@ -523,11 +543,96 @@ const RELEASE_TEXT_FILES = deeplyFreeze([
       { unit: "skills", prefix: "skills_archive_root=\"$skills_unpack/gauntlet-skills-", suffix: "\"" },
     ],
   },
+  {
+    path: "deploy/helm/README.md",
+    slots: [
+      { unit: "gauntlet", prefix: "The example uses the exact `", suffix: "` application tag" },
+      { unit: "gauntlet", prefix: "  repository: ghcr.io/8lines/gauntlet\n  tag: \"", suffix: "\"\n" },
+      { unit: "gauntlet", prefix: "Pull the exact `", suffix: "` chart to a local immutable input" },
+      { unit: "gauntlet", prefix: "helm pull oci://ghcr.io/8lines/charts/gauntlet --version ", suffix: " --destination .", count: 2 },
+      { unit: "gauntlet", prefix: " ./gauntlet-", suffix: ".tgz \\\n", count: 4 },
+    ],
+  },
+  {
+    path: "docs/releases/installing-packages.md",
+    slots: [
+      { unit: "protocol", prefix: "pnpm add @8lines/gauntlet-protocol@", suffix: " \\\n" },
+      { unit: "typescript-core", prefix: "  @8lines/gauntlet-typescript-core@", suffix: " \\\n" },
+      { unit: "typescript-node", prefix: "  @8lines/gauntlet-typescript-node@", suffix: "\n" },
+      { unit: "symfony-bundle", prefix: "composer require 8lines/gauntlet-symfony-bundle:", suffix: "\n" },
+      { unit: "php-core", prefix: "`8lines/gauntlet-php-core:", suffix: "` alone" },
+      { unit: "java-core", prefix: "dev.eightlines.gauntlet:core:", suffix: "\n" },
+      { unit: "spring-boot-starter", prefix: "dev.eightlines.gauntlet:spring-boot-starter:", suffix: "\n" },
+      { unit: "gauntlet", prefix: "docker pull ghcr.io/8lines/gauntlet:", suffix: "\n" },
+      { unit: "gauntlet", prefix: "helm pull oci://ghcr.io/8lines/charts/gauntlet --version ", suffix: "\n" },
+      { unit: "gauntlet", prefix: "at exact version `", suffix: "`, render that local archive" },
+      ...RELEASE_UNITS.map((unit) => ({ unit: unit.id, prefix: unitVersionTableRowPrefix(unit), suffix: " |\n" })),
+    ],
+  },
+  {
+    path: "docs/integrations/index.md",
+    slots: [
+      { unit: "typescript-core", prefix: "| Native Node.js 24–26 | `@8lines/gauntlet-typescript-core@", suffix: "` and" },
+      { unit: "typescript-node", prefix: "`@8lines/gauntlet-typescript-node@", suffix: "` |" },
+      { unit: "typescript-core", prefix: "| Next.js App Router on Node.js 24–26 | `@8lines/gauntlet-typescript-core@", suffix: "` and" },
+      { unit: "next-adapter", prefix: "`@8lines/gauntlet-next-adapter@", suffix: "` |" },
+      { unit: "php-core", prefix: "`8lines/gauntlet-php-core` at `", suffix: "` |" },
+      { unit: "symfony-bundle", prefix: "`8lines/gauntlet-symfony-bundle` at `", suffix: "` |" },
+      { unit: "java-core", prefix: "| Java 21 | `dev.eightlines.gauntlet:core:", suffix: "` |" },
+      { unit: "spring-boot-starter", prefix: "Core and `dev.eightlines.gauntlet:spring-boot-starter:", suffix: "` |" },
+    ],
+  },
+  {
+    path: "docs/integrations/widget.md",
+    slots: [{ unit: "widget", prefix: "npm install @8lines/gauntlet-widget@", suffix: "\n" }],
+  },
+  {
+    path: "conformance/runner/README.md",
+    slots: [{ unit: "conformance-runner", prefix: "pnpm dlx --package @8lines/gauntlet-conformance-runner@", suffix: " gauntlet-conformance", count: 3 }],
+  },
+  {
+    path: "packages/java/README.md",
+    slots: [
+      { unit: "java-core", prefix: "- `dev.eightlines.gauntlet:core:", suffix: "` —" },
+      { unit: "spring-boot-starter", prefix: "- `dev.eightlines.gauntlet:spring-boot-starter:", suffix: "` —" },
+      { unit: "spring-boot-starter", prefix: "implementation(\"dev.eightlines.gauntlet:spring-boot-starter:", suffix: "\")" },
+    ],
+  },
+  {
+    path: "packages/java/core/README.md",
+    slots: [
+      { unit: "java-core", prefix: "`dev.eightlines.gauntlet:core:", suffix: "` is the framework-neutral" },
+      { unit: "java-core", prefix: "implementation(\"dev.eightlines.gauntlet:core:", suffix: "\")" },
+    ],
+  },
+  {
+    path: "packages/java/spring-boot-starter/README.md",
+    slots: [
+      { unit: "spring-boot-starter", prefix: "`dev.eightlines.gauntlet:spring-boot-starter:", suffix: "` is the Java 21" },
+      { unit: "spring-boot-starter", prefix: "implementation(\"dev.eightlines.gauntlet:spring-boot-starter:", suffix: "\")" },
+    ],
+  },
+  {
+    path: "packages/php/symfony-bundle/README.md",
+    slots: [
+      { unit: "php-core", prefix: "composer require 8lines/gauntlet-php-core:", suffix: " \\\n" },
+      { unit: "symfony-bundle", prefix: "  8lines/gauntlet-symfony-bundle:", suffix: "\n" },
+    ],
+  },
+  {
+    path: "packages/typescript/core/README.md",
+    slots: [
+      { unit: "protocol", prefix: "pnpm add @8lines/gauntlet-protocol@", suffix: " \\\n" },
+      { unit: "typescript-core", prefix: "  @8lines/gauntlet-typescript-core@", suffix: "\n" },
+      { unit: "protocol", prefix: "8lines-gauntlet-protocol-", suffix: ".tgz", count: 2 },
+      { unit: "typescript-core", prefix: "8lines-gauntlet-typescript-core-", suffix: ".tgz" },
+    ],
+  },
 ]);
 
 function releaseTextSpans(source, slots) {
   const spans = [];
-  for (const { unit, prefix, suffix } of slots) {
+  for (const { unit, prefix, suffix, count = 1 } of slots) {
     const matches = [];
     let searchFrom = 0;
     while (searchFrom < source.length) {
@@ -545,8 +650,8 @@ function releaseTextSpans(source, slots) {
       matches.push({ start, end, value, unit });
       searchFrom = end + suffix.length;
     }
-    if (matches.length !== 1) throw new Error("Release text reference is missing or duplicated");
-    spans.push(matches[0]);
+    if (matches.length !== count) throw new Error("Release text reference is missing or duplicated");
+    spans.push(...matches);
   }
 
   const ordered = [...spans].sort((left, right) => left.start - right.start);
@@ -554,6 +659,12 @@ function releaseTextSpans(source, slots) {
     throw new Error("Release text reference overlaps another reference");
   }
   return spans;
+}
+
+export function readReleaseTextSpans(root, path) {
+  const file = RELEASE_TEXT_FILES.find((candidate) => candidate.path === path);
+  if (file === undefined) throw new Error("Path is not a release text file");
+  return Object.freeze(releaseTextSpans(readManifest(root, path).source, file.slots).map((span) => Object.freeze({ ...span })));
 }
 
 function pushReleaseTextChecks(mismatches, root, { path, slots }, versions) {
@@ -731,14 +842,14 @@ export const VERSION_LOCATIONS = deeplyFreeze([
   { type: "yaml", path: "deploy/helm/gauntlet/values.yaml", keyPath: ["image", "tag"], unit: "gauntlet" },
   { type: "dotenv-image", path: "deploy/compose/.env.example", keyPath: ["GAUNTLET_IMAGE"], unit: "gauntlet" },
   ...RELEASE_CONSUMER_JSON_FILES.flatMap(({ path, keyPaths }) =>
-    keyPaths.map(({ keyPath, unit }) => ({ type: "json", path, keyPath, unit }))),
+    keyPaths.map(({ keyPath, unit, constraint = false }) => ({ type: constraint ? "json-constraint" : "json", path, keyPath, unit }))),
   // A text file can mention several units, so it is listed once per unit it mentions.
   ...RELEASE_TEXT_FILES.flatMap(({ path, slots }) =>
     [...new Set(slots.map(({ unit }) => unit))].map((unit) => ({
       type: "release-text",
       path,
       unit,
-      occurrences: slots.filter((slot) => slot.unit === unit).length,
+      occurrences: slots.filter((slot) => slot.unit === unit).reduce((total, { count = 1 }) => total + count, 0),
     }))),
 ]);
 
@@ -944,7 +1055,7 @@ function prepareReleaseUpdate(root, currentVersions, nextVersions) {
       prepareJsonFile(
         root,
         path,
-        keyPaths.filter(({ unit }) => has(unit)).map(({ keyPath, unit }) => edit(keyPath, unit)),
+        keyPaths.filter(({ unit }) => has(unit)).map(({ keyPath, unit, constraint = false }) => edit(keyPath, unit, constraint)),
       ),
     ),
     ...RELEASE_TEXT_FILES.map((file) => prepareReleaseTextFile(root, file, currentVersions, nextVersions)),

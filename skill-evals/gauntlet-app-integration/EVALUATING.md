@@ -101,3 +101,4 @@ checked the final bytes.
 ## Re-binding log
 
 - 2026-10-04: Added the skills:rebind workspace script. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
+- 2026-10-04: Release version slots now cover every documented package, image and chart pin. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.

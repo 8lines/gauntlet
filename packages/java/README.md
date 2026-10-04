@@ -8,7 +8,7 @@ enabled on production ingress.
 
 ## Modules and requirements
 
-Release `0.1.8` publishes two Java 21 consumer artifacts:
+The Java SDK publishes two Java 21 consumer artifacts, each with its own version:
 
 - `dev.eightlines.gauntlet:core:0.1.8` — Java 21 protocol models,
   schema/semantics validation, canonical JSON, registries, run lifecycle,
