@@ -30,6 +30,7 @@ import {
   parseReleaseAssets,
   probeRemoteDestination,
   parseProbeObservation,
+  runPublishedCli,
   githubReleaseAssetCatalog,
   unitDestinations,
   unitReleaseAssets,
@@ -846,7 +847,7 @@ test("release preflight rejects malformed options and collected evidence", async
     { ...proofs, units: [proofs.units[0], proofs.units[0]] },
     { ...proofs, units: [{ ...proofs.units[0], tag: "protocol-v0.1.1" }] },
     { ...proofs, units: [{ ...proofs.units[0], evidence: {} }] },
-  ]) await assert.rejects(checkReleasePublication(options, { collectEvidence: async () => collected, probe }));
+  ]) await assert.rejects(checkReleasePublication(options, { collectEvidence: async () => collected, probe }), TypeError);
 });
 
 test("post-publication verification retries missing destinations and fails immediately on conflicting evidence", async () => {
@@ -931,13 +932,16 @@ test("writes an atomic closed per-unit publication receipt without mutating the 
   assert.deepEqual(readFileSync(resolve(root, "units/gauntlet/publication-receipt.json")), receiptBeforeCollision);
   writeFileSync(resolve(root, "units/gauntlet/release-manifest.json"), "foreign\n");
   assert.throws(() => writePublicationReceipt({ releaseDirectory: root, unit: "gauntlet", imageDigest: digest, chartDigest }), /failed closed/u);
+  assert.throws(
+    () => writePublicationReceipt({ releaseDirectory: root, unit: "protocol", imageDigest: null, chartDigest: null }),
+    /failed closed/u,
+  );
   for (const invalid of [
-    { releaseDirectory: root, unit: "protocol", imageDigest: null, chartDigest: null },
     { releaseDirectory: root, unit: "nope", imageDigest: null, chartDigest: null },
     { releaseDirectory: root, unit: "gauntlet", imageDigest: digest, chartDigest: null },
     { releaseDirectory: root, unit: "gauntlet", imageDigest: "sha256:short", chartDigest },
     { releaseDirectory: root, unit: "skills", imageDigest: null },
-  ]) assert.throws(() => writePublicationReceipt(invalid));
+  ]) assert.throws(() => writePublicationReceipt(invalid), TypeError);
 });
 
 test("publication receipt creation refuses pre-existing symlinks and non-directories", async (t) => {
@@ -981,6 +985,95 @@ test("the finalize CLI writes one unit and prints its file count", (t) => {
   const rejected = spawnSync(process.execPath, [CHECK_PUBLISHED, "--finalize", root, "--unit", "gauntlet"], { encoding: "utf8" });
   assert.equal(rejected.status, 1);
   assert.match(rejected.stderr, /Usage: check-published\.mjs/u);
+});
+
+test("the check CLI prints the release set and one exact state record per unit", async (t) => {
+  const { root } = releaseFixture(t, [{ id: "protocol", version: VERSION }, { id: "skills", version: VERSION }]);
+  const probe = async (check) => check.unit === "protocol"
+    ? { id: check.id, state: "present", evidence: check.expectedEvidence }
+    : { id: check.id, state: "absent" };
+  const preflight = await runPublishedCli(
+    ["--release-directory", root, "--source-commit", COMMIT],
+    { collectEvidence: collectReleaseEvidence, probe },
+  );
+  assert.deepEqual(preflight, {
+    exitCode: 0,
+    stdout: `${JSON.stringify({
+      command: "check",
+      releaseSet: SET,
+      units: [
+        { id: "protocol", kind: "npm", version: VERSION, tag: "protocol-v0.1.0", state: "already-identical" },
+        { id: "skills", kind: "skills", version: VERSION, tag: "skills-v0.1.0", state: "clean" },
+      ],
+    })}\n`,
+    stderr: "",
+  });
+  const verified = await runPublishedCli(
+    ["--release-directory", root, "--source-commit", COMMIT, "--unit", "skills", "--require-identical"],
+    { collectEvidence: collectReleaseEvidence, probe, sleep: async () => {} },
+  );
+  assert.equal(verified.exitCode, 0, verified.stderr);
+  assert.equal(verified.stdout, `${JSON.stringify({
+    command: "check",
+    releaseSet: SET,
+    units: [{ id: "skills", kind: "skills", version: VERSION, tag: "skills-v0.1.0", state: "published-artifacts-identical" }],
+  })}\n`);
+  const partial = await runPublishedCli(
+    ["--release-directory", root, "--source-commit", COMMIT],
+    { collectEvidence: collectReleaseEvidence, probe: async (check) => check.kind === "npm"
+      ? { id: check.id, state: "present", evidence: check.expectedEvidence }
+      : { id: check.id, state: "absent" } },
+  );
+  assert.deepEqual(partial, { exitCode: 1, stdout: "", stderr: "Release unit protocol is partially published\n" });
+  const usage = await runPublishedCli(["--release-directory", root, "--version", VERSION, "--source-commit", COMMIT]);
+  assert.equal(usage.exitCode, 1);
+  assert.match(usage.stderr, /^Usage: check-published\.mjs/u);
+  assert.equal((await runPublishedCli(["--finalize", root, "--unit", "skills"], { probeDraft: 1 })).exitCode, 1);
+});
+
+test("the verify-draft CLI prints the unit, its tag and asset count from the commit-bound manifest", async (t) => {
+  const { root } = releaseFixture(t, [{ id: "gauntlet", version: VERSION }, { id: "skills", version: VERSION }]);
+  const finalized = await runPublishedCli(["--finalize", root, "--unit", "skills"]);
+  assert.deepEqual(finalized, {
+    exitCode: 0,
+    stdout: `${JSON.stringify({ command: "finalize", unit: "skills", files: 3 })}\n`,
+    stderr: "",
+  });
+  const argv = ["--release-directory", root, "--source-commit", COMMIT, "--unit", "skills", "--require-draft-identical"];
+  const expected = `${JSON.stringify({
+    command: "verify-draft",
+    unit: "skills",
+    tag: "skills-v0.1.0",
+    assets: 4,
+    state: "draft-identical",
+  })}\n`;
+  const { assets, bytesByName } = finalizedDraftAssets(root, "skills");
+  const draft = githubReleaseFetch({ tag: "skills-v0.1.0", assets, bytesByName, draft: true, immutable: false });
+  const fetched = await withEnvironment({ GH_TOKEN: REMOTE.GH_TOKEN }, () => withFetch(draft.fetch, () => runPublishedCli(argv)));
+  assert.deepEqual(fetched, { exitCode: 0, stdout: expected, stderr: "" });
+
+  const probed = [];
+  const injected = await runPublishedCli(argv, {
+    probeDraft: async (check) => {
+      probed.push(check);
+      return { id: check.id, state: "present", evidence: check.expectedEvidence };
+    },
+  });
+  assert.deepEqual(injected, { exitCode: 0, stdout: expected, stderr: "" });
+  assert.deepEqual(probed.map(({ id, unit, tag, version }) => [id, unit, tag, version]), [
+    ["github:skills-v0.1.0", "skills", "skills-v0.1.0", VERSION],
+  ]);
+  assert.deepEqual(await runPublishedCli(argv, { probeDraft: async ({ id }) => ({ id, state: "absent" }) }), {
+    exitCode: 1,
+    stdout: "",
+    stderr: "Published destination check failed closed\n",
+  });
+  assert.deepEqual(
+    await runPublishedCli(["--release-directory", root, "--source-commit", WRONG_COMMIT, "--unit", "skills", "--require-draft-identical"], {
+      probeDraft: async (check) => ({ id: check.id, state: "present", evidence: check.expectedEvidence }),
+    }),
+    { exitCode: 1, stdout: "", stderr: "Published destination check failed closed\n" },
+  );
 });
 
 test("parses a bounded exact observation receipt and fails closed on ambiguous output", () => {

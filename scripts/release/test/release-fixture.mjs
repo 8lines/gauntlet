@@ -71,14 +71,14 @@ export function packageFixtureTree(scratch, outputPath, expectedPrefix, files) {
   return receipt.sha256;
 }
 
-// Builds a staged release-set root `<temporary>/<SET>` holding every artifact of `units` and a canonical
-// schema 2 manifest, the same shape `stage.mjs` produces.
-export function releaseFixture(t, units = ALL_UNITS) {
+// Builds a staged release-set root `<temporary>/<parent>/<SET>` holding every artifact of `units` and a
+// canonical schema 2 manifest, the same shape `stage.mjs` produces.
+export function releaseFixture(t, units = ALL_UNITS, { parent = "" } = {}) {
   const temporaryRoot = realpathSync(mkdtempSync(resolve(tmpdir(), "gauntlet-published-evidence-test-")));
   chmodSync(temporaryRoot, 0o700);
   t.after(() => rmSync(temporaryRoot, { recursive: true, force: true }));
-  const root = resolve(temporaryRoot, SET);
-  mkdirSync(root, { mode: 0o700 });
+  const root = resolve(temporaryRoot, ...parent.split("/").filter(Boolean), SET);
+  mkdirSync(root, { recursive: true, mode: 0o700 });
   const scratch = resolve(temporaryRoot, "scratch");
   mkdirSync(scratch, { mode: 0o700 });
   const digest = `sha256:${"a".repeat(64)}`;
@@ -128,5 +128,5 @@ export function releaseFixture(t, units = ALL_UNITS) {
   writeFixtureFile(root, "SHA256SUMS", [...manifest.artifacts]
     .sort((left, right) => Buffer.compare(Buffer.from(left.path), Buffer.from(right.path)))
     .map(({ path, sha256 }) => `${sha256}  ${path}\n`).join(""));
-  return { digest, root };
+  return { digest, root, temporaryRoot };
 }

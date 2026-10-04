@@ -301,7 +301,26 @@ function evidenceArtifact(manifest, kind, name) {
   return Object.freeze({ path: value.path, sha256: value.sha256 });
 }
 
-function assertClosedInventoryTree(root, artifactPaths) {
+const FINALIZED_UNIT_FILES = new Set(["release-manifest.json", "publication-receipt.json", "SHA256SUMS"]);
+
+// `check-published.mjs --finalize` adds `units/<unit>/` with up to three generated files. Their contents are
+// verified there; here only the closed shape is enforced: real directories for planned units, regular
+// single-link files with the three known names, nothing else.
+function assertFinalizedUnitsTree(directory, unitIds) {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    if (!SAFE_SEGMENT.test(entry.name) || !unitIds.includes(entry.name)) failClosed();
+    const unitDirectory = resolve(directory, entry.name);
+    const stat = lstatSync(unitDirectory, { bigint: true });
+    if (!stat.isDirectory() || stat.isSymbolicLink()) failClosed();
+    for (const file of readdirSync(unitDirectory, { withFileTypes: true })) {
+      if (!FINALIZED_UNIT_FILES.has(file.name)) failClosed();
+      const fileStat = lstatSync(resolve(unitDirectory, file.name), { bigint: true });
+      if (!fileStat.isFile() || fileStat.isSymbolicLink() || fileStat.nlink !== 1n) failClosed();
+    }
+  }
+}
+
+function assertClosedInventoryTree(root, artifactPaths, unitIds) {
   const expectedFiles = new Set(["release-manifest.json", "SHA256SUMS", ...artifactPaths]);
   const expectedDirectories = new Set([""]);
   for (const path of expectedFiles) {
@@ -320,7 +339,9 @@ function assertClosedInventoryTree(root, artifactPaths) {
       const path = resolve(directory, entry.name);
       const stat = lstatSync(path, { bigint: true });
       if (stat.isSymbolicLink()) failClosed();
-      if (stat.isDirectory()) {
+      if (stat.isDirectory() && relativePath === "units" && !expectedDirectories.has(relativePath)) {
+        assertFinalizedUnitsTree(path, unitIds);
+      } else if (stat.isDirectory()) {
         if (!expectedDirectories.has(relativePath)) failClosed();
         visit(relativePath);
       } else if (stat.isFile()) {
@@ -417,7 +438,7 @@ export function verifyReleaseInventory(options) {
     for (const artifact of manifest.artifacts) {
       if (hashFile(root, artifact.path) !== artifact.sha256) failClosed();
     }
-    assertClosedInventoryTree(root, manifest.artifacts.map(({ path }) => path));
+    assertClosedInventoryTree(root, manifest.artifacts.map(({ path }) => path), manifest.units.map(({ id }) => id));
     if (!readRegularFile(root, "release-manifest.json", MAX_INVENTORY_BYTES).equals(manifestBytes)
         || !readRegularFile(root, "SHA256SUMS", MAX_INVENTORY_BYTES).equals(checksumsBytes)) failClosed();
     const rootAfter = lstatSync(root, { bigint: true });

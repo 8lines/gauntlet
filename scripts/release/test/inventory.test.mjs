@@ -28,6 +28,8 @@ import {
   writeReleaseInventory,
 } from "../inventory.mjs";
 import { RELEASE_UNITS, dependencyOrder } from "../units.mjs";
+import { writePublicationReceipt } from "../check-published.mjs";
+import { releaseFixture } from "./release-fixture.mjs";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
 const requireFromProtocol = createRequire(resolve(ROOT, "packages/protocol/package.json"));
@@ -500,4 +502,60 @@ test("fails closed for unsafe files, outputs and descriptors without clobbering 
     rmSync(root, { recursive: true, force: true });
     rmSync(outside, { recursive: true, force: true });
   }
+});
+
+test("inventory verification accepts only the closed finalized units subtree of planned units", async (t) => {
+  const units = [{ id: "gauntlet", version: "0.1.0" }, { id: "skills", version: "0.1.0" }];
+  const verify = (root) => verifyReleaseInventory({ outputDirectory: root, releaseSet: SET, sourceCommit: COMMIT });
+  const finalized = (t) => {
+    const fixture = releaseFixture(t, units);
+    assert.equal(verify(fixture.root).ok, true);
+    writePublicationReceipt({ releaseDirectory: fixture.root, unit: "skills", imageDigest: null, chartDigest: null });
+    return fixture.root;
+  };
+  await t.test("one finalized unit of a two-unit set", (t) => {
+    const root = finalized(t);
+    assert.deepEqual(readdirSync(resolve(root, "units/skills")).sort(), ["SHA256SUMS", "publication-receipt.json", "release-manifest.json"]);
+    assert.equal(verify(root).ok, true);
+    rmSync(resolve(root, "units/skills/SHA256SUMS"));
+    assert.equal(verify(root).ok, true);
+    mkdirSync(resolve(root, "units/gauntlet"), { mode: 0o700 });
+    assert.equal(verify(root).ok, true);
+  });
+  const rejected = [
+    ["a unit not in the manifest", (root) => mkdirSync(resolve(root, "units/protocol"), { mode: 0o700 })],
+    ["an extra file", (root) => writeFileSync(resolve(root, "units/skills/notes.txt"), "extra\n")],
+    ["a file directly under units", (root) => writeFileSync(resolve(root, "units/SHA256SUMS"), "extra\n")],
+    ["a symlinked generated file", (root) => {
+      rmSync(resolve(root, "units/skills/SHA256SUMS"));
+      symlinkSync("release-manifest.json", resolve(root, "units/skills/SHA256SUMS"));
+    }],
+    ["a symlinked unit directory", (root) => {
+      mkdirSync(resolve(root, "..", "elsewhere"), { mode: 0o700 });
+      symlinkSync(resolve(root, "..", "elsewhere"), resolve(root, "units/gauntlet"));
+    }],
+    ["a hard-linked generated file", (root) => linkSync(resolve(root, "units/skills/SHA256SUMS"), resolve(root, "..", "second-link"))],
+    ["a nested directory", (root) => mkdirSync(resolve(root, "units/skills/nested"), { mode: 0o700 })],
+    ["a generated name used as a directory", (root) => {
+      rmSync(resolve(root, "units/skills/SHA256SUMS"));
+      mkdirSync(resolve(root, "units/skills/SHA256SUMS"), { mode: 0o700 });
+    }],
+  ];
+  for (const [name, mutate] of rejected) {
+    await t.test(name, (t) => {
+      const root = finalized(t);
+      mutate(root);
+      assert.throws(() => verify(root), /Release inventory verification failed closed/u);
+    });
+  }
+  await t.test("units replaced by a symlink or a file", (t) => {
+    const root = finalized(t);
+    rmSync(resolve(root, "units"), { recursive: true });
+    writeFileSync(resolve(root, "units"), "not a directory\n");
+    assert.throws(() => verify(root), /Release inventory verification failed closed/u);
+    rmSync(resolve(root, "units"));
+    mkdirSync(resolve(root, "..", "elsewhere"), { mode: 0o700 });
+    symlinkSync(resolve(root, "..", "elsewhere"), resolve(root, "units"));
+    assert.throws(() => verify(root), /Release inventory verification failed closed/u);
+  });
 });

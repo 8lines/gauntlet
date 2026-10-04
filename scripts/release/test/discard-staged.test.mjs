@@ -9,6 +9,8 @@ import {
   parseDiscardStagedArguments,
   runDiscardStagedCli,
 } from "../discard-staged.mjs";
+import { writePublicationReceipt } from "../check-published.mjs";
+import { COMMIT as FIXTURE_COMMIT, SET as FIXTURE_SET, releaseFixture } from "./release-fixture.mjs";
 
 const SET = "release-2026-10-03.1";
 const COMMIT = "1".repeat(40);
@@ -175,4 +177,20 @@ test("discard CLI sanitizes all failures", async () => {
     "--release-root", ".artifacts/release/0.1.0", "--source-commit", COMMIT,
   ], { root: "/workspace/gauntlet", discard: async () => assert.fail("must not discard") });
   assert.equal(invalid.exitCode, 2);
+});
+
+test("discarding verifies and removes a release root in which one unit is already finalized", async (t) => {
+  const { root: releaseRoot, temporaryRoot } = releaseFixture(
+    t,
+    [{ id: "gauntlet", version: "0.1.0" }, { id: "skills", version: "0.1.0" }],
+    { parent: ".artifacts/release" },
+  );
+  writePublicationReceipt({ releaseDirectory: releaseRoot, unit: "skills", imageDigest: null, chartDigest: null });
+  assert.deepEqual(await discardStagedRelease({ root: temporaryRoot, releaseRoot, sourceCommit: FIXTURE_COMMIT }), {
+    schemaVersion: 2,
+    ok: true,
+    removed: `.artifacts/release/${FIXTURE_SET}`,
+    releaseSet: FIXTURE_SET,
+    sourceCommit: FIXTURE_COMMIT,
+  });
 });

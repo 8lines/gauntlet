@@ -32,6 +32,8 @@ import {
 import { createReleaseManifest, writeReleaseInventory } from "../inventory.mjs";
 import { RELEASE_ARTIFACTS } from "../release-model.mjs";
 import { packageCanonicalTree } from "../tree-archive.mjs";
+import { writePublicationReceipt } from "../check-published.mjs";
+import { COMMIT as FIXTURE_COMMIT, releaseFixture as stagedReleaseFixture } from "./release-fixture.mjs";
 
 const COMMIT = "0123456789abcdef0123456789abcdef01234567";
 // GitHub's published SSH host key fingerprints (https://api.github.com/meta, `ssh_key_fingerprints`).
@@ -631,4 +633,15 @@ test("a catalog publication without its deploy key fails before any network acce
     if (previous === undefined) delete process.env.COMPOSER_SPLIT_CORE_DEPLOY_KEY;
     else process.env.COMPOSER_SPLIT_CORE_DEPLOY_KEY = previous;
   }
+});
+
+test("the Composer publication plan still resolves when another unit of the set is already finalized", (t) => {
+  const { root } = stagedReleaseFixture(t, [{ id: "php-core", version: "0.1.0" }, { id: "skills", version: "0.1.0" }]);
+  const before = createComposerPublicationPlan({ releaseDirectory: root, sourceCommit: FIXTURE_COMMIT, unit: "php-core" });
+  writePublicationReceipt({ releaseDirectory: root, unit: "skills", imageDigest: null, chartDigest: null });
+  assert.deepEqual(
+    createComposerPublicationPlan({ releaseDirectory: root, sourceCommit: FIXTURE_COMMIT, unit: "php-core" }),
+    before,
+  );
+  assert.equal(before.version, "0.1.0");
 });

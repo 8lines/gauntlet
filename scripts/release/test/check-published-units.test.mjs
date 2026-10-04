@@ -199,7 +199,7 @@ test("release asset catalogs are per unit and never attach image archives", () =
 test("finalization writes one manifest, receipt and checksum file per unit", async (t) => {
   const units = [{ id: "gauntlet", version: "0.1.0" }, { id: "skills", version: "0.1.0" }];
   const { root, digest } = releaseFixture(t, units);
-  assert.throws(() => writePublicationReceipt({ releaseDirectory: root, unit: "skills", imageDigest: digest, chartDigest: digest }));
+  assert.throws(() => writePublicationReceipt({ releaseDirectory: root, unit: "skills", imageDigest: digest, chartDigest: digest }), TypeError);
   assert.deepEqual(writePublicationReceipt({ releaseDirectory: root, unit: "skills", imageDigest: null, chartDigest: null }), { unit: "skills", files: 3 });
   const manifest = JSON.parse(readFileSync(resolve(root, "release-manifest.json"), "utf8"));
   const unitManifestBytes = readFileSync(resolve(root, "units/skills/release-manifest.json"));
@@ -210,7 +210,7 @@ test("finalization writes one manifest, receipt and checksum file per unit", asy
   assert.deepEqual(readFileSync(resolve(root, "units/skills/SHA256SUMS"), "utf8").trimEnd().split("\n").map((line) => line.split("  ")[1]), [
     "publication-receipt.json", "release-manifest.json", "skills/gauntlet-skills-0.1.0.tgz",
   ]);
-  assert.throws(() => writePublicationReceipt({ releaseDirectory: root, unit: "gauntlet", imageDigest: null, chartDigest: null }));
+  assert.throws(() => writePublicationReceipt({ releaseDirectory: root, unit: "gauntlet", imageDigest: null, chartDigest: null }), TypeError);
   assert.equal(writePublicationReceipt({ releaseDirectory: root, unit: "gauntlet", imageDigest: digest, chartDigest: digest }).files, 9);
   assert.deepEqual(Object.keys(JSON.parse(readFileSync(resolve(root, "units/gauntlet/publication-receipt.json"), "utf8"))).slice(-2), ["imageDigest", "chartDigest"]);
 });

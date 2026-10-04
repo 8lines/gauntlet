@@ -596,7 +596,9 @@ export async function checkReleasePublication(options, dependencyOverrides) {
   });
 }
 
-export async function checkDraftReleasePublication(options) {
+// Verifies one unit's draft GitHub Release against its local finalized files and reports the unit,
+// tag and asset count from the same commit-bound manifest read.
+async function verifyDraftRelease(options, probeDraft) {
   try {
     const values = ownData(options, ["releaseDirectory", "sourceCommit", "unit"], "Draft release verification options");
     const releaseDirectory = canonicalDirectory(
@@ -626,12 +628,21 @@ export async function checkDraftReleasePublication(options) {
       version: entry.version,
       tag: entry.tag,
     });
-    const observation = observationValue(await probeDraftRelease(validatedCheck(check)), check);
+    const observation = observationValue(await probeDraft(validatedCheck(check)), check);
     if (observation.state !== "present" || observation.evidence !== check.expectedEvidence) throw new Error();
-    return "draft-identical";
+    return Object.freeze({
+      unit: entry.id,
+      tag: entry.tag,
+      assets: githubReleaseAssetCatalog(entry.id, entry.version).length,
+      state: "draft-identical",
+    });
   } catch {
     throw new Error(FAILURE);
   }
+}
+
+export async function checkDraftReleasePublication(options) {
+  return (await verifyDraftRelease(options, probeDraftRelease)).state;
 }
 
 export function parseProbeObservation(output, check) {
@@ -1584,37 +1595,68 @@ export function parsePublishedArguments(argv) {
   }
 }
 
-if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+function cliDependencies(overrides) {
+  if (overrides === undefined) return Object.freeze({ check: undefined, probeDraft: probeDraftRelease });
+  if (overrides === null || typeof overrides !== "object" || Array.isArray(overrides) || utilTypes.isProxy(overrides)
+      || ![Object.prototype, null].includes(Object.getPrototypeOf(overrides))) {
+    throw new TypeError("Published CLI dependencies must be a closed data object");
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(overrides);
+  const keys = Reflect.ownKeys(descriptors);
+  if (keys.some((key) => typeof key !== "string" || !["collectEvidence", "probe", "sleep", "probeDraft"].includes(key)
+      || descriptors[key].enumerable !== true || !("value" in descriptors[key])
+      || typeof descriptors[key].value !== "function")) {
+    throw new TypeError("Published CLI dependencies must be a closed data object");
+  }
+  const checkKeys = keys.filter((key) => key !== "probeDraft");
+  return Object.freeze({
+    check: checkKeys.length === 0 ? undefined : Object.fromEntries(checkKeys.map((key) => [key, descriptors[key].value])),
+    probeDraft: descriptors.probeDraft?.value ?? probeDraftRelease,
+  });
+}
+
+export async function runPublishedCli(argv, dependencyOverrides) {
   try {
-    const command = parsePublishedArguments(process.argv.slice(2));
+    const dependencies = cliDependencies(dependencyOverrides);
+    const command = parsePublishedArguments(argv);
+    let output;
     if (command.command === "finalize") {
-      const result = writePublicationReceipt({
-        releaseDirectory: command.releaseDirectory,
-        unit: command.unit,
-        imageDigest: command.imageDigest,
-        chartDigest: command.chartDigest,
-      });
-      process.stdout.write(`${JSON.stringify({ command: "finalize", ...result })}\n`);
+      output = {
+        command: "finalize",
+        ...writePublicationReceipt({
+          releaseDirectory: command.releaseDirectory,
+          unit: command.unit,
+          imageDigest: command.imageDigest,
+          chartDigest: command.chartDigest,
+        }),
+      };
     } else if (command.command === "verify-draft") {
-      const state = await checkDraftReleasePublication({
-        releaseDirectory: command.releaseDirectory,
-        sourceCommit: command.sourceCommit,
-        unit: command.unit,
-      });
-      const entry = manifestUnit(readReleaseManifest(command.releaseDirectory).manifest, command.unit);
-      const assets = githubReleaseAssetCatalog(entry.id, entry.version).length;
-      process.stdout.write(`${JSON.stringify({ command: "verify-draft", unit: entry.id, tag: entry.tag, assets, state })}\n`);
+      output = {
+        command: "verify-draft",
+        ...await verifyDraftRelease({
+          releaseDirectory: command.releaseDirectory,
+          sourceCommit: command.sourceCommit,
+          unit: command.unit,
+        }, dependencies.probeDraft),
+      };
     } else {
       const result = await checkReleasePublication({
         releaseDirectory: command.releaseDirectory,
         sourceCommit: command.sourceCommit,
         requireIdentical: command.requireIdentical,
         unit: command.unit,
-      });
-      process.stdout.write(`${JSON.stringify({ command: "check", releaseSet: result.releaseSet, units: result.units })}\n`);
+      }, dependencies.check);
+      output = { command: "check", releaseSet: result.releaseSet, units: result.units };
     }
+    return { exitCode: 0, stdout: `${JSON.stringify(output)}\n`, stderr: "" };
   } catch (error) {
-    process.stderr.write(`${error instanceof Error ? error.message : FAILURE}\n`);
-    process.exitCode = 1;
+    return { exitCode: 1, stdout: "", stderr: `${error instanceof Error ? error.message : FAILURE}\n` };
   }
+}
+
+if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const result = await runPublishedCli(process.argv.slice(2));
+  if (result.stdout !== "") process.stdout.write(result.stdout);
+  if (result.stderr !== "") process.stderr.write(result.stderr);
+  process.exitCode = result.exitCode;
 }
