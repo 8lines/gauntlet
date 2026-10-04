@@ -35,7 +35,7 @@ export interface ApiFixtureOptions {
   /** When set, every create-run response waits for this promise to settle. */
   readonly createRunGate?: Promise<unknown>;
   /** Password authentication; omitted means authentication is off. */
-  readonly auth?: { readonly password: string; readonly username?: string };
+  readonly auth?: { readonly password: string; readonly username?: string; readonly logoutStatus?: number };
 }
 
 export interface ApiFixtureControl {
@@ -447,6 +447,9 @@ export async function installApiFixture(page: Page, options: ApiFixtureOptions):
     }
 
     if (auth !== undefined && method === "POST" && url.pathname === "/api/v1/auth/logout") {
+      if (auth.logoutStatus !== undefined) {
+        return json({ type: "urn:gauntlet:problem:cross-site-request", title: "Cross-site request rejected", status: auth.logoutStatus }, auth.logoutStatus);
+      }
       signedIn = false;
       return route.fulfill({ status: 204 });
     }

@@ -12,7 +12,8 @@ export interface AuthSessionControls {
   readonly state: AuthState;
   readonly retry: () => void;
   readonly signedIn: (session: AuthSession) => void;
-  readonly signOut: () => Promise<void>;
+  /** Resolves to the problem when Gauntlet refused or never got the log out; the session then stays. */
+  readonly signOut: () => Promise<Problem | undefined>;
 }
 
 /** Whether the app must show the sign-in form instead of its content. */
@@ -45,11 +46,14 @@ export function useAuthSession(): AuthSessionControls {
   const signedIn = useCallback((session: AuthSession) => setState({ status: "ready", session }), []);
 
   const signOut = useCallback(async () => {
-    await api.logout();
+    const result = await api.logout();
+    // A refused log out leaves the HttpOnly cookie in place: showing sign-in would only pretend.
+    if (!result.ok) return result.problem;
     authTokenStore().clear();
     setState((current) => current.status === "ready"
       ? { status: "ready", session: { ...current.session, principal: null, expiresAt: null } }
       : current);
+    return undefined;
   }, []);
 
   return { state, retry, signedIn, signOut };

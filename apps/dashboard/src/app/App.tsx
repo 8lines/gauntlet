@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import type { JsonObject } from "@8lines/gauntlet-protocol";
+import type { JsonObject, Problem } from "@8lines/gauntlet-protocol";
+import { ProblemAlert } from "@/components/gauntlet/ProblemAlert";
 import { navigate, parseRoute, useRoute } from "../route.ts";
 import { usePreferences } from "../preferences.ts";
 import { OverviewScreen } from "../screens/OverviewScreen.tsx";
@@ -29,8 +30,10 @@ export function App() {
 }
 
 /** The dashboard itself; it mounts only once Gauntlet accepts the session, so nothing loads before sign-in. */
-function AuthenticatedApp({ session, onSignOut }: { session: AuthSession; onSignOut: () => Promise<void> }) {
+function AuthenticatedApp({ session, onSignOut }: { session: AuthSession; onSignOut: () => Promise<Problem | undefined> }) {
   const route = useRoute();
+  const [logoutProblem, setLogoutProblem] = useState<Problem | undefined>(undefined);
+  const signOut = async () => setLogoutProblem(await onSignOut());
   const { targets, problem, refreshing, refresh } = useTargets();
   const { preferences, updatePreferences, saved } = usePreferences();
   const [searchOpen, setSearchOpen] = useState(false);
@@ -96,7 +99,7 @@ function AuthenticatedApp({ session, onSignOut }: { session: AuthSession; onSign
         route={route}
         navigationToggle={navigationToggle}
         principal={session.mode === "none" ? undefined : session.principal ?? undefined}
-        onSignOut={onSignOut}
+        onSignOut={signOut}
         onOpenSettings={(opener) => {
           settingsOpener.current = opener;
           setSettingsOpen(true);
@@ -109,6 +112,11 @@ function AuthenticatedApp({ session, onSignOut }: { session: AuthSession; onSign
           id="workspace"
           className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden ${route.operationId === undefined ? "overflow-y-auto" : "overflow-y-hidden"}`}
         >
+          {logoutProblem !== undefined && (
+            <div className="shrink-0 px-4 pt-4 sm:px-8">
+              <ProblemAlert problem={logoutProblem} title="Could not log out" />
+            </div>
+          )}
           {problem !== undefined && (targets === undefined || targets.length === 0) && <LoadFailed problem={problem} refreshing={refreshing} onRetry={refresh} />}
           {problem === undefined && targets === undefined && <LoadingState />}
           {problem === undefined && targets !== undefined && targets.length === 0 && <NoEnvironments />}

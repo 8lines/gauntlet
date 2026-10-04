@@ -80,3 +80,14 @@ test("without authentication there is no sign-in and no log out", async ({ page 
   await expect(page.getByRole("button", { name: "Log out" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Sign in to Gauntlet" })).toHaveCount(0);
 });
+
+test("a log out the server refuses keeps the user signed in", async ({ page }) => {
+  await installApiFixture(page, { operation: desktopOperation, scenario: "desktop", auth: { password: "letmein", logoutStatus: 403 } });
+  await page.goto("/");
+  await page.getByLabel("Password").fill("letmein");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await openNavigation(page);
+  await page.getByRole("button", { name: "Log out" }).click();
+  await expect(page.getByRole("alert")).toContainText("Could not log out");
+  await expect(page.getByRole("heading", { name: "Sign in to Gauntlet" })).toHaveCount(0);
+});
