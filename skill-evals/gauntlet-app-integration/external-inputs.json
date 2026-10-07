@@ -11,7 +11,7 @@
     },
     {
       "path": "VERSION",
-      "sha256": "1f930dd1f133c1f97a94fe3acb8db34372cf4c01ffdb2b3ff4ca72f9494121e9"
+      "sha256": "71015c979ccb0fc8a0be7ca0ae83046ab045cdc2c8faa09fb2f0f7e440f9b4a6"
     },
     {
       "path": "examples/symfony/composer.json",
@@ -27,11 +27,11 @@
     },
     {
       "path": "pnpm-lock.yaml",
-      "sha256": "effa9ae50226ad8b2ed1c9b6b76073efef483cdb3d58b022e790a7e0e64448d0"
+      "sha256": "d874b1771501fee8551b5b7cc22f9e082d7f2013060965e5cffa86d246b42047"
     },
     {
       "path": "pnpm-workspace.yaml",
-      "sha256": "bae3e77c1f85ba9a7c9f810f83b0691c6e2bc60f122acb966daf8b7069218636"
+      "sha256": "4b9b0cd8d37ed1803da7bcd172ed4ce21e04d8f46409f3f187a45dd30e94ffec"
     },
     {
       "path": "scripts/release/release-model.mjs",

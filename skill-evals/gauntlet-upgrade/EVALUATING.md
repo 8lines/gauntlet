@@ -73,3 +73,7 @@ an independent reviewer confirms the verdicts.
 A baseline scenario uses `expected-failure-observed` when at least one of its
 reviewed samples fails the scorecard. Keep passing sibling samples recorded as
 passes; never rewrite individual reviews to make a scenario aggregate uniform.
+
+## Re-binding log
+
+- 2026-10-07: Release preparation moved gauntlet to 0.2.1, skills to 0.1.12. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
