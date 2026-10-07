@@ -6,7 +6,7 @@ Before selecting it, map the organization's production accounts/projects/subscri
 
 ## Standalone Docker Compose
 
-- Use exact image `ghcr.io/8lines/gauntlet:0.2.0` or an approved digest.
+- Use exact image `ghcr.io/8lines/gauntlet:0.2.1` or an approved digest.
 - Start from the released Compose distribution/wrapper and keep the control plane at exactly one replica.
 - Set `GAUNTLET_CONFIG_FILE=/etc/gauntlet/config.yaml` and mount an operator-owned config read-only.
 - Bind the dashboard to `127.0.0.1` or one reviewed private interface; do not publish adapter ports.
@@ -19,7 +19,7 @@ The application adapter remains part of the application container. The browser c
 
 ## Kubernetes
 
-- Use exact chart `oci://ghcr.io/8lines/charts/gauntlet` version `0.2.0` and exact image `0.2.0` or a reviewed digest.
+- Use exact chart `oci://ghcr.io/8lines/charts/gauntlet` version `0.2.1` and exact image `0.2.1` or a reviewed digest.
 - Require Kubernetes `>=1.35` and Helm `4.0.4`; pre-create the namespace. The image and chart are public; add a registry pull Secret only for an authenticated mirror.
 - Pull the exact chart archive, render and review that file, then install the same file with `--reset-values`; do not preview one input and install another.
 - Deploy one Gauntlet replica in the selected non-production namespace, with a `ClusterIP` Service and ingress disabled by default.

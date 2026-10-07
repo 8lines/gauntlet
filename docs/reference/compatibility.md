@@ -14,7 +14,7 @@ moving a unit's version by hand moves its version cell here too.
 
 | Unit | Version | Implements | Supports |
 | --- | --- | --- | --- |
-| `gauntlet` | 0.2.0 | none | protocol 1; widgetChannel 1 |
+| `gauntlet` | 0.2.1 | none | protocol 1; widgetChannel 1 |
 | `protocol` | 0.1.8 | protocol 1 | none |
 | `dashboard-client` | 0.1.8 | protocol 1 | none |
 | `typescript-core` | 0.1.8 | protocol 1 | none |
@@ -26,4 +26,4 @@ moving a unit's version by hand moves its version cell here too.
 | `symfony-bundle` | 0.1.8 | protocol 1 | none |
 | `java-core` | 0.1.8 | protocol 1 | none |
 | `spring-boot-starter` | 0.1.8 | protocol 1 | none |
-| `skills` | 0.1.11 | none | none |
+| `skills` | 0.1.12 | none | none |

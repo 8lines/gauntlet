@@ -109,3 +109,4 @@ checked the final bytes.
 - 2026-10-04: Release preparation moved gauntlet to 0.1.9, skills to 0.1.10. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
 - 2026-10-04: Release preparation moved gauntlet to 0.2.0, skills to 0.1.11. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
 - 2026-10-07: The workspace gained the gauntlet-upgrade skill, its evaluation tests and its release listing. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
+- 2026-10-07: Release preparation moved gauntlet to 0.2.1, skills to 0.1.12. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.

@@ -21,6 +21,26 @@ changelog: [`protocol`](packages/protocol/CHANGELOG.md),
 
 ## Unreleased
 
+## [0.2.1] - 2026-10-07
+
+### Added
+
+- You can pin the operations you use often so they appear in a Pinned section at the top of the dashboard sidebar and the widget, stored per user and target in Gauntlet's SQLite database under `GAUNTLET_DATA_DIR` (in memory when it is not set).
+
+### Changed
+
+- The operation screen fills the dashboard width with Input and Result side by side, a collapsible details sidebar with the operation's behaviour, recent runs and definition, and an Execute button.
+- Gauntlet reuses a target's last online manifest for five seconds and reads each operation definition from the adapter once per revision, so the dashboard and the widget load the catalog faster.
+- The widget lists operations with their impact badge, two-line descriptions and an icon link to Gauntlet, shows the cached catalog at once, and opens an operation with its description collapsed above Run and Advanced tabs.
+
+### Security
+
+- Updated the MCP client used by the server tests to 2.2.0 and pinned the workspace's transitive `sharp` to 0.35.5 and `source-map-js` to 1.2.2 to clear current dependency advisories.
+
+### Upgrade
+
+- This version has optional upgrade steps; see the [upgrade guide](https://github.com/8lines/gauntlet/blob/v0.2.1/docs/upgrades/gauntlet/0.2.1.md).
+
 ## [0.2.0] - 2026-10-04
 
 ### Added
