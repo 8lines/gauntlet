@@ -1,21 +1,27 @@
 # AI skills
 
-Gauntlet ships two optional Codex-compatible workflows. They guide changes
-inside an application repository; they are not runtime plugins for the Gauntlet
-server and installing them does not modify an application or deployment.
+Gauntlet ships three optional Codex-compatible workflows. They guide changes
+inside an application repository or a deployment's operator files; they are not
+runtime plugins for the Gauntlet server and installing them does not modify an
+application or deployment.
 
 | Skill | Use it for | It does not do |
 | --- | --- | --- |
 | `$gauntlet-app-integration` | Connect an existing Node.js, Next.js, Symfony, or Spring application and its non-production deployment to Gauntlet. | Define domain operations or infer that a deployment is safe from an environment label. |
 | `$gauntlet-extension-authoring` | Add one finite, typed operation or data source to an application whose adapter is already integrated. | Mount a transport, change ingress or network exposure, or create a generic executor. |
+| `$gauntlet-upgrade` | Upgrade an existing Compose, Helm or source deployment, or an SDK package, by walking every [upgrade guide](upgrades/README.md) from the deployed version to the target. | Float to `latest` or a minor tag, scale above one replica, skip a required step, or delete data to make verification pass. |
 
-Both skills stop rather than enable an adapter when production identity is
-ambiguous. The integration skill requires application-specific environment
+The integration and extension skills stop rather than enable an adapter when
+production identity is ambiguous. The integration skill requires application-specific environment
 evidence, a private adapter route, a stable secret reference, truthful runtime
 semantics, and live negative-path checks. The extension skill keeps behavior in
 an explicit application-owned catalog and rejects arbitrary SQL, class names,
 command or event names, topics, file paths, URLs, and other caller-selected
 dispatch targets. Confirmation prevents accidents; it is not authorization.
+The upgrade skill establishes the deployed version from the deployment itself,
+backs up operator files and data first, applies every required step, decides
+every optional one explicitly and finishes with the upgrade runbook's
+verification.
 
 To let an AI operate already-registered capabilities at runtime, use
 [MCP](mcp.md). Installing these authoring skills does not enable `/mcp`.
@@ -40,7 +46,7 @@ For Codex:
 mkdir -p "$HOME/.codex/skills"
 skills_destination="$(cd "$HOME/.codex/skills" && pwd -P)"
 node scripts/skills/install.mjs --destination "$skills_destination" \
-  gauntlet-app-integration gauntlet-extension-authoring
+  gauntlet-app-integration gauntlet-extension-authoring gauntlet-upgrade
 ```
 
 For an agent installation that discovers `~/.agents/skills`, use that absolute
@@ -50,7 +56,7 @@ directory instead:
 mkdir -p "$HOME/.agents/skills"
 skills_destination="$(cd "$HOME/.agents/skills" && pwd -P)"
 node scripts/skills/install.mjs --destination "$skills_destination" \
-  gauntlet-app-integration gauntlet-extension-authoring
+  gauntlet-app-integration gauntlet-extension-authoring gauntlet-upgrade
 ```
 
 The source installer validates every requested skill before it starts staging
@@ -76,7 +82,7 @@ tar -xzf gauntlet-skills-0.1.11.tgz -C "$skills_unpack"
 skills_archive_root="$skills_unpack/gauntlet-skills-0.1.11"
 ```
 
-The archive contains a closed manifest, the two validated skill trees, and a
+The archive contains a closed manifest, the three validated skill trees, and a
 self-contained installer. That installer intentionally accepts exactly one
 skill per invocation, refuses overwrite, verifies the copied tree against the
 manifest, and uses an atomic per-destination lock. Run it once for each skill:
@@ -87,6 +93,8 @@ node "$skills_archive_root/scripts/skills/install.mjs" \
   --destination "$skills_destination" gauntlet-app-integration
 node "$skills_archive_root/scripts/skills/install.mjs" \
   --destination "$skills_destination" gauntlet-extension-authoring
+node "$skills_archive_root/scripts/skills/install.mjs" \
+  --destination "$skills_destination" gauntlet-upgrade
 ```
 
 Keep the preceding installed directory until the replacement has been checked.
@@ -107,6 +115,12 @@ Use $gauntlet-extension-authoring to add a finite “expire test invoice”
 operation to this already integrated application. Call the existing domain
 service, define the complete schema and tests, and do not add a generic command
 or SQL endpoint.
+```
+
+```text
+Use $gauntlet-upgrade to upgrade our staging Gauntlet Helm release to the
+latest release. Read every upgrade guide since the deployed version, back up
+the values file and the pins volume, and verify with the upgrade runbook.
 ```
 
 The application and deployment supplied in the request remain the complete

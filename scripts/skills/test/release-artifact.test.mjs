@@ -14,23 +14,20 @@ import { cleanup, exists, validFixture } from "./support.mjs";
 const execFileAsync = promisify(execFile);
 const VERSION = "0.1.0";
 
-async function twoSkillFixture(t) {
+async function skillsFixture(t) {
   const root = await validFixture("gauntlet-app-integration");
-  const second = await validFixture("gauntlet-extension-authoring");
-  await cp(join(second, "skills/gauntlet-extension-authoring"), join(root, "skills/gauntlet-extension-authoring"), {
-    recursive: true,
-    errorOnExist: true,
-    force: false,
-  });
-  await cp(join(second, "skill-evals/gauntlet-extension-authoring"), join(root, "skill-evals/gauntlet-extension-authoring"), {
-    recursive: true,
-    errorOnExist: true,
-    force: false,
-  });
+  const others = [];
+  for (const name of ["gauntlet-extension-authoring", "gauntlet-upgrade"]) {
+    const other = await validFixture(name);
+    others.push(other);
+    for (const directory of ["skills", "skill-evals"]) {
+      await cp(join(other, directory, name), join(root, directory, name), { recursive: true, errorOnExist: true, force: false });
+    }
+  }
   const output = await mkdtemp(join(tmpdir(), "gauntlet-skills-artifact-"));
   const secondOutput = await mkdtemp(join(tmpdir(), "gauntlet-skills-artifact-repeat-"));
   await Promise.all([chmod(output, 0o700), chmod(secondOutput, 0o700)]);
-  t.after(() => cleanup(root, second, output, secondOutput));
+  t.after(() => cleanup(root, ...others, output, secondOutput));
   return {
     output: await realpath(output),
     root: await realpath(root),
@@ -39,7 +36,7 @@ async function twoSkillFixture(t) {
 }
 
 test("stages a deterministic, self-installing archive containing only validated skills", async (t) => {
-  const { output, root, secondOutput } = await twoSkillFixture(t);
+  const { output, root, secondOutput } = await skillsFixture(t);
   const options = { root, outputDirectory: output, version: VERSION };
   const first = await stageSkills(options);
   const second = await stageSkills({ root, outputDirectory: secondOutput, version: VERSION });
@@ -50,7 +47,7 @@ test("stages a deterministic, self-installing archive containing only validated 
   );
   assert.equal(first.sha256, second.sha256);
   assert.deepEqual(await readFile(first.path), await readFile(second.path));
-  for (const name of ["gauntlet-app-integration", "gauntlet-extension-authoring"]) {
+  for (const name of ["gauntlet-app-integration", "gauntlet-extension-authoring", "gauntlet-upgrade"]) {
     assert.equal(first.entries.includes(`skills/${name}/SKILL.md`), true);
     assert.equal(first.entries.includes(`skills/${name}/agents/openai.yaml`), true);
     assert.equal(first.entries.some((entry) => entry.startsWith(`skills/${name}/references/`)), true);
@@ -79,6 +76,7 @@ test("stages a deterministic, self-installing archive containing only validated 
   assert.deepEqual(manifest.skills.map(({ name }) => name), [
     "gauntlet-app-integration",
     "gauntlet-extension-authoring",
+    "gauntlet-upgrade",
   ]);
 
   const appResult = await execFileAsync(process.execPath, [
@@ -93,10 +91,18 @@ test("stages a deterministic, self-installing archive containing only validated 
     destination,
     "gauntlet-extension-authoring",
   ]);
+  const upgradeResult = await execFileAsync(process.execPath, [
+    join(archiveRoot, "scripts/skills/install.mjs"),
+    "--destination",
+    destination,
+    "gauntlet-upgrade",
+  ]);
   assert.equal(appResult.stderr, "");
   assert.equal(extensionResult.stderr, "");
+  assert.equal(upgradeResult.stderr, "");
   assert.deepEqual(JSON.parse(appResult.stdout).installed, ["gauntlet-app-integration"]);
   assert.deepEqual(JSON.parse(extensionResult.stdout).installed, ["gauntlet-extension-authoring"]);
+  assert.deepEqual(JSON.parse(upgradeResult.stdout).installed, ["gauntlet-upgrade"]);
   for (const entry of manifest.skills) {
     assert.deepEqual(Object.keys(entry), ["name", "sha256", "files"]);
     assert.equal(await hashSkill(join(destination, entry.name)), entry.sha256);
@@ -289,7 +295,7 @@ test("stages a deterministic, self-installing archive containing only validated 
 });
 
 test("refuses unsafe staging arguments before writing an archive", async (t) => {
-  const { output, root } = await twoSkillFixture(t);
+  const { output, root } = await skillsFixture(t);
   await assert.rejects(
     stageSkills({ root, outputDirectory: output, version: "latest" }),
     /Skill artifact staging input is invalid/u,

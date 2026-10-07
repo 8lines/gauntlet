@@ -361,7 +361,7 @@ test("every workflow-facing gate resolves to one exact local root script", () =>
     "release:discard-staged": "node scripts/release/discard-staged.mjs",
     "skills:validate": "node scripts/skills/validate.mjs",
     "skills:test-install": "node --test scripts/skills/test/*.test.mjs",
-    "skills:test-evals": "node --test --test-concurrency=1 skill-evals/gauntlet-app-integration/test/*.test.mjs skill-evals/gauntlet-extension-authoring/test/*.test.mjs",
+    "skills:test-evals": "node --test --test-concurrency=1 skill-evals/gauntlet-app-integration/test/*.test.mjs skill-evals/gauntlet-extension-authoring/test/*.test.mjs skill-evals/gauntlet-upgrade/test/*.test.mjs",
     "docs:check": "node scripts/docs/check-docs.mjs && node --test scripts/docs/test/*.test.mjs",
     "docs:verify-commands": "node scripts/docs/verify-documented-commands.mjs",
   };

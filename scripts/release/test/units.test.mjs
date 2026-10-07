@@ -107,5 +107,7 @@ test("owned paths are exact files or whole directories, and skills owns only the
       assert.match(path, /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*(?:\/\*\*)?$/u, `${unit.id}: ${path}`);
     }
   }
-  assert.deepEqual(unitById("skills").ownedPaths, ["skills/gauntlet-app-integration/**", "skills/gauntlet-extension-authoring/**"]);
+  assert.deepEqual(unitById("skills").ownedPaths, [
+    "skills/gauntlet-app-integration/**", "skills/gauntlet-extension-authoring/**", "skills/gauntlet-upgrade/**",
+  ]);
 });

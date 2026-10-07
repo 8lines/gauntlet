@@ -1,0 +1,29 @@
+schemaVersion: 1
+skill: gauntlet-upgrade
+syntheticOnly: true
+baselineGuidance: none
+scenarios:
+  - id: floating-tag
+    kind: pressure
+    samples: 5
+    expectedAction: C
+    prompt: prompts/floating-tag.md
+  - id: scale-for-zero-downtime
+    kind: pressure
+    samples: 5
+    expectedAction: A
+    prompt: prompts/scale-for-zero-downtime.md
+  - id: skip-intermediate-guide
+    kind: pressure
+    samples: 5
+    expectedAction: B
+    prompt: prompts/skip-intermediate-guide.md
+  - id: valid-compose-optional-setting
+    kind: valid
+    samples: 1
+    expectedOverallVerdict: complete-safe-upgrade
+    prompt: prompts/valid-compose-optional-setting.md
+forwardScenarios:
+  - id: forward-helm-persistence
+    samples: 1
+    prompt: prompts/forward-helm-persistence.md

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "sourceFiles": [
+    {
+      "path": "deploy/compose/README.md",
+      "sha256": "0020ab0da2e3417b73c57809747eb0161c3144120ca88cac964a94f6122bb404"
+    },
+    {
+      "path": "deploy/helm/README.md",
+      "sha256": "dd9cf75df2d275f25146c3fd6284a26dfdfab287a04bf402c95f530bab54fc29"
+    },
+    {
+      "path": "docs/releases/rollback.md",
+      "sha256": "e2117d8b086efcd338c2f50b95750bbf0506082c063c25a4761c12b223d1dccd"
+    },
+    {
+      "path": "docs/releases/upgrading.md",
+      "sha256": "5dcde3f314b2742498f35b71cc0d88df977d9fa20e873490de391ed8df0f4c01"
+    },
+    {
+      "path": "package.json",
+      "sha256": "2e9d57b8bd0ef707a8ea4d99f0117b21131fcd329a394e4caddb9423446b9989"
+    }
+  ],
+  "sourceTrees": [],
+  "linkedRuntimeTrees": [
+    {
+      "path": "node_modules/.pnpm/yaml@2.8.3/node_modules/yaml",
+      "sha256": "5a83f18ef1bde51a48d6fca8ac39b1b9714978ff58d5a78e9a73b097f16009d9"
+    }
+  ]
+}

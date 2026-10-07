@@ -23,7 +23,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "4e3c2b21fdfe25bd262a977240605c2196b8e203c438ce7cd892061a95eef187"
+      "sha256": "2e9d57b8bd0ef707a8ea4d99f0117b21131fcd329a394e4caddb9423446b9989"
     },
     {
       "path": "pnpm-lock.yaml",
@@ -43,7 +43,7 @@
     },
     {
       "path": "scripts/release/units.mjs",
-      "sha256": "da91703cc02e3b9e1957cd12888646614f254178c0616e573aa71a2457666efc"
+      "sha256": "8f211c5fae8af2a87681de4ae4ef4ba96c12ed221d037c80917be33c770fae21"
     },
     {
       "path": "tsconfig.base.json",

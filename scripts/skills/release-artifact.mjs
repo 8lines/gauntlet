@@ -20,7 +20,7 @@ import { packageCanonicalTree } from "../release/tree-archive.mjs";
 import { hashSkill } from "./skill-content.mjs";
 import { validateSkill } from "./validate.mjs";
 
-const SKILLS = Object.freeze(["gauntlet-app-integration", "gauntlet-extension-authoring"]);
+const SKILLS = Object.freeze(["gauntlet-app-integration", "gauntlet-extension-authoring", "gauntlet-upgrade"]);
 const STABLE_VERSION = /^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/u;
 const FAILURE = "Skill artifact staging failed closed";
 const INPUT_FAILURE = "Skill artifact staging input is invalid";
