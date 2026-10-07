@@ -12,7 +12,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
+import { SidebarMenu, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function targetStateTone(target: TargetSnapshot): Tone {
@@ -45,7 +46,7 @@ export function EnvironmentSwitcher({ targets, selected }: {
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuButton size="lg" aria-label={`Choose environment: ${selected.label}`}>
+            <Button variant="outline" className="h-auto min-h-12 w-full min-w-0 justify-between px-3 py-2 text-left" aria-label={`Choose environment: ${selected.label}`}>
               <span className="grid min-w-0 flex-1 gap-1">
                 <span className="truncate text-sm/5 font-medium">{selected.label}</span>
                 <span className="flex items-center gap-2 text-xs/4 text-muted-foreground">
@@ -56,7 +57,7 @@ export function EnvironmentSwitcher({ targets, selected }: {
                 </span>
               </span>
               <ChevronsUpDown aria-hidden="true" className="text-muted-foreground" />
-            </SidebarMenuButton>
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
             side={isMobile ? "bottom" : "right"}

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { OperationSummary, Problem } from "@8lines/gauntlet-protocol";
 import { api, type TargetSnapshot } from "../api.ts";
+import { browserStorage } from "../browser-storage.ts";
+import { readCachedSnapshot, rememberSnapshot } from "../catalog-cache.ts";
 
 export type PanelTarget =
   | { readonly kind: "loading" }
@@ -16,9 +18,14 @@ const NO_OPERATIONS: readonly OperationSummary[] = [];
  * The returned `operations` keep their identity while the manifest revision is unchanged,
  * so per-operation definition lookups are not repeated on every refresh. When a refresh fails
  * after the target was found, the last snapshot stays and `refreshProblem` reports the failure.
+ * The panel starts from the snapshot cached by a previous page load, so the lists show at once
+ * while the first read is still on its way.
  */
 export function usePanelTarget(targetId: string | undefined, refreshKey: number) {
-  const [target, setTarget] = useState<PanelTarget>({ kind: "loading" });
+  const [target, setTarget] = useState<PanelTarget>(() => {
+    const cached = targetId === undefined ? undefined : readCachedSnapshot(browserStorage, targetId);
+    return cached === undefined ? { kind: "loading" } : { kind: "found", snapshot: cached };
+  });
   const [refreshProblem, setRefreshProblem] = useState<Problem>();
 
   useEffect(() => {
@@ -34,6 +41,7 @@ export function usePanelTarget(targetId: string | undefined, refreshKey: number)
       }
       setRefreshProblem(undefined);
       const snapshot = result.data.find((candidate) => candidate.id === targetId);
+      if (snapshot !== undefined) rememberSnapshot(browserStorage, snapshot);
       setTarget(snapshot === undefined ? { kind: "unknown" } : { kind: "found", snapshot });
     });
     return () => { active = false; };

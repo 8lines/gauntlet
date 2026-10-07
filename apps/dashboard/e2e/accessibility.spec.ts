@@ -54,8 +54,8 @@ for (const theme of ["light", "dark"] as const) {
     await scan(page, "operation", theme);
 
     const actions = page.getByRole("region", { name: "Operation actions" });
-    const execute = actions.getByRole("button", { name: desktopOperation.label, exact: true });
-    const confirm = page.getByRole("alertdialog").getByRole("button", { name: desktopOperation.label, exact: true });
+    const execute = actions.getByRole("button", { name: "Execute", exact: true });
+    const confirm = page.getByRole("alertdialog").getByRole("button", { name: "Execute", exact: true });
     // The application rejects the first attempt: the fields it names show their errors.
     const runs = `**/api/v1/targets/browser-target/operations/${desktopOperation.id}/runs`;
     await page.context().route(runs, (route) => route.fulfill({

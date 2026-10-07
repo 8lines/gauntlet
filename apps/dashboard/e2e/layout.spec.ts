@@ -26,7 +26,7 @@ test("long operation labels keep both actions visible across workspace widths", 
   for (const width of [320, 390, 640, 768, 1024, 1280, 1440]) {
     await resizeViewport(page, width);
     const actions = page.getByRole("region", { name: "Operation actions" });
-    const execute = actions.getByRole("button", { name: operation.label, exact: true });
+    const execute = actions.getByRole("button", { name: "Execute", exact: true });
     const dryRun = actions.getByRole("button", { name: "Dry run" });
     await expectContained(execute, actions);
     await expectContained(dryRun, actions);

@@ -1,15 +1,16 @@
 import { useCallback, useMemo } from "react";
 import type { OperationSummary } from "@8lines/gauntlet-protocol";
 import type { PageContext, PageSubject } from "@8lines/gauntlet-widget-channel";
+import type { Impact } from "../catalog.ts";
 import { useOperationDetails } from "../useOperationDetails.ts";
 import { panelLists } from "./placements.ts";
 import { bindingValues, type BindingValue } from "./prefill.ts";
 import { searchOperations } from "./search.ts";
 
-/** An operation's description, which arrives with its definition after the catalog. */
+/** An operation's description and impact, which arrive with its definition after the catalog. */
 export type OperationDescription =
   | { readonly loading: true }
-  | { readonly loading: false; readonly text: string | undefined };
+  | { readonly loading: false; readonly text: string | undefined; readonly impact: Impact | undefined };
 
 /**
  * Derives everything the panel shows from the target's catalog and the page context:
@@ -45,8 +46,10 @@ export function usePanelCatalog(
   /** Unavailable operations are never read, so only available ones are ever "loading". */
   const describe = useCallback((operation: OperationSummary): OperationDescription => {
     const detail = details[operation.id];
-    if (detail !== undefined) return { loading: false, text: detail.description };
-    return operation.availability.state === "available" ? { loading: true } : { loading: false, text: undefined };
+    if (detail !== undefined) return { loading: false, text: detail.description, impact: detail.definition?.execution.impact };
+    return operation.availability.state === "available"
+      ? { loading: true }
+      : { loading: false, text: undefined, impact: undefined };
   }, [details]);
 
   /** `undefined` when the operation has no subject matching the page, so the form is not prefilled. */

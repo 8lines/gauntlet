@@ -138,7 +138,9 @@ function AuthenticatedApp({ session, onSignOut }: { session: AuthSession; onSign
                   targetId={selected.id}
                   operationId={route.operationId}
                   runId={route.runId}
+                  revision={selected.manifest?.operations.find((o) => o.id === route.operationId)?.revision}
                   environment={selected.label}
+                  recentRunsVersion={recentRunsVersion}
                   {...(navigationInput.input === undefined
                     ? {}
                     : { initialInput: navigationInput.input })}

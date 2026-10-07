@@ -207,11 +207,14 @@ function ConnectedPanel({ channel, targetId, onLogOut }: { channel: PanelChannel
               ))}
             />
             <ChunkErrorBoundary resetKey={view.operation.id}>
-              <Suspense fallback={<OperationLoading />}>
+              <Suspense fallback={<OperationLoading compact />}>
                 <OperationScreen
                   key={view.operation.id}
                   targetId={targetId}
                   operationId={view.operation.id}
+                  revision={view.operation.revision}
+                  compact
+                  onOpenRecentRun={(entry) => setView({ kind: "run", entry, runShown: false })}
                   bindings={view.bindings}
                   onRunCreated={onRunCreated(view.operation)}
                   onRunCleared={() => setRunShown(false)}

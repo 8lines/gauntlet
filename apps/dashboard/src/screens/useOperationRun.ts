@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { JsonObject, JsonPointer, OperationDefinition, Problem, Run, ValidationError } from "@8lines/gauntlet-protocol";
 import { api, isRunFinished } from "../api.ts";
+import { browserStorage } from "../browser-storage.ts";
+import { readCachedDefinitions, rememberDefinition } from "../catalog-cache.ts";
 import { buildCreateRunRequest } from "../create-run-request.ts";
 import type { FileFieldState, FormValues } from "../form-upload.ts";
 import { initialValues } from "../json-pointer.ts";
@@ -13,6 +15,11 @@ export interface OperationRunOptions {
   readonly operationId: string;
   /** The run named by the URL (`/t/…/o/…/r/:runId`). The widget never passes it. */
   readonly runId?: string | undefined;
+  /**
+   * The operation's revision in the current manifest. A definition cached at this revision is the
+   * same definition (the revision is its content hash), so the form opens without reading it again.
+   */
+  readonly revision?: string | undefined;
   readonly initialInput?: JsonObject | undefined;
   readonly onInitialInputConsumed?: (() => void) | undefined;
   /**
@@ -28,7 +35,7 @@ export interface OperationRunOptions {
 
 /** All state of the operation screen: definition, form, presets, page bindings, confirmation gate and the run. */
 export function useOperationRun(
-  { targetId, operationId, runId, initialInput, onInitialInputConsumed, bindings, onRunCreated, onRunCleared }: OperationRunOptions,
+  { targetId, operationId, runId, revision, initialInput, onInitialInputConsumed, bindings, onRunCreated, onRunCleared }: OperationRunOptions,
 ) {
   const [definition, setDefinition] = useState<OperationDefinition>();
   const [problem, setProblem] = useState<Problem>();
@@ -49,16 +56,27 @@ export function useOperationRun(
     let active = true;
     setDefinition(undefined); setProblem(undefined); setRun(undefined); setErrors([]); setPresetId(undefined); setAwaitingConfirmation(false);
     setFileStates(new Map()); setSkipped([]);
+    const open = (loaded: OperationDefinition) => {
+      setDefinition(loaded);
+      const initial = initialInput ?? initialValues(loaded.inputSchema);
+      appliedRef.current = bindingsRef.current;
+      const prefill = prefillForPreset(loaded.inputSchema, initial, undefined, bindingsRef.current);
+      setValues(prefill.values); setSkipped(prefill.skipped);
+      if (initialInput !== undefined) onInitialInputConsumed?.();
+    };
+    const cached = revision === undefined
+      ? undefined
+      : readCachedDefinitions(browserStorage, targetId, [{ id: operationId, revision }])[operationId];
+    if (cached !== undefined) {
+      open(cached);
+      return () => { active = false; };
+    }
     void (async () => {
       const result = await api.operation(targetId, operationId);
       if (!active) return;
       if (!result.ok) { setProblem(result.problem); return; }
-      setDefinition(result.data);
-      const initial = initialInput ?? initialValues(result.data.inputSchema);
-      appliedRef.current = bindingsRef.current;
-      const prefill = prefillForPreset(result.data.inputSchema, initial, undefined, bindingsRef.current);
-      setValues(prefill.values); setSkipped(prefill.skipped);
-      if (initialInput !== undefined) onInitialInputConsumed?.();
+      rememberDefinition(browserStorage, targetId, result.data);
+      open(result.data);
     })();
     return () => { active = false; };
   }, [targetId, operationId]);

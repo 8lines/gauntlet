@@ -173,9 +173,9 @@ test("recent runs survive corrupted storage and list new runs", async ({ page })
 
   await page.getByRole("link", { name: followUpOperation.label }).click();
   await page.getByRole("region", { name: "Operation actions" })
-    .getByRole("button", { name: followUpOperation.label, exact: true }).click();
+    .getByRole("button", { name: "Execute", exact: true }).click();
   await expect(page).toHaveURL(/\/r\/browser-run-01$/);
-  await expect(page.getByText(/^\W+Done$/)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("region", { name: "Result", exact: true }).getByText(/^\W+Done$/)).toBeVisible({ timeout: 10_000 });
 
   await page.goBack();
   await expect(page.getByRole("heading", { level: 1, name: "Browser environment" })).toBeVisible();

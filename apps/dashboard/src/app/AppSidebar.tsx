@@ -59,6 +59,7 @@ export function AppSidebar({ targets, selected, route, onOpenSettings, navigatio
         <div className="flex h-9 items-center gap-2 px-2">
           <GauntletMark className="size-5" />
           <span className="text-base/6 font-semibold">Gauntlet</span>
+          <span className="font-mono text-[10px]/4 text-muted-foreground">v{__GAUNTLET_VERSION__}</span>
         </div>
         <EnvironmentSwitcher targets={targets} selected={selected} />
       </SidebarHeader>
@@ -140,7 +141,6 @@ export function AppSidebar({ targets, selected, route, onOpenSettings, navigatio
             Signed in as <span className="text-foreground">{principal.displayName}</span>
           </p>
         )}
-        <p className="px-2 py-1 font-mono text-xs/4 text-muted-foreground">Gauntlet v{__GAUNTLET_VERSION__}</p>
       </SidebarFooter>
     </Sidebar>
   );

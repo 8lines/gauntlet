@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import type { Problem } from "@8lines/gauntlet-protocol";
 import { api } from "../api.ts";
 import { authTokenStore, onUnauthenticated, type AuthSession } from "../auth.ts";
+import { browserStorage } from "../browser-storage.ts";
+import { clearCatalogCache } from "../catalog-cache.ts";
 
 export type AuthState =
   | { readonly status: "loading" }
@@ -50,6 +52,7 @@ export function useAuthSession(): AuthSessionControls {
     // A refused log out leaves the HttpOnly cookie in place: showing sign-in would only pretend.
     if (!result.ok) return result.problem;
     authTokenStore().clear();
+    clearCatalogCache(browserStorage);
     setState((current) => current.status === "ready"
       ? { status: "ready", session: { ...current.session, principal: null, expiresAt: null } }
       : current);

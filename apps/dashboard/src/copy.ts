@@ -1,4 +1,4 @@
-import type { ExecutionPolicy, OperationDefinition, Problem, Run, RunState } from "@8lines/gauntlet-protocol";
+import type { ExecutionPolicy, Problem, Run, RunState } from "@8lines/gauntlet-protocol";
 import type { Impact } from "./catalog.ts";
 
 export type Tone = "ok" | "wait" | "stop" | "info" | "sub";
@@ -47,11 +47,6 @@ export function policyEffects(policy: ExecutionPolicy): readonly PolicyEffect[] 
   }
 
   return effects;
-}
-
-/** Run button label: never "Execute", always the operation name. */
-export function runButtonLabel(definition: OperationDefinition): string {
-  return definition.label;
 }
 
 const IMPACT_LABELS: Readonly<Record<Impact, string>> = { read: "read only", write: "changes data", destructive: "deletes data" };

@@ -7,23 +7,26 @@ import {
   followUpOperation,
   installApiFixture,
   namedRun,
+  operationWithRevision,
   recordedRuns,
   recordedState,
 } from "./api-fixture.ts";
 
-test("the sidebar footer shows the build version on desktop and in the mobile sheet", async ({ page }, testInfo) => {
+test("the sidebar logo shows the build version on desktop and in the mobile sheet", async ({ page }, testInfo) => {
   await installApiFixture(page, { operation: desktopOperation, scenario: testInfo.project.name === "mobile" ? "mobile" : "desktop" });
   await page.goto("/");
-  const version = `Gauntlet v${dashboardPackage.version}`;
+  const version = `v${dashboardPackage.version}`;
 
   if (testInfo.project.name === "mobile") {
     await expect(page.getByText(version)).toBeHidden();
     await page.getByRole("button", { name: "Toggle navigation" }).click();
-    await expect(page.getByRole("dialog").getByText(version, { exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog").locator('[data-slot="sidebar-header"]').getByText(version, { exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog").locator('[data-slot="sidebar-footer"]').getByText(version, { exact: true })).toHaveCount(0);
     return;
   }
   const navigation = page.locator("#gauntlet-navigation");
-  await expect(navigation.getByText(version, { exact: true })).toBeVisible();
+  await expect(navigation.locator('[data-slot="sidebar-header"]').getByText(version, { exact: true })).toBeVisible();
+  await expect(navigation.locator('[data-slot="sidebar-footer"]').getByText(version, { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Toggle navigation" }).click();
   await expect(navigation).toHaveJSProperty("inert", true);
   await expect(navigation.getByText(version, { exact: true })).not.toBeInViewport();
@@ -46,11 +49,11 @@ test("mobile execution stays inside the viewport and confirms both modes", async
 
   const actions = page.getByRole("region", { name: "Operation actions" });
   const dryRun = actions.getByRole("button", { name: "Dry run" });
-  const liveRun = actions.getByRole("button", { name: destructiveOperation.label, exact: true });
+  const liveRun = actions.getByRole("button", { name: "Execute", exact: true });
   for (const control of [dryRun, liveRun]) {
     const box = await control.boundingBox();
     expect(box?.height).toBeGreaterThanOrEqual(44);
-    expect(box?.width).toBeGreaterThanOrEqual(350);
+    expect(box?.width).toBeCloseTo((await actions.boundingBox())!.width - 40, 0);
   }
 
   await dryRun.click();
@@ -76,7 +79,7 @@ test("mobile execution stays inside the viewport and confirms both modes", async
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await liveRun.click();
-  await dialog.getByRole("button", { name: destructiveOperation.label, exact: true }).click();
+  await dialog.getByRole("button", { name: "Execute", exact: true }).click();
   await expect.poll(() => recordedRuns(page)).toMatchObject([
     { dryRun: true },
     {
@@ -137,12 +140,12 @@ test("confirmation dialog contains focus and restores its exact trigger", async 
   await page.getByRole("button", { name: destructiveOperation.label }).click();
 
   const trigger = page.getByRole("region", { name: "Operation actions" })
-    .getByRole("button", { name: destructiveOperation.label, exact: true });
+    .getByRole("button", { name: "Execute", exact: true });
   await trigger.click();
 
   const dialog = page.getByRole("alertdialog");
   const cancel = dialog.getByRole("button", { name: "Cancel" });
-  const confirm = dialog.getByRole("button", { name: destructiveOperation.label, exact: true });
+  const confirm = dialog.getByRole("button", { name: "Execute", exact: true });
   const appRoot = page.locator("#root");
 
   // The AlertDialog starts on the least destructive action and keeps focus inside (Radix focus scope).
@@ -201,9 +204,9 @@ test("desktop handles upload, polling, cancellation, rich results and follow-ups
   ]);
 
   const execute = page.getByRole("region", { name: "Operation actions" })
-    .getByRole("button", { name: desktopOperation.label, exact: true });
+    .getByRole("button", { name: "Execute", exact: true });
   await execute.click();
-  await page.getByRole("alertdialog").getByRole("button", { name: desktopOperation.label, exact: true }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Execute", exact: true }).click();
   const cancelRun = page.getByRole("main").getByRole("button", { name: "Cancel", exact: true });
   await expect(cancelRun).toBeVisible();
   await cancelRun.click();
@@ -212,7 +215,7 @@ test("desktop handles upload, polling, cancellation, rich results and follow-ups
 
   await page.getByRole("button", { name: "Run again" }).click();
   await execute.click();
-  await page.getByRole("alertdialog").getByRole("button", { name: desktopOperation.label, exact: true }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Execute", exact: true }).click();
   await expect(page.getByText("Processing finished")).toBeVisible({ timeout: 5_000 });
   await expect.poll(async () => (await recordedState(page)).requests.filter(({ method, path }) => method === "GET" && path.endsWith("/runs/browser-run-01"))).not.toHaveLength(0);
 
@@ -357,29 +360,46 @@ test("desktop sidebar collapses, stays collapsed after a reload and navigates to
   await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByText(desktopOperation.label, { exact: true })).toHaveAttribute("aria-current", "page");
 });
 
-test("operation actions stay at the bottom while the content scrolls", async ({ page }, testInfo) => {
+test("operation actions stay inside Input while the form scrolls", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: testInfo.project.name === "mobile" ? 390 : 1440, height: 560 });
-  await installApiFixture(page, { operation: destructiveOperation, scenario: "mobile" });
-  await page.goto(`/t/browser-target/o/${destructiveOperation.id}`);
-
-  const execute = page.getByRole("region", { name: "Operation actions" })
-    .getByRole("button", { name: destructiveOperation.label, exact: true });
-  await expect(execute).toBeVisible();
+  const operation = operationWithRevision({
+    ...destructiveOperation,
+    inputHandling: undefined,
+    uiSchema: undefined,
+    inputSchema: {
+      $schema: "https://json-schema.org/draft/2020-12/schema",
+      type: "object",
+      properties: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [
+        `field${i + 1}`, { type: "string", title: `Field ${i + 1}` },
+      ])),
+      additionalProperties: false,
+    },
+  });
+  await installApiFixture(page, { operation, scenario: "mobile" });
+  await page.goto(`/t/browser-target/o/${operation.id}`);
+  const input = page.getByRole("region", { name: "Input", exact: true });
+  const actions = input.getByRole("region", { name: "Operation actions" });
+  const execute = actions.getByRole("button", { name: "Execute", exact: true });
+  await expect(execute).toBeInViewport();
   const before = (await execute.boundingBox())!;
-  expect(before.y).toBeGreaterThan(450);
-  expect(before.y + before.height).toBeLessThanOrEqual(560);
-
-  const lastContent = page.getByText("The result will appear here when the run finishes.", { exact: false });
-  await lastContent.scrollIntoViewIfNeeded();
-  await expect(lastContent).toBeInViewport();
+  const resultBefore = (await page.getByRole("region", { name: "Result", exact: true }).boundingBox())!;
+  await input.getByRole("textbox", { name: "Field 20", exact: true }).fill("Last field remains editable");
+  await expect(execute).toBeInViewport();
   const after = (await execute.boundingBox())!;
   expect(after.y).toBeCloseTo(before.y, 0);
-  const actions = page.getByRole("region", { name: "Operation actions" });
+  const inputBox = (await input.boundingBox())!;
   const actionsBox = (await actions.boundingBox())!;
-  const contentBox = (await lastContent.boundingBox())!;
-  // Scroll offsets snap to whole pixels, so the text can end a subpixel past the bar's edge.
-  expect(contentBox.y + contentBox.height).toBeLessThanOrEqual(actionsBox.y + 1);
-  expect(await actions.evaluate((node) => getComputedStyle(node).backgroundColor)).toBe("rgb(255, 255, 255)");
+  expect(actionsBox.x).toBeGreaterThanOrEqual(inputBox.x);
+  expect(actionsBox.x + actionsBox.width).toBeLessThanOrEqual(inputBox.x + inputBox.width);
+  expect(actionsBox.y + actionsBox.height).toBeLessThanOrEqual(560);
+  if (testInfo.project.name === "desktop") {
+    expect(await input.locator('[data-slot="card-content"]').evaluate(node => node.scrollTop)).toBeGreaterThan(0);
+    expect((await page.getByRole("region", { name: "Result", exact: true }).boundingBox())!.y).toBe(resultBefore.y);
+  }
+  await execute.click();
+  await expect(page.getByRole("alertdialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(execute).toBeFocused();
 });
 
 test("a run URL survives reload and keeps polling", async ({ page }, testInfo) => {
@@ -387,12 +407,12 @@ test("a run URL survives reload and keeps polling", async ({ page }, testInfo) =
   await installApiFixture(page, { operation: followUpOperation, scenario: "run-url" });
   await page.goto(`/t/browser-target/o/${followUpOperation.id}`);
   await page.getByRole("region", { name: "Operation actions" })
-    .getByRole("button", { name: followUpOperation.label, exact: true }).click();
+    .getByRole("button", { name: "Execute", exact: true }).click();
 
   await expect(page).toHaveURL(`/t/browser-target/o/${followUpOperation.id}/r/browser-run-01`);
   await page.reload();
   await expect(page.getByText(/^\W+Running$/)).toBeVisible();
-  await expect(page.getByText(/^\W+Done$/)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("region", { name: "Result", exact: true }).getByText(/^\W+Done$/)).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText("Invitation sent", { exact: true })).toBeVisible();
   await expect(page.getByRole("main").getByText(/^Started .+, took 4 s$/)).toBeVisible();
   const polls = (await recordedState(page)).requests
@@ -426,12 +446,12 @@ test("moving between runs of one operation shows only the run the URL names", as
   }, followUpOperation.id);
 
   const runUrl = (runId: string) => `/t/browser-target/o/${followUpOperation.id}/r/${runId}`;
-  const main = page.getByRole("main");
-  const first = main.getByText("First invitation pending", { exact: true });
-  const second = main.getByText("Second invitation sent", { exact: true });
+  const result = page.getByRole("region", { name: "Result", exact: true });
+  const first = result.getByText("First invitation pending", { exact: true });
+  const second = result.getByText("Second invitation sent", { exact: true });
   await page.goto(runUrl("run-one"));
   await expect(first).toBeVisible();
-  await expect(main.getByText("run-one", { exact: true })).toBeVisible();
+  await expect(result.getByText("run-one", { exact: true })).toBeVisible();
 
   await page.keyboard.press("Control+k");
   const dialog = page.getByRole("dialog", { name: "Search operations" });
@@ -440,17 +460,17 @@ test("moving between runs of one operation shows only the run the URL names", as
   await expect(page).toHaveURL(runUrl("run-two"));
 
   // While run-two loads, run-one is neither shown nor brought back by its own polling (every 1.5 s).
-  const loading = main.getByRole("status").filter({ hasText: "Loading the run" });
+  const loading = result.getByRole("status").filter({ hasText: "Loading the run" });
   await expect(loading).toBeVisible();
   await expect(first).toHaveCount(0);
-  await expect(main.getByText("run-one", { exact: true })).toHaveCount(0);
+  await expect(result.getByText("run-one", { exact: true })).toHaveCount(0);
   await page.waitForTimeout(2_000);
   await expect(first).toHaveCount(0);
   await expect(loading).toBeVisible();
 
   releaseSecond();
   await expect(second).toBeVisible();
-  await expect(main.getByText("run-two", { exact: true })).toBeVisible();
+  await expect(result.getByText("run-two", { exact: true })).toBeVisible();
   await expect(first).toHaveCount(0);
 
   await page.goBack();
@@ -463,9 +483,9 @@ test("moving between runs of one operation shows only the run the URL names", as
     history.pushState(null, "", path);
     dispatchEvent(new PopStateEvent("popstate", { state: null }));
   }, runUrl("run-three"));
-  await expect(main.getByText("Could not load this run", { exact: true })).toBeVisible();
+  await expect(result.getByText("Could not load this run", { exact: true })).toBeVisible();
   await expect(first).toHaveCount(0);
-  await expect(main.getByText("run-one", { exact: true })).toHaveCount(0);
+  await expect(result.getByText("run-one", { exact: true })).toHaveCount(0);
 });
 
 test("a run created after leaving the operation is remembered without pulling the user back", async ({ page }, testInfo) => {
@@ -475,7 +495,7 @@ test("a run created after leaving the operation is remembered without pulling th
   await installApiFixture(page, { operation: followUpOperation, scenario: "run-url", createRunGate: createGate });
   await page.goto(`/t/browser-target/o/${followUpOperation.id}`);
   await page.getByRole("region", { name: "Operation actions" })
-    .getByRole("button", { name: followUpOperation.label, exact: true }).click();
+    .getByRole("button", { name: "Execute", exact: true }).click();
   await expect.poll(() => recordedRuns(page)).toHaveLength(1);
 
   await page.getByRole("navigation", { name: "Operations" }).getByRole("button", { name: "Overview" }).click();
@@ -504,9 +524,9 @@ test("a follow-up into the same operation reopens the form with its input", asyn
   await installApiFixture(page, { operation: followUpOperation, scenario: "run-url" });
   await page.goto(`/t/browser-target/o/${followUpOperation.id}`);
   await page.getByRole("region", { name: "Operation actions" })
-    .getByRole("button", { name: followUpOperation.label, exact: true }).click();
+    .getByRole("button", { name: "Execute", exact: true }).click();
   await expect(page).toHaveURL(/\/r\/browser-run-01$/);
-  await expect(page.getByText(/^\W+Done$/)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("region", { name: "Result", exact: true }).getByText(/^\W+Done$/)).toBeVisible({ timeout: 10_000 });
 
   await page.getByRole("button", { name: "Open", exact: true }).first().click();
   await expect(page).not.toHaveURL(/\/r\//);

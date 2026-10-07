@@ -115,11 +115,28 @@ test.describe.serial("the widget on a listed host origin", () => {
     await expect(frame.getByRole("searchbox", { name: "Search operations" })).toBeDisabled();
     expect(await panelWidth(page)).toBeLessThanOrEqual(400);
 
-    await frame.getByRole("textbox", { name: "confirmationCode", exact: true }).fill("123456");
-    await frame.getByRole("region", { name: "Operation actions" }).getByRole("button", { name: FINALIZE }).click();
+    // The behaviour starts collapsed; the definition waits under "Advanced".
+    const behaviour = frame.getByRole("button", { name: "What this operation does" });
+    await expect(behaviour).toHaveAttribute("aria-expanded", "false");
+    await behaviour.click();
+    await expect(frame.getByText(DESCRIPTION, { exact: true })).toBeVisible();
+    await behaviour.click();
+    await expect(frame.getByRole("tab", { name: "Run", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(frame.getByRole("region", { name: "Your recent runs" })).toBeVisible();
+
+    const confirmationCode = frame.getByRole("textbox", { name: "confirmationCode", exact: true });
+    await confirmationCode.fill("123456");
+    await frame.getByRole("tab", { name: "Advanced", exact: true }).click();
+    await expect(frame.getByText("Revision", { exact: true })).toBeVisible();
+    await expect(confirmationCode).toBeHidden();
+    // Switching tabs keeps the form as it was.
+    await frame.getByRole("tab", { name: "Run", exact: true }).click();
+    await expect(confirmationCode).toHaveValue("123456");
+
+    await frame.getByRole("region", { name: "Operation actions" }).getByRole("button", { name: "Execute", exact: true }).click();
     const dialog = frame.getByRole("alertdialog");
     await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: FINALIZE }).click();
+    await dialog.getByRole("button", { name: "Execute", exact: true }).click();
     await expect(dialog).toBeHidden();
 
     await expect(frame.getByText(/Done/)).toBeVisible();
@@ -128,6 +145,10 @@ test.describe.serial("the widget on a listed host origin", () => {
     // While a run result shows, the drawer widens.
     await expect.poll(() => panelWidth(page)).toBeGreaterThan(400);
     await panelTakesInput(page);
+    const input = (await frame.getByRole("region", { name: "Input", exact: true }).boundingBox())!;
+    const result = (await frame.getByRole("region", { name: "Result", exact: true }).boundingBox())!;
+    expect(result.x).toBeCloseTo(input.x, 0);
+    expect(result.y).toBeGreaterThanOrEqual(input.y + input.height);
   });
 
   test("running again collapses the drawer back to its narrow width", async () => {
@@ -168,8 +189,16 @@ test.describe.serial("the widget on a listed host origin", () => {
     await expect(page.locator("iframe[data-gauntlet-panel]")).toBeVisible();
 
     await contextualListSettled(page, SECOND);
+    const definitionReads: string[] = [];
+    const onRequest = (request: { url(): string }) => {
+      if (/\/api\/v1\/targets\/[^/]+\/operations\/[^/]+$/.test(request.url())) definitionReads.push(request.url());
+    };
+    page.on("request", onRequest);
     await section(page, "On this page").getByRole("button").filter({ hasText: FINALIZE }).click();
     await expect(frame.getByRole("heading", { name: FINALIZE, level: 1 })).toBeVisible();
+    page.off("request", onRequest);
+    // The list already read this revision of the definition, so the form opens from the cache.
+    expect(definitionReads).toEqual([]);
     const applicationId = frame.getByRole("textbox", { name: "applicationId", exact: true });
     await expect(applicationId).toHaveValue(SECOND);
     const useCurrent = frame.getByRole("button", { name: "Use values from the page", exact: true });
@@ -191,11 +220,20 @@ test.describe.serial("the widget on a listed host origin", () => {
   });
 
   test("lists the run under recent runs after a reload and opens its result", async () => {
+    const definitionReads: string[] = [];
+    const onRequest = (request: { url(): string }) => {
+      if (/\/api\/v1\/targets\/[^/]+\/operations\/[^/]+$/.test(request.url())) definitionReads.push(request.url());
+    };
+    page.on("request", onRequest);
     await page.reload();
     await expect(page.locator("[data-gauntlet-widget]")).toHaveAttribute("data-gauntlet-state", "ready");
     await openPanel(page);
 
     await contextualListSettled(page, SECOND);
+    // Definitions at an unchanged revision come from the panel's cache, not from the adapter again.
+    await expect(section(page, "On this page").getByText(/(read only|changes data|deletes data)$/).first()).toBeVisible();
+    page.off("request", onRequest);
+    expect(definitionReads).toEqual([]);
     const recent = section(page, "Recent runs").getByRole("button").filter({ hasText: FINALIZE });
     await expect(recent).toHaveCount(1);
     await recent.click();
