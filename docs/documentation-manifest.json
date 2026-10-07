@@ -19,6 +19,7 @@
     "docs/releases/releasing.md",
     "docs/releases/upgrading.md",
     "docs/releases/rollback.md",
+    "docs/upgrades/README.md",
     "docs/ai-skills.md",
     "docs/mcp.md",
     "apps/dashboard/README.md",

@@ -43,7 +43,7 @@ they are separate from runtime MCP access.
 | Migrate retired Kubernetes manifests | [Migration procedure](../deploy/kubernetes/README.md) |
 | Require a password or API tokens | [Authentication](deployment/authentication.md) |
 | Review access and production restrictions | [Non-production boundary](safety/non-production-boundary.md) |
-| Upgrade or recover a deployment | [Upgrade](releases/upgrading.md), [rollback](releases/rollback.md) |
+| Upgrade or recover a deployment | [Upgrade](releases/upgrading.md), [upgrade guides per version](upgrades/README.md), [rollback](releases/rollback.md) |
 
 ## Architecture and technical reference
 

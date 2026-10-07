@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { lstatSync, readFileSync, realpathSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { rebindEvaluations } from "../skills/rebind.mjs";
@@ -18,6 +18,7 @@ import {
 } from "./plan.mjs";
 import { collectUnitVersionMismatches, readUnitVersions, setUnitVersions } from "./release-model.mjs";
 import { RELEASE_UNITS } from "./units.mjs";
+import { renderUpgradeGuide, upgradeAction, upgradeGuidePath, upgradeGuideUrl } from "./upgrade-guide.mjs";
 
 const ROOT = realpathSync(fileURLToPath(new URL("../../", import.meta.url)));
 const USAGE = "Usage: prepare.mjs";
@@ -79,15 +80,26 @@ function readChangelog(root, path) {
 function renderChangelogs(root, units, date) {
   return Object.freeze(units.map((unit) => {
     const path = changelogPath(unit.id);
+    const action = upgradeAction(unit.upgrades);
+    const upgrade = action === "none" ? null : { action, url: upgradeGuideUrl(unit.id, unit.to) };
     try {
       return Object.freeze({
         path,
-        source: insertChangelogSection(readChangelog(root, path), renderChangelogSection({ version: unit.to, date, entries: unit.entries })),
+        source: insertChangelogSection(readChangelog(root, path), renderChangelogSection({ version: unit.to, date, entries: unit.entries, upgrade })),
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(message.startsWith(`${path}: `) ? message : `${path}: ${message}`);
     }
+  }));
+}
+
+// Every released unit gets a guide, even without upgrade steps, so a unit's guides form an unbroken chain.
+function renderUpgradeGuides(root, units, date) {
+  return Object.freeze(units.map((unit) => {
+    const path = upgradeGuidePath(unit.id, unit.to);
+    if (exists(resolve(root, path))) throw new Error(`${path}: upgrade guide already exists`);
+    return Object.freeze({ path, source: renderUpgradeGuide({ unit: unit.id, from: unit.from, to: unit.to, date, entries: unit.entries, upgrades: unit.upgrades }) });
   }));
 }
 
@@ -167,6 +179,7 @@ export async function prepareRelease({
   if (incompatible.length > 0) throw new Error(`Release plan is incompatible: ${incompatible.join("; ")}`);
   const date = now.toISOString().slice(0, 10);
   const changelogs = renderChangelogs(root, release.units, date);
+  const guides = renderUpgradeGuides(root, release.units, date);
   const created = [];
   const untracked = untrackedPaths(git);
   const previousPlan = exists(resolve(root, RELEASE_PLAN_PATH)) ? readFileSync(resolve(root, RELEASE_PLAN_PATH)) : null;
@@ -174,6 +187,10 @@ export async function prepareRelease({
     setUnitVersions(root, new Map(release.units.map(({ id, to }) => [id, to])));
     const composerLocks = await repinComposer({ root, versions: readUnitVersions(root), moved: release.units.map(({ id }) => id) });
     for (const { path, source } of changelogs) writeFileSync(resolve(root, path), source);
+    for (const { path, source } of guides) {
+      mkdirSync(dirname(resolve(root, path)), { recursive: true });
+      writeFileSync(resolve(root, path), source);
+    }
     writeFileSync(resolve(root, COMPATIBILITY_PATH), renderCompatibilityDocument(updateCompatibilityEntries(recorded, plan)));
     for (const name of release.consumed) unlinkSync(resolve(root, CHANGES_DIRECTORY, name));
     if (!exists(resolve(root, ".release"))) created.push(".release");
@@ -192,6 +209,7 @@ export async function prepareRelease({
       units: release.units.map(({ id, from, to, bump, cascaded }) => ({ id, from, to, bump, cascaded })),
       order: [...plan.order],
       changes: [...release.consumed],
+      upgradeGuides: guides.map(({ path }) => path),
       composerLocks: [...composerLocks],
     });
   } catch (error) {

@@ -100,6 +100,42 @@ released paths fail the `changes` check until a maintainer adds a change file
 to the pull request: `patch` when the dependency change ships with the unit, or
 `none` with the reason when it does not.
 
+### Upgrade steps
+
+When a change asks something of the people who run Gauntlet or consume a
+package (a new or renamed environment variable, a new Helm value, a
+configuration change, a manual migration, a new minimum version), add an
+`## Upgrade` section after the changelog sentence and say how much it matters
+in the front matter:
+
+```md
+---
+type: added
+units:
+  gauntlet: patch
+upgrade: optional      # required | optional
+---
+Gauntlet can keep pinned operations across restarts.
+
+## Upgrade
+
+Set `GAUNTLET_DATA_DIR` to an existing, writable directory to keep pins...
+```
+
+Use `required` when a deployment breaks or loses data without the step, and
+`optional` when it keeps working and the step enables or keeps a feature.
+Write the steps for an operator or an AI agent that has only the deployment in
+front of it: name the exact variable, value or file in a code span, its default,
+what happens when it is not set, and which distributions the step applies to
+(Compose, Helm, source). Use headings of level 4 at most, no em dashes, and at
+most 8000 characters.
+
+Release preparation turns the steps into the unit's
+[upgrade guide](docs/upgrades/README.md) for the version. The `changes` check
+fails a pull request that adds a `GAUNTLET_*` row to the environment table of
+`apps/server/README.md` or a top-level key to `deploy/helm/gauntlet/values.yaml`
+without a change file whose `## Upgrade` section names it in a code span.
+
 ## Skill evaluation receipts
 
 The evaluation receipts under `skill-evals/` are bound by hash to the skill

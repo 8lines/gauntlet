@@ -94,7 +94,8 @@ test("release runbook covers change files, preparation and its prerequisites", (
   assert.match(source, /PLAYWRIGHT_BROWSER_CHANNEL=chromium pnpm release:dry-run --plan \.release\/plan\.json/u);
   assert.match(source, /compatibility line/u);
   assert.match(source, /on `main` or a detached\s+`HEAD`/u);
-  assert.match(source, /every changelog is checked before anything is written or Docker runs/u);
+  assert.match(source, /every changelog is checked\s+before anything is written or Docker runs/u);
+  assert.match(source, /docs\/upgrades\/<unit>\/<version>\.md/u);
 });
 
 test("release runbook asks for branch protection instead of claiming it", () => {

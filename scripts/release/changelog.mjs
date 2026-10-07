@@ -24,15 +24,23 @@ export function changelogSection(source, version) {
   return body === "" ? null : body;
 }
 
-export function renderChangelogSection({ version, date, entries }) {
+// `upgrade` links the version's upgrade guide when it has required or optional steps.
+export function renderChangelogSection({ version, date, entries, upgrade = null }) {
   if (typeof version !== "string" || typeof date !== "string" || !DATE.test(date) || !Array.isArray(entries)
-      || entries.length === 0 || entries.some(({ type, text }) => !SECTION_ORDER.includes(type) || typeof text !== "string" || text === "")) {
+      || entries.length === 0 || entries.some(({ type, text }) => !SECTION_ORDER.includes(type) || typeof text !== "string" || text === "")
+      || (upgrade !== null && (!["required", "optional"].includes(upgrade?.action) || typeof upgrade.url !== "string"
+        || !upgrade.url.startsWith("https://")))) {
     throw new Error("Changelog section is invalid");
   }
   const lines = [`## [${version}] - ${date}`];
   for (const type of SECTION_ORDER) {
     const texts = entries.filter((entry) => entry.type === type).map(({ text }) => text);
     if (texts.length > 0) lines.push("", `### ${CHANGE_SECTION_TITLES[type]}`, "", ...texts.map((text) => `- ${text}`));
+  }
+  if (upgrade !== null) {
+    lines.push("", "### Upgrade", "", upgrade.action === "required"
+      ? `- This version has required upgrade steps; follow the [upgrade guide](${upgrade.url}).`
+      : `- This version has optional upgrade steps; see the [upgrade guide](${upgrade.url}).`);
   }
   return `${lines.join("\n")}\n`;
 }

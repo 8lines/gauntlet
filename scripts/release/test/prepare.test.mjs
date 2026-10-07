@@ -74,8 +74,12 @@ test("a dashboard-only change prepares the application and the skills archive wi
       { id: "gauntlet", from: "0.1.8", to: "0.1.9", bump: "patch", cascaded: false },
       { id: "skills", from: "0.1.8", to: "0.1.9", bump: "patch", cascaded: true },
     ],
-    order: ["gauntlet", "skills"], changes: ["sidebar.md"], composerLocks: [],
+    order: ["gauntlet", "skills"], changes: ["sidebar.md"],
+    upgradeGuides: ["docs/upgrades/gauntlet/0.1.9.md", "docs/upgrades/skills/0.1.9.md"], composerLocks: [],
   });
+  assert.match(readFileSync(join(root, "docs/upgrades/gauntlet/0.1.9.md"), "utf8"),
+    /^---\nunit: gauntlet\nfrom: 0\.1\.8\nto: 0\.1\.9\ndate: 2026-10-04\naction: none\n---\n[\s\S]*- Fixed: Sidebar keeps its width\.\n\n## Steps\n\nNo action is required\.\n/u);
+  assert.match(readFileSync(join(root, "docs/upgrades/skills/0.1.9.md"), "utf8"), /- Changed: Updated `gauntlet` to 0\.1\.9\./u);
   assert.equal(readUnitVersion(root, "gauntlet"), "0.1.9");
   assert.equal(readUnitVersion(root, "skills"), "0.1.9");
   assert.equal(readUnitVersion(root, "protocol"), "0.1.8");
@@ -129,6 +133,33 @@ test("a php-core release re-pins Composer and moves the bundle and its constrain
   assert.deepEqual(JSON.parse(readFileSync(join(root, "examples/symfony/composer.json"), "utf8")).require, {
     "8lines/gauntlet-php-core": "^0.1.9", "8lines/gauntlet-symfony-bundle": "^0.1.9",
   });
+});
+
+test("upgrade steps become the unit's upgrade guide, linked from its changelog section", async (t) => {
+  const pins = "---\ntype: added\nunits:\n  gauntlet: patch\nupgrade: optional\n---\nPins are stored.\n\n## Upgrade\n\nSet `GAUNTLET_DATA_DIR`.\n";
+  const root = repository(t, { "pinned-operations.md": pins, "sidebar.md": change({ gauntlet: "patch" }) });
+  const { repinComposer, rebind } = recorder();
+  await prepareRelease({ root, now: NOW, readTags: () => baselineTags(), repinComposer, rebind });
+  const guide = readFileSync(join(root, "docs/upgrades/gauntlet/0.1.9.md"), "utf8");
+  assert.match(guide, /^action: optional$/mu);
+  assert.match(guide, /## Steps\n\n### Pinned operations \(optional\)\n\nSet `GAUNTLET_DATA_DIR`\.\n\n## Verify/u);
+  assert.match(readFileSync(join(root, "CHANGELOG.md"), "utf8"),
+    /- Sidebar keeps its width\.\n\n### Upgrade\n\n- This version has optional upgrade steps; see the \[upgrade guide\]\(https:\/\/github\.com\/8lines\/gauntlet\/blob\/v0\.1\.9\/docs\/upgrades\/gauntlet\/0\.1\.9\.md\)\.\n\n## \[0\.1\.8\]/u);
+  assert.doesNotMatch(readFileSync(join(root, "skills/CHANGELOG.md"), "utf8"), /### Upgrade/u);
+  assert.match(readFileSync(join(root, "docs/upgrades/skills/0.1.9.md"), "utf8"), /^action: none$/mu);
+});
+
+test("an existing upgrade guide for the new version is refused before anything is written", async (t) => {
+  const root = repository(t, { "sidebar.md": change({ gauntlet: "patch" }) });
+  mkdirSync(join(root, "docs/upgrades/skills"), { recursive: true });
+  writeFileSync(join(root, "docs/upgrades/skills/0.1.9.md"), "early\n");
+  git(root, "add", "-A");
+  git(root, "commit", "-m", "early guide");
+  const { calls, repinComposer, rebind } = recorder();
+  await assert.rejects(prepareRelease({ root, now: NOW, readTags: () => baselineTags(), repinComposer, rebind }),
+    /^Error: docs\/upgrades\/skills\/0\.1\.9\.md: upgrade guide already exists$/u);
+  assert.equal(status(root), "");
+  assert.deepEqual(calls, { repin: [], rebind: [] });
 });
 
 test("refuses unsafe starting points and leaves the tree untouched", async (t) => {
@@ -204,6 +235,7 @@ test("a failure after the first write restores every tracked file and keeps the 
   assert.equal(status(root), "");
   assert.equal(existsSync(join(root, ".changes/sidebar.md")), true);
   assert.equal(existsSync(join(root, ".release")), false);
+  assert.equal(existsSync(join(root, "docs/upgrades")), false);
   assert.equal(readUnitVersion(root, "gauntlet"), "0.1.8");
 });
 

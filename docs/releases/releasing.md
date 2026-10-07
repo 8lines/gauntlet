@@ -119,7 +119,10 @@ whose changelog says "Updated `<unit>` to X.Y.Z." for each released dependency.
    when Composer changed nothing but the Gauntlet path packages and the content
    hash;
 3. inserts a dated section into each released unit's `CHANGELOG.md` below its
-   empty `## Unreleased` heading;
+   empty `## Unreleased` heading, and writes the unit's upgrade guide
+   `docs/upgrades/<unit>/<version>.md` from the change files' `## Upgrade`
+   sections (a guide without steps says no action is required); a section of a
+   version with upgrade steps links its guide at the unit's release tag;
 4. records the released units' contracts in `docs/reference/compatibility.md`;
 5. deletes the consumed change files and writes `.release/plan.json` with the
    units, their from and to versions, the dependency order and the consumed
@@ -135,13 +138,14 @@ On any failure it restores every tracked file and removes the files it created,
 so the branch is as it was. It refuses to start on `main` or a detached
 `HEAD`, with modified tracked files, with uncommitted change files, without
 change files, with only `none` change files, when a changelog has hand-written
-entries under `## Unreleased` or already has a section for the new version
-(every changelog is checked before anything is written or Docker runs), when a
+entries under `## Unreleased` or already has a section for the new version, or
+an upgrade guide for the new version already exists (every changelog is checked
+before anything is written or Docker runs, and so is every guide), when a
 unit is not at its latest tag (fetch the tags, or release the plan that is
 already prepared), and when the plan would release a package that implements a
 contract major the released application does not support.
 
-Review `git status`, the changelog sections and `.release/plan.json`, commit
+Review `git status`, the changelog sections, the upgrade guides and `.release/plan.json`, commit
 everything as one release pull request and let CI rehearse it: for a pull
 request that changes `.release/plan.json`, the `release-metadata` job runs
 `node scripts/release/plan.mjs --check` and `pnpm release:dry-run --plan

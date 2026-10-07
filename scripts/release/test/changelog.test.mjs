@@ -27,6 +27,18 @@ test("renders a Keep a Changelog section with types in the conventional order", 
   assert.throws(() => renderChangelogSection({ version: "0.2.0", date: "04.10.2026", entries: [{ type: "fixed", text: "X." }] }), /Changelog section is invalid/u);
 });
 
+test("a version with upgrade steps links its upgrade guide in an Upgrade subsection", () => {
+  const url = "https://github.com/8lines/gauntlet/blob/v0.2.1/docs/upgrades/gauntlet/0.2.1.md";
+  const entries = [{ type: "added", text: "Added a thing." }];
+  assert.equal(renderChangelogSection({ version: "0.2.1", date: "2026-10-07", entries, upgrade: { action: "optional", url } }),
+    `## [0.2.1] - 2026-10-07\n\n### Added\n\n- Added a thing.\n\n### Upgrade\n\n- This version has optional upgrade steps; see the [upgrade guide](${url}).\n`);
+  assert.match(renderChangelogSection({ version: "0.2.1", date: "2026-10-07", entries, upgrade: { action: "required", url } }),
+    /- This version has required upgrade steps; follow the \[upgrade guide\]/u);
+  for (const upgrade of [{ action: "none", url }, { action: "optional", url: "docs/upgrades/gauntlet/0.2.1.md" }]) {
+    assert.throws(() => renderChangelogSection({ version: "0.2.1", date: "2026-10-07", entries, upgrade }), /Changelog section is invalid/u);
+  }
+});
+
 test("inserts the new section right below an empty Unreleased heading", () => {
   const section = renderChangelogSection({ version: "0.1.9", date: "2026-10-04", entries: [{ type: "fixed", text: "Fixed a thing." }] });
   const root = "# Changelog\n\nIntro.\n\n## Unreleased\n\n## [0.1.8] - 2026-10-03\n\n### Added\n\n- Old.\n";

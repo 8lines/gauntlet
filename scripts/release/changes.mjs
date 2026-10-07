@@ -14,6 +14,9 @@ import { RELEASE_UNITS, dependencyOrder, dependentsOf, unitById } from "./units.
 export const CHANGES_DIRECTORY = ".changes";
 export const CHANGE_TYPES = Object.freeze(["added", "changed", "fixed", "removed", "security"]);
 export const BUMPS = Object.freeze(["none", "patch", "minor", "major"]);
+export const UPGRADE_ACTIONS = Object.freeze(["required", "optional"]);
+const UPGRADE_HEADING = /^## Upgrade[ \t]*$/mu;
+const MAX_UPGRADE_CHARACTERS = 8000;
 const RANK = Object.freeze({ none: 0, patch: 1, minor: 2, major: 3 });
 const FRONT_MATTER = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/u;
 const MAX_CHANGE_BYTES = 16 * 1024;
@@ -54,8 +57,8 @@ export function parseChangeFile(name, source) {
   } catch {
     fail("front matter is not valid YAML");
   }
-  if (data === null || typeof data !== "object" || Array.isArray(data)
-      || Object.keys(data).sort().join(",") !== "type,units") fail("front matter must contain exactly type and units");
+  const keys = data === null || typeof data !== "object" || Array.isArray(data) ? null : Object.keys(data).sort().join(",");
+  if (keys !== "type,units" && keys !== "type,units,upgrade") fail("front matter must contain exactly type and units, and optionally upgrade");
   if (!CHANGE_TYPES.includes(data.type)) fail(`type must be one of ${CHANGE_TYPES.join(", ")}`);
   const { units } = data;
   if (units === null || typeof units !== "object" || Array.isArray(units) || Object.keys(units).length === 0) {
@@ -65,17 +68,35 @@ export function parseChangeFile(name, source) {
     if (!UNIT_IDS.has(id)) fail(`unknown release unit ${id}`);
     if (!BUMPS.includes(bump)) fail(`unit ${id} bump must be one of ${BUMPS.join(", ")}`);
   }
-  const body = match[2].trim();
+  if (Object.hasOwn(data, "upgrade") && !UPGRADE_ACTIONS.includes(data.upgrade)) {
+    fail(`upgrade must be one of ${UPGRADE_ACTIONS.join(", ")}`);
+  }
+  const [sentence, ...sections] = match[2].split(UPGRADE_HEADING);
+  if (sections.length > 1) fail("the body may hold only one ## Upgrade section");
+  const body = sentence.trim();
   if (body === "") fail("the body must hold the changelog sentence");
   if (/\n\s*\n/u.test(body)) fail("the body must be one paragraph");
   if (body.includes("—")) fail("the body must not contain an em dash");
   if (!/^[A-Z`]/u.test(body)) fail("the body must start in sentence case");
   if (body.length > 1000) fail("the body is longer than 1000 characters");
+  let upgrade = null;
+  if (sections.length === 1) {
+    if (!Object.hasOwn(data, "upgrade")) fail("an ## Upgrade section needs upgrade: required or optional in the front matter");
+    const text = sections[0].trim();
+    if (text === "") fail("the ## Upgrade section must hold the upgrade steps");
+    if (text.includes("—")) fail("the ## Upgrade section must not contain an em dash");
+    if (/^#{1,3}[ \t]/mu.test(text)) fail("the ## Upgrade section may only use headings of level 4 or lower");
+    if (text.length > MAX_UPGRADE_CHARACTERS) fail(`the ## Upgrade section is longer than ${MAX_UPGRADE_CHARACTERS} characters`);
+    upgrade = Object.freeze({ action: data.upgrade, text });
+  } else if (Object.hasOwn(data, "upgrade")) {
+    fail("upgrade in the front matter needs an ## Upgrade section with the steps");
+  }
   return Object.freeze({
     name,
     type: data.type,
     units: Object.freeze(Object.fromEntries(RELEASE_UNITS.filter(({ id }) => Object.hasOwn(units, id)).map(({ id }) => [id, units[id]]))),
     body: body.split("\n").map((line) => line.trim()).join(" "),
+    upgrade,
   });
 }
 
@@ -149,11 +170,15 @@ export function computeRelease({ versions, changes }) {
   if (changes.length === 0) throw new Error("Release preparation found no change files in .changes");
   const bumps = new Map();
   const own = new Map();
+  const upgrades = new Map();
   for (const change of changes) {
     for (const [id, bump] of Object.entries(change.units)) {
       if (bump === "none") continue;
       if (RANK[bump] > RANK[bumps.get(id) ?? "none"]) bumps.set(id, bump);
       own.set(id, [...(own.get(id) ?? []), Object.freeze({ type: change.type, text: change.body })]);
+      if (change.upgrade !== null) {
+        upgrades.set(id, [...(upgrades.get(id) ?? []), Object.freeze({ name: change.name, ...change.upgrade })]);
+      }
     }
   }
   if (bumps.size === 0) {
@@ -177,6 +202,7 @@ export function computeRelease({ versions, changes }) {
       bump: bumps.get(id),
       cascaded: !own.has(id),
       entries: Object.freeze([...(own.get(id) ?? []), ...updates]),
+      upgrades: Object.freeze(upgrades.get(id) ?? []),
     });
   });
   return Object.freeze({ units: Object.freeze(units), consumed: Object.freeze(changes.map(({ name }) => name).sort()) });
@@ -253,6 +279,39 @@ export function evaluateChangeCoverage({ diff, changeFiles, plan = null, movedUn
   });
 }
 
+// Operator settings whose addition needs upgrade steps: the documented server environment variables
+// and the chart's top-level values.
+export const OPERATOR_SETTING_SOURCES = Object.freeze([
+  Object.freeze({ path: "apps/server/README.md", kind: "environment variable", read: (source) => matches(source, /^\| `(GAUNTLET_[A-Z0-9_]+)` \|/gmu) }),
+  Object.freeze({ path: "deploy/helm/gauntlet/values.yaml", kind: "Helm value", read: (source) => matches(source, /^([A-Za-z][A-Za-z0-9]*):/gmu) }),
+]);
+
+function matches(source, pattern) {
+  return new Set([...source.matchAll(pattern)].map((match) => match[1]));
+}
+
+export function addedOperatorSettings({ diff, readBase, readHead }) {
+  const added = [];
+  for (const { path, kind, read } of OPERATOR_SETTING_SOURCES) {
+    const change = diff.find((entry) => entry.path === path);
+    if (change === undefined || change.status === "D") continue;
+    const before = change.status === "A" ? new Set() : read(readBase(path));
+    for (const setting of read(readHead(path))) if (!before.has(setting)) added.push(Object.freeze({ path, kind, setting }));
+  }
+  return Object.freeze(added);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+export function evaluateUpgradeCoverage({ added, changeFiles }) {
+  const texts = changeFiles.flatMap(({ upgrade }) => (upgrade === null ? [] : [upgrade.text]));
+  return Object.freeze(added
+    .filter(({ setting }) => !texts.some((text) => new RegExp(`\`${escapeRegExp(setting)}(?![A-Za-z0-9_])`, "u").test(text)))
+    .map(({ path, kind, setting }) => `${path}: new ${kind} ${setting} needs upgrade steps; name \`${setting}\` in the ## Upgrade section of a change file`));
+}
+
 export function parseChangesArguments(argv) {
   if (!Array.isArray(argv) || argv.some((value) => typeof value !== "string")) throw new TypeError(USAGE);
   if (argv.length === 1 && argv[0] === "--check") return Object.freeze({ base: "origin/main" });
@@ -304,23 +363,21 @@ export function runChangesCli(argv, { root = ROOT, git = defaultGit(root) } = {}
     }
     const planChanged = diff.some(({ status, path }) => path === RELEASE_PLAN_PATH && status !== "D");
     const plan = planChanged ? readReleasePlan(root) : null;
-    const movedUnits = movedPlannedUnits({
-      plan,
-      diff,
-      readBase: (path) => {
-        const shown = git(["show", `${base}:${path}`]);
-        if (shown.status !== 0) throw new Error("missing");
-        return shown.stdout;
-      },
-      readHead: (path) => {
-        const absolute = resolve(root, path);
-        const stat = lstatSync(absolute);
-        if (!stat.isFile() || stat.nlink !== 1 || stat.size > MAX_MANIFEST_BYTES) throw new Error("unreadable");
-        return readFileSync(absolute, "utf8");
-      },
-    });
+    const readBase = (path) => {
+      const shown = git(["show", `${base}:${path}`]);
+      if (shown.status !== 0) throw new Error("missing");
+      return shown.stdout;
+    };
+    const readHead = (path) => {
+      const absolute = resolve(root, path);
+      const stat = lstatSync(absolute);
+      if (!stat.isFile() || stat.nlink !== 1 || stat.size > MAX_MANIFEST_BYTES) throw new Error("unreadable");
+      return readFileSync(absolute, "utf8");
+    };
+    const movedUnits = movedPlannedUnits({ plan, diff, readBase, readHead });
     const coverage = evaluateChangeCoverage({ diff, changeFiles, plan, movedUnits });
     problems.push(...coverage.problems);
+    problems.push(...evaluateUpgradeCoverage({ added: addedOperatorSettings({ diff, readBase, readHead }), changeFiles }));
     const ok = problems.length === 0;
     return {
       exitCode: ok ? 0 : 1,

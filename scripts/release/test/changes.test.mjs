@@ -5,7 +5,10 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 
-import { computeRelease, isOwnedBy, nextVersion, parseChangeFile, readChangeFiles, runChangesCli } from "../changes.mjs";
+import {
+  addedOperatorSettings, computeRelease, evaluateUpgradeCoverage, isOwnedBy, nextVersion, parseChangeFile, readChangeFiles,
+  runChangesCli,
+} from "../changes.mjs";
 import { createReleasePlan, serializeReleasePlan } from "../plan.mjs";
 import { RELEASE_TEXT_FILES } from "../release-model.mjs";
 import { RELEASE_UNITS, unitById } from "../units.mjs";
@@ -21,12 +24,43 @@ function change(name, type, units, body = "A user-facing sentence.") {
 test("parses the documented change file format", () => {
   assert.deepEqual(parseChangeFile("deadline.md", SPEC_EXAMPLE), {
     name: "deadline.md", type: "added", units: { gauntlet: "patch", protocol: "minor" },
-    body: "Run requests accept an optional deadline.",
+    body: "Run requests accept an optional deadline.", upgrade: null,
   });
   assert.equal(
     parseChangeFile("wrapped.md", "---\ntype: fixed\nunits:\n  widget: patch\n---\nA sentence that\nwraps lines.\n").body,
     "A sentence that wraps lines.",
   );
+});
+
+const UPGRADE_EXAMPLE = "---\ntype: added\nunits:\n  gauntlet: patch\nupgrade: optional\n---\nPins are stored.\n\n## Upgrade\n\nSet `GAUNTLET_DATA_DIR` to keep pins.\n\n#### Helm\n\nSet `persistence.enabled`.\n";
+
+test("an optional ## Upgrade section carries the operator's upgrade steps and their action", () => {
+  assert.deepEqual(parseChangeFile("pins.md", UPGRADE_EXAMPLE), {
+    name: "pins.md", type: "added", units: { gauntlet: "patch" }, body: "Pins are stored.",
+    upgrade: { action: "optional", text: "Set `GAUNTLET_DATA_DIR` to keep pins.\n\n#### Helm\n\nSet `persistence.enabled`." },
+  });
+  const front = (upgrade) => `---\ntype: changed\nunits:\n  gauntlet: patch\n${upgrade === undefined ? "" : `upgrade: ${upgrade}\n`}---\n`;
+  const cases = [
+    [`${front("required")}Renamed.\n`, /upgrade in the front matter needs an ## Upgrade section/u],
+    [`${front()}Renamed.\n\n## Upgrade\n\nRename it.\n`, /needs upgrade: required or optional/u],
+    [`${front("soon")}Renamed.\n\n## Upgrade\n\nRename it.\n`, /upgrade must be one of required, optional/u],
+    [`${front("required")}Renamed.\n\n## Upgrade\n\n`, /must hold the upgrade steps/u],
+    [`${front("required")}Renamed.\n\n## Upgrade\n\nA \u2014 B.\n`, /Upgrade section must not contain an em dash/u],
+    [`${front("required")}Renamed.\n\n## Upgrade\n\n### Helm\n\nRename it.\n`, /headings of level 4 or lower/u],
+    [`${front("required")}Renamed.\n\n## Upgrade\n\nOne.\n\n## Upgrade\n\nTwo.\n`, /only one ## Upgrade section/u],
+    [`${front("required")}Renamed.\n\n## Upgrade\n\n${"x".repeat(8001)}\n`, /longer than 8000 characters/u],
+    [`${front("required")}\n## Upgrade\n\nRename it.\n`, /changelog sentence/u],
+  ];
+  for (const [source, pattern] of cases) assert.throws(() => parseChangeFile("a.md", source), pattern, JSON.stringify(source));
+});
+
+test("a release carries each unit's upgrade steps from the change files that release it", () => {
+  const pins = parseChangeFile("pins.md", UPGRADE_EXAMPLE);
+  const release = computeRelease({ versions: BASE, changes: [pins, change("fix.md", "fixed", { gauntlet: "patch" })] });
+  assert.deepEqual(release.units.map(({ id, upgrades }) => [id, upgrades]), [
+    ["gauntlet", [{ name: "pins.md", action: "optional", text: pins.upgrade.text }]],
+    ["skills", []],
+  ]);
 });
 
 test("rejects every malformed change file with the file name and the reason", () => {
@@ -80,8 +114,8 @@ test("bumps apply literally under semver", () => {
 test("a dashboard-only change releases the application and the skills archive", () => {
   const release = computeRelease({ versions: BASE, changes: [change("sidebar.md", "fixed", { gauntlet: "patch" }, "Sidebar keeps its width.")] });
   assert.deepEqual(release.units, [
-    { id: "gauntlet", from: "0.1.8", to: "0.1.9", bump: "patch", cascaded: false, entries: [{ type: "fixed", text: "Sidebar keeps its width." }] },
-    { id: "skills", from: "0.1.8", to: "0.1.9", bump: "patch", cascaded: true, entries: [{ type: "changed", text: "Updated `gauntlet` to 0.1.9." }] },
+    { id: "gauntlet", from: "0.1.8", to: "0.1.9", bump: "patch", cascaded: false, entries: [{ type: "fixed", text: "Sidebar keeps its width." }], upgrades: [] },
+    { id: "skills", from: "0.1.8", to: "0.1.9", bump: "patch", cascaded: true, entries: [{ type: "changed", text: "Updated `gauntlet` to 0.1.9." }], upgrades: [] },
   ]);
   assert.deepEqual(release.consumed, ["sidebar.md"]);
 });
@@ -127,7 +161,7 @@ test("the highest bump wins across change files, none never releases, and none a
   ] });
   assert.deepEqual(release.units, [{
     id: "widget", from: "0.1.8", to: "0.2.0", bump: "minor", cascaded: false,
-    entries: [{ type: "fixed", text: "Fixed the button." }, { type: "added", text: "Added a command." }],
+    entries: [{ type: "fixed", text: "Fixed the button." }, { type: "added", text: "Added a command." }], upgrades: [],
   }]);
   assert.deepEqual(release.consumed, ["a.md", "b.md", "c.md"]);
   assert.throws(
@@ -332,4 +366,44 @@ test("a symlinked change file is refused without being read, and a BOM-prefixed 
   assert.equal(result.exitCode, 1);
   assert.equal(result.problems.some((problem) => /Change file bom\.md: must start with --- front matter/u.test(problem)), true);
   assert.equal(JSON.stringify(result.problems).includes(bom), false);
+});
+
+test("a new environment variable or top-level Helm value needs upgrade steps naming it", (t) => {
+  const root = repository(t);
+  write(root, "apps/server/README.md", "| Variable | Default |\n| --- | --- |\n| `GAUNTLET_HOST` | `0.0.0.0` |\n");
+  write(root, "deploy/helm/gauntlet/values.yaml", "image:\n  tag: \"\"\n");
+  write(root, ".changes/base-settings.md", changeSource({ gauntlet: "none" }, "changed"));
+  commit(root);
+  git(root, "switch", "main");
+  git(root, "merge", "--ff-only", "topic");
+  git(root, "switch", "topic");
+  write(root, "apps/server/README.md", "| Variable | Default |\n| --- | --- |\n| `GAUNTLET_HOST` | `0.0.0.0` |\n| `GAUNTLET_DATA_DIR` | unset |\n");
+  write(root, "deploy/helm/gauntlet/values.yaml", "image:\n  tag: \"\"\npersistence:\n  enabled: false\n");
+  write(root, ".changes/pins.md", changeSource({ gauntlet: "patch" }, "added"));
+  commit(root);
+  assert.deepEqual(check(root).problems, [
+    "apps/server/README.md: new environment variable GAUNTLET_DATA_DIR needs upgrade steps; name `GAUNTLET_DATA_DIR` in the ## Upgrade section of a change file",
+    "deploy/helm/gauntlet/values.yaml: new Helm value persistence needs upgrade steps; name `persistence` in the ## Upgrade section of a change file",
+  ]);
+  write(root, ".changes/pins.md", "---\ntype: added\nunits:\n  gauntlet: patch\nupgrade: optional\n---\nPins.\n\n## Upgrade\n\nSet `GAUNTLET_DATA_DIR`; on Helm set `persistence.enabled`.\n");
+  commit(root);
+  assert.deepEqual([check(root).exitCode, check(root).problems], [0, []]);
+});
+
+test("operator settings are compared with the base, and a name counts only as a code span", () => {
+  const base = { "apps/server/README.md": "| `GAUNTLET_HOST` | x |\n", "deploy/helm/gauntlet/values.yaml": "image:\n" };
+  const head = { "apps/server/README.md": "| `GAUNTLET_HOST` | x |\n| `GAUNTLET_DATA_DIR` | y |\nSee `GAUNTLET_OTHER`.\n", "deploy/helm/gauntlet/values.yaml": "image:\n  persistence: 1\n" };
+  const added = addedOperatorSettings({
+    diff: [{ status: "M", path: "apps/server/README.md" }, { status: "M", path: "deploy/helm/gauntlet/values.yaml" }],
+    readBase: (path) => base[path],
+    readHead: (path) => head[path],
+  });
+  assert.deepEqual(added, [{ path: "apps/server/README.md", kind: "environment variable", setting: "GAUNTLET_DATA_DIR" }]);
+  const upgrade = (text) => [{ upgrade: { action: "optional", text } }];
+  assert.equal(evaluateUpgradeCoverage({ added, changeFiles: upgrade("Set GAUNTLET_DATA_DIR.") }).length, 1);
+  assert.equal(evaluateUpgradeCoverage({ added, changeFiles: upgrade("Set `GAUNTLET_DATA_DIRECTORY`.") }).length, 1);
+  assert.equal(evaluateUpgradeCoverage({ added, changeFiles: upgrade("Set `GAUNTLET_DATA_DIR=/data`.") }).length, 0);
+  assert.equal(evaluateUpgradeCoverage({ added, changeFiles: [{ upgrade: null }] }).length, 1);
+  const created = addedOperatorSettings({ diff: [{ status: "A", path: "apps/server/README.md" }], readBase: () => { throw new Error("no base"); }, readHead: (path) => head[path] });
+  assert.deepEqual(created.map(({ setting }) => setting), ["GAUNTLET_HOST", "GAUNTLET_DATA_DIR"]);
 });
