@@ -56,7 +56,8 @@ export interface ManifestService {
   snapshot(id: string): TargetSnapshot | undefined;
   listTargets(): Promise<readonly TargetSnapshot[]>;
   checkRequirements(requirements?: ProtocolRequirements): RequirementCheck;
-  requireCompatibleTarget(id: string): Promise<CompatibleTargetResult>;
+  /** `fresh` skips the reuse of a recent online snapshot and asks the adapter again. */
+  requireCompatibleTarget(id: string, options?: { readonly fresh?: boolean }): Promise<CompatibleTargetResult>;
 }
 
 export interface ManifestServiceOptions {
@@ -64,6 +65,13 @@ export interface ManifestServiceOptions {
   readonly client: AdapterClient;
   readonly store: GauntletStore;
   readonly clock?: () => Date;
+  /**
+   * How long an online snapshot is reused by `listTargets` and `requireCompatibleTarget` before the
+   * adapter is asked again (health and manifest). `refresh` always asks. 0 turns reuse off.
+   */
+  readonly maxAgeMs?: number;
+  /** Monotonic milliseconds for `maxAgeMs`; `performance.now` by default. */
+  readonly now?: () => number;
   readonly supportedProfiles?: readonly ProfileId[];
   readonly supportedCapabilities?: readonly CapabilityId[];
 }
@@ -104,8 +112,17 @@ function isUnavailable(problemDocument: Problem): boolean {
     && problemDocument.type === "urn:gauntlet:problem:adapter-unavailable";
 }
 
+export const DEFAULT_MANIFEST_MAX_AGE_MS = 5_000;
+
 export function createManifestService(options: ManifestServiceOptions): ManifestService {
   const clock = options.clock ?? (() => new Date());
+  const maxAgeMs = options.maxAgeMs ?? DEFAULT_MANIFEST_MAX_AGE_MS;
+  if (!Number.isFinite(maxAgeMs) || maxAgeMs < 0) {
+    throw new TypeError("maxAgeMs must be a non-negative finite number");
+  }
+  const now = options.now ?? (() => performance.now());
+  /** The last refresh of each target, kept only while it was online. */
+  const recent = new Map<string, { readonly snapshot: TargetSnapshot; readonly at: number }>();
   const supportedProfiles = new Set(options.supportedProfiles ?? DEFAULT_PROFILES);
   const supportedCapabilities = new Set(options.supportedCapabilities ?? DEFAULT_CAPABILITIES);
   const etags = new Map<string, string>();
@@ -213,13 +230,32 @@ export function createManifestService(options: ManifestServiceOptions): Manifest
     if (existing !== undefined) {
       return existing;
     }
-    const request = performRefresh(target).finally(() => {
+    const request = performRefresh(target).then((snapshot) => {
+      if (snapshot.state === "online") {
+        recent.set(id, { snapshot, at: now() });
+      } else {
+        recent.delete(id);
+      }
+      return snapshot;
+    }, (error: unknown) => {
+      recent.delete(id);
+      throw error;
+    }).finally(() => {
       if (inFlight.get(id) === request) {
         inFlight.delete(id);
       }
     });
     inFlight.set(id, request);
     return request;
+  };
+
+  /** A recent online snapshot when there is one, otherwise a refresh. */
+  const currentInternal = (id: string): Promise<TargetSnapshot> => {
+    const entry = recent.get(id);
+    if (entry !== undefined && now() - entry.at < maxAgeMs) {
+      return Promise.resolve(entry.snapshot);
+    }
+    return refreshInternal(id);
   };
 
   const service: ManifestService = {
@@ -234,7 +270,7 @@ export function createManifestService(options: ManifestServiceOptions): Manifest
 
     async listTargets(): Promise<readonly TargetSnapshot[]> {
       const targets = options.registry.list();
-      const results = await Promise.allSettled(targets.map(async (target) => await service.refresh(target.id)));
+      const results = await Promise.allSettled(targets.map(async (target) => publicSnapshot(await currentInternal(target.id))));
       return Object.freeze(results.map((result, index) => {
         if (result.status === "fulfilled") {
           return result.value;
@@ -257,14 +293,14 @@ export function createManifestService(options: ManifestServiceOptions): Manifest
       return { ok: true };
     },
 
-    async requireCompatibleTarget(id: string): Promise<CompatibleTargetResult> {
+    async requireCompatibleTarget(id: string, requireOptions?: { readonly fresh?: boolean }): Promise<CompatibleTargetResult> {
       const target = options.registry.get(id);
       if (target === undefined) {
         return { ok: false, problem: UNKNOWN_TARGET };
       }
       let snapshot: TargetSnapshot;
       try {
-        snapshot = await refreshInternal(id);
+        snapshot = await (requireOptions?.fresh === true ? refreshInternal(id) : currentInternal(id));
       } catch {
         snapshot = safeUnexpected(target);
       }

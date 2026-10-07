@@ -198,6 +198,13 @@ function projectionIsValid(previous: Run, incoming: Run): boolean {
 
 export function createRunProxyService(options: RunProxyServiceOptions): RunProxyService {
   const clock = options.clock ?? (() => new Date());
+  /**
+   * The last definition read per target and operation. A revision is the hash of the definition,
+   * so one at the manifest's revision is not read from the adapter again; it is still checked
+   * against the manifest like a fresh one.
+   */
+  const definitions = new Map<string, OperationDefinition>();
+  const definitionKey = (targetId: string, operationId: string) => `${targetId}\u0000${operationId}`;
 
   const readStoredRun = (
     targetId: string,
@@ -300,11 +307,16 @@ export function createRunProxyService(options: RunProxyServiceOptions): RunProxy
       return summarySupport;
     }
 
-    const result = await options.client.getOperation(compatible.target, operationId);
-    if (!result.ok) {
-      return { ok: false, problem: result.problem };
+    const key = definitionKey(compatible.target.id, operationId);
+    let definition = definitions.get(key);
+    if (definition?.revision !== summary.revision) {
+      const result = await options.client.getOperation(compatible.target, operationId);
+      if (!result.ok) {
+        return { ok: false, problem: result.problem };
+      }
+      definition = result.value;
+      if (definitionMatchesSummary(definition, summary)) definitions.set(key, definition);
     }
-    const definition = result.value;
     if (!definitionMatchesSummary(definition, summary)
       || !declaredByManifest(definition, compatible.manifest)) {
       return { ok: false, problem: INVALID_RESPONSE };
@@ -394,7 +406,16 @@ export function createRunProxyService(options: RunProxyServiceOptions): RunProxy
       if (!compatible.ok) {
         return compatible;
       }
-      return await resolveCompatibleOperation(compatible, operationId);
+      const resolved = await resolveCompatibleOperation(compatible, operationId);
+      if (resolved.ok || resolved.problem !== INVALID_RESPONSE) {
+        return resolved;
+      }
+      // The reused manifest may predate a change to this operation: ask the adapter again, once.
+      const refreshed = await options.manifests.requireCompatibleTarget(targetId, { fresh: true });
+      if (!refreshed.ok) {
+        return refreshed;
+      }
+      return await resolveCompatibleOperation(refreshed, operationId);
     },
 
     async create(targetId: string, operationId: string, request: unknown, actor?: RunActor): Promise<ClientResult<Run>> {

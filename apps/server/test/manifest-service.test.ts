@@ -421,6 +421,8 @@ test("every public manifest projection has canonical identity while raw LKG iden
     }),
     store: testStore,
     clock: () => new Date("2026-08-29T12:00:00.123Z"),
+    // Every call below has to reach the adapter to show the ETag it sends.
+    maxAgeMs: 0,
   });
 
   const refreshed = await manifestService.refresh("acme");
@@ -517,4 +519,57 @@ test("an unexpected client throw is isolated to its target during listing", asyn
     ["online", "online"],
   ]);
   assert.equal(JSON.stringify(snapshots).includes("sensitive"), false);
+});
+
+test("listing and compatibility checks reuse a recent online snapshot; refresh always asks", async () => {
+  let healthCalls = 0;
+  let time = 0;
+  const manifestService = createManifestService({
+    registry: registry(["acme"]),
+    client: client({ health: async () => { healthCalls += 1; return { ok: true, value: health }; } }),
+    store: createInMemoryGauntletStore(),
+    maxAgeMs: 1_000,
+    now: () => time,
+  });
+
+  assert.equal((await manifestService.listTargets())[0]?.state, "online");
+  assert.equal(healthCalls, 1);
+  time = 999;
+  assert.equal((await manifestService.listTargets())[0]?.state, "online");
+  assert.equal((await manifestService.requireCompatibleTarget("acme")).ok, true);
+  assert.equal(healthCalls, 1);
+
+  assert.equal((await manifestService.requireCompatibleTarget("acme", { fresh: true })).ok, true);
+  assert.equal(healthCalls, 2);
+  await manifestService.refresh("acme");
+  assert.equal(healthCalls, 3);
+
+  time = 999 + 1_000;
+  await manifestService.listTargets();
+  assert.equal(healthCalls, 4);
+});
+
+test("a snapshot that is not online is never reused", async () => {
+  let healthCalls = 0;
+  const manifestService = createManifestService({
+    registry: registry(["acme"]),
+    client: client({ health: async () => { healthCalls += 1; return { ok: false, problem: unavailable }; } }),
+    store: createInMemoryGauntletStore(),
+    now: () => 0,
+  });
+
+  assert.equal((await manifestService.listTargets())[0]?.state, "offline");
+  assert.equal((await manifestService.requireCompatibleTarget("acme")).ok, false);
+  assert.equal(healthCalls, 2);
+});
+
+test("a negative or non-finite maxAgeMs is refused", () => {
+  for (const maxAgeMs of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.throws(() => createManifestService({
+      registry: registry(["acme"]),
+      client: client(),
+      store: createInMemoryGauntletStore(),
+      maxAgeMs,
+    }), TypeError);
+  }
 });

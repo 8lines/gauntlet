@@ -751,7 +751,8 @@ test("polling resolves the operation contract and refuses invalid terminal outpu
   assert.equal(result.ok, false);
   if (!result.ok) assert.equal(result.problem.type, "urn:gauntlet:problem:adapter-invalid-response");
   assert.deepEqual(store.getRun(fakeTarget.id, queued.id), queued);
-  assert.equal(countCalls(fake, `/operations/${operation.id}`), 2);
+  // Polling resolves the contract again, but the definition at an unchanged revision is not read twice.
+  assert.equal(countCalls(fake, `/operations/${operation.id}`), 1);
 });
 
 test("polling rejects a terminal state whose fixed Problem does not match", async () => {
@@ -1235,4 +1236,48 @@ test("create records a verified actor in the forwarded invocation context", asyn
   const generatedContext = (generated?.body as { context: Record<string, unknown> }).context;
   assert.deepEqual(generatedContext.actor, actor);
   assert.match(String(generatedContext.requestId), /^gauntlet-[0-9a-f-]{36}$/);
+});
+
+test("a definition at the manifest's revision is read from the adapter once", async () => {
+  const operation = createHappyOperation();
+  const fake = createFakeAdapter({ operation });
+  const { runs } = harness({ fake });
+
+  const first = await runs.resolveOperation(fakeTarget.id, operation.id);
+  const second = await runs.resolveOperation(fakeTarget.id, operation.id);
+
+  assert.equal(first.ok && second.ok, true);
+  if (second.ok) assert.equal(second.definition.revision, operation.revision);
+  assert.equal(countCalls(fake, `/operations/${operation.id}`), 1);
+  // The manifest is reused too while it is recent.
+  assert.equal(countCalls(fake, "/_gauntlet/v1/health"), 1);
+});
+
+test("a definition newer than the reused manifest makes the manifest be read again", async () => {
+  const before = createHappyOperation();
+  const after = structuredClone(before) as OperationDefinition;
+  const mutable = after as unknown as JsonObject & { description: string; revision: string };
+  mutable.description = "Changed after the manifest was read.";
+  mutable.revision = computeRevision(mutable);
+  let current = { manifest: createHappyManifest(before), operation: before };
+  const fake = createFakeAdapter({
+    responseFor: (call) => {
+      if (call.method !== "GET") return undefined;
+      if (call.pathname === "/_gauntlet/v1/manifest") return Response.json(current.manifest);
+      if (call.pathname.endsWith(`/operations/${before.id}`)) return Response.json(current.operation);
+      return undefined;
+    },
+  });
+  const { manifests, runs } = harness({ fake });
+
+  assert.equal((await manifests.listTargets())[0]?.state, "online");
+  current = { manifest: createHappyManifest(after), operation: after };
+  const resolved = await runs.resolveOperation(fakeTarget.id, before.id);
+
+  assert.equal(resolved.ok, true);
+  if (resolved.ok) {
+    assert.equal(resolved.definition.revision, after.revision);
+    assert.equal(resolved.summary.revision, after.revision);
+  }
+  assert.equal(countCalls(fake, "/_gauntlet/v1/manifest"), 2);
 });

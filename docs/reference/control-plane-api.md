@@ -28,6 +28,13 @@ The current public routes are:
 There is intentionally no “fetch any adapter URL”, “execute command”, or
 “proxy arbitrary endpoint” route.
 
+Discovery and operation reads reuse a target's last online snapshot (adapter
+health and manifest) for up to five seconds instead of asking the adapter on
+every request; a target that is not online is always asked again. An operation
+definition is read from the adapter once per revision, because the revision is
+the hash of the definition. When an adapter returns a definition newer than
+the reused manifest, Gauntlet reads the manifest again before answering.
+
 ## Addressing and request bodies
 
 All target, operation, run, data-source and artifact IDs are protocol-safe IDs
