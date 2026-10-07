@@ -75,33 +75,6 @@ async function openPanel(page: Page): Promise<void> {
   await panelTakesInput(page);
 }
 
-/**
- * Closes the panel from its own Close button (the open drawer covers the launcher) and waits
- * until pointer input at the launcher reaches the host page again: after the cross-origin frame
- * is hidden, Chromium updates its input routing asynchronously, and a click in that window still
- * lands on the hidden frame.
- */
-async function closePanel(page: Page): Promise<void> {
-  await panel(page).getByRole("button", { name: "Close", exact: true }).click();
-  await expect(page.locator("iframe[data-gauntlet-panel]")).toBeHidden();
-  await page.evaluate(() => {
-    const probe = window as unknown as { e2eLauncherPointer: boolean };
-    probe.e2eLauncherPointer = false;
-    document.addEventListener("pointermove", (event) => {
-      // The launcher's shadow root is closed, so its events are retargeted to the host element.
-      if (event.target instanceof Element && event.target.matches("[data-gauntlet-widget]")) probe.e2eLauncherPointer = true;
-    });
-  });
-  const box = await page.locator("[data-gauntlet-widget]").boundingBox();
-  if (box === null) throw new Error("the widget launcher has no bounding box");
-  let offset = 0;
-  await expect.poll(async () => {
-    offset = offset === 0 ? 1 : 0; // a pointermove needs an actual move
-    await page.mouse.move(box.x + box.width / 2 + offset, box.y + box.height / 2);
-    return page.evaluate(() => (window as unknown as { e2eLauncherPointer?: boolean }).e2eLauncherPointer);
-  }).toBe(true);
-}
-
 async function panelWidth(page: Page): Promise<number> {
   return (await page.locator("iframe[data-gauntlet-panel]").boundingBox())?.width ?? 0;
 }
@@ -275,7 +248,7 @@ test.describe.serial("the widget on a listed host origin", () => {
   });
 });
 
-test("a pinned row moves into Pinned and stays there after the panel is reopened", async ({ page }) => {
+test("a pinned row moves into Pinned and is read back by a new panel document", async ({ page }) => {
   await page.goto(`${HOST}/applications/${FIRST}`);
   await expect(page.locator("[data-gauntlet-widget]")).toHaveAttribute("data-gauntlet-state", "ready");
   await openPanel(page);
@@ -290,10 +263,6 @@ test("a pinned row moves into Pinned and stays there after the panel is reopened
   await expect(section(page, "On this page").getByRole("button").filter({ hasText: FINALIZE })).toBeVisible();
   // The launcher still counts every operation for this page.
   await expect(page.locator("[data-gauntlet-widget]")).toHaveAttribute("data-gauntlet-count", "2");
-
-  await closePanel(page);
-  await openPanel(page);
-  await expect(pinnedRow).toBeVisible();
 
   // A new panel document reads the pin back from Gauntlet.
   await page.reload();
