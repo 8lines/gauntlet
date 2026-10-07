@@ -44,6 +44,7 @@ const TEMPLATE_FILES = [
   "deployment.yaml",
   "ingress.yaml",
   "networkpolicy.yaml",
+  "persistentvolumeclaim.yaml",
   "service.yaml",
 ];
 

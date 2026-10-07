@@ -1,6 +1,6 @@
 import type { OperationSummary } from "@8lines/gauntlet-protocol";
 import type { PageSubject } from "@8lines/gauntlet-widget-channel";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Pin, PinOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,15 +29,40 @@ export function DashboardLink({ targetId, operationId }: { targetId: string; ope
   );
 }
 
+/** Icon button that pins or unpins an operation, labelled like the dashboard sidebar's action. */
+function PinButton({ label, pinned, onToggle }: { label: string; pinned: boolean; onToggle: () => void }) {
+  return (
+    <TooltipProvider delayDuration={300}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+            aria-label={`${pinned ? "Unpin" : "Pin"} ${label}`}
+            onClick={onToggle}
+          >
+            {pinned ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="left" sideOffset={4}>{pinned ? "Unpin" : "Pin"}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 /**
  * One operation in the panel lists. Unavailable operations stay listed but cannot be opened
  * (same as the dashboard search); the dashboard link still explains why.
  */
-export function OperationRow({ targetId, operation, description, subject, onOpen }: {
+export function OperationRow({ targetId, operation, description, subject, pin, onOpen }: {
   targetId: string;
   operation: OperationSummary;
   description: OperationDescription;
   subject?: PageSubject | undefined;
+  /** Omitted while pins are not loaded: the row then has no pin button. */
+  pin?: { readonly pinned: boolean; readonly onToggle: () => void } | undefined;
   onOpen: () => void;
 }) {
   const available = operation.availability.state === "available";
@@ -71,7 +96,10 @@ export function OperationRow({ targetId, operation, description, subject, onOpen
           <span className="text-[13px]/[18px] text-muted-foreground">{describeProblem(operation.availability.problem).title}</span>
         )}
       </button>
-      <span className="pt-2"><DashboardLink targetId={targetId} operationId={operation.id} /></span>
+      <span className="flex shrink-0 pt-2">
+        {pin !== undefined && <PinButton label={operation.label} pinned={pin.pinned} onToggle={pin.onToggle} />}
+        <DashboardLink targetId={targetId} operationId={operation.id} />
+      </span>
     </li>
   );
 }

@@ -13,6 +13,7 @@ const mainRuntimeKeys = [
   "GAUNTLET_DASHBOARD_DIR",
   "GAUNTLET_WIDGET_DIR",
   "GAUNTLET_AUTH_SECRET",
+  "GAUNTLET_DATA_DIR",
 ] as const;
 const configurationFileKey = "GAUNTLET_CONFIG_FILE";
 const legacySourceKeys = [

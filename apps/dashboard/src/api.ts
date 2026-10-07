@@ -47,7 +47,7 @@ function problemFromResponse(status: number, body: unknown): Problem {
 const UNAUTHENTICATED = "urn:gauntlet:problem:unauthenticated";
 
 /** `cookieOnly` leaves the stored bearer token out, to find out whether the cookie alone is enough. */
-async function request<T>(path: string, init?: RequestInit, options: { readonly cookieOnly?: boolean } = {}): Promise<Result<T>> {
+export async function request<T>(path: string, init?: RequestInit, options: { readonly cookieOnly?: boolean } = {}): Promise<Result<T>> {
   let response: Response;
   const token = options.cookieOnly === true ? undefined : authTokenStore().read();
   try {

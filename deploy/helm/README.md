@@ -111,6 +111,12 @@ resources:
     cpu: "500m"
     memory: 256Mi
 
+persistence:
+  enabled: false
+  size: 1Gi
+  storageClass: ""
+  existingClaim: ""
+
 podAnnotations: {}
 podLabels: {}
 nodeSelector: {}
@@ -188,11 +194,39 @@ so a changed configuration causes a replacement rollout. The Deployment always
 uses one replica and `Recreate`; configuration and image changes therefore have
 an expected interruption.
 
-Run coordination and history are process-local and in-memory. There is no
-persistent volume and no PodDisruptionBudget. Do not scale this Deployment:
-multiple independent replicas cannot preserve execution ownership, cancellation,
-or event-stream guarantees. A restart, rollout, reschedule, rollback, or uninstall
-loses current runs and history.
+Run coordination and history are process-local and in-memory, whether or not
+persistence is enabled. There is no PodDisruptionBudget. Do not scale this
+Deployment: `replicaCount` must stay `1` because multiple independent replicas
+cannot preserve execution ownership, cancellation, or event-stream guarantees,
+and the persistent volume is `ReadWriteOnce`. A restart, rollout, reschedule,
+rollback, or uninstall loses current runs and history.
+
+## Persistence
+
+Gauntlet keeps pinned operations (the operations each user pins per target) in
+a small SQLite database. With the default `persistence.enabled: false` the
+database is in memory: pins are lost whenever the Pod is replaced, and the
+server logs a `GAUNTLET_DATA_EPHEMERAL` warning at startup.
+
+Set `persistence.enabled: true` to keep pins across restarts and rollouts. The
+chart then mounts a `ReadWriteOnce` PersistentVolumeClaim at `/var/lib/gauntlet`
+and sets `GAUNTLET_DATA_DIR=/var/lib/gauntlet`, where the server keeps
+`gauntlet.sqlite`. The root filesystem stays read-only; the Pod's `fsGroup`
+(`1000`) makes the volume writable for the non-root `node` user. The chart
+always uses the `Recreate` strategy, so the old Pod releases the volume before
+the new Pod mounts it.
+
+- `persistence.size` is the requested capacity of the chart-managed claim
+  (default `1Gi`; a binary or decimal Kubernetes quantity such as `5Gi`).
+- `persistence.storageClass` names the StorageClass of the chart-managed claim.
+  The default empty string omits `storageClassName`, so the cluster default
+  StorageClass applies.
+- `persistence.existingClaim` mounts a pre-provisioned `ReadWriteOnce` claim in
+  the release namespace instead of creating one; `size` and `storageClass` are
+  then ignored. Helm never deletes an existing claim.
+
+Only pins are stored on the volume; it holds no credentials. Back it up with the
+platform's normal volume snapshot tooling if pins must survive volume loss.
 
 ## Status, readiness, and logs
 
@@ -258,16 +292,20 @@ helm history gauntlet --namespace acme-staging
 helm rollback gauntlet 3 --namespace acme-staging --wait --timeout 5m
 ```
 
-A rollback replaces the Pod but does not restore process-local run history. It
-also does not recreate or roll back external image secrets, controllers,
+A rollback replaces the Pod but does not restore process-local run history or
+roll back pins stored on a persistent volume. It also does not recreate or roll back external image secrets, controllers,
 certificates, DNS, adapter deployments, ACLs, or other environment infrastructure.
 Verify readiness and all target state again.
 
 ## Uninstall and data loss
 
 Export anything needed for diagnosis before removal. Uninstalling removes the
-release-managed Deployment, Service, ConfigMap, Ingress, and NetworkPolicy. It
-does not delete the namespace or any imagePullSecret you provisioned.
+release-managed Deployment, Service, ConfigMap, Ingress, NetworkPolicy, and
+chart-managed PersistentVolumeClaim; whether the bound volume and its pins are
+deleted follows the StorageClass reclaim policy. It does not delete the
+namespace, any imagePullSecret you provisioned, or a claim referenced by
+`persistence.existingClaim`. Use `existingClaim` when pins must outlive the
+release.
 
 <!-- gauntlet:uninstall -->
 ```sh

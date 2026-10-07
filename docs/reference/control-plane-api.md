@@ -24,6 +24,9 @@ The current public routes are:
 | `POST` | `/api/v1/targets/{targetId}/data-sources/{dataSourceId}/query` | Query one declared data source. |
 | `POST` | `/api/v1/targets/{targetId}/data-sources/{dataSourceId}/resolve` | Resolve stored values in request order. |
 | `POST` | `/api/v1/targets/{targetId}/runs/{runId}/artifacts/{artifactId}/launch` | Mint a validated browser-session URL. |
+| `GET` | `/api/v1/targets/{targetId}/pins` | List the caller's pinned operations on a target. |
+| `PUT` | `/api/v1/targets/{targetId}/pins/{operationId}` | Pin an operation. |
+| `DELETE` | `/api/v1/targets/{targetId}/pins/{operationId}` | Unpin an operation. |
 
 There is intentionally no “fetch any adapter URL”, “execute command”, or
 “proxy arbitrary endpoint” route.
@@ -71,6 +74,28 @@ stream when the downstream client disconnects. Cancellation requires
 Session launch requires a known `browser-launch` artifact, advertised
 `tc-session-launch@1` and a configured `publicUrl`. The server validates the
 returned URL's origin and expiry and returns it without fetching it.
+
+## Pinned operations
+
+Pins belong to the calling principal and one target: each user and API token
+has its own pins, everyone signed in with the shared password shares one set,
+and with authentication disabled everyone shares the `anonymous` set. A pin on
+one target never applies to an operation with the same ID on another target.
+
+`GET` returns `{ "pins": [{ "operationId": "...", "pinnedAt": "..." }] }`,
+oldest first, with `pinnedAt` as an ISO 8601 time. `PUT` and `DELETE` take no
+body and return 204. Both are idempotent: pinning an operation again keeps its
+original `pinnedAt`, and unpinning an operation that is not pinned succeeds.
+An unknown target returns `target-not-found`; the operation ID is not checked
+against the manifest, so a pin stays stored while its operation is missing.
+A principal can pin at most 100 operations per target; the next `PUT` returns
+409 `urn:gauntlet:problem:pin-limit`. A database failure returns 500
+`urn:gauntlet:problem:pins-unavailable`. With authentication enabled, a
+cookie-authenticated `PUT` or `DELETE` must come from Gauntlet's own origin.
+
+Pins are stored in `gauntlet.sqlite` under `GAUNTLET_DATA_DIR`; without it the
+database is in memory and pins are lost on restart. See
+[server configuration](../../apps/server/README.md#runtime-environment).
 
 ## MCP and static dashboard
 

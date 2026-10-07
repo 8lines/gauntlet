@@ -1,9 +1,11 @@
 import { useId, type RefObject } from "react";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Pin, PinOff, Settings } from "lucide-react";
 import type { OperationSummary } from "@8lines/gauntlet-protocol";
 import type { TargetSnapshot } from "../api.ts";
 import type { AuthPrincipal } from "../auth.ts";
 import { navigate, type Route } from "../route.ts";
+import type { Pins } from "../usePins.ts";
+import { cn } from "@/lib/utils";
 import { GauntletMark } from "@/components/gauntlet/GauntletMark";
 import {
   Sidebar,
@@ -14,15 +16,20 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { EnvironmentSwitcher } from "./EnvironmentSwitcher.tsx";
+import { sidebarGroups } from "./sidebar-groups.ts";
 
-export function AppSidebar({ targets, selected, route, onOpenSettings, navigationToggle, principal, onSignOut }: {
+export function AppSidebar({ targets, selected, route, pins, onOpenSettings, navigationToggle, principal, onSignOut }: {
   targets: readonly TargetSnapshot[] | undefined;
+  /** The selected target's pins; without loaded pins the sidebar has no Pinned group and no pin actions. */
+  pins: Pins;
   /** The signed-in principal; undefined when authentication is off. */
   principal?: AuthPrincipal | undefined;
   onSignOut?: () => Promise<void>;
@@ -39,15 +46,7 @@ export function AppSidebar({ targets, selected, route, onOpenSettings, navigatio
   // A collapsed desktop sidebar is only moved off screen: keep it out of the focus order.
   const hidden = !isMobile && !open;
   const manifest = selected?.manifest;
-  const features = [...(manifest?.features ?? [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  const groups = features
-    .map((feature) => ({
-      id: feature.id,
-      label: feature.label,
-      operations: manifest?.operations.filter((operation) => operation.featureId === feature.id) ?? [],
-    }));
-  const ungrouped = manifest?.operations.filter((operation) => !features.some((feature) => feature.id === operation.featureId)) ?? [];
-  if (ungrouped.length > 0) groups.push({ id: "other", label: "Other", operations: ungrouped });
+  const { pinned, groups } = sidebarGroups(manifest, pins.pinnedIds);
 
   return (
     <Sidebar
@@ -92,17 +91,29 @@ export function AppSidebar({ targets, selected, route, onOpenSettings, navigatio
             No operation catalog. The environment did not respond correctly.
           </p>
         )}
+        {selected !== undefined && pins.error !== undefined && (
+          <p role="alert" className="px-4 text-[13px]/[18px] text-muted-foreground">{pins.error}</p>
+        )}
+        {selected !== undefined && pinned.length > 0 && (
+          <OperationGroup
+            label="Pinned"
+            operations={pinned}
+            targetId={selected.id}
+            activeId={route.operationId}
+            pins={pins}
+            onSelect={closeOnMobile}
+          />
+        )}
         {selected !== undefined && groups.map((group) => (
-          group.operations.length === 0 ? null : (
-            <OperationGroup
-              key={group.id}
-              label={group.label}
-              operations={group.operations}
-              targetId={selected.id}
-              activeId={route.operationId}
-              onSelect={closeOnMobile}
-            />
-          )
+          <OperationGroup
+            key={group.id}
+            label={group.label}
+            operations={group.operations}
+            targetId={selected.id}
+            activeId={route.operationId}
+            pins={pins}
+            onSelect={closeOnMobile}
+          />
         ))}
       </SidebarContent>
 
@@ -146,13 +157,15 @@ export function AppSidebar({ targets, selected, route, onOpenSettings, navigatio
   );
 }
 
-function OperationGroup({ label, operations, targetId, activeId, onSelect }: {
+function OperationGroup({ label, operations, targetId, activeId, pins, onSelect }: {
   label: string;
   operations: readonly OperationSummary[];
   targetId: string;
   activeId: string | undefined;
+  pins: Pins;
   onSelect: () => void;
 }) {
+  const pinnable = pins.pinnedIds !== undefined;
   const labelId = useId();
   return (
     <SidebarGroup>
@@ -168,7 +181,8 @@ function OperationGroup({ label, operations, targetId, activeId, onSelect }: {
                   isActive={operation.id === activeId}
                   aria-current={operation.id === activeId ? "page" : undefined}
                   title={operation.label}
-                  className={available ? "text-sm/5" : "pr-24 text-sm/5"}
+                  // The unavailable badge sits left of the pin action, so the label stops before both.
+                  className={cn("text-sm/5", !available && (pinnable ? "group-has-data-[sidebar=menu-action]/menu-item:pr-28" : "pr-24"))}
                   onClick={() => {
                     navigate({ targetId, operationId: operation.id });
                     onSelect();
@@ -176,12 +190,35 @@ function OperationGroup({ label, operations, targetId, activeId, onSelect }: {
                 >
                   <span>{operation.label}</span>
                 </SidebarMenuButton>
-                {!available && <SidebarMenuBadge className="text-xs/4 text-muted-foreground">Unavailable</SidebarMenuBadge>}
+                {!available && (
+                  <SidebarMenuBadge className={cn("text-xs/4 text-muted-foreground", pinnable && "right-7")}>Unavailable</SidebarMenuBadge>
+                )}
+                {pinnable && (
+                  <PinAction label={operation.label} pinned={pins.isPinned(operation.id)} onToggle={() => pins.toggle(operation.id)} />
+                )}
               </SidebarMenuItem>
             );
           })}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
+  );
+}
+
+function PinAction({ label, pinned, onToggle }: { label: string; pinned: boolean; onToggle: () => void }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <SidebarMenuAction
+          showOnHover
+          aria-label={`${pinned ? "Unpin" : "Pin"} ${label}`}
+          className="text-muted-foreground"
+          onClick={onToggle}
+        >
+          {pinned ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}
+        </SidebarMenuAction>
+      </TooltipTrigger>
+      <TooltipContent side="right" sideOffset={4}>{pinned ? "Unpin" : "Pin"}</TooltipContent>
+    </Tooltip>
   );
 }

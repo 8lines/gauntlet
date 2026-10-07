@@ -118,7 +118,9 @@ node apps/server/dist/main.js
 ```
 
 Omit `GAUNTLET_DASHBOARD_DIR` for API-only mode. Add
-`GAUNTLET_MCP_ENABLED=true` to enable MCP. Stop the demo first if it already
+`GAUNTLET_MCP_ENABLED=true` to enable MCP. Add `GAUNTLET_DATA_DIR` with an
+existing, writable directory to keep pinned operations across restarts;
+without it they are kept in memory. Stop the demo first if it already
 occupies port 8080, or choose another `GAUNTLET_PORT`.
 
 New setups use `GAUNTLET_CONFIG_FILE`; the deprecated

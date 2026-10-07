@@ -7,6 +7,7 @@ import { OverviewScreen } from "../screens/OverviewScreen.tsx";
 import { rememberRun } from "../recent-runs.ts";
 import { browserStorage } from "../browser-storage.ts";
 import { useTargets } from "../useTargets.ts";
+import { usePins } from "../usePins.ts";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppHeader, type BreadcrumbEntry } from "./AppHeader.tsx";
 import { AppSidebar } from "./AppSidebar.tsx";
@@ -66,6 +67,7 @@ function AuthenticatedApp({ session, onSignOut }: { session: AuthSession; onSign
   }, []);
 
   const selected = targets?.find((t) => t.id === route.targetId) ?? targets?.[0];
+  const pins = usePins(selected?.id);
 
   useEffect(() => {
     // Replace, not push: Back from the first environment must not land on "/" and redirect again.
@@ -97,6 +99,7 @@ function AuthenticatedApp({ session, onSignOut }: { session: AuthSession; onSign
         targets={targets}
         selected={selected}
         route={route}
+        pins={pins}
         navigationToggle={navigationToggle}
         principal={session.mode === "none" ? undefined : session.principal ?? undefined}
         onSignOut={signOut}

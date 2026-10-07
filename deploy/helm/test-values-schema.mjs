@@ -73,6 +73,12 @@ test("chart metadata and defaults are release-aligned but deliberately undeploya
   assert.equal(defaults.service.port, 8080);
   assert.equal(defaults.ingress.enabled, false);
   assert.equal(defaults.networkPolicy.enabled, false);
+  assert.deepEqual(defaults.persistence, {
+    enabled: false,
+    size: "1Gi",
+    storageClass: "",
+    existingClaim: "",
+  });
   assert.equal(defaults.config.instance.name, "");
   assert.deepEqual(defaults.config.instance.environment, { name: "", kind: "" });
   assert.deepEqual(defaults.config.targets, []);
@@ -138,6 +144,41 @@ test("valid digest, private ingress, explicit peers, and long release names rema
     "networkPolicy={\"enabled\":true,\"dns\":{\"namespaceSelector\":{\"matchLabels\":{\"kubernetes.io/metadata.name\":\"kube-system\"}},\"podSelector\":{\"matchLabels\":{\"k8s-app\":\"kube-dns\"}}},\"ingressPeers\":[{\"namespaceSelector\":{\"matchLabels\":{\"kubernetes.io/metadata.name\":\"ingress-private\"}},\"podSelector\":{\"matchLabels\":{\"gauntlet-access\":\"allowed\"}}}],\"egressRules\":[{\"peers\":[{\"namespaceSelector\":{\"matchLabels\":{\"kubernetes.io/metadata.name\":\"acme-adapters\"}},\"podSelector\":{\"matchLabels\":{\"gauntlet-adapter\":\"enabled\"}}}],\"ports\":[{\"protocol\":\"TCP\",\"port\":8080}]}]}",
   ]), 0);
   helm(withStaging([], "r".repeat(53)), 0);
+});
+
+test("persistence values accept a chart-managed or existing claim", () => {
+  for (const extraArgs of [
+    ["--set", "persistence.enabled=true"],
+    ["--set", "persistence.enabled=true", "--set-string", "persistence.size=10Gi"],
+    ["--set", "persistence.enabled=true", "--set-string", "persistence.storageClass=gp3"],
+    ["--set", "persistence.enabled=true", "--set-string", "persistence.storageClass=fast.ssd-retain"],
+    ["--set", "persistence.enabled=true", "--set-string", "persistence.existingClaim=gauntlet-data"],
+    ["--set-string", "persistence.existingClaim=gauntlet-data"],
+  ]) helm(withStaging(extraArgs), 0);
+});
+
+test("persistence values fail closed even while disabled", () => {
+  const invalidCases = [
+    ["string enabled flag", ["--set-string", "persistence.enabled=true"]],
+    ["numeric size", ["--set", "persistence.size=1"]],
+    ["unitless size", ["--set-string", "persistence.size=1024"]],
+    ["zero size", ["--set-string", "persistence.size=0Gi"]],
+    ["decimal byte suffix", ["--set-string", "persistence.size=1GB"]],
+    ["fractional size", ["--set-string", "persistence.size=1.5Gi"]],
+    ["empty size", ["--set-string", "persistence.size="]],
+    ["uppercase storage class", ["--set-string", "persistence.storageClass=GP3"]],
+    ["underscore storage class", ["--set-string", "persistence.storageClass=fast_ssd"]],
+    ["null storage class", ["--set-json", "persistence.storageClass=null"]],
+    ["uppercase existing claim", ["--set-string", "persistence.existingClaim=Gauntlet-Data"]],
+    ["existing claim path", ["--set-string", "persistence.existingClaim=other/gauntlet-data"]],
+    ["existing claim too long", ["--set-string", `persistence.existingClaim=${"a".repeat(254)}`]],
+    ["access mode extension", ["--set-string", "persistence.accessMode=ReadWriteMany"]],
+    ["mount path extension", ["--set-string", "persistence.mountPath=/data"]],
+    ["persistence replaced by a string", ["--set-string", "persistence=enabled"]],
+  ];
+  for (const [label, extraArgs] of invalidCases) {
+    assert.doesNotThrow(() => helm(withStaging(extraArgs), 1), label);
+  }
 });
 
 test("all supported non-production kinds and non-token names pass schema validation", () => {

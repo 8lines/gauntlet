@@ -50,6 +50,40 @@ export function panelLists(
   return { contextual, global };
 }
 
+export interface PinnedOperation {
+  readonly operation: OperationSummary;
+  /** The page subject when the operation is listed under "On this page", so prefill keeps working. */
+  readonly subject: PageSubject | undefined;
+}
+
+export interface PinnedPanelLists extends PanelLists {
+  readonly pinned: readonly PinnedOperation[];
+}
+
+/**
+ * Moves pinned operations out of "On this page" and "Global" into "Pinned", in pin order.
+ * A pinned operation in neither list (no placement, or a subject not on this page) is not shown.
+ */
+export function applyPins(lists: PanelLists, pinnedIds: readonly string[] | undefined): PinnedPanelLists {
+  const pinned: PinnedOperation[] = [];
+  for (const id of pinnedIds ?? []) {
+    const contextual = lists.contextual.find((entry) => entry.operation.id === id);
+    if (contextual !== undefined) {
+      pinned.push({ operation: contextual.operation, subject: contextual.subject });
+      continue;
+    }
+    const global = lists.global.find((operation) => operation.id === id);
+    if (global !== undefined) pinned.push({ operation: global, subject: undefined });
+  }
+  if (pinned.length === 0) return { pinned, ...lists };
+  const moved = new Set(pinned.map((entry) => entry.operation.id));
+  return {
+    pinned,
+    contextual: lists.contextual.filter((entry) => !moved.has(entry.operation.id)),
+    global: lists.global.filter((operation) => !moved.has(operation.id)),
+  };
+}
+
 /** Short label for a matched subject, e.g. `{ type: "order", values: { orderId: "123" } }` → "order 123". */
 export function subjectChip(subject: PageSubject): string {
   const values = Object.values(subject.values).map((value) => String(value)).join(", ");

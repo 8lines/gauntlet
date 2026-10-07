@@ -21,6 +21,7 @@ const schemaNames = [
   "deployment-apps-v1.json",
   "ingress-networking-v1.json",
   "networkpolicy-networking-v1.json",
+  "persistentvolumeclaim-v1.json",
   "service-v1.json",
 ];
 const expectedDigests = {
@@ -30,16 +31,19 @@ const expectedDigests = {
   "v1.35.0-standalone-strict/deployment-apps-v1.json": "46dc7cc4bec2c9a62400491e2b8057635afbfa6838999c518f7bea5c621a989b",
   "v1.35.0-standalone-strict/ingress-networking-v1.json": "4e0f63ad84c2bf22565e489d1f4b885ddaa9f6bf7cff1ddd562553760afe4d79",
   "v1.35.0-standalone-strict/networkpolicy-networking-v1.json": "f6324cc464f62228b0418f438d167208e4f86c7e3677ba30f608e79a8b26ba79",
+  "v1.35.0-standalone-strict/persistentvolumeclaim-v1.json": "6136871ac0337f11a48da5231a2807407c7386967e3432f344141b902f6a538c",
   "v1.35.0-standalone-strict/service-v1.json": "8bf019854daed511e7c174896a898173fa65d88ec5937c687a37303d4cc9351b",
   "v1.36.0-standalone-strict/configmap-v1.json": "e0eaddebd677c08aa092b2da2264d86ac4fc34eed112b9fac2945b3f00c1e9b1",
   "v1.36.0-standalone-strict/deployment-apps-v1.json": "3725782fb01e3f27d8be2da565e2d653d7b78bf6debe5440804cea993c87b8f9",
   "v1.36.0-standalone-strict/ingress-networking-v1.json": "4e0f63ad84c2bf22565e489d1f4b885ddaa9f6bf7cff1ddd562553760afe4d79",
   "v1.36.0-standalone-strict/networkpolicy-networking-v1.json": "f6324cc464f62228b0418f438d167208e4f86c7e3677ba30f608e79a8b26ba79",
+  "v1.36.0-standalone-strict/persistentvolumeclaim-v1.json": "6136871ac0337f11a48da5231a2807407c7386967e3432f344141b902f6a538c",
   "v1.36.0-standalone-strict/service-v1.json": "8bf019854daed511e7c174896a898173fa65d88ec5937c687a37303d4cc9351b",
   "v1.37.0-standalone-strict/configmap-v1.json": "fed751af12c2873a7db2b4cd1294c2959497fda8520f1fc8e5d21adf967ad72e",
   "v1.37.0-standalone-strict/deployment-apps-v1.json": "0b64451c0b8c36ea06dfebf952718810ae24a07779fb0ed2a6b03f1cc8735a54",
   "v1.37.0-standalone-strict/ingress-networking-v1.json": "4e0f63ad84c2bf22565e489d1f4b885ddaa9f6bf7cff1ddd562553760afe4d79",
   "v1.37.0-standalone-strict/networkpolicy-networking-v1.json": "f6324cc464f62228b0418f438d167208e4f86c7e3677ba30f608e79a8b26ba79",
+  "v1.37.0-standalone-strict/persistentvolumeclaim-v1.json": "71ef77ba30d96ec6d07bcfd8af9884ab83f4d877484579cad7f517804216bc1c",
   "v1.37.0-standalone-strict/service-v1.json": "8bf019854daed511e7c174896a898173fa65d88ec5937c687a37303d4cc9351b",
 };
 
@@ -58,17 +62,18 @@ async function regularFiles(root, directory = root) {
   return files.sort();
 }
 
-function renderChartSet(valuesFiles, kubeVersion) {
+function renderChartSet(valuesFiles, kubeVersion, overrides = []) {
   const args = [
     "template", "gauntlet", helmChart,
     "--namespace", "acme-staging",
     "--kube-version", kubeVersion,
   ];
   for (const valuesFile of valuesFiles) args.push("-f", valuesFile);
+  args.push(...overrides);
   return helm(args);
 }
 
-test("vendored schemas are the exact five-kind strict sets from the pinned source commit", async () => {
+test("vendored schemas are the exact six-kind strict sets from the pinned source commit", async () => {
   const expectedFiles = ["LICENSE", "SHA256SUMS", "SOURCE"];
   for (const version of maintainedKubernetesVersions) {
     for (const schemaName of schemaNames) {
@@ -98,7 +103,7 @@ test("vendored schemas are the exact five-kind strict sets from the pinned sourc
   assert.equal(await readFile(join(schemaRoot, "SHA256SUMS"), "utf8"), expectedSums);
 });
 
-test("all four chart render sets validate offline on every maintained Kubernetes line", () => {
+test("every chart render set validates offline on every maintained Kubernetes line", () => {
   const renderSets = [
     { values: [stagingValues], kinds: ["ConfigMap", "Deployment", "Service"] },
     {
@@ -113,11 +118,27 @@ test("all four chart render sets validate offline on every maintained Kubernetes
       values: [stagingValues, "deploy/helm/examples/acme-network-policy-values.yaml"],
       kinds: ["ConfigMap", "Deployment", "NetworkPolicy", "Service"],
     },
+    {
+      values: [stagingValues],
+      overrides: [
+        "--set", "persistence.enabled=true",
+        "--set-string", "persistence.storageClass=gp3",
+      ],
+      kinds: ["ConfigMap", "Deployment", "PersistentVolumeClaim", "Service"],
+    },
+    {
+      values: [stagingValues],
+      overrides: [
+        "--set", "persistence.enabled=true",
+        "--set-string", "persistence.existingClaim=gauntlet-data",
+      ],
+      kinds: ["ConfigMap", "Deployment", "Service"],
+    },
   ];
 
   for (const kubeVersion of maintainedKubernetesVersions) {
     for (const chartSet of renderSets) {
-      const manifest = renderChartSet(chartSet.values, kubeVersion);
+      const manifest = renderChartSet(chartSet.values, kubeVersion, chartSet.overrides);
       const output = validateKubernetesManifests(manifest, { kubeVersion });
       assert.deepEqual(output.summary, {
         valid: chartSet.kinds.length,

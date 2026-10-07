@@ -60,6 +60,10 @@ spec:
               value: {{ .Values.mcp.enabled | quote }}
             - name: GAUNTLET_MCP_ALLOWED_ORIGINS_JSON
               value: {{ .Values.mcp.allowedOrigins | toJson | quote }}
+            {{- if .Values.persistence.enabled }}
+            - name: GAUNTLET_DATA_DIR
+              value: "/var/lib/gauntlet"
+            {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             privileged: false
@@ -76,6 +80,10 @@ spec:
               readOnly: true
             - name: tmp
               mountPath: /tmp
+            {{- if .Values.persistence.enabled }}
+            - name: data
+              mountPath: /var/lib/gauntlet
+            {{- end }}
           startupProbe:
             httpGet:
               path: /ready
@@ -115,6 +123,11 @@ spec:
           emptyDir:
             medium: Memory
             sizeLimit: 16Mi
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "gauntlet.persistentVolumeClaimName" . }}
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

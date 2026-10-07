@@ -1,19 +1,28 @@
 # Upgrade runbook
 
 Upgrade one non-production Gauntlet instance at a time. The control plane
-runs one replica and stores projections in memory, so an upgrade causes a short
-interruption and loses current dashboard run history. Domain effects and
-adapter-owned run state remain the responsibility of each target application.
+runs one replica and stores run projections in memory, so an upgrade causes a
+short interruption and loses current dashboard run history. Pinned operations
+survive only when `GAUNTLET_DATA_DIR` points at persistent storage (Helm
+`persistence.enabled`). Domain effects and adapter-owned run state remain the
+responsibility of each target application.
+
+Every version has an [upgrade guide](../upgrades/README.md) that lists the
+required and optional steps for operators. An AI agent can run this procedure
+with the `gauntlet-upgrade` [skill](../ai-skills.md).
 
 ## Prepare
 
-1. Read `CHANGELOG.md` from the candidate release and every intermediate
-   version.
+1. Read the [upgrade guide](../upgrades/README.md#upgrading-with-the-guides)
+   of the candidate release and of every intermediate version, oldest first
+   (`CHANGELOG.md` for versions before 0.2.0). Plan every `required` step and
+   decide every `optional` one.
 2. Verify that the candidate artifacts are available from their
    [registries](installing-packages.md) and record the current exact
    image/chart or Compose artifact identity.
 3. Back up operator-owned `.env`, `config.yaml`, and complete Helm values in a
-   private store. Do not copy credentials into the repository.
+   private store, and snapshot the volume behind `GAUNTLET_DATA_DIR` when
+   persistence is enabled. Do not copy credentials into the repository.
 4. Confirm the destination is still non-production and every public ingress
    still denies `/_gauntlet/v1`.
 5. Upgrade application SDKs first when the compatibility notes require it.
@@ -26,7 +35,7 @@ adapter-owned run state remain the responsibility of each target application.
 
 ## Apply
 
-For Docker Compose, follow the exact [pull and recreate](../../deploy/compose/README.md#upgrade)
+Apply the guides' steps to the operator files first. For Docker Compose, follow the exact [pull and recreate](../../deploy/compose/README.md#upgrade)
 sequence using the wrapper. For Kubernetes, pull the chart archive, render that
 same archive with the complete environment values, and follow the
 [Helm upgrade procedure](../../deploy/helm/README.md#upgrade-and-preview).

@@ -38,7 +38,7 @@ test("mobile execution stays inside the viewport and confirms both modes", async
   await page.goto("/");
 
   await page.getByRole("button", { name: "Toggle navigation" }).click();
-  await page.getByRole("button", { name: destructiveOperation.label }).click();
+  await page.getByRole("button", { name: destructiveOperation.label, exact: true }).click();
 
   const roleGroup = page.getByRole("group", { name: "Role" });
   await expect(roleGroup).toBeVisible();
@@ -137,7 +137,7 @@ test("confirmation dialog contains focus and restores its exact trigger", async 
   await page.goto("/");
 
   await page.getByRole("button", { name: "Toggle navigation" }).click();
-  await page.getByRole("button", { name: destructiveOperation.label }).click();
+  await page.getByRole("button", { name: destructiveOperation.label, exact: true }).click();
 
   const trigger = page.getByRole("region", { name: "Operation actions" })
     .getByRole("button", { name: "Execute", exact: true });
@@ -192,7 +192,7 @@ test("desktop handles upload, polling, cancellation, rich results and follow-ups
   await page.getByRole("button", { name: /^Choose environment:/ }).click();
   await expect(page.getByRole("menu").getByText("Acme Portal", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: desktopOperation.label }).click();
+  await page.getByRole("button", { name: desktopOperation.label, exact: true }).click();
 
   await page.getByLabel("Attachment").setInputFiles({
     name: "desktop-fixture.txt",
@@ -353,9 +353,9 @@ test("desktop sidebar collapses, stays collapsed after a reload and navigates to
   await page.keyboard.press("Control+b");
   await expect(sidebar).toHaveAttribute("data-state", "expanded");
   await expect(navigation).toHaveJSProperty("inert", false);
-  await navigation.getByRole("button", { name: desktopOperation.label }).click();
+  await navigation.getByRole("button", { name: desktopOperation.label, exact: true }).click();
   await expect(page.getByRole("heading", { name: desktopOperation.label, exact: true })).toBeVisible();
-  await expect(navigation.getByRole("button", { name: desktopOperation.label })).toHaveAttribute("aria-current", "page");
+  await expect(navigation.getByRole("button", { name: desktopOperation.label, exact: true })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Browser environment" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByText(desktopOperation.label, { exact: true })).toHaveAttribute("aria-current", "page");
 });

@@ -7,6 +7,7 @@ const PANEL_URL = `${GAUNTLET}/widget/`;
 const FIRST = "11111111-1111-4111-8111-111111111111";
 const SECOND = "22222222-2222-4222-8222-222222222222";
 const FINALIZE = "Finalize agency application";
+const FAIL = "Fail agency application";
 const STANDALONE = "Open Gauntlet through the widget in your application";
 const DESCRIPTION = "Exercise an explicitly registered agency application binding.";
 
@@ -72,6 +73,33 @@ async function openPanel(page: Page): Promise<void> {
   await toggleWidget(page);
   await expect(page.locator("iframe[data-gauntlet-panel]")).toBeVisible();
   await panelTakesInput(page);
+}
+
+/**
+ * Closes the panel from its own Close button (the open drawer covers the launcher) and waits
+ * until pointer input at the launcher reaches the host page again: after the cross-origin frame
+ * is hidden, Chromium updates its input routing asynchronously, and a click in that window still
+ * lands on the hidden frame.
+ */
+async function closePanel(page: Page): Promise<void> {
+  await panel(page).getByRole("button", { name: "Close", exact: true }).click();
+  await expect(page.locator("iframe[data-gauntlet-panel]")).toBeHidden();
+  await page.evaluate(() => {
+    const probe = window as unknown as { e2eLauncherPointer: boolean };
+    probe.e2eLauncherPointer = false;
+    document.addEventListener("pointermove", (event) => {
+      // The launcher's shadow root is closed, so its events are retargeted to the host element.
+      if (event.target instanceof Element && event.target.matches("[data-gauntlet-widget]")) probe.e2eLauncherPointer = true;
+    });
+  });
+  const box = await page.locator("[data-gauntlet-widget]").boundingBox();
+  if (box === null) throw new Error("the widget launcher has no bounding box");
+  let offset = 0;
+  await expect.poll(async () => {
+    offset = offset === 0 ? 1 : 0; // a pointermove needs an actual move
+    await page.mouse.move(box.x + box.width / 2 + offset, box.y + box.height / 2);
+    return page.evaluate(() => (window as unknown as { e2eLauncherPointer?: boolean }).e2eLauncherPointer);
+  }).toBe(true);
 }
 
 async function panelWidth(page: Page): Promise<number> {
@@ -245,6 +273,39 @@ test.describe.serial("the widget on a listed host origin", () => {
     await expect(frame.getByText("Application finalized.", { exact: true })).toBeVisible();
     await expect(frame.getByText("Unavailable after a Gauntlet restart")).toHaveCount(0);
   });
+});
+
+test("a pinned row moves into Pinned and stays there after the panel is reopened", async ({ page }) => {
+  await page.goto(`${HOST}/applications/${FIRST}`);
+  await expect(page.locator("[data-gauntlet-widget]")).toHaveAttribute("data-gauntlet-state", "ready");
+  await openPanel(page);
+  await contextualListSettled(page, FIRST);
+
+  await section(page, "On this page").getByRole("button", { name: `Pin ${FAIL}`, exact: true }).click();
+  const pinnedRow = section(page, "Pinned").getByRole("button").filter({ hasText: FAIL });
+  await expect(pinnedRow).toBeVisible();
+  // The pinned row keeps its page subject, so opening it still prefills the form.
+  await expect(pinnedRow.getByText(`for agency-application ${FIRST}`, { exact: true })).toBeVisible();
+  await expect(section(page, "On this page").getByRole("button").filter({ hasText: FAIL })).toHaveCount(0);
+  await expect(section(page, "On this page").getByRole("button").filter({ hasText: FINALIZE })).toBeVisible();
+  // The launcher still counts every operation for this page.
+  await expect(page.locator("[data-gauntlet-widget]")).toHaveAttribute("data-gauntlet-count", "2");
+
+  await closePanel(page);
+  await openPanel(page);
+  await expect(pinnedRow).toBeVisible();
+
+  // A new panel document reads the pin back from Gauntlet.
+  await page.reload();
+  await expect(page.locator("[data-gauntlet-widget]")).toHaveAttribute("data-gauntlet-state", "ready");
+  await openPanel(page);
+  await expect(pinnedRow).toBeVisible();
+  await expect(section(page, "On this page").getByRole("button").filter({ hasText: FAIL })).toHaveCount(0);
+
+  // Unpinned again, so the row is back under "On this page" for every other case.
+  await section(page, "Pinned").getByRole("button", { name: `Unpin ${FAIL}`, exact: true }).click();
+  await expect(panel(page).getByRole("heading", { name: "Pinned", exact: true })).toHaveCount(0);
+  await contextualListSettled(page, FIRST);
 });
 
 test("a panel on the system theme paints the system colour scheme from its first render and follows changes", async ({ browser }) => {

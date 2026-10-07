@@ -59,6 +59,21 @@ export const CROSS_SITE_REQUEST_PROBLEM: Problem = Object.freeze({
   title: "Cross-site request rejected",
   status: 403,
 });
+export const TARGET_NOT_FOUND_PROBLEM: Problem = Object.freeze({
+  type: "urn:gauntlet:problem:target-not-found",
+  title: "Target not found",
+  status: 404,
+});
+export const PIN_LIMIT_PROBLEM: Problem = Object.freeze({
+  type: "urn:gauntlet:problem:pin-limit",
+  title: "Too many pinned operations",
+  status: 409,
+});
+export const PINS_UNAVAILABLE_PROBLEM: Problem = Object.freeze({
+  type: "urn:gauntlet:problem:pins-unavailable",
+  title: "Pinned operations are unavailable",
+  status: 500,
+});
 export const INTERNAL_ERROR_PROBLEM: Problem = Object.freeze({
   type: "urn:gauntlet:problem:internal-error",
   title: "Internal server error",
@@ -79,6 +94,8 @@ const knownRoutes: ReadonlyArray<{ readonly pattern: RegExp; readonly methods: R
   { pattern: /^\/api\/v1\/targets\/([^/]+)\/runs\/([^/]+)\/events$/, methods: new Set(["GET"]) },
   { pattern: /^\/api\/v1\/targets\/([^/]+)\/data-sources\/([^/]+)\/(?:query|resolve)$/, methods: new Set(["POST"]) },
   { pattern: /^\/api\/v1\/targets\/([^/]+)\/runs\/([^/]+)\/artifacts\/([^/]+)\/launch$/, methods: new Set(["POST"]) },
+  { pattern: /^\/api\/v1\/targets\/([^/]+)\/pins$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/v1\/targets\/([^/]+)\/pins\/([^/]+)$/, methods: new Set(["PUT", "DELETE"]) },
 ];
 
 function rawPathname(request: FastifyRequest): string {

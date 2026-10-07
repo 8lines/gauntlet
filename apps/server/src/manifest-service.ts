@@ -15,6 +15,7 @@ import type {
   TargetState,
 } from "@8lines/gauntlet-protocol";
 import { ownFrozenJson } from "./ownership.js";
+import { TARGET_NOT_FOUND_PROBLEM } from "./problem-response.js";
 import { safeManifestProjection, safeProblem } from "./safe-problem.js";
 import type { StaticTargetConfig } from "./static-target-provider.js";
 import type { TargetRegistry } from "./target-registry.js";
@@ -80,7 +81,6 @@ function problem(type: `urn:gauntlet:problem:${string}`, title: string, status: 
   return Object.freeze({ type, title, status });
 }
 
-const UNKNOWN_TARGET = problem("urn:gauntlet:problem:target-not-found", "Target not found", 404);
 const INVALID_RESPONSE = problem("urn:gauntlet:problem:adapter-invalid-response", "Invalid adapter response", 502);
 const INCOMPATIBLE = problem("urn:gauntlet:problem:adapter-protocol-incompatible", "Incompatible adapter protocol", 502);
 const ENVIRONMENT_MISMATCH = problem(
@@ -296,7 +296,7 @@ export function createManifestService(options: ManifestServiceOptions): Manifest
     async requireCompatibleTarget(id: string, requireOptions?: { readonly fresh?: boolean }): Promise<CompatibleTargetResult> {
       const target = options.registry.get(id);
       if (target === undefined) {
-        return { ok: false, problem: UNKNOWN_TARGET };
+        return { ok: false, problem: TARGET_NOT_FOUND_PROBLEM };
       }
       let snapshot: TargetSnapshot;
       try {

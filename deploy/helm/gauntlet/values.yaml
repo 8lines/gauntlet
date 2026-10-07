@@ -51,6 +51,12 @@ resources:
     cpu: 500m
     memory: 256Mi
 
+persistence:
+  enabled: false
+  size: 1Gi
+  storageClass: ""
+  existingClaim: ""
+
 podAnnotations: {}
 podLabels: {}
 nodeSelector: {}

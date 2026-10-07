@@ -160,6 +160,14 @@ test("the Helm runbook is bounded and covers the complete private lifecycle", ()
     "cannot safely admit ALB",
     "controller",
     "certificate",
+    "pinned operations",
+    "persistence.enabled: false",
+    "GAUNTLET_DATA_DIR=/var/lib/gauntlet",
+    "ReadWriteOnce",
+    "persistence.storageClass",
+    "persistence.existingClaim",
+    "`replicaCount` must stay `1`",
+    "Helm never deletes an existing claim",
   ]) assert.ok(prose.includes(required), required);
 
   assert.doesNotMatch(markdown, /ALLOW_PRODUCTION|--create-namespace|--reuse-values|--take-ownership/);
@@ -220,6 +228,7 @@ test("the documented values and command blocks are complete and exact", () => {
       requests: { cpu: "50m", memory: "64Mi" },
       limits: { cpu: "500m", memory: "256Mi" },
     },
+    persistence: { enabled: false, size: "1Gi", storageClass: "", existingClaim: "" },
     podAnnotations: {},
     podLabels: {},
     nodeSelector: {},

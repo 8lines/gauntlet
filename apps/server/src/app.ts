@@ -15,6 +15,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { AUTH_DISABLED, type AuthConfiguration } from "./auth/config.js";
 import { registerAuth } from "./auth/index.js";
 import { createDataSourceService } from "./data-source-service.js";
+import { openDatabase } from "./database.js";
 import { registerMcp, validateMcpOptions, type McpOptions } from "./mcp.js";
 import { createInMemoryGauntletStore } from "./in-memory-gauntlet-store.js";
 import { createManifestService } from "./manifest-service.js";
@@ -23,8 +24,10 @@ import {
   sendBadUrlProblem,
   sendClientErrorProblem,
 } from "./problem-response.js";
+import { registerPinRoutes } from "./pin-routes.js";
 import { registerRoutes } from "./routes.js";
 import { createRunProxyService } from "./run-proxy-service.js";
+import { createSqlitePinStore } from "./sqlite-pin-store.js";
 import { createStaticTargetProvider } from "./static-target-provider.js";
 import { createTargetRegistry } from "./target-registry.js";
 import { FRAME_ANCESTORS_NONE, registerWidget, type WidgetOptions } from "./widget.js";
@@ -51,6 +54,11 @@ export interface CreateAppOptions {
   readonly widget?: WidgetOptions;
   /** Authentication; omitted ⇒ disabled. Any mode other than `none` needs the signing secret. */
   readonly auth?: AuthOptions;
+  /**
+   * Existing, writable directory for Gauntlet's SQLite database (`gauntlet.sqlite`), which holds
+   * pinned operations. Omitted ⇒ the database is in memory and is lost on restart.
+   */
+  readonly dataDir?: string;
 }
 
 export interface AuthOptions {
@@ -96,29 +104,44 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
     ...(options.clock === undefined ? {} : { clock: options.clock }),
   });
 
-  const app = Fastify({
-    logger: false,
-    exposeHeadRoutes: false,
-    bodyLimit: options.bodyLimit ?? 1024 * 1024,
-    clientErrorHandler: (_error, socket) => sendClientErrorProblem(socket),
-    routerOptions: {
-      onBadUrl: (_path, _request, response) => sendBadUrlProblem(response),
-    },
+  const database = openDatabase({
+    clock,
+    ...(options.dataDir === undefined ? {} : { dataDir: options.dataDir }),
   });
-  app.addContentTypeParser(
-    /^multipart\/form-data(?:\s*;|$)/i,
-    { parseAs: "buffer", bodyLimit: maxUploadBytes + MAX_MULTIPART_OVERHEAD_BYTES },
-    (_request, body, done) => done(null, body),
-  );
-  const dashboard = await registerDashboard(app, options.dashboardDir);
-  await registerWidget(app, options.widget ?? { enabled: false }, targetProvider.targets());
-  configureProblemResponses(app, dashboard ? { spaFallback: (_request, reply) => reply.header("content-security-policy", DASHBOARD_FRAME_POLICY).sendFile("index.html") } : {});
-  registerAuth(app, { ...auth, clock });
-  const dataSources = createDataSourceService(client, manifests);
-  registerRoutes(app, { dataSources, manifests, runs, maxUploadBytes });
-  registerMcp(app, { dataSources, manifests, runs, maxUploadBytes }, mcp);
-  await app.ready();
-  return app;
+
+  // Closed by the Fastify onClose hook, or here when composition fails before there is an app to close.
+  try {
+    const app = Fastify({
+      logger: false,
+      exposeHeadRoutes: false,
+      bodyLimit: options.bodyLimit ?? 1024 * 1024,
+      clientErrorHandler: (_error, socket) => sendClientErrorProblem(socket),
+      routerOptions: {
+        onBadUrl: (_path, _request, response) => sendBadUrlProblem(response),
+      },
+    });
+    app.addHook("onClose", async () => {
+      if (database.isOpen) database.close();
+    });
+    app.addContentTypeParser(
+      /^multipart\/form-data(?:\s*;|$)/i,
+      { parseAs: "buffer", bodyLimit: maxUploadBytes + MAX_MULTIPART_OVERHEAD_BYTES },
+      (_request, body, done) => done(null, body),
+    );
+    const dashboard = await registerDashboard(app, options.dashboardDir);
+    await registerWidget(app, options.widget ?? { enabled: false }, targetProvider.targets());
+    configureProblemResponses(app, dashboard ? { spaFallback: (_request, reply) => reply.header("content-security-policy", DASHBOARD_FRAME_POLICY).sendFile("index.html") } : {});
+    registerAuth(app, { ...auth, clock });
+    const dataSources = createDataSourceService(client, manifests);
+    registerRoutes(app, { dataSources, manifests, runs, maxUploadBytes });
+    registerPinRoutes(app, { pins: createSqlitePinStore(database), registry, clock });
+    registerMcp(app, { dataSources, manifests, runs, maxUploadBytes }, mcp);
+    await app.ready();
+    return app;
+  } catch (error) {
+    if (database.isOpen) database.close();
+    throw error;
+  }
 }
 
 export type { McpOptions } from "./mcp.js";

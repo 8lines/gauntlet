@@ -35,3 +35,11 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- printf "%s:%s" .Values.image.repository .Values.image.tag -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "gauntlet.persistentVolumeClaimName" -}}
+{{- if .Values.persistence.existingClaim -}}
+{{- .Values.persistence.existingClaim -}}
+{{- else -}}
+{{- include "gauntlet.fullname" . -}}
+{{- end -}}
+{{- end -}}

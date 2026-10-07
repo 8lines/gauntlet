@@ -51,6 +51,8 @@ const TITLES: Readonly<Record<string, string>> = Object.freeze({
   "urn:gauntlet:problem:operation-not-found": "Operation not found",
   "urn:gauntlet:problem:rate-limited": "Too many attempts",
   "urn:gauntlet:problem:payload-too-large": "Payload too large",
+  "urn:gauntlet:problem:pin-limit": "Too many pinned operations",
+  "urn:gauntlet:problem:pins-unavailable": "Pinned operations are unavailable",
   "urn:gauntlet:problem:route-not-found": "Route not found",
   "urn:gauntlet:problem:run-not-found": "Run not found",
   "urn:gauntlet:problem:session-launch-unavailable": "Session launch unavailable",

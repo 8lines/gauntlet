@@ -373,8 +373,13 @@ function assertExactKeys(value, expected) {
   assert.deepEqual(Object.keys(value).sort(), [...expected].sort());
 }
 
-function assertClosedHardenedSurface(resources) {
-  assert.deepEqual(resources.map(({ kind }) => kind).sort(), ["ConfigMap", "Deployment", "Service"]);
+function assertClosedHardenedSurface(resources, { persistence = "none" } = {}) {
+  assert.deepEqual(
+    resources.map(({ kind }) => kind).sort(),
+    persistence === "chart"
+      ? ["ConfigMap", "Deployment", "PersistentVolumeClaim", "Service"]
+      : ["ConfigMap", "Deployment", "Service"],
+  );
   const labels = {
     "helm.sh/chart": `gauntlet-${CHART_VERSION}`,
     "app.kubernetes.io/name": "gauntlet",
@@ -446,7 +451,15 @@ function assertClosedHardenedSurface(resources) {
   assert.deepEqual(pod.volumes.map((volume) => Object.keys(volume).sort()), [
     ["configMap", "name"],
     ["emptyDir", "name"],
+    ...(persistence === "none" ? [] : [["name", "persistentVolumeClaim"]]),
   ]);
+  assert.deepEqual(container.volumeMounts.map(({ mountPath }) => mountPath), [
+    "/etc/gauntlet",
+    "/tmp",
+    ...(persistence === "none" ? [] : ["/var/lib/gauntlet"]),
+  ]);
+  assert.equal(pod.securityContext.runAsNonRoot, true);
+  assert.equal(pod.securityContext.fsGroup, 1000);
   assert.equal(container.securityContext.privileged, false);
   assert.equal(container.securityContext.allowPrivilegeEscalation, false);
   assert.equal(container.securityContext.readOnlyRootFilesystem, true);
@@ -461,6 +474,7 @@ function assertClosedHardenedSurface(resources) {
     "GAUNTLET_CONFIG_FILE",
     "GAUNTLET_MCP_ENABLED",
     "GAUNTLET_MCP_ALLOWED_ORIGINS_JSON",
+    ...(persistence === "none" ? [] : ["GAUNTLET_DATA_DIR"]),
   ]);
   assert.deepEqual(
     [container.startupProbe.httpGet.path, container.readinessProbe.httpGet.path, container.livenessProbe.httpGet.path],
@@ -487,6 +501,18 @@ function assertClosedHardenedSurface(resources) {
   assert.equal(service.spec.ports.length, 1);
   for (const field of ["externalIPs", "externalName", "loadBalancerIP", "loadBalancerClass"]) {
     assert.equal(Object.hasOwn(service.spec, field), false);
+  }
+  const claim = resources.find(({ kind }) => kind === "PersistentVolumeClaim");
+  if (claim !== undefined) {
+    assertExactKeys(claim, ["apiVersion", "kind", "metadata", "spec"]);
+    assertExactKeys(claim.metadata, ["labels", "name", "namespace"]);
+    assert.deepEqual(claim.metadata.labels, labels);
+    assert.deepEqual(claim.spec.accessModes, ["ReadWriteOnce"]);
+    assertExactKeys(claim.spec.resources, ["requests"]);
+    assertExactKeys(claim.spec.resources.requests, ["storage"]);
+    for (const field of ["dataSource", "dataSourceRef", "selector", "volumeName", "volumeMode"]) {
+      assert.equal(Object.hasOwn(claim.spec, field), false);
+    }
   }
 }
 
@@ -525,6 +551,135 @@ test("the rendered-safety assertions reject unsafe manifest mutations", () => {
     mutate(resources);
     assert.throws(() => assertClosedHardenedSurface(resources), label);
   }
+
+  const persistent = render(undefined, ["--set", "persistence.enabled=true"]);
+  assert.doesNotThrow(() => assertClosedHardenedSurface(persistent, { persistence: "chart" }));
+  assert.throws(() => assertClosedHardenedSurface(persistent), "undeclared persistence");
+  const claimMutationCases = [
+    ["shared claim", (resources) => { resources.find(({ kind }) => kind === "PersistentVolumeClaim").spec.accessModes = ["ReadWriteMany"]; }],
+    ["bound volume", (resources) => { resources.find(({ kind }) => kind === "PersistentVolumeClaim").spec.volumeName = "foreign"; }],
+    ["data source", (resources) => { resources.find(({ kind }) => kind === "PersistentVolumeClaim").spec.dataSource = { kind: "PersistentVolumeClaim", name: "other" }; }],
+    ["writable root", (resources) => { resources.find(({ kind }) => kind === "Deployment").spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem = false; }],
+    ["missing data mount", (resources) => { resources.find(({ kind }) => kind === "Deployment").spec.template.spec.containers[0].volumeMounts.pop(); }],
+    ["missing data directory", (resources) => { resources.find(({ kind }) => kind === "Deployment").spec.template.spec.containers[0].env.pop(); }],
+  ];
+  for (const [label, mutate] of claimMutationCases) {
+    const resources = structuredClone(persistent);
+    mutate(resources);
+    assert.throws(() => assertClosedHardenedSurface(resources, { persistence: "chart" }), label);
+  }
+  const existing = render(undefined, [
+    "--set", "persistence.enabled=true",
+    "--set-string", "persistence.existingClaim=gauntlet-data",
+  ]);
+  assert.doesNotThrow(() => assertClosedHardenedSurface(existing, { persistence: "existing" }));
+});
+
+test("disabled persistence keeps pins in memory without a claim, data mount, or data directory", () => {
+  for (const resources of [
+    render(),
+    render(undefined, ["--set-string", "persistence.existingClaim=gauntlet-data"]),
+    render(undefined, ["--set-string", "persistence.storageClass=gp3", "--set-string", "persistence.size=5Gi"]),
+  ]) {
+    assert.equal(resources.some(({ kind }) => kind === "PersistentVolumeClaim"), false);
+    const deployment = resources.find(({ kind }) => kind === "Deployment");
+    const pod = deployment.spec.template.spec;
+    const container = pod.containers[0];
+    assert.deepEqual(deployment.spec.strategy, { type: "Recreate" });
+    assert.equal(container.env.some(({ name }) => name === "GAUNTLET_DATA_DIR"), false);
+    assert.deepEqual(container.volumeMounts.map(({ name }) => name), ["config", "tmp"]);
+    assert.deepEqual(pod.volumes.map(({ name }) => name), ["config", "tmp"]);
+  }
+});
+
+test("enabled persistence mounts one ReadWriteOnce claim at the data directory", () => {
+  const resources = render(undefined, ["--set", "persistence.enabled=true"]);
+  assert.deepEqual(
+    resources.map(({ kind }) => kind).sort(),
+    ["ConfigMap", "Deployment", "PersistentVolumeClaim", "Service"],
+  );
+  const claim = resources.find(({ kind }) => kind === "PersistentVolumeClaim");
+  assert.deepEqual(claim, {
+    apiVersion: "v1",
+    kind: "PersistentVolumeClaim",
+    metadata: {
+      name: "gauntlet",
+      namespace: "acme-staging",
+      labels: {
+        "helm.sh/chart": `gauntlet-${CHART_VERSION}`,
+        "app.kubernetes.io/name": "gauntlet",
+        "app.kubernetes.io/instance": "gauntlet",
+        "app.kubernetes.io/version": CHART_VERSION,
+        "app.kubernetes.io/component": "control-plane",
+        "app.kubernetes.io/part-of": "gauntlet",
+        "app.kubernetes.io/managed-by": "Helm",
+      },
+    },
+    spec: {
+      accessModes: ["ReadWriteOnce"],
+      resources: { requests: { storage: "1Gi" } },
+    },
+  });
+
+  const deployment = resources.find(({ kind }) => kind === "Deployment");
+  const pod = deployment.spec.template.spec;
+  const container = pod.containers[0];
+  assert.equal(deployment.spec.replicas, 1);
+  assert.deepEqual(deployment.spec.strategy, { type: "Recreate" });
+  assert.deepEqual(pod.securityContext, {
+    runAsNonRoot: true,
+    runAsUser: 1000,
+    runAsGroup: 1000,
+    fsGroup: 1000,
+    fsGroupChangePolicy: "OnRootMismatch",
+    seccompProfile: { type: "RuntimeDefault" },
+  });
+  assert.equal(container.securityContext.readOnlyRootFilesystem, true);
+  assert.deepEqual(container.env.at(-1), { name: "GAUNTLET_DATA_DIR", value: "/var/lib/gauntlet" });
+  assert.equal(container.env.filter(({ name }) => name === "GAUNTLET_DATA_DIR").length, 1);
+  assert.deepEqual(container.volumeMounts, [
+    { name: "config", mountPath: "/etc/gauntlet", readOnly: true },
+    { name: "tmp", mountPath: "/tmp" },
+    { name: "data", mountPath: "/var/lib/gauntlet" },
+  ]);
+  assert.deepEqual(pod.volumes.at(-1), {
+    name: "data",
+    persistentVolumeClaim: { claimName: "gauntlet" },
+  });
+  assert.equal(pod.volumes.length, 3);
+});
+
+test("persistence storage class and size render only when set", () => {
+  const claimFor = (extraArgs) => render(undefined, ["--set", "persistence.enabled=true", ...extraArgs])
+    .find(({ kind }) => kind === "PersistentVolumeClaim");
+  assert.equal(Object.hasOwn(claimFor([]).spec, "storageClassName"), false);
+  assert.equal(Object.hasOwn(claimFor(["--set-string", "persistence.storageClass="]).spec, "storageClassName"), false);
+  const customized = claimFor([
+    "--set-string", "persistence.storageClass=gp3",
+    "--set-string", "persistence.size=10Gi",
+  ]);
+  assert.deepEqual(customized.spec, {
+    accessModes: ["ReadWriteOnce"],
+    storageClassName: "gp3",
+    resources: { requests: { storage: "10Gi" } },
+  });
+});
+
+test("an existing claim is mounted without rendering a chart-managed claim", () => {
+  const resources = render(undefined, [
+    "--set", "persistence.enabled=true",
+    "--set-string", "persistence.existingClaim=gauntlet-data",
+    "--set-string", "persistence.storageClass=gp3",
+    "--set-string", "persistence.size=10Gi",
+  ]);
+  assert.deepEqual(resources.map(({ kind }) => kind).sort(), ["ConfigMap", "Deployment", "Service"]);
+  const pod = resources.find(({ kind }) => kind === "Deployment").spec.template.spec;
+  assert.deepEqual(pod.volumes.at(-1), {
+    name: "data",
+    persistentVolumeClaim: { claimName: "gauntlet-data" },
+  });
+  assert.deepEqual(pod.containers[0].env.at(-1), { name: "GAUNTLET_DATA_DIR", value: "/var/lib/gauntlet" });
+  assert.deepEqual(pod.containers[0].volumeMounts.at(-1), { name: "data", mountPath: "/var/lib/gauntlet" });
 });
 
 test("chart sources keep one bounded value-free configuration path and exact checksum", async () => {
@@ -573,7 +728,7 @@ test("chart sources keep one bounded value-free configuration path and exact che
     ),
     true,
   );
-  for (const name of ["configmap.yaml", "deployment.yaml", "service.yaml"]) {
+  for (const name of ["configmap.yaml", "deployment.yaml", "persistentvolumeclaim.yaml", "service.yaml"]) {
     assert.equal(sources[name].includes("namespace: {{ .Release.Namespace | quote }}"), true, name);
   }
   assert.doesNotMatch(

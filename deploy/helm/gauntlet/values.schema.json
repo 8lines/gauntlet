@@ -10,6 +10,7 @@
     "ingress",
     "networkPolicy",
     "resources",
+    "persistence",
     "podAnnotations",
     "podLabels",
     "nodeSelector",
@@ -244,6 +245,40 @@
         },
         "limits": {
           "$ref": "#/definitions/resourcePair"
+        }
+      },
+      "additionalProperties": false
+    },
+    "persistence": {
+      "type": "object",
+      "required": ["enabled", "size", "storageClass", "existingClaim"],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "size": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*(Ei|Pi|Ti|Gi|Mi|Ki|E|P|T|G|M|K)$"
+        },
+        "storageClass": {
+          "oneOf": [
+            {
+              "const": ""
+            },
+            {
+              "$ref": "#/definitions/dnsSubdomain"
+            }
+          ]
+        },
+        "existingClaim": {
+          "oneOf": [
+            {
+              "const": ""
+            },
+            {
+              "$ref": "#/definitions/dnsSubdomain"
+            }
+          ]
         }
       },
       "additionalProperties": false

@@ -26,12 +26,16 @@ export interface BrowserFixtureState {
 
 export interface ApiFixtureOptions {
   readonly operation: OperationDefinition;
+  /** More operations in the same manifest, listed after `operation`. */
+  readonly additionalOperations?: readonly OperationDefinition[];
   /**
    * `mobile`: runs finish at once. `desktop`: the first run stays running until cancelled, the second finishes with rich results.
    * `run-url`: a run stays running for its first two `GET`s, then finishes with a follow-up into the same operation.
    */
   readonly scenario: "mobile" | "desktop" | "run-url";
   readonly targetLabel?: string;
+  /** When set, pinning and unpinning fail with this problem status, as a database error would. */
+  readonly pinFailureStatus?: number;
   /** When set, every create-run response waits for this promise to settle. */
   readonly createRunGate?: Promise<unknown>;
   /** Password authentication; omitted means authentication is off. */
@@ -207,20 +211,20 @@ export const followUpOperation = operationWithRevision({
 /** The follow-up a finished `run-url` run offers: the same operation, prefilled with this input. */
 export const followUpInput = Object.freeze({ email: "next@acme.test" });
 
-function manifestFor(operation: OperationDefinition): AdapterManifest {
+function manifestFor(operations: readonly OperationDefinition[]): AdapterManifest {
   const { manifestRevision: _revision, ...canonical } = structuredClone(manifestDocument);
   const capabilities = [...new Set([...canonical.capabilities, "tc-run-cancellation@1"])] as AdapterManifest["capabilities"];
   const draft = {
     ...canonical,
     capabilities,
-    operations: [{
+    operations: operations.map((operation) => ({
       id: operation.id,
       revision: operation.revision,
       label: operation.label,
       featureId: operation.featureId,
       availability: { state: "available" as const },
       ...(operation.requirements === undefined ? {} : { requirements: operation.requirements }),
-    }],
+    })),
   } as unknown as JsonObject;
   const manifest = Object.freeze({
     ...draft,
@@ -384,7 +388,10 @@ function cancelledRun(operation: OperationDefinition): Run {
 }
 
 export async function installApiFixture(page: Page, options: ApiFixtureOptions): Promise<ApiFixtureControl> {
-  const manifest = manifestFor(options.operation);
+  const operations = [options.operation, ...(options.additionalOperations ?? [])];
+  const manifest = manifestFor(operations);
+  // Pinned operation ids, oldest first, like the server keeps them per principal and target.
+  const pins: { operationId: string; pinnedAt: string }[] = [];
   let creates = 0;
   let polls = 0;
   let signedIn = false;
@@ -480,8 +487,29 @@ export async function installApiFixture(page: Page, options: ApiFixtureOptions):
       });
     }
 
-    if (method === "GET" && url.pathname === `/api/v1/targets/browser-target/operations/${options.operation.id}`) {
-      return json(options.operation);
+    const definition = operations.find((operation) => url.pathname === `/api/v1/targets/browser-target/operations/${operation.id}`);
+    if (method === "GET" && definition !== undefined) {
+      return json(definition);
+    }
+
+    if (method === "GET" && url.pathname === "/api/v1/targets/browser-target/pins") {
+      return json({ pins });
+    }
+
+    const pinPath = /^\/api\/v1\/targets\/browser-target\/pins\/([^/]+)$/.exec(url.pathname);
+    if (pinPath !== null && (method === "PUT" || method === "DELETE")) {
+      if (options.pinFailureStatus !== undefined) {
+        return json({
+          type: "urn:gauntlet:problem:pins-unavailable",
+          title: "Pinned operations are unavailable",
+          status: options.pinFailureStatus,
+        }, options.pinFailureStatus);
+      }
+      const operationId = decodeURIComponent(pinPath[1]!);
+      const index = pins.findIndex((entry) => entry.operationId === operationId);
+      if (method === "PUT" && index === -1) pins.push({ operationId, pinnedAt: new Date().toISOString() });
+      if (method === "DELETE" && index !== -1) pins.splice(index, 1);
+      return route.fulfill({ status: 204 });
     }
 
     if (method === "POST" && url.pathname === "/api/v1/targets/browser-target/uploads") {

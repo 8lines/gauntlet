@@ -3,20 +3,22 @@ import type { OperationSummary } from "@8lines/gauntlet-protocol";
 import type { PageSubject } from "@8lines/gauntlet-widget-channel";
 import { RecentRunRow } from "@/components/gauntlet/RecentRunsList";
 import { DashboardLink, OperationRow } from "./OperationRow.tsx";
-import type { PanelLists } from "./placements.ts";
+import { applyPins, type PanelLists } from "./placements.ts";
 import type { RecentRun } from "../recent-runs.ts";
+import type { Pins } from "../usePins.ts";
 import type { OperationDescription } from "./usePanelCatalog.ts";
 
 /**
- * Panel body while no operation or run is open: "On this page", "Global" and
- * "Recent runs", or search results instead of all three while a query is entered.
+ * Panel body while no operation or run is open: "Pinned" (when not empty), "On this page", "Global"
+ * and "Recent runs", or search results in their own order instead while a query is entered.
  */
 export function OperationLists({
-  targetId, query, lists, results, recent, describe, subjectOf, onOpenOperation, onOpenRun,
+  targetId, query, lists, pins, results, recent, describe, subjectOf, onOpenOperation, onOpenRun,
 }: {
   targetId: string;
   query: string;
   lists: PanelLists;
+  pins: Pins;
   results: readonly OperationSummary[];
   recent: readonly RecentRun[];
   describe: (operation: OperationSummary) => OperationDescription;
@@ -31,6 +33,9 @@ export function OperationLists({
       operation={operation}
       description={describe(operation)}
       subject={subject}
+      pin={pins.pinnedIds === undefined
+        ? undefined
+        : { pinned: pins.isPinned(operation.id), onToggle: () => pins.toggle(operation.id) }}
       onOpen={() => onOpenOperation(operation)}
     />
   );
@@ -45,13 +50,19 @@ export function OperationLists({
     );
   }
 
+  const { pinned, contextual, global } = applyPins(lists, pins.pinnedIds);
   return (
     <div className="flex flex-col gap-6 p-4">
-      <Section title="On this page" count={lists.contextual.length} empty="No operations for this place in the application.">
-        {lists.contextual.map(({ operation, subject }) => row(operation, subject))}
+      {pinned.length > 0 && (
+        <Section title="Pinned" count={pinned.length} empty="">
+          {pinned.map(({ operation, subject }) => row(operation, subject))}
+        </Section>
+      )}
+      <Section title="On this page" count={contextual.length} empty="No operations for this place in the application.">
+        {contextual.map(({ operation, subject }) => row(operation, subject))}
       </Section>
-      <Section title="Global" count={lists.global.length} empty="No operations available from everywhere.">
-        {lists.global.map((operation) => row(operation, undefined))}
+      <Section title="Global" count={global.length} empty="No operations available from everywhere.">
+        {global.map((operation) => row(operation, undefined))}
       </Section>
       <Section title="Recent runs" count={recent.length} empty="Runs started from this widget will appear here.">
         {recent.map((run) => (

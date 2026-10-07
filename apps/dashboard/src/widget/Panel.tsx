@@ -19,6 +19,7 @@ import { browserStorage } from "../browser-storage.ts";
 import { usePanelCatalog } from "./usePanelCatalog.ts";
 import { usePanelChannel, type PanelChannel, type PanelChannelState } from "./usePanelChannel.ts";
 import { usePanelTarget } from "./usePanelTarget.ts";
+import { usePins } from "../usePins.ts";
 import { ChunkErrorBoundary } from "@/components/gauntlet/ChunkErrorBoundary";
 import { OperationLoading } from "@/components/gauntlet/OperationLoading";
 import { openOperationView, pageSubjectDrifted, reseedOperationView, runCreatedIn, type OperationView, type View } from "./view.ts";
@@ -99,6 +100,8 @@ function ConnectedPanel({ channel, targetId, onLogOut }: { channel: PanelChannel
   const { target, operations, refreshProblem } = usePanelTarget(targetId, openCount);
   const [query, setQuery] = useState("");
   const catalog = usePanelCatalog(targetId, operations, context, query);
+  // Reloaded on every open as well, so pins made in the dashboard meanwhile show up.
+  const pins = usePins(targetId, openCount);
   const [view, setView] = useState<View>({ kind: "lists" });
   const [recent, setRecent] = useState(() => readRecentRuns(browserStorage));
   const searchRef = useRef<HTMLInputElement>(null);
@@ -180,10 +183,14 @@ function ConnectedPanel({ channel, targetId, onLogOut }: { channel: PanelChannel
         {snapshot !== undefined && view.kind === "lists" && (
           <div className="min-h-0 flex-1 overflow-y-auto">
             <TargetProblem snapshot={snapshot} />
+            {pins.error !== undefined && (
+              <p role="alert" className="px-4 pt-4 text-[13px]/[18px] text-muted-foreground">{pins.error}</p>
+            )}
             <OperationLists
               targetId={targetId}
               query={query}
               lists={catalog.lists}
+              pins={pins}
               results={catalog.results}
               recent={recent.filter((entry) => entry.targetId === targetId)}
               describe={catalog.describe}

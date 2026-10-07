@@ -45,6 +45,7 @@ const sourcePaths = [
   "templates/deployment.yaml",
   "templates/ingress.yaml",
   "templates/networkpolicy.yaml",
+  "templates/persistentvolumeclaim.yaml",
   "templates/service.yaml",
   "values.schema.json",
   "values.yaml",
@@ -63,6 +64,7 @@ const archivePaths = [
   "gauntlet/templates/deployment.yaml",
   "gauntlet/templates/ingress.yaml",
   "gauntlet/templates/networkpolicy.yaml",
+  "gauntlet/templates/persistentvolumeclaim.yaml",
   "gauntlet/templates/service.yaml",
 ];
 if (sourcePaths.includes("LICENSE")) archivePaths.push("gauntlet/LICENSE");
@@ -760,7 +762,7 @@ test("the pinned Helm package is exact, deterministic, mutation-sensitive, and n
     assert.equal(lstatSync(first.archivePath).mode & 0o777, 0o600);
 
     const entries = parseStrictTar(firstArchive);
-    assert.equal(entries.length, 11 + (sourcePaths.includes("LICENSE") ? 1 : 0));
+    assert.equal(entries.length, 12 + (sourcePaths.includes("LICENSE") ? 1 : 0));
     assert.deepEqual(entries.map((entry) => entry.name), archivePaths);
     assert.equal(entries.some((entry) => entry.name.endsWith("/.helmignore")), false);
     for (const entry of entries) {

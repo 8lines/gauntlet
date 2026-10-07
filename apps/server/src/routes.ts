@@ -27,7 +27,8 @@ export interface RouteDependencies {
   readonly maxUploadBytes: number;
 }
 
-function pathIds(request: FastifyRequest, keys: readonly string[]): readonly string[] | undefined {
+/** The named path parameters when every one is a protocol id, otherwise undefined. */
+export function pathIds(request: FastifyRequest, keys: readonly string[]): readonly string[] | undefined {
   if (request.params === null || typeof request.params !== "object" || Array.isArray(request.params)) {
     return undefined;
   }

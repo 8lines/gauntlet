@@ -173,6 +173,12 @@ Put the secret in the installed `.env` as `GAUNTLET_AUTH_SECRET`, add the
 installed `.env` is created private to its owner; keep it that way. See
 [authentication](../../docs/deployment/authentication.md).
 
+## Pinned operations
+
+The Compose distribution does not set `GAUNTLET_DATA_DIR`, so Gauntlet keeps
+pinned operations in memory and they are lost when the container restarts.
+The server logs a `GAUNTLET_DATA_EPHEMERAL` warning at startup to say so.
+
 ## MCP access for AI clients
 
 Set `GAUNTLET_MCP_ENABLED=true` in the installed `.env` and run

@@ -79,6 +79,20 @@ function emitAuthDisabledWarning(): void {
   }
 }
 
+let dataEphemeralWarningEmitted = false;
+
+function emitDataEphemeralWarning(): void {
+  if (dataEphemeralWarningEmitted) return;
+  dataEphemeralWarningEmitted = true;
+  try {
+    process.emitWarning("GAUNTLET_DATA_DIR is not set; pinned operations are kept in memory and lost on restart", {
+      code: "GAUNTLET_DATA_EPHEMERAL",
+    });
+  } catch {
+    // A warning transport must not change startup.
+  }
+}
+
 /** Decoded `GAUNTLET_AUTH_SECRET`, or undefined when unset. */
 export function authSecret(environment: Readonly<Record<string, string | undefined>>): Buffer | undefined {
   const value = ownEnvironmentString(environment, "GAUNTLET_AUTH_SECRET");
@@ -92,8 +106,10 @@ export async function createConfiguredApp(
   const configuration = await loadServerConfiguration(environment, dependencies.readConfig ?? readFile);
   const dashboardDir = ownEnvironmentString(environment, "GAUNTLET_DASHBOARD_DIR");
   const widgetDir = ownEnvironmentString(environment, "GAUNTLET_WIDGET_DIR");
+  const dataDir = ownEnvironmentString(environment, "GAUNTLET_DATA_DIR");
   const secret = configuration.auth.mode === "none" ? undefined : authSecret(environment);
   if (configuration.auth.mode === "none") emitAuthDisabledWarning();
+  if (dataDir === undefined) emitDataEphemeralWarning();
   return await createApp({
     auth: { configuration: configuration.auth, ...(secret === undefined ? {} : { secret }) },
     environment: configuration.instance.environment,
@@ -104,6 +120,7 @@ export async function createConfiguredApp(
       ...(widgetDir === undefined ? {} : { dir: widgetDir }),
     },
     ...(dashboardDir === undefined ? {} : { dashboardDir }),
+    ...(dataDir === undefined ? {} : { dataDir }),
   });
 }
 

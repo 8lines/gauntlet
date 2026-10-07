@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { OperationSummary } from "@8lines/gauntlet-protocol";
 import type { PageContext, PageSubject } from "@8lines/gauntlet-widget-channel";
-import { panelLists, subjectChip } from "../src/widget/placements.ts";
+import { applyPins, panelLists, subjectChip } from "../src/widget/placements.ts";
 
 function operation(overrides: Record<string, unknown> = {}): OperationSummary {
   return {
@@ -74,5 +74,37 @@ describe("panelLists", () => {
 describe("subjectChip", () => {
   it('renders "order 123" for a single-value order subject', () => {
     assert.equal(subjectChip({ type: "order", values: { orderId: "123" } }), "order 123");
+  });
+});
+
+describe("applyPins", () => {
+  const contextualOp = operation({ id: "contextual", placements: [{ kind: "subject", subjectType: "order" }] });
+  const otherContextual = operation({ id: "other-contextual", placements: [{ kind: "subject", subjectType: "order" }] });
+  const globalOp = operation({ id: "global", placements: [{ kind: "global" }] });
+  const lists = {
+    contextual: [{ operation: contextualOp, subject: orderSubject }, { operation: otherContextual, subject: orderSubject }],
+    global: [globalOp],
+  };
+
+  it("leaves the lists as they are without pins", () => {
+    assert.deepEqual(applyPins(lists, undefined), { pinned: [], ...lists });
+    assert.deepEqual(applyPins(lists, []), { pinned: [], ...lists });
+  });
+
+  it("moves pinned operations into pinned, in pin order, keeping the page subject", () => {
+    const result = applyPins(lists, ["global", "contextual"]);
+    assert.deepEqual(result.pinned, [
+      { operation: globalOp, subject: undefined },
+      { operation: contextualOp, subject: orderSubject },
+    ]);
+    assert.deepEqual(result.contextual, [{ operation: otherContextual, subject: orderSubject }]);
+    assert.deepEqual(result.global, []);
+  });
+
+  it("ignores pinned operations that are in neither list", () => {
+    const result = applyPins(lists, ["unplaced", "not-on-this-page", "contextual"]);
+    assert.deepEqual(result.pinned, [{ operation: contextualOp, subject: orderSubject }]);
+    assert.deepEqual(result.contextual, [{ operation: otherContextual, subject: orderSubject }]);
+    assert.deepEqual(result.global, [globalOp]);
   });
 });
