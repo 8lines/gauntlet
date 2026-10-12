@@ -34,7 +34,7 @@ import {
 import type { RecentRun } from "../recent-runs.ts";
 import { PolicyList } from "../components/gauntlet/PolicyList.tsx";
 import { ProblemAlert } from "../components/gauntlet/ProblemAlert.tsx";
-import { RunView } from "../components/gauntlet/RunView.tsx";
+import { RunStarting, RunView } from "../components/gauntlet/RunView.tsx";
 import { policyEffects } from "../copy.ts";
 import { generalErrors } from "../operation-errors.ts";
 import { navigate } from "../route.ts";
@@ -233,6 +233,7 @@ export function OperationScreen(
             run={run}
             runMissing={state.runMissing}
             runProblem={state.runProblem}
+            submitting={state.submitting}
             onCancel={definition.execution.cancellationSupported ? state.cancelRun : undefined}
             onRunAgain={state.runAgain}
           />
@@ -361,17 +362,20 @@ export function OperationScreen(
 }
 
 function ResultArea(
-  { targetId, operationId, runId, run, runMissing, runProblem, onCancel, onRunAgain }: {
+  { targetId, operationId, runId, run, runMissing, runProblem, submitting, onCancel, onRunAgain }: {
     targetId: string;
     operationId: string;
     runId: string | undefined;
     run: Run | undefined;
     runMissing: boolean;
     runProblem: ReturnType<typeof useOperationRun>["runProblem"];
+    submitting: boolean;
     onCancel: (() => void) | undefined;
     onRunAgain: () => void;
   },
 ) {
+  // A new run was sent: it replaces whatever the area showed, even before the application answers.
+  if (submitting) return <RunStarting />;
   if (runMissing) {
     return (
       <EmptyState

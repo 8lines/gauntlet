@@ -185,6 +185,29 @@ test("confirmation dialog contains focus and restores its exact trigger", async 
   expect(await recordedRuns(page)).toHaveLength(1);
 });
 
+test("the result says the run is starting until the application answers", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "desktop acceptance");
+  let releaseCreate!: () => void;
+  const createGate = new Promise<void>((resolve) => { releaseCreate = resolve; });
+  await installApiFixture(page, { operation: followUpOperation, scenario: "run-url", createRunGate: createGate });
+  await page.goto(`/t/browser-target/o/${followUpOperation.id}`);
+  const result = page.getByRole("region", { name: "Result", exact: true });
+  await expect(result.getByText("Nothing has run yet")).toBeVisible();
+
+  // An application that executes inline answers only when the whole operation has finished.
+  await page.getByRole("region", { name: "Operation actions" })
+    .getByRole("button", { name: "Execute", exact: true }).click();
+  const starting = result.getByRole("status");
+  await expect(starting).toContainText("Starting the run");
+  await expect(starting.getByRole("progressbar")).toBeVisible();
+  await expect(result.getByText("Nothing has run yet")).toHaveCount(0);
+
+  releaseCreate();
+  await expect(page).toHaveURL(/\/r\/browser-run-01$/);
+  await expect(result.getByText("Starting the run")).toHaveCount(0);
+  await expect(result.getByText("browser-run-01", { exact: true })).toBeVisible();
+});
+
 test("desktop handles upload, polling, cancellation, rich results and follow-ups", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "desktop acceptance");
   await installApiFixture(page, { operation: desktopOperation, scenario: "desktop" });

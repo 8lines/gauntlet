@@ -1,4 +1,5 @@
 import type { Run } from "@8lines/gauntlet-protocol";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { elapsedMilliseconds, formatElapsed, formatRelativeTime } from "../../copy.ts";
@@ -6,6 +7,7 @@ import { ArtifactView } from "./ArtifactView.tsx";
 import { FollowUpList } from "./FollowUpList.tsx";
 import { ProblemAlert } from "./ProblemAlert.tsx";
 import { RunStateBadge } from "./RunStateBadge.tsx";
+import { StateMark } from "./StateMark.tsx";
 
 export function RunView(
   { targetId, run, onCancel, onRunAgain }:
@@ -95,6 +97,30 @@ export function RunView(
           <Button onClick={onRunAgain}>Run again</Button>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * The run was sent and the application has not answered yet. An application that executes inline
+ * answers only when the operation has finished, so until then there is no run to show or poll.
+ */
+export function RunStarting() {
+  return (
+    <div className="min-w-0 space-y-6" role="status">
+      <div className="space-y-2">
+        <Badge variant="outline" className="gap-1.5 font-normal">
+          <StateMark tone="info" shape="◐" />
+          Starting
+        </Badge>
+        <div>
+          <p className="text-base/6 font-semibold">Starting the run</p>
+          <p className="max-w-[68ch] text-sm/5 text-muted-foreground">
+            Waiting for the application to answer. Some applications answer only when the operation has finished, so this can take a while.
+          </p>
+        </div>
+      </div>
+      <Progress aria-label="Starting the run" />
     </div>
   );
 }
