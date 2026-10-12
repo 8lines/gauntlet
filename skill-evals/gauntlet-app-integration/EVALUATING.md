@@ -112,3 +112,4 @@ checked the final bytes.
 - 2026-10-07: Release preparation moved gauntlet to 0.2.1, skills to 0.1.12. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
 - 2026-10-12: Release preparation moved gauntlet to 0.2.2, skills to 0.1.13. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
 - 2026-10-12: The Next.js example moved to next 16.3.8 to clear security advisories; the example's behaviour and the skill guidance are unchanged. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
+- 2026-10-12: Release preparation moved gauntlet to 0.2.3, skills to 0.1.14. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.

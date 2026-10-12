@@ -21,6 +21,12 @@ changelog: [`protocol`](packages/protocol/CHANGELOG.md),
 
 ## Unreleased
 
+## [0.2.3] - 2026-10-12
+
+### Fixed
+
+- The dashboard and the widget show that a run is starting while the application has not answered yet, instead of an empty result.
+
 ## [0.2.2] - 2026-10-12
 
 ### Changed
