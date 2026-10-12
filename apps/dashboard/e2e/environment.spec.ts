@@ -42,7 +42,8 @@ test("environment dropdown preserves the current form and switches to another ta
   await page.keyboard.press("Enter");
   const menu = page.getByRole("menu");
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole("menuitem", { name: /Browser environment/ })).toBeFocused();
+  // The menu names environments from the manifest, grouped under the application.
+  await expect(menu.getByRole("group", { name: "Acme Portal" }).getByRole("menuitem", { name: "development" })).toBeFocused();
   // On mobile the navigation sheet may still be sliding in; the menu must settle inside the viewport.
   await expect.poll(async () => {
     const box = (await menu.boundingBox())!;
@@ -56,7 +57,7 @@ test("environment dropdown preserves the current form and switches to another ta
 
   await openNavigation();
   await trigger.click();
-  await page.getByRole("menuitem", { name: /Browser environment/ }).click();
+  await page.getByRole("menuitem", { name: "development" }).click();
   await expect(menu).toBeHidden();
   await closeNavigation();
   await expect(viewer).toBeChecked();
@@ -78,7 +79,7 @@ test("environment dropdown preserves the current form and switches to another ta
   await expectEnvironment("Second environment");
   await page.goBack();
   await expect(page.getByRole("heading", { level: 1, name: "Second environment" })).toBeHidden();
-  await expectEnvironment("Browser environment");
+  await expectEnvironment("Acme Portal, development");
 });
 
 test("catalog table describes operation impact and confirmation and links to the operation", async ({ page }) => {

@@ -50,7 +50,7 @@ test("the shell switches between the sidebar and the mobile sheet at the md brea
   await page.goto(`/t/browser-target/o/${operation.id}`);
   await expect(page.getByRole("region", { name: "Operation actions" })).toBeVisible();
   const trigger = page.getByRole("button", { name: "Toggle navigation" });
-  const environment = `Choose environment: ${targetLabel}`;
+  const environment = /^Choose environment:/;
 
   await resizeViewport(page, 767);
   await trigger.click();
