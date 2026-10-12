@@ -21,6 +21,12 @@ changelog: [`protocol`](packages/protocol/CHANGELOG.md),
 
 ## Unreleased
 
+## [0.2.2] - 2026-10-12
+
+### Changed
+
+- The dashboard environment switcher groups environments under their application and names each one once, from the application's manifest.
+
 ## [0.2.1] - 2026-10-07
 
 ### Added

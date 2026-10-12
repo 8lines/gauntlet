@@ -3,13 +3,13 @@
   "units": [
     {
       "id": "gauntlet",
-      "from": "0.2.0",
-      "to": "0.2.1"
+      "from": "0.2.1",
+      "to": "0.2.2"
     },
     {
       "id": "skills",
-      "from": "0.1.11",
-      "to": "0.1.12"
+      "from": "0.1.12",
+      "to": "0.1.13"
     }
   ],
   "order": [
@@ -17,11 +17,6 @@
     "skills"
   ],
   "changes": [
-    "dependency-advisories.md",
-    "gauntlet-upgrade-skill.md",
-    "operation-studio.md",
-    "pinned-operations.md",
-    "reuse-recent-catalog-reads.md",
-    "widget-operation-tabs.md"
+    "environment-switcher-names.md"
   ]
 }
