@@ -78,3 +78,4 @@ passes; never rewrite individual reviews to make a scenario aggregate uniform.
 
 - 2026-10-07: Release preparation moved gauntlet to 0.2.1, skills to 0.1.12. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
 - 2026-10-12: Release preparation moved gauntlet to 0.2.2, skills to 0.1.13. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
+- 2026-10-12: Release preparation moved gauntlet to 0.2.3, skills to 0.1.14. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.

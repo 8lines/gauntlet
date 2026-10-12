@@ -3,13 +3,13 @@
   "units": [
     {
       "id": "gauntlet",
-      "from": "0.2.1",
-      "to": "0.2.2"
+      "from": "0.2.2",
+      "to": "0.2.3"
     },
     {
       "id": "skills",
-      "from": "0.1.12",
-      "to": "0.1.13"
+      "from": "0.1.13",
+      "to": "0.1.14"
     }
   ],
   "order": [
@@ -17,6 +17,6 @@
     "skills"
   ],
   "changes": [
-    "environment-switcher-names.md"
+    "run-starting-state.md"
   ]
 }
