@@ -1,10 +1,10 @@
 plugins {
-    id("org.springframework.boot") version "4.1.1"
+    id("org.springframework.boot") version "4.1.2"
     id("com.diffplug.spotless")
 }
 dependencies {
     implementation(project(":spring-boot-starter"))
-    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.1"))
+    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.2"))
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-validation")
 }
