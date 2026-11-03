@@ -38,7 +38,7 @@ const VALID_COMPOSE_RUNTIME_DEPENDENCY_PINS = Object.freeze({
   "ajv-formats": "3.0.1",
   canonicalize: "4.0.0",
   "fast-deep-equal": "3.1.3",
-  "fast-uri": "3.1.8",
+  "fast-uri": "3.1.9",
   "json-schema-traverse": "1.0.0",
   "require-from-string": "2.0.2",
 });

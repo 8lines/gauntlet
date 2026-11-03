@@ -61,8 +61,8 @@
       "sha256": "ea85657b7620ba191de22ee347f8a0eb2f1427761824ebfc7b200f7978a1ad6e"
     },
     {
-      "path": "node_modules/.pnpm/fast-uri@3.1.8/node_modules/fast-uri",
-      "sha256": "90115fda9206b833062c16fd4bf570f88e601a5c6c1dd58313416a69b103722d"
+      "path": "node_modules/.pnpm/fast-uri@3.1.9/node_modules/fast-uri",
+      "sha256": "700d8b120fc32bc31dd58da3e50738b4b543547e7254075fcb755698fb2541d8"
     },
     {
       "path": "node_modules/.pnpm/json-schema-traverse@1.0.0/node_modules/json-schema-traverse",

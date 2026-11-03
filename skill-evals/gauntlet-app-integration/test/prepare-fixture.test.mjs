@@ -20,7 +20,7 @@ const EXPECTED_RUNTIME_DEPENDENCY_PINS = {
   "ajv-formats": "3.0.1",
   canonicalize: "4.0.0",
   "fast-deep-equal": "3.1.3",
-  "fast-uri": "3.1.8",
+  "fast-uri": "3.1.9",
   "json-schema-traverse": "1.0.0",
   "require-from-string": "2.0.2",
 };
@@ -484,7 +484,7 @@ test("Compose fixture rejects the observed incomplete standalone contract", () =
   for (const application of ["billing", "portal"]) {
     write(root, `${application}/src/server.mjs`, readFileSync(resolve(root, "reference/server.mjs"), "utf8"));
     write(root, `${application}/adapter.json`, "{ invalid metadata deliberately ignored\n");
-    const cached = spawnSync("pnpm", ["store", "add", "fast-uri@3.1.8"], {
+    const cached = spawnSync("pnpm", ["store", "add", "fast-uri@3.1.9"], {
       cwd: resolve(root, application), encoding: "utf8", timeout: 60_000,
     });
     assert.equal(cached.status, 0, cached.stderr || cached.stdout);
