@@ -62,7 +62,7 @@ const units = [
     kind: "composer",
     version: { type: "json", path: "packages/php/symfony-bundle/composer.json", keyPath: ["version"] },
     dependsOn: ["php-core"],
-    ownedPaths: ["packages/php/symfony-bundle/src/**", "packages/php/symfony-bundle/config/**", "packages/php/symfony-bundle/composer.json"],
+    ownedPaths: ["packages/php/symfony-bundle/src/**", "packages/php/symfony-bundle/config/**", "packages/php/symfony-bundle/composer.json", "packages/php/symfony-bundle/INSTRUCTIONS.md"],
     tagPrefix: "symfony-bundle-v",
     artifacts: ["8lines/gauntlet-symfony-bundle"],
     contracts: { implements: { protocol: 1 } },

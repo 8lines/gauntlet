@@ -43,7 +43,7 @@ const CONTRACTS = Object.freeze({
   }),
   "8lines/gauntlet-symfony-bundle": Object.freeze({
     required: Object.freeze(["LICENSE", "README.md", "composer.json", "phpunit.xml.dist"]),
-    optional: Object.freeze(["CHANGELOG.md"]),
+    optional: Object.freeze(["CHANGELOG.md", "INSTRUCTIONS.md"]),
     roots: Object.freeze(["config", "src", "tests"]),
   }),
 });

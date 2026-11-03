@@ -327,6 +327,35 @@ body parsing or application code. JSON documents are closed, size-limited and
 served with canonical status/media behavior; manifest and operation definitions
 support strong ETags.
 
+## Symfony AI Mate
+
+The bundle is also a [Symfony AI Mate](https://symfony.com/doc/current/ai/components/mate.html)
+extension, so coding agents can check the adapter wiring without booting the
+application. Mate is optional and only for development; the bundle never
+requires it:
+
+```bash
+composer require --dev symfony/ai-mate
+vendor/bin/mate discover
+vendor/bin/mate tools:call gauntlet-adapter
+```
+
+`mate discover` enables the extension and adds a short note to
+`mate/AGENT_INSTRUCTIONS.md`. The `gauntlet-adapter` tool reads the debug
+container that Symfony dumps under `var/cache/<env>` and reports whether
+`GauntletBundle` is registered, the `enabled` flag (with `enabled_env` when it
+comes from an env var), the application identity, the profiles, and the
+features, operations, data sources and capability endpoints with their
+classes. It accepts an optional `environment` and a per-group `limit`. It never
+reads the idempotency secret. Warm the cache with debug enabled when the dump
+is missing, and point Mate at a non-default cache directory in
+`mate/config.php`:
+
+```php
+$container->parameters()
+    ->set('gauntlet.mate.cache_dir', '%mate.root_dir%/var/cache');
+```
+
 ## Package tests
 
 From the repository root, use the non-production PHP 8.3 test image. Its PHP

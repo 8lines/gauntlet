@@ -145,6 +145,36 @@ test("stages the package changelog when the package has one", async () => {
   }
 });
 
+test("stages the bundle's Mate instructions and rejects them in PHP Core", async () => {
+  const fixture = createFixture("0.1.0");
+  try {
+    write(fixture.root, "packages/php/symfony-bundle/INSTRUCTIONS.md", "## Gauntlet Symfony Bundle\n");
+    runGit(fixture.root, ["add", "."]);
+    runGit(fixture.root, ["commit", "-m", "instructions"]);
+    const artifacts = await stageComposerPackages({
+      root: fixture.root, outputDirectory: fixture.output, sourceCommit: runGit(fixture.root, ["rev-parse", "HEAD"]),
+      versions: composerVersions("0.1.0"), include: COMPOSER_UNIT_IDS,
+    });
+    const bundle = artifacts.find(({ name }) => name === "8lines/gauntlet-symfony-bundle");
+    assert.equal(readFileSync(resolve(bundle.path, "INSTRUCTIONS.md"), "utf8"), "## Gauntlet Symfony Bundle\n");
+  } finally {
+    fixture.cleanup();
+  }
+
+  const core = createFixture("0.1.0");
+  try {
+    write(core.root, "packages/php/core/INSTRUCTIONS.md", "## Core\n");
+    runGit(core.root, ["add", "."]);
+    runGit(core.root, ["commit", "-m", "instructions"]);
+    await assert.rejects(stageComposerPackages({
+      root: core.root, outputDirectory: core.output, sourceCommit: runGit(core.root, ["rev-parse", "HEAD"]),
+      versions: composerVersions("0.1.0"), include: COMPOSER_UNIT_IDS,
+    }), /Composer package staging failed closed/u);
+  } finally {
+    core.cleanup();
+  }
+});
+
 test("stages Composer packages after a release bump to 0.1.1", async () => {
   const fixture = createFixture("0.1.1");
   try {
