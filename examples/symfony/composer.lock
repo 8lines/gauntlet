@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "0176ac1688cc8136e45579848516cc6c",
+    "content-hash": "53e366bc73e04a4fb22ee36033039ddf",
     "packages": [
         {
             "name": "8lines/gauntlet-php-core",
@@ -55,11 +55,11 @@
         },
         {
             "name": "8lines/gauntlet-symfony-bundle",
-            "version": "0.1.8",
+            "version": "0.1.9",
             "dist": {
                 "type": "path",
                 "url": "../../packages/php/symfony-bundle",
-                "reference": "c604e4a5e984e9e6e4a60f10b98ee2b87f5fb9d8"
+                "reference": "06b20401e16986076f330294266c08d8cbc8c028"
             },
             "require": {
                 "8lines/gauntlet-php-core": "^0.1.8",
@@ -78,7 +78,21 @@
                 "phpunit/phpunit": "^11.5",
                 "symfony/browser-kit": "^7.4 || ^8.0"
             },
+            "suggest": {
+                "symfony/ai-mate": "Lets coding agents inspect the Gauntlet adapter wiring through vendor/bin/mate; install it as a dev dependency"
+            },
             "type": "symfony-bundle",
+            "extra": {
+                "ai-mate": {
+                    "scan-dirs": [
+                        "src/Mate/Capability"
+                    ],
+                    "includes": [
+                        "config/mate.php"
+                    ],
+                    "instructions": "INSTRUCTIONS.md"
+                }
+            },
             "autoload": {
                 "psr-4": {
                     "EightLines\\Gauntlet\\SymfonyBundle\\": "src/"

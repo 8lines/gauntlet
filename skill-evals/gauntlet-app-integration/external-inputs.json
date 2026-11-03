@@ -11,15 +11,15 @@
     },
     {
       "path": "VERSION",
-      "sha256": "3ab94c04d24986f3af288ba1cda2c0bbddbc5a89dff097182805f54578e1ea75"
+      "sha256": "1725bfa6524c5265e7c171cf06568417d39b947fff49c242f03859479c82334b"
     },
     {
       "path": "examples/symfony/composer.json",
-      "sha256": "3e9aca4defd4d88bfe2232d40799c6b108c469adc49a49553236ca2b28c8fa9e"
+      "sha256": "ab23060c59d2dd83253680be79397d4b4dc157da8295035e061cd14734909458"
     },
     {
       "path": "examples/symfony/composer.lock",
-      "sha256": "a960a0eb1a00b17e7351e81f8c8c727e35fce8f1234638df7f1eb6762f9d0f41"
+      "sha256": "166754307c07dcffcfdff3fff6363791069ba62a21bfb50ca0e71817681880d7"
     },
     {
       "path": "package.json",
@@ -73,7 +73,7 @@
         ".phpunit.result.cache",
         "vendor"
       ],
-      "sha256": "bc9e6b4f88ae74fdaaa33e3a575829f4163d005760bbe91f7477da68fbe843da"
+      "sha256": "1f2163c55742e35a51d0b93e85d55bc725b9fca08138508680add3d2182a9de9"
     },
     {
       "path": "packages/protocol",
