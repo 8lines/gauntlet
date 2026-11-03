@@ -19,11 +19,11 @@
     },
     {
       "path": "pnpm-lock.yaml",
-      "sha256": "225144810b0ddec55d35f24492e500b21a1930a40c3cf48f3710c3be31874b04"
+      "sha256": "a438c6cb0b799a585a97739a72366b3100ad006e6e67a6691334e86fa81f10b1"
     },
     {
       "path": "pnpm-workspace.yaml",
-      "sha256": "4b9b0cd8d37ed1803da7bcd172ed4ce21e04d8f46409f3f187a45dd30e94ffec"
+      "sha256": "9b34fbd261919d7355919649d1cf34d80c52c72ba9d12b54e4a7c6042bb33bbc"
     }
   ],
   "sourceTrees": [
