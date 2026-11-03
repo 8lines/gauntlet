@@ -14,6 +14,7 @@ const mainRuntimeKeys = [
   "GAUNTLET_WIDGET_DIR",
   "GAUNTLET_AUTH_SECRET",
   "GAUNTLET_DATA_DIR",
+  "GAUNTLET_BASE_PATH",
 ] as const;
 const configurationFileKey = "GAUNTLET_CONFIG_FILE";
 const legacySourceKeys = [
@@ -128,6 +129,21 @@ test("the v1 schema accepts password authentication and rejects unknown modes", 
   for (const auth of rejected) assert.equal(validate({ ...base, auth }), false, JSON.stringify(auth));
 });
 
+test("the v1 schema accepts a canonical basePath only", async () => {
+  const schema = JSON.parse(await readFile(schemaUrl, "utf8")) as object;
+  const validate = new Ajv2020({ allErrors: true, strict: true, validateFormats: false }).compile(schema);
+  const base = await document("config.valid.json") as Record<string, unknown>;
+  for (const basePath of ["", "/tester", "/qa/gauntlet-1.2_x~y"]) {
+    assert.equal(validate({ ...base, basePath }), true, `${basePath}: ${JSON.stringify(validate.errors)}`);
+  }
+  for (const basePath of [
+    "/", "tester", "/tester/", "//tester", "/tester?x=1", "/tester#top", "/te%73ter", "/./x", "/..", "/a b",
+    `/${"a".repeat(256)}`, 1, null,
+  ]) {
+    assert.equal(validate({ ...base, basePath }), false, JSON.stringify(basePath));
+  }
+});
+
 test("the Compose schema copy is identical to the canonical configuration schema", async () => {
   assert.equal(
     await readFile(new URL("deploy/compose/gauntlet-config-v1.schema.json", root), "utf8"),
@@ -162,6 +178,8 @@ test("configuration documentation matches the implemented source, schema, and sa
     "GAUNTLET_ENVIRONMENT_NAME",
     "GAUNTLET_ENVIRONMENT_KIND",
     "GAUNTLET_TARGETS_JSON_DEPRECATED",
+    "basePath",
+    "GAUNTLET_BASE_PATH",
     "restart",
   ]);
 });

@@ -20,6 +20,14 @@ mcp:
   enabled: false
   allowedOrigins: []
 
+basePath: ""
+
+auth:
+  existingSecret: ""
+
+extraEnv: []
+envFrom: []
+
 service:
   type: ClusterIP
   port: 8080

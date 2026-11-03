@@ -14,6 +14,7 @@
       },
       "additionalProperties": false
     },
+    "basePath": { "$ref": "#/$defs/basePath" },
     "widget": { "$ref": "#/$defs/widget" },
     "auth": { "$ref": "#/$defs/auth" },
     "targets": {
@@ -46,6 +47,11 @@
     "exactOrigin": {
       "type": "string",
       "pattern": "^https?://(?:\\[[0-9a-f:.]+\\]|[a-z0-9.-]+)(?::[0-9]{1,5})?$"
+    },
+    "basePath": {
+      "type": "string",
+      "maxLength": 256,
+      "pattern": "^$|^(?:/[A-Za-z0-9][A-Za-z0-9._~-]*)+$"
     },
     "widget": {
       "type": "object",

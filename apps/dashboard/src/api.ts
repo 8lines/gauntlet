@@ -10,6 +10,7 @@ import type {
   UploadResponse,
 } from "@8lines/gauntlet-protocol";
 import { authTokenStore, notifyUnauthenticated, type AuthSession, type LoginResult } from "./auth.ts";
+import { withBasePath } from "./base-path.ts";
 
 /** Shape returned by `GET /api/v1/targets` (see apps/server/src/manifest-service.ts). */
 export interface TargetSnapshot {
@@ -46,7 +47,11 @@ function problemFromResponse(status: number, body: unknown): Problem {
 
 const UNAUTHENTICATED = "urn:gauntlet:problem:unauthenticated";
 
-/** `cookieOnly` leaves the stored bearer token out, to find out whether the cookie alone is enough. */
+/**
+ * `path` is a control-plane path such as `/api/v1/targets`; it is requested below the base path
+ * Gauntlet is served under. `cookieOnly` leaves the stored bearer token out, to find out whether
+ * the cookie alone is enough.
+ */
 export async function request<T>(path: string, init?: RequestInit, options: { readonly cookieOnly?: boolean } = {}): Promise<Result<T>> {
   let response: Response;
   const token = options.cookieOnly === true ? undefined : authTokenStore().read();
@@ -57,7 +62,7 @@ export async function request<T>(path: string, init?: RequestInit, options: { re
     if (typeof init?.body === "string" && !headers.has("content-type")) {
       headers.set("content-type", "application/json");
     }
-    response = await fetch(path, {
+    response = await fetch(withBasePath(path), {
       ...init,
       headers,
     });

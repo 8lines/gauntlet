@@ -8,17 +8,19 @@ export interface RegisterAuthOptions {
   readonly configuration: AuthConfiguration;
   readonly secret?: Buffer;
   readonly clock: () => Date;
+  /** URL path prefix Gauntlet is served under; the session cookie is scoped to it. */
+  readonly basePath?: string;
 }
 
 /** Registers the request guard and `/api/v1/auth/*`; with authentication off only the session route exists. */
 export function registerAuth(app: FastifyInstance, options: RegisterAuthOptions): Authenticator | undefined {
   if (options.configuration.mode === "none") {
-    registerAuthRoutes(app, undefined, options.clock);
+    registerAuthRoutes(app, undefined, options.clock, options.basePath);
     return undefined;
   }
   if (options.secret === undefined) throw new TypeError("Authentication requires GAUNTLET_AUTH_SECRET");
   const authenticator = createAuthenticator(options.configuration, options.secret);
   registerAuthGuard(app, authenticator, options.clock);
-  registerAuthRoutes(app, authenticator, options.clock);
+  registerAuthRoutes(app, authenticator, options.clock, options.basePath);
   return authenticator;
 }

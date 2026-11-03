@@ -8,6 +8,9 @@
 // - a second control plane on http://localhost:4413 with password authentication (shared
 //   password "widget-password"), the same adapter, and its host application on
 //   http://127.0.0.1:4414: plain HTTP and cross-site, so the panel cannot keep a cookie.
+// - a third control plane on http://localhost:4415 served below the base path /tester, with
+//   password authentication (shared password "widget-password"), and its host application on
+//   http://127.0.0.1:4416, which includes the loader from http://localhost:4415/tester.
 // The first control plane listens last, so its /ready answering means the whole stack is up.
 // Requires `pnpm build` first.
 import { createServer } from "node:http";
@@ -24,6 +27,9 @@ const GAUNTLET = `http://localhost:${GAUNTLET_PORT}`;
 const AUTH_HOST_PORT = 4414;
 const AUTH_GAUNTLET_PORT = 4413;
 const AUTH_GAUNTLET = `http://localhost:${AUTH_GAUNTLET_PORT}`;
+const BASED_HOST_PORT = 4416;
+const BASED_GAUNTLET_PORT = 4415;
+const BASED_GAUNTLET = `http://localhost:${BASED_GAUNTLET_PORT}/tester`;
 
 // The example adapter's environment, see examples/typescript-fixture/src/index.ts.
 const environment = { name: "typescript-fixture-test", kind: "test" };
@@ -59,7 +65,12 @@ function listen(port, gauntlet = GAUNTLET) {
 }
 
 const adapter = await startServer();
-const hosts = await Promise.all([listen(HOST_PORT), listen(UNLISTED_PORT), listen(AUTH_HOST_PORT, AUTH_GAUNTLET)]);
+const hosts = await Promise.all([
+  listen(HOST_PORT),
+  listen(UNLISTED_PORT),
+  listen(AUTH_HOST_PORT, AUTH_GAUNTLET),
+  listen(BASED_HOST_PORT, BASED_GAUNTLET),
+]);
 const authenticatedApp = await createApp({
   environment,
   dashboardDir: fileURLToPath(new URL("../dist", import.meta.url)),
@@ -83,6 +94,30 @@ const authenticatedApp = await createApp({
   ],
 });
 await authenticatedApp.listen({ host: "localhost", port: AUTH_GAUNTLET_PORT });
+const basedApp = await createApp({
+  environment,
+  basePath: "/tester",
+  dashboardDir: fileURLToPath(new URL("../dist", import.meta.url)),
+  widget: { enabled: true, dir: fileURLToPath(new URL("../dist-widget", import.meta.url)) },
+  auth: {
+    configuration: authConfiguration({
+      mode: "password",
+      publicUrl: `http://localhost:${BASED_GAUNTLET_PORT}`,
+      password: { shared: { hash: await hashPassword("widget-password") } },
+    }),
+    secret: Buffer.alloc(32, 9),
+  },
+  targets: [
+    {
+      id: "shop",
+      label: "Example shop",
+      adapterUrl: adapter.url,
+      expectedEnvironment: environment,
+      widget: { origins: [`http://127.0.0.1:${BASED_HOST_PORT}`] },
+    },
+  ],
+});
+await basedApp.listen({ host: "localhost", port: BASED_GAUNTLET_PORT });
 const app = await createApp({
   environment,
   dashboardDir: fileURLToPath(new URL("../dist", import.meta.url)),
@@ -110,6 +145,7 @@ async function shutdown() {
   }
   await app.close();
   await authenticatedApp.close();
+  await basedApp.close();
   await adapter.close();
   process.exit(0);
 }

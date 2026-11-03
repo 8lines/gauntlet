@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import type { FastifyInstance } from "fastify";
 import { createApp } from "./app.js";
 import { decodeAuthSecret } from "./auth/secret.js";
+import { parseBasePath } from "./base-path.js";
 import { validateMcpOptions, type McpOptions } from "./mcp.js";
 import { loadServerConfiguration } from "./config.js";
 
@@ -93,6 +94,23 @@ function emitDataEphemeralWarning(): void {
   }
 }
 
+/**
+ * `GAUNTLET_BASE_PATH` when it is set to a non-empty value, otherwise the configuration file's
+ * `basePath`. An invalid value fails startup without being echoed.
+ */
+export function basePathConfiguration(
+  environment: Readonly<Record<string, string | undefined>>,
+  configured: string,
+): string {
+  const value = ownEnvironmentString(environment, "GAUNTLET_BASE_PATH");
+  if (value === undefined || value === "") return configured;
+  try {
+    return parseBasePath(value);
+  } catch {
+    throw new TypeError("Invalid base path configuration");
+  }
+}
+
 /** Decoded `GAUNTLET_AUTH_SECRET`, or undefined when unset. */
 export function authSecret(environment: Readonly<Record<string, string | undefined>>): Buffer | undefined {
   const value = ownEnvironmentString(environment, "GAUNTLET_AUTH_SECRET");
@@ -111,6 +129,7 @@ export async function createConfiguredApp(
   if (configuration.auth.mode === "none") emitAuthDisabledWarning();
   if (dataDir === undefined) emitDataEphemeralWarning();
   return await createApp({
+    basePath: basePathConfiguration(environment, configuration.basePath),
     auth: { configuration: configuration.auth, ...(secret === undefined ? {} : { secret }) },
     environment: configuration.instance.environment,
     targets: configuration.targets,

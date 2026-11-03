@@ -21,6 +21,9 @@ Configure the AI client's remote MCP connection with transport **Streamable
 HTTP** and URL **`http://127.0.0.1:8080/mcp`**. The address must be reachable
 from the client: a cloud-hosted client cannot use your machine's loopback.
 For a private remote instance, use its VPN/private proxy URL ending in `/mcp`.
+When Gauntlet is served below a [base path](../config/README.md#base-path)
+such as `/tester`, the endpoint is `<basePath>/mcp`, for example
+`https://qa.example/tester/mcp`; `/mcp` at the root then answers `404`.
 
 Clients that use the common `mcpServers` JSON configuration can use:
 

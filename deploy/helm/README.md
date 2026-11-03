@@ -143,6 +143,66 @@ Enabling `config.widget.enabled` also requires an `image` that ships the
 widget build at `GAUNTLET_WIDGET_DIR`; an image without it fails startup the
 same way a missing `GAUNTLET_WIDGET_DIR` does.
 
+## Base path, authentication secret and extra environment
+
+These values are optional and default to the behaviour of earlier charts.
+
+- `basePath` (default `""`) serves Gauntlet below a URL path prefix such as
+  `/tester`, for a host shared with other applications. The chart passes it as
+  `GAUNTLET_BASE_PATH`; the reverse proxy or Ingress must forward the prefix
+  unchanged (do not strip it), for example an Ingress path `/tester` with
+  `pathType: Prefix`. The dashboard, `/api/v1`, `/widget`, `/mcp` and sign-in
+  are then served only below the prefix; the startup, readiness and liveness
+  probes keep calling `/ready` and `/health` at the root, which stay available.
+  See [base path](../../apps/server/README.md#base-path).
+- `auth.existingSecret` (default `""`) names a Secret in the release namespace
+  with the key `GAUNTLET_AUTH_SECRET`; the chart reads it through
+  `secretKeyRef` and never renders the secret itself. Password authentication
+  is configured under `config.auth` (see
+  [authentication](../../docs/deployment/authentication.md)); a render with
+  `config.auth.mode: password` fails unless `auth.existingSecret`, an
+  `extraEnv` entry named `GAUNTLET_AUTH_SECRET` or an `envFrom` source can
+  supply the secret. Create the Secret through the platform's approved secret
+  manager, never from a values file or command argument.
+- `extraEnv` (default `[]`) adds container environment variables with a
+  literal `value` or a `valueFrom` reference (`secretKeyRef`,
+  `configMapKeyRef`, `fieldRef` or `resourceFieldRef`). Names must be unique,
+  and the variables the chart sets itself (`GAUNTLET_HOST`, `GAUNTLET_PORT`,
+  `GAUNTLET_CONFIG_FILE`, `GAUNTLET_MCP_ENABLED`,
+  `GAUNTLET_MCP_ALLOWED_ORIGINS_JSON`, `GAUNTLET_DATA_DIR`,
+  `GAUNTLET_BASE_PATH`) and the legacy configuration variables are rejected.
+- `envFrom` (default `[]`) imports every key of a Secret (`secretRef`) or
+  ConfigMap (`configMapRef`), with an optional `prefix`. Variables set through
+  `env`, including the chart's own, take precedence over `envFrom`.
+
+For example, these additions to the environment values serve Gauntlet with
+password sign-in behind a shared host's Ingress at `https://qa.example/tester`:
+
+<!-- gauntlet:base-path-values -->
+```yaml
+basePath: /tester
+auth:
+  existingSecret: gauntlet-auth
+config:
+  # instance and targets as above
+  auth:
+    mode: password
+    publicUrl: https://qa.example
+    password:
+      shared:
+        hash: "scrypt$16384$8$1$..."
+ingress:
+  enabled: true
+  className: traefik
+  annotations: {}
+  hosts:
+    - host: qa.example
+      paths:
+        - path: /tester
+          pathType: Prefix
+  tls: []
+```
+
 ## Registry access and first installation
 
 The chart is public, so `helm pull` needs no `helm registry login`. When you
@@ -353,8 +413,8 @@ single-replica `Recreate` transition.
 ## MCP access for AI clients
 
 Set `mcp.enabled: true` in the environment values file and upgrade the release
-through the procedure above. The endpoint is `/mcp` on the same private Service
-and ingress as the dashboard. `mcp.allowedOrigins` defaults to `[]`; configure
+through the procedure above. The endpoint is `/mcp` (or `<basePath>/mcp` with a
+`basePath`) on the same private Service and ingress as the dashboard. `mcp.allowedOrigins` defaults to `[]`; configure
 exact HTTP(S) origins only for clients that send an Origin header. These
 settings do not change the private access boundary. See
 [MCP setup, tools and limits](../../docs/mcp.md).

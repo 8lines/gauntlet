@@ -43,18 +43,28 @@ function loginRequest(body: unknown, usernameRequired: boolean): LoginRequest | 
   };
 }
 
-/** Cookie attributes per surface; `undefined` means the browser would refuse the cookie anyway. */
-function cookieAttributes(surface: Surface, secure: boolean): string | undefined {
-  if (surface === "dashboard") return `Path=/; HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`;
+/**
+ * Cookie attributes per surface; `undefined` means the browser would refuse the cookie anyway.
+ * `path` is the base path Gauntlet is served under, or `/` at the root, so the cookie never reaches
+ * another application on a shared host.
+ */
+function cookieAttributes(surface: Surface, secure: boolean, path = "/"): string | undefined {
+  if (surface === "dashboard") return `Path=${path}; HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`;
   // A cross-site iframe only keeps SameSite=None cookies, which browsers accept only with Secure.
-  return secure ? "Path=/; HttpOnly; Secure; SameSite=None; Partitioned" : undefined;
+  return secure ? `Path=${path}; HttpOnly; Secure; SameSite=None; Partitioned` : undefined;
 }
 
 function hasSessionCookie(request: FastifyRequest): boolean {
   return (request.headers.cookie ?? "").split(";").some((part) => part.trim().startsWith(`${SESSION_COOKIE}=`));
 }
 
-export function registerAuthRoutes(app: FastifyInstance, authenticator: Authenticator | undefined, clock: () => Date): void {
+export function registerAuthRoutes(
+  app: FastifyInstance,
+  authenticator: Authenticator | undefined,
+  clock: () => Date,
+  basePath = "",
+): void {
+  const cookiePath = basePath === "" ? "/" : basePath;
   if (authenticator === undefined) {
     app.get("/api/v1/auth/session", async (_request, reply) => reply
       .header("cache-control", "no-store")
@@ -97,7 +107,7 @@ export function registerAuthRoutes(app: FastifyInstance, authenticator: Authenti
       return sendProblem(reply, INVALID_CREDENTIALS_PROBLEM);
     }
     limiter.reset(keys);
-    const attributes = cookieAttributes(body.surface, secure);
+    const attributes = cookieAttributes(body.surface, secure, cookiePath);
     if (attributes !== undefined) {
       reply.header("set-cookie", `${SESSION_COOKIE}=${session.token}; Max-Age=${configuration.sessionTtlSeconds}; ${attributes}`);
     }
@@ -112,7 +122,7 @@ export function registerAuthRoutes(app: FastifyInstance, authenticator: Authenti
     if (hasSessionCookie(request) && request.headers.origin !== origin) {
       return sendProblem(reply, CROSS_SITE_REQUEST_PROBLEM);
     }
-    const cleared = [cookieAttributes("dashboard", secure), cookieAttributes("widget", secure)]
+    const cleared = [cookieAttributes("dashboard", secure, cookiePath), cookieAttributes("widget", secure, cookiePath)]
       .filter((attributes): attributes is string => attributes !== undefined)
       .map((attributes) => `${SESSION_COOKIE}=; Max-Age=0; ${attributes}`);
     return reply.code(204).header("cache-control", "no-store").header("set-cookie", cleared).send();
