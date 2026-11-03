@@ -16,7 +16,10 @@ import { subjectsForPath } from "./routes.js";
 import { pageContext, sameContext } from "./subjects.js";
 
 export interface DomRuntimeOptions {
+  /** Checked against and used as the target of `postMessage`. */
   readonly gauntletOrigin: string;
+  /** Origin plus base path, without a trailing slash; the panel is `${gauntletBaseUrl}/widget/`. Defaults to the origin. */
+  readonly gauntletBaseUrl?: string;
   explicitSubjects(): ReadonlyMap<string, SubjectValues>;
 }
 
@@ -50,6 +53,7 @@ interface Session {
 
 export function createDomRuntime(options: DomRuntimeOptions): LoaderRuntime {
   const { gauntletOrigin } = options;
+  const panelUrl = `${options.gauntletBaseUrl ?? gauntletOrigin}/widget/`;
   let session: Session | undefined;
 
   function closePort(port: MessagePort | undefined): void {
@@ -121,7 +125,7 @@ export function createDomRuntime(options: DomRuntimeOptions): LoaderRuntime {
     frame.style.cssText =
       `position:fixed;top:0;${side}:0;height:100vh;max-width:100vw;border:0;margin:0;padding:0;` +
       "z-index:2147483001;background:#fff;color-scheme:normal;box-shadow:0 0 32px rgba(17,24,39,0.24);";
-    frame.src = `${gauntletOrigin}/widget/`;
+    frame.src = panelUrl;
     session.frame = frame;
     applyFrameLayout();
     document.body.append(frame);
@@ -130,7 +134,7 @@ export function createDomRuntime(options: DomRuntimeOptions): LoaderRuntime {
       // The browser blocks the panel silently when this origin is missing from its
       // frame-ancestors policy (listed for no target) or when the widget is disabled (404).
       console.warn(
-        `Gauntlet widget: the panel at ${gauntletOrigin}/widget/ did not become ready within ${READY_TIMEOUT_MS / 1000} seconds ` +
+        `Gauntlet widget: the panel at ${panelUrl} did not become ready within ${READY_TIMEOUT_MS / 1000} seconds ` +
           `for target "${session.config.target}" on ${location.origin}. Check that widget.enabled is true and that ` +
           `${location.origin} is listed in targets[].widget.origins in the Gauntlet configuration.`,
       );

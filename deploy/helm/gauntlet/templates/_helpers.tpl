@@ -43,3 +43,20 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- include "gauntlet.fullname" . -}}
 {{- end -}}
 {{- end -}}
+
+{{- /* Fails the render for environment settings the server would reject or silently shadow. */ -}}
+{{- define "gauntlet.validateEnvironment" -}}
+{{- $names := dict -}}
+{{- range .Values.extraEnv -}}
+{{- if hasKey $names .name -}}
+{{- fail "extraEnv names must be unique" -}}
+{{- end -}}
+{{- $_ := set $names .name true -}}
+{{- end -}}
+{{- if and .Values.auth.existingSecret (hasKey $names "GAUNTLET_AUTH_SECRET") -}}
+{{- fail "Set GAUNTLET_AUTH_SECRET through auth.existingSecret or through extraEnv, not both" -}}
+{{- end -}}
+{{- if and (eq (include "gauntlet.authMode" .) "password") (not .Values.auth.existingSecret) (not (hasKey $names "GAUNTLET_AUTH_SECRET")) (not .Values.envFrom) -}}
+{{- fail "config.auth.mode password needs GAUNTLET_AUTH_SECRET: set auth.existingSecret to a Secret with that key" -}}
+{{- end -}}
+{{- end -}}

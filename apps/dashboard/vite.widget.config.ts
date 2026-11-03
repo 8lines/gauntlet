@@ -9,7 +9,8 @@ import tailwindcss from "@tailwindcss/vite";
  * Gauntlet widget panel: a separate entry point served by the server under
  * `/widget/` (GAUNTLET_WIDGET_DIR = { index.html, loader.js, assets/ }).
  * The built loader from packages/widget-loader is placed next to the panel,
- * so a single directory is enough to deploy.
+ * so a single directory is enough to deploy. Asset URLs are relative to the panel
+ * (`base: "./"`), so the same build works below any base path, such as `/tester/widget/`.
  */
 const root = fileURLToPath(new URL("./widget", import.meta.url));
 const outDir = fileURLToPath(new URL("./dist-widget", import.meta.url));
@@ -33,7 +34,7 @@ const api = process.env.GAUNTLET_API ?? "http://127.0.0.1:8080";
 
 export default defineConfig({
   root,
-  base: "/widget/",
+  base: "./",
   plugins: [react(), tailwindcss(), copyLoader()],
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   server: {

@@ -67,9 +67,10 @@ roles; keep authorization and domain rules in the application.
 
 With Docker Compose, run the commands inside the image, for example
 `./gauntlet run --rm --no-deps gauntlet node dist/auth-cli.js generate-secret`,
-and set `GAUNTLET_AUTH_SECRET` in the installation's `.env`. The Helm chart
-does not pass `GAUNTLET_AUTH_SECRET` yet, so password mode is not available
-through Helm in this release.
+and set `GAUNTLET_AUTH_SECRET` in the installation's `.env`. With Helm, set
+`config.auth` in the values file and put the secret in a Secret with the key
+`GAUNTLET_AUTH_SECRET`, named by `auth.existingSecret` (see the
+[Helm runbook](../../deploy/helm/README.md#base-path-authentication-secret-and-extra-environment)).
 
 ## API tokens
 
@@ -90,6 +91,9 @@ Signing in to MCP through the browser (OAuth) is not available yet.
 ## Sessions
 
 - The dashboard keeps its session in an `HttpOnly`, `SameSite=Lax` cookie.
+  Its `Path` is `/`, or the [base path](../../config/README.md#base-path) when
+  Gauntlet is served below one, so the cookie never reaches another
+  application on the same host. `publicUrl` stays the origin either way.
 - The widget panel runs in a frame of another site. Over HTTPS it uses a
   partitioned `SameSite=None` cookie. When the browser refuses that cookie
   (plain HTTP, or browsers that block it), the panel keeps the session token in

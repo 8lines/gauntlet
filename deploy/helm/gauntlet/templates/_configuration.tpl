@@ -12,3 +12,9 @@
 {{- end -}}
 {{- $configuration -}}
 {{- end -}}
+
+{{- /* The configured authentication mode, `none` when config.auth is omitted. */ -}}
+{{- define "gauntlet.authMode" -}}
+{{- $auth := .Values.config.auth | default dict -}}
+{{- get $auth "mode" | default "none" -}}
+{{- end -}}

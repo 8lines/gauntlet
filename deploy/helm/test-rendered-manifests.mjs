@@ -754,3 +754,91 @@ test("MCP settings render only explicit endpoint settings and reject malformed v
     assert.deepEqual(render([stagingValues, "-"], [], { input: stringify({ mcp }), expectedStatus: 1 }), []);
   }
 });
+
+const PASSWORD_HASH = `scrypt$16384$8$1$${Buffer.alloc(16, 1).toString("base64url")}$${Buffer.alloc(32, 2).toString("base64url")}`;
+
+function container(resources) {
+  return resources.find(({ kind }) => kind === "Deployment").spec.template.spec.containers[0];
+}
+
+test("a base path reaches the server as GAUNTLET_BASE_PATH while the probes stay at the root", () => {
+  const defaults = container(render());
+  assert.equal(defaults.env.some(({ name }) => name === "GAUNTLET_BASE_PATH"), false);
+  assert.equal(Object.hasOwn(defaults, "envFrom"), false);
+
+  const based = container(render([stagingValues, "-"], [], { input: stringify({ basePath: "/tester" }) }));
+  assert.deepEqual(based.env.find(({ name }) => name === "GAUNTLET_BASE_PATH"), { name: "GAUNTLET_BASE_PATH", value: "/tester" });
+  assert.deepEqual(based.startupProbe.httpGet, { path: "/ready", port: "http", scheme: "HTTP" });
+  assert.deepEqual(based.readinessProbe.httpGet, { path: "/ready", port: "http", scheme: "HTTP" });
+  assert.deepEqual(based.livenessProbe.httpGet, { path: "/health", port: "http", scheme: "HTTP" });
+
+  for (const basePath of ["tester", "/tester/", "/", "/tester?x=1", "/te%73ter", "/./x", 1]) {
+    assert.deepEqual(render([stagingValues, "-"], [], { input: stringify({ basePath }), expectedStatus: 1 }), [], String(basePath));
+  }
+});
+
+test("auth.existingSecret supplies GAUNTLET_AUTH_SECRET from a Secret key without rendering the secret", () => {
+  const input = stringify({
+    auth: { existingSecret: "gauntlet-auth" },
+    config: { auth: { mode: "password", publicUrl: "https://gauntlet.staging.example", password: { shared: { hash: PASSWORD_HASH } } } },
+  });
+  const resources = render([stagingValues, "-"], [], { input });
+  assert.deepEqual(container(resources).env.find(({ name }) => name === "GAUNTLET_AUTH_SECRET"), {
+    name: "GAUNTLET_AUTH_SECRET",
+    valueFrom: { secretKeyRef: { name: "gauntlet-auth", key: "GAUNTLET_AUTH_SECRET" } },
+  });
+  assert.equal(resources.some(({ kind }) => kind === "Secret"), false);
+  const configuration = parse(resources.find(({ kind }) => kind === "ConfigMap").data["config.yaml"]);
+  assert.deepEqual(configuration.auth, {
+    mode: "password", publicUrl: "https://gauntlet.staging.example", password: { shared: { hash: PASSWORD_HASH } },
+  });
+
+  // Password mode without any source of the signing secret fails the render instead of the Pod.
+  const unsigned = stringify({
+    config: { auth: { mode: "password", publicUrl: "https://gauntlet.staging.example", password: { shared: { hash: PASSWORD_HASH } } } },
+  });
+  assert.deepEqual(render([stagingValues, "-"], [], { input: unsigned, expectedStatus: 1 }), []);
+  for (const auth of [{ existingSecret: "Not_A_Name" }, { existingSecret: "x", key: "y" }, { existingSecret: 1 }]) {
+    assert.deepEqual(render([stagingValues, "-"], [], { input: stringify({ auth }), expectedStatus: 1 }), [], JSON.stringify(auth));
+  }
+  assert.deepEqual(render([stagingValues, "-"], [], {
+    input: stringify({ config: { auth: { mode: "password", publicUrl: "https://x.example", password: { shared: { hash: "plain" } } } } }),
+    expectedStatus: 1,
+  }), []);
+});
+
+test("extraEnv and envFrom render after the chart's own settings and cannot replace them", () => {
+  const extraEnv = [
+    { name: "NODE_OPTIONS", value: "--max-old-space-size=192" },
+    { name: "GAUNTLET_AUTH_SECRET", valueFrom: { secretKeyRef: { name: "shared-secrets", key: "gauntlet" } } },
+  ];
+  const envFrom = [{ secretRef: { name: "gauntlet-extra" } }, { configMapRef: { name: "gauntlet-settings", optional: true }, prefix: "APP_" }];
+  const rendered = container(render([stagingValues, "-"], [], { input: stringify({ extraEnv, envFrom }) }));
+  assert.deepEqual(rendered.env.slice(-2), extraEnv);
+  assert.deepEqual(rendered.env.slice(0, 3).map(({ name }) => name), ["GAUNTLET_HOST", "GAUNTLET_PORT", "GAUNTLET_CONFIG_FILE"]);
+  assert.deepEqual(rendered.envFrom, envFrom);
+
+  // With envFrom the signing secret may come from the referenced Secret.
+  const fromSecret = stringify({
+    envFrom: [{ secretRef: { name: "gauntlet-auth" } }],
+    config: { auth: { mode: "password", publicUrl: "https://gauntlet.staging.example", password: { shared: { hash: PASSWORD_HASH } } } },
+  });
+  assert.equal(render([stagingValues, "-"], [], { input: fromSecret }).length > 0, true);
+
+  for (const values of [
+    { extraEnv: [{ name: "GAUNTLET_HOST", value: "127.0.0.1" }] },
+    { extraEnv: [{ name: "GAUNTLET_BASE_PATH", value: "/x" }] },
+    { extraEnv: [{ name: "GAUNTLET_TARGETS_JSON", value: "[]" }] },
+    { extraEnv: [{ name: "BAD-NAME", value: "x" }] },
+    { extraEnv: [{ name: "X", value: 1 }] },
+    { extraEnv: [{ name: "X", value: "a", valueFrom: { secretKeyRef: { name: "s", key: "k" } } }] },
+    { extraEnv: [{ name: "X", valueFrom: { secretKeyRef: { name: "s" } } }] },
+    { extraEnv: [{ name: "X", value: "a" }, { name: "X", value: "b" }] },
+    { extraEnv: [{ name: "GAUNTLET_AUTH_SECRET", value: "x" }], auth: { existingSecret: "gauntlet-auth" } },
+    { envFrom: [{ secretRef: { name: "a" }, configMapRef: { name: "b" } }] },
+    { envFrom: [{ prefix: "X_" }] },
+    { envFrom: [{ secretRef: { name: "a", extra: true } }] },
+  ]) {
+    assert.deepEqual(render([stagingValues, "-"], [], { input: stringify(values), expectedStatus: 1 }), [], JSON.stringify(values));
+  }
+});

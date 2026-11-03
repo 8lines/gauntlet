@@ -41,6 +41,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- include "gauntlet.validateEnvironment" . }}
       containers:
         - name: gauntlet
           image: {{ include "gauntlet.image" . | quote }}
@@ -64,6 +65,24 @@ spec:
             - name: GAUNTLET_DATA_DIR
               value: "/var/lib/gauntlet"
             {{- end }}
+            {{- with .Values.basePath }}
+            - name: GAUNTLET_BASE_PATH
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.auth.existingSecret }}
+            - name: GAUNTLET_AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . | quote }}
+                  key: GAUNTLET_AUTH_SECRET
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             privileged: false
