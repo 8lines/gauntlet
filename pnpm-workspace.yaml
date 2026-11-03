@@ -14,5 +14,7 @@ allowBuilds:
 
 overrides:
   brace-expansion: 5.0.12
+  fast-uri@^3: 3.1.9
+  fast-uri@^4: 4.2.3
   sharp: 0.35.5
   source-map-js: 1.2.2
