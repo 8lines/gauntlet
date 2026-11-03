@@ -21,6 +21,17 @@ changelog: [`protocol`](packages/protocol/CHANGELOG.md),
 
 ## Unreleased
 
+## [0.2.5] - 2026-11-03
+
+### Added
+
+- Gauntlet can be served below a URL path prefix such as `/tester` on a host shared with other applications, set with `basePath` in the configuration or `GAUNTLET_BASE_PATH`, with the dashboard, API, widget, MCP endpoint and session cookie all below the prefix and `/health` and `/ready` still at the root.
+- The Helm chart can take the authentication signing secret from an existing Secret with `auth.existingSecret`, accepts `config.auth` for password sign-in, and adds container environment variables with `extraEnv` and `envFrom`.
+
+### Upgrade
+
+- This version has optional upgrade steps; see the [upgrade guide](https://github.com/8lines/gauntlet/blob/v0.2.5/docs/upgrades/gauntlet/0.2.5.md).
+
 ## [0.2.4] - 2026-11-03
 
 ### Security

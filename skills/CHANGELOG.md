@@ -10,6 +10,12 @@ Releases up to 0.1.8 were published together with the application and are record
 
 ## Unreleased
 
+## [0.1.16] - 2026-11-03
+
+### Changed
+
+- Updated `gauntlet` to 0.2.5.
+
 ## [0.1.15] - 2026-11-03
 
 ### Changed
