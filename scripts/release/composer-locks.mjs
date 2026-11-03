@@ -11,6 +11,8 @@ const BUNDLE = "8lines/gauntlet-symfony-bundle";
 // PHP serialization of Composer's path-repository options { symlink: false, relative: true }.
 const PATH_OPTIONS = 'a:2:{s:7:"symlink";b:0;s:8:"relative";b:1;}';
 const LOCK_CHANGED = "Composer changed the lock beyond the Gauntlet path packages";
+// Package metadata Composer copies from a path package's manifest into the lock entry.
+const MANIFEST_METADATA = Object.freeze(["suggest", "extra"]);
 const DIRECTORY = /^[a-z0-9-]+(?:\/[a-z0-9-]+)*$/u;
 
 export const COMPOSER_LOCKS = Object.freeze([
@@ -77,6 +79,11 @@ export function verifyComposerLockUpdate({ before, after, expected }) {
         dist: { ...entry.dist, reference: want.reference },
         ...(want.require === undefined ? {} : { require: { ...entry.require, ...want.require } }),
       };
+      for (const key of MANIFEST_METADATA) {
+        if (want === undefined) break;
+        if (want.metadata?.[key] === undefined) delete projected[key];
+        else projected[key] = want.metadata[key];
+      }
       if (!isDeepStrictEqual(projected, next[index])) throw new Error(LOCK_CHANGED);
     });
   }
@@ -88,9 +95,12 @@ export function verifyComposerLockUpdate({ before, after, expected }) {
 function expectedPackages(root, versions, names) {
   return new Map(names.map((name) => {
     const { unit, manifest } = SOURCES[name];
+    const bytes = readFileSync(resolve(root, manifest));
+    const document = JSON.parse(bytes.toString("utf8"));
     return [name, {
       version: versions.get(unit),
-      reference: pathRepositoryReference(readFileSync(resolve(root, manifest))),
+      reference: pathRepositoryReference(bytes),
+      metadata: Object.fromEntries(MANIFEST_METADATA.map((key) => [key, document[key]])),
       ...(name === BUNDLE ? { require: { [CORE]: `^${versions.get("php-core")}` } } : {}),
     }];
   }));

@@ -55,7 +55,7 @@ function fixture(t) {
 }
 
 // Simulates `composer update` in the container: it relocks the path packages from their manifests.
-function fakeComposer(root, { tamper = false, status = 0 } = {}) {
+function fakeComposer(root, { tamper = false, status = 0, extra } = {}) {
   const calls = [];
   const run = (args) => {
     calls.push(args);
@@ -75,6 +75,11 @@ function fakeComposer(root, { tamper = false, status = 0 } = {}) {
         entry.version = bundle.version;
         entry.dist.reference = pathRepositoryReference(manifest("packages/php/symfony-bundle/composer.json"));
         entry.require[CORE] = bundle.require[CORE];
+        for (const key of ["suggest", "extra"]) {
+          if (bundle[key] === undefined) delete entry[key];
+          else entry[key] = bundle[key];
+        }
+        if (extra !== undefined) entry.extra = extra;
       }
       if (tamper && entry.name === "opis/json-schema") entry.version = "2.7.0";
     }
@@ -131,6 +136,26 @@ test("a php-core release re-pins all three locks and verifies them", (t) => {
   ]);
   const example = JSON.parse(readFileSync(join(root, "examples/symfony/composer.lock"), "utf8"));
   assert.deepEqual(example.packages.map(({ name, version }) => [name, version]), [[CORE, "0.1.9"], [BUNDLE, "0.1.9"], ["opis/json-schema", "2.6.0"]]);
+});
+
+test("the bundle's suggest and extra manifest keys may move into the lock, and nothing else may", (t) => {
+  const root = fixture(t);
+  const manifest = join(root, "packages/php/symfony-bundle/composer.json");
+  const metadata = {
+    suggest: { "symfony/ai-mate": "Mate tools" },
+    extra: { "ai-mate": { "scan-dirs": ["src/Mate/Capability"] } },
+  };
+  writeFileSync(manifest, json({ ...JSON.parse(readFileSync(manifest, "utf8")), ...metadata }));
+  repinComposerLocks({ root, versions: VERSIONS, moved: ["symfony-bundle"], run: fakeComposer(root).run });
+  const entry = JSON.parse(readFileSync(join(root, "examples/symfony/composer.lock"), "utf8"))
+    .packages.find(({ name }) => name === BUNDLE);
+  assert.deepEqual([entry.suggest, entry.extra], [metadata.suggest, metadata.extra]);
+
+  const forged = fixture(t);
+  assert.throws(
+    () => repinComposerLocks({ root: forged, versions: VERSIONS, moved: ["symfony-bundle"], run: fakeComposer(forged, { extra: { forged: true } }).run }),
+    /Composer changed the lock beyond the Gauntlet path packages/u,
+  );
 });
 
 test("a release without PHP units runs no Composer, and a bundle-only release skips the core lock", (t) => {
