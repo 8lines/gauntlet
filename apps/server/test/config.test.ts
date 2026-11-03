@@ -139,6 +139,26 @@ test("widget configuration defaults to disabled and is frozen when present", asy
   assert.deepEqual(enabled.targets[0]?.widget, { origins: ["https://billing.dev.example"] });
 });
 
+test("basePath defaults to the root and accepts only a canonical path prefix", async () => {
+  const load = (document: unknown) => loadServerConfiguration(
+    { GAUNTLET_CONFIG_FILE: "/config.json" },
+    async () => jsonBytes(document),
+  );
+  assert.equal((await load(validDocument())).basePath, "");
+  assert.equal((await load({ ...validDocument(), basePath: "" })).basePath, "");
+  assert.equal((await load({ ...validDocument(), basePath: "/tester" })).basePath, "/tester");
+  assert.equal((await load({ ...validDocument(), basePath: "/qa/gauntlet-1.2_x~y" })).basePath, "/qa/gauntlet-1.2_x~y");
+  for (const basePath of [
+    "tester", "/tester/", "/", "//tester", "/tester?x=1", "/tester#top", "/te%73ter", "/./tester", "/..",
+    "/tester/../x", "/te ster", "/tëster", `/${"a".repeat(256)}`, 1, null, ["/tester"],
+  ]) {
+    await assert.rejects(load({ ...validDocument(), basePath }), (error: unknown) => {
+      assert.equal((error as GauntletConfigurationError).code, "invalid-document", JSON.stringify(basePath));
+      return true;
+    });
+  }
+});
+
 test("uses the container default when no explicit source is supplied", async () => {
   let requested = "";
   await loadServerConfiguration({}, async (path) => {
@@ -177,6 +197,7 @@ test("loads the standalone Compose example through the bounded configuration pat
       name: "small-apps-dev",
       environment: { name: "dev", kind: "development" },
     },
+    basePath: "",
     widget: { enabled: false },
     auth: { mode: "none" },
     targets: [
@@ -218,6 +239,7 @@ test("loads the isolated Compose smoke configuration with two exact targets", as
       name: "compose-smoke",
       environment: { name: "compose-smoke", kind: "test" },
     },
+    basePath: "",
     widget: { enabled: false },
     auth: { mode: "none" },
     targets: [

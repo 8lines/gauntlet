@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { parseHostMessage, type PageContext, type PanelMessage } from "@8lines/gauntlet-widget-channel";
+import { withBasePath } from "../base-path.ts";
 import { decideConnect, parseWidgetConfig } from "./handshake.ts";
 
 /**
@@ -38,7 +39,7 @@ export interface PanelChannel {
 
 async function loadConfig() {
   try {
-    const response = await fetch("/widget/config.json", { headers: { accept: "application/json" } });
+    const response = await fetch(withBasePath("/widget/config.json"), { headers: { accept: "application/json" } });
     if (!response.ok) return undefined;
     return parseWidgetConfig(await response.json());
   } catch {

@@ -68,6 +68,14 @@ a shared layout:
 <script src="https://gauntlet.internal/widget/loader.js" async></script>
 ```
 
+When Gauntlet is served below a [base path](../../config/README.md#base-path),
+include the loader from below it, for example
+`https://qa.example/tester/widget/loader.js`: the loader takes everything
+before `/widget/loader.js` as Gauntlet's address and opens the panel at
+`https://qa.example/tester/widget/`. The `loadGauntletWidget()` helper of the
+npm package keeps only the origin of its URL, so use the script tag in that
+case.
+
 `target` must match a configured target's `id`. Commands issued before the
 loader script runs are queued and replayed in order, so the snippet above can
 load in any order relative to `loader.js`.

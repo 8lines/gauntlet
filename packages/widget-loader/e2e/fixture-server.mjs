@@ -29,6 +29,8 @@ const SCENARIOS = {
   basic: { script: BOOT, loaders: [LOADER] },
   queued: { script: `Gauntlet("setSubject", "cart", { cartId: "c1" });\n${BOOT}`, loaders: [LOADER] },
   silent: { script: BOOT, loaders: [`${GAUNTLET}/silent/widget/loader.js`] },
+  // A Gauntlet served below the base path /tester.
+  based: { script: BOOT, loaders: [`${GAUNTLET}/tester/widget/loader.js`] },
   evil: {
     script: `${BOOT}
 for (const src of ["http://127.0.0.1:${OTHER_PORT}/evil.html", "${GAUNTLET}/evil-same-origin.html"]) {
@@ -169,12 +171,14 @@ async function gauntletHandler(request, response) {
   switch (pathname) {
     case "/widget/loader.js":
     case "/silent/widget/loader.js":
+    case "/tester/widget/loader.js":
       try {
         return send(response, 200, "text/javascript; charset=utf-8", await readFile(loaderFile));
       } catch {
         return send(response, 404, "text/plain", "dist/loader.js is missing; run the build first");
       }
     case "/widget/":
+    case "/tester/widget/":
       return send(response, 200, HTML, FAKE_PANEL, { "content-security-policy": FRAME_ANCESTORS });
     case "/widget/config.json":
       return send(response, 200, "application/json", JSON.stringify(config));

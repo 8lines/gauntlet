@@ -3,6 +3,7 @@ import { lstat, readFile } from "node:fs/promises";
 import { relative, resolve, sep } from "node:path";
 import fastifyStatic from "@fastify/static";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { injectBasePath } from "./base-path.js";
 import type { StaticTargetConfig } from "./static-target-provider.js";
 
 export interface WidgetOptions {
@@ -50,9 +51,10 @@ interface CachedFile {
   readonly etag: string;
 }
 
-async function regularFile(path: string): Promise<CachedFile> {
+async function regularFile(path: string, transform?: (text: string) => string): Promise<CachedFile> {
   if (!(await lstat(path)).isFile()) throw widgetFilesMissing();
-  const body = await readFile(path);
+  const original = await readFile(path);
+  const body = transform === undefined ? original : Buffer.from(transform(original.toString("utf8")), "utf8");
   return { body, etag: `"${createHash("sha256").update(body).digest("base64url")}"` };
 }
 
@@ -79,6 +81,7 @@ export async function registerWidget(
   app: FastifyInstance,
   options: WidgetOptions,
   targets: readonly StaticTargetConfig[],
+  basePath = "",
 ): Promise<void> {
   if (typeof options.enabled !== "boolean") throw invalidWidgetOptions();
   if (!options.enabled) return;
@@ -88,7 +91,12 @@ export async function registerWidget(
   let loader: CachedFile;
   try {
     root = resolve(options.dir);
-    panel = await regularFile(resolve(root, "index.html"));
+    // The panel's own asset URLs are relative to `<basePath>/widget/`; its API client and links
+    // read the base path from the injected meta element.
+    panel = await regularFile(
+      resolve(root, "index.html"),
+      basePath === "" ? undefined : (html) => injectBasePath(html, basePath, { baseHref: false }),
+    );
     loader = await regularFile(resolve(root, "loader.js"));
   } catch {
     throw widgetFilesMissing();

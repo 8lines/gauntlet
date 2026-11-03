@@ -49,11 +49,34 @@ stderr; configuration errors use bounded, code-only diagnostics.
 | `GAUNTLET_DASHBOARD_DIR` | unset | Directory containing a built, regular `index.html` file. Only an unset variable enables API-only mode; an explicit invalid directory fails startup. |
 | `GAUNTLET_WIDGET_DIR` | unset | Directory containing a built, regular `index.html`, `loader.js` and optional `assets/`. Read at startup; required when `widget.enabled` is `true` in the v1 configuration, otherwise ignored. |
 | `GAUNTLET_AUTH_SECRET` | unset | Signing secret for sessions and tokens, hex or base64url, at least 32 bytes. Required when `auth.mode` in the v1 configuration is not `none`, otherwise ignored. Generate one with `node dist/auth-cli.js generate-secret`; rotating it signs everyone out. |
+| `GAUNTLET_BASE_PATH` | unset | URL path prefix every route is served under, such as `/tester`; overrides the configuration's `basePath` when set to a non-empty value. An invalid value fails startup. Unset or empty uses `basePath` from the configuration, whose default `""` serves at the root. See [base path](#base-path). |
 | `GAUNTLET_DATA_DIR` | unset | Existing, writable directory for Gauntlet's SQLite database, `gauntlet.sqlite`, which stores pinned operations. A missing or read-only directory fails startup. Unset keeps the database in memory: pins are lost on restart and startup emits a `GAUNTLET_DATA_EPHEMERAL` warning. |
 
 Environment values are read as direct process-owned string values. Invalid or
 hostile values fail with generic diagnostics and are not reflected back to the
 caller. Configuration is not reloaded: change it and restart the process.
+
+## Base path
+
+Set `GAUNTLET_BASE_PATH` (or `basePath` in the
+[configuration](../../config/README.md#base-path)) to serve Gauntlet below a
+path prefix, for example `/tester` on a host shared with other applications.
+The reverse proxy forwards requests with the prefix included; it must not strip
+it. With `GAUNTLET_BASE_PATH=/tester`:
+
+| Request | Answer |
+| --- | --- |
+| `/tester/`, `/tester/t/...` | The dashboard. Its `index.html` carries `<base href="/tester/">` and `<meta name="gauntlet-base-path" content="/tester">`, so the same build works under any prefix. |
+| `/tester/api/v1/*`, `/tester/widget/*`, `/tester/mcp` | The REST API, the widget routes and the MCP endpoint. |
+| `/tester` | `308` redirect to `/tester/`, keeping the query. |
+| `/health`, `/ready`, `/tester/health`, `/tester/ready` | Liveness and readiness, at the root for probes and below the prefix. |
+| Anything else, such as `/api/v1/targets` | `404` with the `route-not-found` problem. |
+
+In password mode the session cookie is sent with `Path=/tester`, so it never
+reaches another application on the host; `auth.publicUrl` stays the origin and
+Origin checks are unchanged. A widget loader included from
+`https://host/tester/widget/loader.js` opens its panel at
+`https://host/tester/widget/`.
 
 ## Widget routes
 
@@ -79,6 +102,8 @@ fallback. The dashboard's own HTML responses always send
 be framed, and only by the origins its targets configure.
 
 ## Liveness and readiness
+
+Both routes also answer below a [base path](#base-path), and always at the root.
 
 - `GET /health` returns `{ "status": "ok" }`. It is process liveness and does
   not call or probe any configured target.

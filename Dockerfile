@@ -103,8 +103,8 @@ const references = [...index.matchAll(/\b(?:src|href)=["']([^"']+\.(?:js|css)(?:
 assert.ok(references.some((reference) => reference.endsWith(".js")), "index.html must reference JavaScript");
 assert.ok(references.some((reference) => reference.endsWith(".css")), "index.html must reference CSS");
 for (const reference of references) {
-  assert.match(reference, /^\/assets\/.+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/);
-  const artifact = resolve(dashboardRoot, `.${reference}`);
+  assert.match(reference, /^\.\/assets\/.+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/);
+  const artifact = resolve(dashboardRoot, reference);
   assert.ok(artifact.startsWith(`${dashboardRoot}${sep}`), "asset must remain below dashboard root");
   assert.ok(statSync(artifact).isFile(), reference);
 }
@@ -116,8 +116,8 @@ const widgetReferences = [...widgetIndex.matchAll(/\b(?:src|href)=["']([^"']+\.(
 assert.ok(widgetReferences.some((reference) => reference.endsWith(".js")), "widget index.html must reference JavaScript");
 assert.ok(widgetReferences.some((reference) => reference.endsWith(".css")), "widget index.html must reference CSS");
 for (const reference of widgetReferences) {
-  assert.match(reference, /^\/widget\/assets\/.+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/);
-  const artifact = resolve(widgetRoot, `.${reference.slice("/widget".length)}`);
+  assert.match(reference, /^\.\/assets\/.+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/);
+  const artifact = resolve(widgetRoot, reference);
   assert.ok(artifact.startsWith(`${widgetRoot}${sep}`), "widget asset must remain below widget root");
   assert.ok(statSync(artifact).isFile(), reference);
 }

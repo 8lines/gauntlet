@@ -7,6 +7,7 @@ import {
 import { readFile } from "node:fs/promises";
 import { isAlias, parseAllDocuments, visit } from "yaml";
 import { authConfiguration, type AuthConfiguration } from "./auth/config.js";
+import { parseBasePath } from "./base-path.js";
 import { validateStaticTargets, type StaticTargetConfig } from "./static-target-provider.js";
 
 export const DEFAULT_CONFIG_FILE = "/etc/gauntlet/config.yaml";
@@ -61,6 +62,8 @@ export interface WidgetConfiguration {
 export interface ServerConfiguration {
   readonly version: 1;
   readonly instance: GauntletInstanceConfiguration;
+  /** URL path prefix Gauntlet is served under, such as `/tester`; `""` serves it at the root. */
+  readonly basePath: string;
   readonly widget: WidgetConfiguration;
   readonly auth: AuthConfiguration;
   readonly targets: readonly StaticTargetConfig[];
@@ -217,7 +220,7 @@ function parseConfigurationText(path: string, bytes: Uint8Array): unknown {
 function validateConfigurationV1(value: unknown): ServerConfiguration {
   try {
     const record = ownDataRecord(value);
-    const allowed = ["version", "instance", "targets", "widget", "auth"];
+    const allowed = ["version", "instance", "basePath", "targets", "widget", "auth"];
     if (Object.keys(record).some((key) => !allowed.includes(key))
       || !["version", "instance", "targets"].every((key) => Object.hasOwn(record, key))
       || record.version !== 1) {
@@ -248,7 +251,8 @@ function validateConfigurationV1(value: unknown): ServerConfiguration {
 
     const widget = Object.hasOwn(record, "widget") ? widgetConfiguration(record.widget) : DISABLED_WIDGET;
     const auth = authConfiguration(record.auth);
-    return Object.freeze({ version: 1, instance, widget, auth, targets });
+    const basePath = Object.hasOwn(record, "basePath") ? parseBasePath(record.basePath) : "";
+    return Object.freeze({ version: 1, instance, basePath, widget, auth, targets });
   } catch {
     throw configurationError("invalid-document");
   }

@@ -52,9 +52,10 @@ This is the same semantic document as
 [`fixtures/config.valid.yaml`](fixtures/config.valid.yaml) and
 [`fixtures/config.valid.json`](fixtures/config.valid.json).
 
-The root has exactly `version`, `instance`, and `targets`; `version` must be
-`1`. Objects are closed, so an unknown root, instance, target, or environment
-field fails startup. There must be at least one target and target `id` values
+The root requires `version`, `instance`, and `targets` and also accepts the
+optional `basePath`, `widget`, and `auth` objects described below; `version`
+must be `1`. Objects are closed, so an unknown root, instance, target, or
+environment field fails startup. There must be at least one target and target `id` values
 must be unique. Each target must declare an `expectedEnvironment`. Gauntlet
 compares both its `name` and `kind` exactly with the adapter manifest and blocks
 all proxy routes for a mismatched target.
@@ -75,6 +76,31 @@ Listener, static dashboard and MCP settings are separate process environment
 variables; they do not belong inside this closed configuration document. See
 [server settings](../apps/server/README.md#runtime-environment) and
 [MCP configuration](../docs/mcp.md#settings-and-access-boundary).
+
+## Base path
+
+The optional top-level `basePath` serves Gauntlet below a URL path prefix,
+for example behind a shared host's reverse proxy that routes
+`https://qa.example/tester` to Gauntlet without stripping the prefix:
+
+```yaml
+basePath: /tester
+```
+
+The default `""` serves Gauntlet at the root, as before. A base path starts
+with `/`, has no trailing slash, query, fragment, `%`-escape or dot segment,
+and is at most 256 characters; each segment starts with a letter or digit and
+contains only letters, digits, `.`, `_`, `~` and `-`. Anything else fails
+startup with `invalid-document`. The environment variable `GAUNTLET_BASE_PATH`
+overrides it when set to a non-empty value (see
+[server settings](../apps/server/README.md#base-path)).
+
+With a base path, every route is served below it: the dashboard and its
+client-side routes, `/api/v1/*`, `/widget/*`, `/mcp` and the sign-in routes.
+Requests arrive with the prefix included. `<basePath>` alone redirects to
+`<basePath>/`, `/health` and `/ready` also answer at the root for probes, and
+every other path outside the prefix is `route-not-found`. `auth.publicUrl`
+stays an origin; the session cookie's `Path` is the base path.
 
 ## Widget
 

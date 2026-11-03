@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { JsonObject } from "@8lines/gauntlet-protocol";
+import { withBasePath, withoutBasePath } from "./base-path.ts";
 
 export interface Route {
   readonly targetId?: string;
@@ -12,8 +13,9 @@ export interface NavigateOptions {
   readonly replace?: boolean;
 }
 
+/** The route of a browser pathname, which may include the base path Gauntlet is served under. */
 export function parseRoute(pathname: string): Route {
-  const parts = pathname.split("/").filter((part) => part.length > 0);
+  const parts = withoutBasePath(pathname).split("/").filter((part) => part.length > 0);
   if (parts[0] !== "t" || parts[1] === undefined) return {};
   const targetId = decodeURIComponent(parts[1]);
   if (parts[2] === "o" && parts[3] !== undefined) {
@@ -37,12 +39,13 @@ function refresh() {
 }
 globalThis.addEventListener?.("popstate", refresh);
 
+/** The browser pathname of a route, below the base path Gauntlet is served under. */
 export function routePath(route: Route): string {
-  if (route.targetId === undefined) return "/";
+  if (route.targetId === undefined) return withBasePath("/");
   const target = `/t/${encodeURIComponent(route.targetId)}`;
-  if (route.operationId === undefined) return target;
+  if (route.operationId === undefined) return withBasePath(target);
   const operation = `${target}/o/${encodeURIComponent(route.operationId)}`;
-  return route.runId === undefined ? operation : `${operation}/r/${encodeURIComponent(route.runId)}`;
+  return withBasePath(route.runId === undefined ? operation : `${operation}/r/${encodeURIComponent(route.runId)}`);
 }
 
 export function navigate(route: Route, options: NavigateOptions = {}): void {

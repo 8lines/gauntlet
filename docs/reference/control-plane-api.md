@@ -8,7 +8,10 @@ has three main responsibilities:
    boundary;
 3. expose a shared execution boundary to the dashboard and MCP clients.
 
-The current public routes are:
+The current public routes are listed below from the root. When Gauntlet is
+served below a [base path](../../config/README.md#base-path) such as `/tester`,
+every route is below it (`/tester/api/v1/targets`), and `/health` and `/ready`
+also answer at the root.
 
 | Method | Route | Purpose |
 | --- | --- | --- |

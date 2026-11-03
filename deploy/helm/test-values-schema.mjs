@@ -82,6 +82,10 @@ test("chart metadata and defaults are release-aligned but deliberately undeploya
   assert.equal(defaults.config.instance.name, "");
   assert.deepEqual(defaults.config.instance.environment, { name: "", kind: "" });
   assert.deepEqual(defaults.config.targets, []);
+  assert.equal(defaults.basePath, "");
+  assert.deepEqual(defaults.auth, { existingSecret: "" });
+  assert.deepEqual(defaults.extraEnv, []);
+  assert.deepEqual(defaults.envFrom, []);
   helm(["lint", chart, "--kube-version", "1.35.0"], 1);
   helm(["template", "gauntlet", chart, "--kube-version", "1.35.0"], 1);
 });
@@ -100,7 +104,7 @@ test("the draft-07 values schema preserves all canonical configuration fragments
   const schema = JSON.parse(await readFile(chartSchemaUrl, "utf8"));
   assert.equal(schema.$schema, "http://json-schema.org/draft-07/schema#");
   assert.equal(Object.hasOwn(schema, "$defs"), false);
-  for (const name of ["id", "environment", "origin", "target", "exactOrigin", "widget", "targetWidget"]) {
+  for (const name of ["id", "environment", "origin", "target", "exactOrigin", "basePath", "widget", "targetWidget", "auth", "passwordHash"]) {
     assert.deepEqual(schema.definitions[name], normalizedDraft7Fragment(shared.$defs[name]), name);
   }
   const references = JSON.stringify(schema).match(/"\$ref":"([^"]+)"/g) ?? [];

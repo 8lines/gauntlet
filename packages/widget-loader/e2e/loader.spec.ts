@@ -69,6 +69,13 @@ test("sends the contextual subject for the current path without leaking the URL"
   expect(await panelFrame(page)!.evaluate(() => document.referrer)).toBe("http://127.0.0.1:4390/");
 });
 
+test("a loader served below a base path opens the panel below the same base path", async ({ page }) => {
+  await page.goto(`${HOST}/orders/123?scenario=based`);
+
+  await expect(page.locator("[data-gauntlet-widget]")).toHaveAttribute("data-gauntlet-state", "ready");
+  await expect(page.locator("iframe[data-gauntlet-panel]")).toHaveAttribute("src", "http://localhost:4391/tester/widget/");
+});
+
 test("a loader that runs from <head> before <body> exists still boots", async ({ page }) => {
   await page.goto(`${HOST}/orders/123?scenario=head`);
 
@@ -183,16 +190,14 @@ test("an origin no target lists cannot frame the panel and times out with a conf
 
 test("a panel that never becomes ready makes the widget unavailable after 10 seconds", async ({ page }) => {
   await page.clock.install();
-  // The panel URL is derived from the loader's origin only, so the silent panel
-  // is served in place of /widget/ to simulate a Gauntlet that never answers.
-  const silentPanel = await (await page.request.get(SILENT_PANEL_URL)).text();
-  await page.route(PANEL_URL, (route) => route.fulfill({ contentType: "text/html", body: silentPanel }));
+  // The loader is served below the base path /silent, so the panel URL keeps it:
+  // /silent/widget/ is a panel that never answers.
   await page.goto(`${HOST}/orders/123?scenario=silent`);
   const widget = page.locator("[data-gauntlet-widget]");
   await expect(widget).toHaveAttribute("data-gauntlet-state", "connecting");
 
   await page.clock.runFor(5_000);
-  await expect(page.locator("iframe[data-gauntlet-panel]")).toHaveAttribute("src", PANEL_URL);
+  await expect(page.locator("iframe[data-gauntlet-panel]")).toHaveAttribute("src", SILENT_PANEL_URL);
   await expect(widget).toHaveAttribute("data-gauntlet-state", "connecting");
 
   await page.clock.runFor(6_000);

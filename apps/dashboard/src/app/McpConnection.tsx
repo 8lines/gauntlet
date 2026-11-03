@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { withBasePath } from "../base-path.ts";
 
 /** Shown in the snippet in place of a real API token, which the dashboard never has. */
 const API_TOKEN_PLACEHOLDER = "<API token>";
@@ -26,7 +27,7 @@ function mcpEndpoint(value: string): string | undefined {
 export function McpConnection({ authenticated = false }: { authenticated?: boolean }) {
   const [url, setUrl] = useState(() => import.meta.env.DEV
     ? __GAUNTLET_DEV_MCP_URL__
-    : new URL("/mcp", globalThis.location.href).href);
+    : new URL(withBasePath("/mcp"), globalThis.location.href).href);
   const [copyMessage, setCopyMessage] = useState("");
   const urlId = useId();
   const hintId = useId();

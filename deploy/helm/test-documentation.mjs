@@ -181,6 +181,7 @@ test("the documented values and command blocks are complete and exact", () => {
   const blocks = namedFences(markdown);
   assert.deepEqual([...blocks.keys()], [
     "environment-values",
+    "base-path-values",
     "pull-render-install",
     "private-access",
     "observe",
@@ -235,6 +236,15 @@ test("the documented values and command blocks are complete and exact", () => {
     tolerations: [],
     affinity: {},
   });
+  const basePathBlock = blocks.get("base-path-values");
+  assert.equal(basePathBlock.language, "yaml");
+  const basePathValues = parseDocument(basePathBlock.text, { prettyErrors: false, strict: true, uniqueKeys: true });
+  assert.deepEqual(basePathValues.errors, []);
+  const basePathDocument = basePathValues.toJS({ maxAliasCount: 0 });
+  assert.equal(basePathDocument.basePath, "/tester");
+  assert.deepEqual(basePathDocument.auth, { existingSecret: "gauntlet-auth" });
+  assert.equal(basePathDocument.config.auth.publicUrl, "https://qa.example");
+  assert.deepEqual(basePathDocument.ingress.hosts[0].paths, [{ path: "/tester", pathType: "Prefix" }]);
   assert.match(blocks.get("pull-render-install").text,
     new RegExp(`helm pull oci://ghcr\\.io/8lines/charts/gauntlet --version ${escapeRegExp(CHART_VERSION)}`));
   assert.match(blocks.get("pull-render-install").text, new RegExp(`helm template gauntlet \\./${escapeRegExp(CHART_ARCHIVE)}`));
