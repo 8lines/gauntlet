@@ -25,7 +25,7 @@
     "ext-pdo": "*",
     "ext-pdo_sqlite": "*",
     "8lines/gauntlet-php-core": "^0.1.8",
-    "8lines/gauntlet-symfony-bundle": "^0.1.8",
+    "8lines/gauntlet-symfony-bundle": "^0.1.9",
     "symfony/framework-bundle": "^7.4 || ^8.0"
   },
   "require-dev": {
