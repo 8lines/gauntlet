@@ -136,13 +136,14 @@ test("the product image serves health, dashboard assets and two isolated adapter
   assert.match(index.headers.get("cache-control") ?? "", /no-cache/i);
   const html = await index.text();
   assertNoInternalTransport(html);
-  const assets = [...html.matchAll(/\b(?:src|href)=["'](\/assets\/[^"']+\.(?:js|css))["']/g)]
+  // Asset URLs are relative to the page (`./assets/...`), so one build works below any base path.
+  const assets = [...html.matchAll(/\b(?:src|href)=["'](\.\/assets\/[^"']+\.(?:js|css))["']/g)]
     .map((match) => match[1]);
   assert.ok(assets.some((path) => path.endsWith(".js")), "dashboard HTML must reference JavaScript");
   assert.ok(assets.some((path) => path.endsWith(".css")), "dashboard HTML must reference CSS");
   for (const asset of new Set(assets)) {
-    assert.match(asset, /^\/assets\/.+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/);
-    const response = await fetch(`${origin}${asset}`, {
+    assert.match(asset, /^\.\/assets\/.+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/);
+    const response = await fetch(new URL(asset, `${origin}/`), {
       redirect: "error",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
