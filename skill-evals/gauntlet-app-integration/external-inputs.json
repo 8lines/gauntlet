@@ -19,7 +19,7 @@
     },
     {
       "path": "examples/symfony/composer.lock",
-      "sha256": "1a541bb43ab5ed751ea50b9d98d2cebc0218014d69e76d109df0311c07ff252d"
+      "sha256": "a960a0eb1a00b17e7351e81f8c8c727e35fce8f1234638df7f1eb6762f9d0f41"
     },
     {
       "path": "package.json",
@@ -27,7 +27,7 @@
     },
     {
       "path": "pnpm-lock.yaml",
-      "sha256": "89d89b8f66de91dc0bcf36fa79c4cb8dc65818b20aeaf9366a3d77ed9adc742a"
+      "sha256": "225144810b0ddec55d35f24492e500b21a1930a40c3cf48f3710c3be31874b04"
     },
     {
       "path": "pnpm-workspace.yaml",
@@ -39,11 +39,11 @@
     },
     {
       "path": "scripts/release/stage-composer.mjs",
-      "sha256": "956a012757ab9901e4706e7aa7661c9d6959befd9bf6073ffbebb3a8a579e83f"
+      "sha256": "1eb2a7a4ad964e894ac46fbf2ee36a5f599407046a478c45ebc986840bfff524"
     },
     {
       "path": "scripts/release/units.mjs",
-      "sha256": "8f211c5fae8af2a87681de4ae4ef4ba96c12ed221d037c80917be33c770fae21"
+      "sha256": "5c987dbae56a6d95aa31e803cc837294629b782c031604e73765a6f43e7209be"
     },
     {
       "path": "tsconfig.base.json",
@@ -73,7 +73,7 @@
         ".phpunit.result.cache",
         "vendor"
       ],
-      "sha256": "b0fc5d8674a1338f940a5019f0cb62ebf699a7e47c1510ffc8f9c34679f58689"
+      "sha256": "bc9e6b4f88ae74fdaaa33e3a575829f4163d005760bbe91f7477da68fbe843da"
     },
     {
       "path": "packages/protocol",
