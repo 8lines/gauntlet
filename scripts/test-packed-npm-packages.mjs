@@ -56,9 +56,9 @@ const OFFLINE_PACKAGES = Object.freeze([
     files: 11, bytes: 12_966, sha256: "2a31ff19e65fb33a11105548fc5b61eb045f9e49c2888edf653e0557a7a0eaf2",
   }),
   Object.freeze({
-    name: "fast-uri", version: "3.1.8", development: false,
-    directory: "node_modules/.pnpm/fast-uri@3.1.8/node_modules/fast-uri",
-    files: 44, bytes: 220_886, sha256: "247d13977b9030087fe459e461b72531e9db875fb74699ef5b9691ef2257772d",
+    name: "fast-uri", version: "3.1.9", development: false,
+    directory: "node_modules/.pnpm/fast-uri@3.1.9/node_modules/fast-uri",
+    files: 47, bytes: 241_202, sha256: "05a6f1e3737a1445436f861b84915f40b8613ccb8033c92af0bf858cc92fb637",
   }),
   Object.freeze({
     name: "json-schema-traverse", version: "1.0.0", development: false,
