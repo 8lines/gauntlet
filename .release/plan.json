@@ -3,13 +3,13 @@
   "units": [
     {
       "id": "gauntlet",
-      "from": "0.2.2",
-      "to": "0.2.3"
+      "from": "0.2.3",
+      "to": "0.2.4"
     },
     {
       "id": "skills",
-      "from": "0.1.13",
-      "to": "0.1.14"
+      "from": "0.1.14",
+      "to": "0.1.15"
     }
   ],
   "order": [
@@ -17,6 +17,7 @@
     "skills"
   ],
   "changes": [
-    "run-starting-state.md"
+    "base-path.md",
+    "helm-extra-environment.md"
   ]
 }
