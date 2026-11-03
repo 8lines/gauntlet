@@ -3,27 +3,21 @@
   "units": [
     {
       "id": "gauntlet",
-      "from": "0.2.3",
-      "to": "0.2.4"
-    },
-    {
-      "id": "symfony-bundle",
-      "from": "0.1.8",
-      "to": "0.1.9"
+      "from": "0.2.4",
+      "to": "0.2.5"
     },
     {
       "id": "skills",
-      "from": "0.1.14",
-      "to": "0.1.15"
+      "from": "0.1.15",
+      "to": "0.1.16"
     }
   ],
   "order": [
     "gauntlet",
-    "symfony-bundle",
     "skills"
   ],
   "changes": [
-    "dependency-advisories-2026-11.md",
-    "symfony-mate-extension.md"
+    "base-path.md",
+    "helm-extra-environment.md"
   ]
 }
