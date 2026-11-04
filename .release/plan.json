@@ -2,27 +2,81 @@
   "schemaVersion": 1,
   "units": [
     {
-      "id": "java-core",
+      "id": "protocol",
       "from": "0.1.8",
       "to": "0.2.0"
+    },
+    {
+      "id": "dashboard-client",
+      "from": "0.1.8",
+      "to": "0.2.0"
+    },
+    {
+      "id": "gauntlet",
+      "from": "0.2.5",
+      "to": "0.3.0"
+    },
+    {
+      "id": "typescript-core",
+      "from": "0.1.8",
+      "to": "0.2.0"
+    },
+    {
+      "id": "typescript-node",
+      "from": "0.1.8",
+      "to": "0.2.0"
+    },
+    {
+      "id": "next-adapter",
+      "from": "0.1.8",
+      "to": "0.1.9"
+    },
+    {
+      "id": "conformance-runner",
+      "from": "0.1.8",
+      "to": "0.2.0"
+    },
+    {
+      "id": "php-core",
+      "from": "0.1.8",
+      "to": "0.2.0"
+    },
+    {
+      "id": "symfony-bundle",
+      "from": "0.1.9",
+      "to": "0.2.0"
+    },
+    {
+      "id": "java-core",
+      "from": "0.2.0",
+      "to": "0.3.0"
     },
     {
       "id": "spring-boot-starter",
-      "from": "0.1.8",
-      "to": "0.2.0"
+      "from": "0.2.0",
+      "to": "0.3.0"
     },
     {
       "id": "skills",
-      "from": "0.1.16",
-      "to": "0.1.17"
+      "from": "0.1.17",
+      "to": "0.2.0"
     }
   ],
   "order": [
+    "protocol",
+    "dashboard-client",
+    "gauntlet",
+    "typescript-core",
+    "typescript-node",
+    "next-adapter",
+    "conformance-runner",
+    "php-core",
+    "symfony-bundle",
     "java-core",
     "spring-boot-starter",
     "skills"
   ],
   "changes": [
-    "maven-central.md"
+    "drop-legacy-tc-identifiers.md"
   ]
 }

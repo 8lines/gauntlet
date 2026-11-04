@@ -28,19 +28,19 @@ current. Which package versions work with which application release is listed in
 <!-- gauntlet:unit-versions:start -->
 | Unit | Published as | Version |
 | --- | --- | --- |
-| `gauntlet` | `ghcr.io/8lines/gauntlet`, `gauntlet`, `gauntlet-compose` | 0.2.5 |
-| `protocol` | `@8lines/gauntlet-protocol` | 0.1.8 |
-| `dashboard-client` | `@8lines/gauntlet-dashboard-client` | 0.1.8 |
-| `typescript-core` | `@8lines/gauntlet-typescript-core` | 0.1.8 |
-| `typescript-node` | `@8lines/gauntlet-typescript-node` | 0.1.8 |
-| `next-adapter` | `@8lines/gauntlet-next-adapter` | 0.1.8 |
-| `conformance-runner` | `@8lines/gauntlet-conformance-runner` | 0.1.8 |
+| `gauntlet` | `ghcr.io/8lines/gauntlet`, `gauntlet`, `gauntlet-compose` | 0.3.0 |
+| `protocol` | `@8lines/gauntlet-protocol` | 0.2.0 |
+| `dashboard-client` | `@8lines/gauntlet-dashboard-client` | 0.2.0 |
+| `typescript-core` | `@8lines/gauntlet-typescript-core` | 0.2.0 |
+| `typescript-node` | `@8lines/gauntlet-typescript-node` | 0.2.0 |
+| `next-adapter` | `@8lines/gauntlet-next-adapter` | 0.1.9 |
+| `conformance-runner` | `@8lines/gauntlet-conformance-runner` | 0.2.0 |
 | `widget` | `@8lines/gauntlet-widget` | 0.1.8 |
-| `php-core` | `8lines/gauntlet-php-core` | 0.1.8 |
-| `symfony-bundle` | `8lines/gauntlet-symfony-bundle` | 0.1.9 |
-| `java-core` | `dev.8lines.gauntlet:core` | 0.2.0 |
-| `spring-boot-starter` | `dev.8lines.gauntlet:spring-boot-starter` | 0.2.0 |
-| `skills` | `gauntlet-skills` | 0.1.17 |
+| `php-core` | `8lines/gauntlet-php-core` | 0.2.0 |
+| `symfony-bundle` | `8lines/gauntlet-symfony-bundle` | 0.2.0 |
+| `java-core` | `dev.8lines.gauntlet:core` | 0.3.0 |
+| `spring-boot-starter` | `dev.8lines.gauntlet:spring-boot-starter` | 0.3.0 |
+| `skills` | `gauntlet-skills` | 0.2.0 |
 <!-- gauntlet:unit-versions:end -->
 
 ## npm
@@ -49,9 +49,9 @@ Install exact versions from the public registry. No `.npmrc` scope mapping or
 token is needed:
 
 ```sh
-pnpm add @8lines/gauntlet-protocol@0.1.8 \
-  @8lines/gauntlet-typescript-core@0.1.8 \
-  @8lines/gauntlet-typescript-node@0.1.8
+pnpm add @8lines/gauntlet-protocol@0.2.0 \
+  @8lines/gauntlet-typescript-core@0.2.0 \
+  @8lines/gauntlet-typescript-node@0.2.0
 ```
 
 The published packages are `@8lines/gauntlet-protocol`,
@@ -72,12 +72,12 @@ with an annotated `v<version>` for that package's own version. No custom
 `repositories` entry, `auth.json`, or `COMPOSER_AUTH` is needed:
 
 ```sh
-composer require 8lines/gauntlet-symfony-bundle:0.1.9
+composer require 8lines/gauntlet-symfony-bundle:0.2.0
 ```
 
 The bundle requires the matching `8lines/gauntlet-php-core` release, which
 Composer installs automatically. For a framework-neutral integration, require
-`8lines/gauntlet-php-core:0.1.8` alone. Verify that `composer.lock` records the
+`8lines/gauntlet-php-core:0.2.0` alone. Verify that `composer.lock` records the
 expected package versions and source commits.
 
 The split repositories are read-only release mirrors of
@@ -102,8 +102,8 @@ change.
 Consume immutable coordinates:
 
 ```text
-dev.8lines.gauntlet:core:0.2.0
-dev.8lines.gauntlet:spring-boot-starter:0.2.0
+dev.8lines.gauntlet:core:0.3.0
+dev.8lines.gauntlet:spring-boot-starter:0.3.0
 ```
 
 Keep Gradle dependency verification and lock metadata enabled in the consumer.
@@ -114,12 +114,12 @@ The image and the Helm chart are public, so pulling them needs no
 `docker login`, `helm registry login`, or Kubernetes imagePullSecret:
 
 ```sh
-docker pull ghcr.io/8lines/gauntlet:0.2.5
-helm pull oci://ghcr.io/8lines/charts/gauntlet --version 0.2.5
+docker pull ghcr.io/8lines/gauntlet:0.3.0
+helm pull oci://ghcr.io/8lines/charts/gauntlet --version 0.3.0
 ```
 
 Prefer an image digest in an operator-managed deployment. Pull the Helm chart
-at exact version `0.2.5`, render that local archive, and install the same bytes.
+at exact version `0.3.0`, render that local archive, and install the same bytes.
 A cluster that must pull through an authenticated mirror can still set the
 chart's optional `imagePullSecrets` value; the chart never creates that Secret.
 When a private mirror does need credentials, supply them without a token

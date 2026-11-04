@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "abfa9af4065886fd13c26a57c77f0ec2",
+    "content-hash": "ff11471a90673fe0bda8d0907cff342c",
     "packages": [
         {
             "name": "onematrix/tracing-sdk",

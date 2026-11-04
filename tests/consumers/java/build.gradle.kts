@@ -11,7 +11,7 @@ java {
 }
 
 dependencies {
-    implementation("dev.8lines.gauntlet:spring-boot-starter:0.2.0")
+    implementation("dev.8lines.gauntlet:spring-boot-starter:0.3.0")
 }
 
 dependencyLocking {

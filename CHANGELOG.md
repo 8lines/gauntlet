@@ -21,6 +21,18 @@ changelog: [`protocol`](packages/protocol/CHANGELOG.md),
 
 ## Unreleased
 
+## [0.3.0] - 2026-11-04
+
+### Changed
+
+- Every protocol profile, capability, conformance format and idempotency key now uses the `gauntlet-` prefix instead of the legacy `tc-` prefix, with no aliases for the old names, `TcSchemaCore` is now `GauntletSchemaCore` in PHP and Java, and `assertTcSchemaCore` is now `assertGauntletSchemaCore` in `@8lines/gauntlet-protocol`.
+- Updated `protocol` to 0.2.0.
+- Updated `dashboard-client` to 0.2.0.
+
+### Upgrade
+
+- This version has required upgrade steps; follow the [upgrade guide](https://github.com/8lines/gauntlet/blob/v0.3.0/docs/upgrades/gauntlet/0.3.0.md).
+
 ## [0.2.5] - 2026-11-03
 
 ### Added

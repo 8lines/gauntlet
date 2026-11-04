@@ -7,7 +7,7 @@
     },
     {
       "path": "deploy/helm/README.md",
-      "sha256": "b4e87469934e57c372bd1dc2b0137e0a5c43557abd7195be8137aa3dabfb1757"
+      "sha256": "9d17d3b85ad6d633ffd35ca968b2cb96211dbefce01f3151477f07ae514952d2"
     },
     {
       "path": "docs/releases/rollback.md",

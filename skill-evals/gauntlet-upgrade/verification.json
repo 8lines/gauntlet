@@ -2,12 +2,12 @@
   "schemaVersion": 1,
   "skill": "gauntlet-upgrade",
   "skillSha256": "b86b05dd5805fb4cf8f18306a3a2cdda9c1ba69a17c1d0abc8b4caaa41a97ab7",
-  "evaluationSha256": "cd21193b659540b5e7e4a15f44328a99c8b2884a7efaf85f833e367748ee5229",
-  "externalInputsSha256": "18164e57c87a912e0d8182129d141317bfed5c5623c3d40d83f79d85869f364d",
+  "evaluationSha256": "a1064e371bde0c0aa6459f38be95e4d14ece14510c4689ecba795564990cf220",
+  "externalInputsSha256": "4452ff278d9068b24a0a72949a6a9359869d451c3edf11d9eedaa42b6a12b68b",
   "evaluatedAt": "2026-10-07T16:05:57.113Z",
   "baseline": {
     "transcript": "results/baseline.jsonl",
-    "transcriptSha256": "313bfc384789a4398f6b861e7252c531a65337b7a73b031e1838b6a0e15f2092",
+    "transcriptSha256": "252be8f73e52f9d51337f986aabcc4eb214d784b36e88cbd9435862bfe3ff45e",
     "scenarioResults": [
       {
         "scenario": "floating-tag",
@@ -37,7 +37,7 @@
   },
   "guided": {
     "transcript": "results/guided.jsonl",
-    "transcriptSha256": "2cfb07befcffab5049bb6355d995d71f16138aa77df89e3f2f5888ecb6a01248",
+    "transcriptSha256": "9fc3c234a4786f8c7f7c4f3ac8d8f54019329060e2e6fd2343cacd643c57278b",
     "scenarioResults": [
       {
         "scenario": "floating-tag",
@@ -67,7 +67,7 @@
   },
   "forward": {
     "transcript": "results/forward.jsonl",
-    "transcriptSha256": "16ac15d09ce7d22d756a2e062157c0cde380f5077dfede4e65b1cf6187a5a641",
+    "transcriptSha256": "f54a00d56763852b5f667036c8ec7da1446205be8eab7326b069d7e258b5097e",
     "scenarioResults": [
       {
         "scenario": "forward-helm-persistence",

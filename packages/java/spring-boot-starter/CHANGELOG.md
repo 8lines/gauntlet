@@ -10,6 +10,17 @@ Releases up to 0.1.8 were published together with the application and are record
 
 ## Unreleased
 
+## [0.3.0] - 2026-11-04
+
+### Changed
+
+- Every protocol profile, capability, conformance format and idempotency key now uses the `gauntlet-` prefix instead of the legacy `tc-` prefix, with no aliases for the old names, `TcSchemaCore` is now `GauntletSchemaCore` in PHP and Java, and `assertTcSchemaCore` is now `assertGauntletSchemaCore` in `@8lines/gauntlet-protocol`.
+- Updated `java-core` to 0.3.0.
+
+### Upgrade
+
+- This version has required upgrade steps; follow the [upgrade guide](https://github.com/8lines/gauntlet/blob/spring-boot-starter-v0.3.0/docs/upgrades/spring-boot-starter/0.3.0.md).
+
 ## [0.2.0] - 2026-11-04
 
 ### Changed

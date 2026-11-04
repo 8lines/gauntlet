@@ -10,6 +10,25 @@ Releases up to 0.1.8 were published together with the application and are record
 
 ## Unreleased
 
+## [0.2.0] - 2026-11-04
+
+### Changed
+
+- Every protocol profile, capability, conformance format and idempotency key now uses the `gauntlet-` prefix instead of the legacy `tc-` prefix, with no aliases for the old names, `TcSchemaCore` is now `GauntletSchemaCore` in PHP and Java, and `assertTcSchemaCore` is now `assertGauntletSchemaCore` in `@8lines/gauntlet-protocol`.
+- Updated `protocol` to 0.2.0.
+- Updated `gauntlet` to 0.3.0.
+- Updated `typescript-core` to 0.2.0.
+- Updated `typescript-node` to 0.2.0.
+- Updated `next-adapter` to 0.1.9.
+- Updated `php-core` to 0.2.0.
+- Updated `symfony-bundle` to 0.2.0.
+- Updated `java-core` to 0.3.0.
+- Updated `spring-boot-starter` to 0.3.0.
+
+### Upgrade
+
+- This version has required upgrade steps; follow the [upgrade guide](https://github.com/8lines/gauntlet/blob/skills-v0.2.0/docs/upgrades/skills/0.2.0.md).
+
 ## [0.1.17] - 2026-11-04
 
 ### Changed

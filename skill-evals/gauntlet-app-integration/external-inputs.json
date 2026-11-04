@@ -11,15 +11,15 @@
     },
     {
       "path": "VERSION",
-      "sha256": "e959f750e92dbb7614ae28ac96f0a37272caed81d8bbb758791af7bfbb6106a0"
+      "sha256": "d915cc95d6ca8f47ae297713ed46d4e5c5d99ddd29fc3c61e263bdf305f2b5b0"
     },
     {
       "path": "examples/symfony/composer.json",
-      "sha256": "ab23060c59d2dd83253680be79397d4b4dc157da8295035e061cd14734909458"
+      "sha256": "87f6fa6efc5b84f2cff3ee3a7a9197b7f6a2f1bc66b5022bc7b0afbd0e21fe7c"
     },
     {
       "path": "examples/symfony/composer.lock",
-      "sha256": "166754307c07dcffcfdff3fff6363791069ba62a21bfb50ca0e71817681880d7"
+      "sha256": "728b1327577107bf3c45e4be814ec9f89433be48e489057144d3934475483704"
     },
     {
       "path": "package.json",
@@ -57,7 +57,7 @@
         "dist",
         "node_modules"
       ],
-      "sha256": "20dd1fabf74d41de41ccda970bcf5d6bd93ae89fa4e20312419c95faecc95a59"
+      "sha256": "54b0ea18a3290e39bb200def936236a531506fc5c9e1f0c30b1d7615eb7824d0"
     },
     {
       "path": "packages/php/core",
@@ -65,7 +65,7 @@
         ".phpunit.result.cache",
         "vendor"
       ],
-      "sha256": "dd6ef6d8687df3f5f8c3958628f84eefb904c9fa34b79017a53372a13eef7994"
+      "sha256": "74f34ee129ca68e9c56fa888fe9b10893ac216eb470194d51bb2801eac471aec"
     },
     {
       "path": "packages/php/symfony-bundle",
@@ -73,7 +73,7 @@
         ".phpunit.result.cache",
         "vendor"
       ],
-      "sha256": "33ad4d6fd725e20138eacb0ce5332c2ca5c00194dca16502477dda0fac07f90d"
+      "sha256": "f7fde18c93072f41bd285c177ad3fb69b6c4384d1ce565a6338f25d28a5da299"
     },
     {
       "path": "packages/protocol",
@@ -81,7 +81,7 @@
         "dist",
         "node_modules"
       ],
-      "sha256": "b0e331a4bcd55ddde85c05b61eda1a16cfe48d10439b278c681801ad6c07f21b"
+      "sha256": "3d5da740a546dfa62690f8db8a0051295ba8d9134d7c306cbf3ba0636b837c57"
     },
     {
       "path": "packages/typescript/core",
@@ -89,7 +89,7 @@
         "dist",
         "node_modules"
       ],
-      "sha256": "b94f7271288c7e0069147f80a1a87ad0696494bec5bab284425aea7b57e93ebb"
+      "sha256": "e4926c1f249a752ca5d79ce52250e1fa951c64a65a98bcafccaf2cee187671fc"
     },
     {
       "path": "packages/typescript/node",
@@ -97,7 +97,7 @@
         "dist",
         "node_modules"
       ],
-      "sha256": "bccefe83335e098f85e296d1d3078ca9f92e334e1e50ab74975cc35965b594e7"
+      "sha256": "3496f949524de019fa518c3cf4aa4c39db75cfd9b97b56880eb6c60d14e0603c"
     }
   ],
   "linkedRuntimeTrees": [

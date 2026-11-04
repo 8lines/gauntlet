@@ -1,6 +1,6 @@
 # Gauntlet Java Core
 
-`dev.8lines.gauntlet:core:0.2.0` is the framework-neutral Java 21
+`dev.8lines.gauntlet:core:0.3.0` is the framework-neutral Java 21
 implementation of the Gauntlet Adapter v1 contract. It contains protocol
 models, validation, registries, run lifecycle services, canonical JSON, and
 the application-facing SPI. It does not expose HTTP routes or start a server.
@@ -12,7 +12,7 @@ implementing an adapter around the SPI.
 
 ```kotlin
 dependencies {
-    implementation("dev.8lines.gauntlet:core:0.2.0")
+    implementation("dev.8lines.gauntlet:core:0.3.0")
 }
 ```
 
