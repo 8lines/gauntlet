@@ -19,11 +19,11 @@ const JAVA_CONSUMER_GUIDES = new Set([
 ]);
 const JAVA_GUIDE_COORDINATES = Object.freeze({
   "packages/java/README.md": Object.freeze([
-    "dev.eightlines.gauntlet:core",
-    "dev.eightlines.gauntlet:spring-boot-starter",
+    "dev.8lines.gauntlet:core",
+    "dev.8lines.gauntlet:spring-boot-starter",
   ]),
   "packages/java/spring-boot-starter/README.md": Object.freeze([
-    "dev.eightlines.gauntlet:spring-boot-starter",
+    "dev.8lines.gauntlet:spring-boot-starter",
   ]),
 });
 const SYMFONY_CONSUMER_GUIDE = "packages/php/symfony-bundle/README.md";
@@ -208,7 +208,7 @@ function releasedSdkGuideErrors(owner, source, versions) {
   });
   if (JAVA_CONSUMER_GUIDES.has(owner)) {
     const coordinates = [...source.matchAll(
-      /(dev\.eightlines\.gauntlet:(?:core|spring-boot-starter)):([^\s`'"()<>\],]+)/gu,
+      /(dev\.8lines\.gauntlet:(?:core|spring-boot-starter)):([^\s`'"()<>\],]+)/gu,
     )].map((match) => Object.freeze({ name: match[1], version: match[2] }));
     for (const name of JAVA_GUIDE_COORDINATES[owner]) {
       if (!coordinates.some((coordinate) => coordinate.name === name)) {

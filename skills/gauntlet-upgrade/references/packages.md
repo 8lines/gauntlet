@@ -2,7 +2,7 @@
 
 ## Application SDK packages
 
-Application adapters use released packages: npm `@8lines/gauntlet-*`, Composer `8lines/gauntlet-*`, and Maven `dev.eightlines.gauntlet:*`. Each package is its own release unit with its own guides at `docs/upgrades/<unit>/` and tags `<unit>-v<version>`.
+Application adapters use released packages: npm `@8lines/gauntlet-*`, Composer `8lines/gauntlet-*`, and Maven `dev.8lines.gauntlet:*`. Each package is its own release unit with its own guides at `docs/upgrades/<unit>/` and tags `<unit>-v<version>`.
 
 - Read the deployed package version from the application's lockfile, not from a manifest range.
 - Walk the package unit's guides exactly like the `gauntlet` unit's.

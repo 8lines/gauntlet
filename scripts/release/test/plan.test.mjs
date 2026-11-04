@@ -164,7 +164,7 @@ test("peeled tag listings resolve annotated and lightweight tags to commits", ()
 test("maps every published artifact name to its unit", () => {
   assert.equal(unitIdForArtifact("@8lines/gauntlet-typescript-node"), "typescript-node");
   assert.equal(unitIdForArtifact("ghcr.io/8lines/gauntlet"), "gauntlet");
-  assert.equal(unitIdForArtifact("dev.eightlines.gauntlet:core"), "java-core");
+  assert.equal(unitIdForArtifact("dev.8lines.gauntlet:core"), "java-core");
   assert.throws(() => unitIdForArtifact("left-pad"), /no release unit/u);
 });
 

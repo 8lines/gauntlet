@@ -155,7 +155,7 @@ function validateInclude(include) {
 function selectedProjects({ versions, include }) {
   return include.map((id) => {
     const { artifactId } = MAVEN_PROJECTS[id];
-    const artifact = RELEASE_ARTIFACTS.maven.find(({ name }) => name === `dev.eightlines.gauntlet:${artifactId}`);
+    const artifact = RELEASE_ARTIFACTS.maven.find(({ name }) => name === `dev.8lines.gauntlet:${artifactId}`);
     if (artifact === undefined) fixedFailure();
     return Object.freeze({ id, artifactId, artifact, version: versions[id] });
   });
@@ -391,7 +391,7 @@ async function executePublication(run, capture, selection) {
 function expectedRawFiles(selection) {
   const expected = new Set();
   for (const { artifactId, version } of selectedProjects(selection)) {
-    const prefix = `dev/eightlines/gauntlet/${artifactId}`;
+    const prefix = `dev/8lines/gauntlet/${artifactId}`;
     const base = `${artifactId}-${version}`;
     for (const { suffix } of PRIMARY_ROLES) {
       const primary = `${prefix}/${version}/${base}${suffix}`;
@@ -461,7 +461,7 @@ function validateModuleMetadata(bytes, artifactId, version, captures, coreVersio
   if (!exactKeys(metadata, ["formatVersion", "component", "createdBy", "variants"])
       || metadata.formatVersion !== "1.1"
       || !exactKeys(metadata.component, ["group", "module", "version", "attributes"])
-      || metadata.component.group !== "dev.eightlines.gauntlet"
+      || metadata.component.group !== "dev.8lines.gauntlet"
       || metadata.component.module !== artifactId || metadata.component.version !== version
       || metadata.createdBy?.gradle?.version !== "9.2.1" || !Array.isArray(metadata.variants)
       || metadata.variants.length < 4 || metadata.variants.length > 8) fixedFailure();
@@ -469,7 +469,7 @@ function validateModuleMetadata(bytes, artifactId, version, captures, coreVersio
   const base = `${artifactId}-${version}`;
   for (const suffix of [".jar", "-sources.jar", "-javadoc.jar"]) {
     const name = `${base}${suffix}`;
-    const path = `dev/eightlines/gauntlet/${artifactId}/${version}/${name}`;
+    const path = `dev/8lines/gauntlet/${artifactId}/${version}/${name}`;
     const bytes_ = captures.get(path);
     if (bytes_ === undefined || !fileRecords.some((record) => record?.name === name && record.url === name
       && record.size === bytes_.length
@@ -484,7 +484,7 @@ function validateModuleMetadata(bytes, artifactId, version, captures, coreVersio
         || !serialized.includes('"module":"jackson-core"')
         || !serialized.includes('"module":"jackson-databind"')
         || !serialized.includes('"requires":"3.1.7"')) fixedFailure();
-  } else if (!serialized.includes('"group":"dev.eightlines.gauntlet"')
+  } else if (!serialized.includes('"group":"dev.8lines.gauntlet"')
       || !serialized.includes('"module":"core"') || !serialized.includes(`"requires":"${coreVersion}"`)
       || !serialized.includes('"group":"org.apache.tomcat.embed"')
       || !serialized.includes('"module":"tomcat-embed-core"')
@@ -520,7 +520,7 @@ async function inspectRepository(root, repository, scratch, selection, environme
 
 function validateCaptures(captures, selection) {
   for (const { artifactId, version } of selectedProjects(selection)) {
-    const basePath = `dev/eightlines/gauntlet/${artifactId}/${version}/${artifactId}-${version}`;
+    const basePath = `dev/8lines/gauntlet/${artifactId}/${version}/${artifactId}-${version}`;
     const moduleBytes = captures.get(`${basePath}.module`);
     if (moduleBytes === undefined) fixedFailure();
     validateModuleMetadata(moduleBytes, artifactId, version, captures, selection.versions["java-core"]);
@@ -575,7 +575,7 @@ function writeExclusive(path, bytes) {
 function materializeStage(ready, captures, selection) {
   const staged = [];
   for (const { artifact, artifactId, version } of selectedProjects(selection)) {
-    const relativeDirectory = `dev/eightlines/gauntlet/${artifactId}/${version}`;
+    const relativeDirectory = `dev/8lines/gauntlet/${artifactId}/${version}`;
     const directory = join(ready, ...relativeDirectory.split("/"));
     ensureDirectory(directory);
     const files = [];
@@ -674,7 +674,7 @@ export async function publishMavenLocally(options) {
   if (!Number.isInteger(nodeMajor) || nodeMajor < 24 || nodeMajor > 26) fixedFailure();
   if (RELEASE_ARTIFACTS.maven.length !== 2
       || JSON.stringify(RELEASE_ARTIFACTS.maven.map(({ name }) => name)) !== JSON.stringify([
-        "dev.eightlines.gauntlet:core", "dev.eightlines.gauntlet:spring-boot-starter",
+        "dev.8lines.gauntlet:core", "dev.8lines.gauntlet:spring-boot-starter",
       ])) fixedFailure();
 
   const rootLicense = safeRead(join(root, "LICENSE"), 1024 * 1024);

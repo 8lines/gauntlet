@@ -1,10 +1,10 @@
 # Java and Spring Boot
 
-Support Java 21 and Spring Boot 4.1. The starter is on GitHub Packages Maven (`https://maven.pkg.github.com/8lines/gauntlet`), which requires a GitHub token with `read:packages` even for public packages; supply those credentials outside project files and install the exact starter; Core is transitive:
+Support Java 21 and Spring Boot 4.1. The starter is on Maven Central and needs no credentials; install the exact starter; Core is transitive:
 
 ```kotlin
 dependencies {
-    implementation("dev.eightlines.gauntlet:spring-boot-starter:0.1.8")
+    implementation("dev.8lines.gauntlet:spring-boot-starter:0.1.8")
 }
 ```
 

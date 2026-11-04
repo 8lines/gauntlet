@@ -16,8 +16,8 @@ test("package installation guide pins every official public destination and avoi
   assert.match(source, /Packagist/u);
   assert.match(source, new RegExp(`composer require 8lines/gauntlet-symfony-bundle:${versionPattern("symfony-bundle")}`, "u"));
   assert.doesNotMatch(source, /"type": "vcs"|COMPOSER_AUTH is required/u);
-  assert.match(source, /https:\/\/maven\.pkg\.github\.com\/8lines\/gauntlet/u);
-  assert.match(source, /read:packages/u);
+  assert.match(source, /Maven Central/u);
+  assert.doesNotMatch(source, /maven\.pkg\.github\.com|read:packages/u);
   assert.match(source, /8lines\/gauntlet-php-core/u);
   assert.match(source, /8lines\/gauntlet-symfony-bundle/u);
   assert.match(source, /ghcr\.io\/8lines\/gauntlet/u);

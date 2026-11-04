@@ -80,12 +80,12 @@ const EXPECTED_ARTIFACTS = {
     ],
   ],
   maven: [
-    ["dev.eightlines.gauntlet:core", "packages/java/core", ":core", "https://maven.pkg.github.com/8lines/gauntlet"],
+    ["dev.8lines.gauntlet:core", "packages/java/core", ":core", "https://repo1.maven.org/maven2"],
     [
-      "dev.eightlines.gauntlet:spring-boot-starter",
+      "dev.8lines.gauntlet:spring-boot-starter",
       "packages/java/spring-boot-starter",
       ":spring-boot-starter",
-      "https://maven.pkg.github.com/8lines/gauntlet",
+      "https://repo1.maven.org/maven2",
     ],
   ],
   image: ["ghcr.io/8lines/gauntlet", ".", "runtime"],

@@ -131,7 +131,7 @@ function fakeDependencies(calls, failurePhase) {
       for (const id of MAVEN_UNIT_IDS) assert.equal(versions[id], VERSION);
       return RELEASE_ARTIFACTS.maven.map((artifact) => {
         const artifactId = artifact.name.split(":")[1];
-        const path = resolve(outputDirectory, "dev/eightlines/gauntlet", artifactId, VERSION);
+        const path = resolve(outputDirectory, "dev/8lines/gauntlet", artifactId, VERSION);
         mkdirSync(path, { recursive: true, mode: 0o700 });
         write(resolve(path, `${artifactId}-${VERSION}.jar`), artifact.name);
         return { kind: "maven", name: artifact.name, path, treeSha256: "c".repeat(64), version: VERSION, files: [] };
@@ -864,7 +864,7 @@ function planDependencies(calls, gauntletVersion) {
       return include.map((id) => {
         const name = unitById(id).artifacts[0];
         const artifactId = name.split(":")[1];
-        const path = resolve(outputDirectory, "dev/eightlines/gauntlet", artifactId, versions[id]);
+        const path = resolve(outputDirectory, "dev/8lines/gauntlet", artifactId, versions[id]);
         mkdirSync(path, { recursive: true, mode: 0o700 });
         write(resolve(path, `${artifactId}-${versions[id]}.jar`), name);
         return { kind: "maven", name, path, treeSha256: "c".repeat(64), version: versions[id], files: [] };
@@ -1021,7 +1021,7 @@ test("a php-core plan stages exactly one Composer archive", async (t) => {
 test("a spring-boot-starter plan stages one Maven archive at its own version", async (t) => {
   const { calls, manifest, report, work } = await stagePlan(t, { "spring-boot-starter": "0.2.0" }, ["spring-boot-starter"]);
   assert.deepEqual(identities(manifest), [[
-    "spring-boot-starter", "maven", "dev.eightlines.gauntlet:spring-boot-starter",
+    "spring-boot-starter", "maven", "dev.8lines.gauntlet:spring-boot-starter",
     "maven/artifacts/gauntlet-spring-boot-starter-0.2.0.tar.gz",
   ]]);
   assert.deepEqual(calls, [["maven", ["spring-boot-starter"], { "java-core": "0.1.8", "spring-boot-starter": "0.2.0" }]]);

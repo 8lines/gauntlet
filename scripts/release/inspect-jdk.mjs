@@ -63,7 +63,7 @@ final class GauntletMavenInspector {
   private static void inspectModule(Path repository, Module module, String version, String coreVersion,
       byte[] license) throws Exception {
     Path directory = canonicalDirectory(repository.resolve(
-        "dev/eightlines/gauntlet/" + module.artifact() + "/" + version));
+        "dev/8lines/gauntlet/" + module.artifact() + "/" + version));
     String base = module.artifact() + "-" + version;
     inspectPom(canonicalFile(directory.resolve(base + ".pom")), module, version, coreVersion);
     inspectModuleMetadata(canonicalFile(directory.resolve(base + ".module")), module, version);
@@ -94,7 +94,7 @@ final class GauntletMavenInspector {
     Element project = document.getDocumentElement();
     require(NS.equals(project.getNamespaceURI()) && "project".equals(project.getLocalName()));
     require("4.0.0".equals(text(project, "modelVersion")));
-    require("dev.eightlines.gauntlet".equals(text(project, "groupId")));
+    require("dev.8lines.gauntlet".equals(text(project, "groupId")));
     require(module.artifact().equals(text(project, "artifactId")));
     require(version.equals(text(project, "version")));
     require(module.publication().equals(text(project, "name")));
@@ -123,7 +123,7 @@ final class GauntletMavenInspector {
       require(child(project, "dependencyManagement", false) == null);
     } else {
       require(dependencies.equals(List.of(
-          "dev.eightlines.gauntlet:core:" + coreVersion + ":compile",
+          "dev.8lines.gauntlet:core:" + coreVersion + ":compile",
           "org.apache.tomcat.embed:tomcat-embed-core:11.0.25:compile",
           "org.apache.tomcat.embed:tomcat-embed-el:11.0.25:compile",
           "org.apache.tomcat.embed:tomcat-embed-websocket:11.0.25:compile",
@@ -156,7 +156,7 @@ final class GauntletMavenInspector {
     String text = new String(bytes, StandardCharsets.UTF_8);
     require(Arrays.equals(bytes, text.getBytes(StandardCharsets.UTF_8)));
     require(text.length() < 1024 * 1024 && text.endsWith("\n"));
-    require(text.contains("\"group\": \"dev.eightlines.gauntlet\"")
+    require(text.contains("\"group\": \"dev.8lines.gauntlet\"")
         && text.contains("\"module\": \"" + module.artifact() + "\"")
         && text.contains("\"version\": \"" + version + "\"")
         && text.contains("\"gradle\": {\n      \"version\": \"9.2.1\""));

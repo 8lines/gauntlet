@@ -10,10 +10,10 @@ enabled on production ingress.
 
 The Java SDK publishes two Java 21 consumer artifacts, each with its own version:
 
-- `dev.eightlines.gauntlet:core:0.1.8` — Java 21 protocol models,
+- `dev.8lines.gauntlet:core:0.1.8` — Java 21 protocol models,
   schema/semantics validation, canonical JSON, registries, run lifecycle,
   HMAC idempotency, and framework-neutral SPIs;
-- `dev.eightlines.gauntlet:spring-boot-starter:0.1.8` — Spring Boot
+- `dev.8lines.gauntlet:spring-boot-starter:0.1.8` — Spring Boot
   4.1.1 auto-configuration, annotated bean catalog, typed bindings, and the
   complete Adapter v1 HTTP transport.
 
@@ -25,7 +25,7 @@ Gradle consumer can depend on the starter with the exact release coordinate:
 
 ```kotlin
 dependencies {
-    implementation("dev.eightlines.gauntlet:spring-boot-starter:0.1.8")
+    implementation("dev.8lines.gauntlet:spring-boot-starter:0.1.8")
 }
 ```
 

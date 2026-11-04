@@ -596,14 +596,18 @@ jobs:
           NPM_PUBLISH_TOKEN: ${{ secrets.NPM_TOKEN }}
           CORE_DEPLOY_KEY: ${{ secrets.COMPOSER_SPLIT_CORE_DEPLOY_KEY }}
           BUNDLE_DEPLOY_KEY: ${{ secrets.COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY }}
+          CENTRAL_PUBLISH_TOKEN: ${{ secrets.MAVEN_CENTRAL_TOKEN }}
+          SIGNING_PRIVATE_KEY: ${{ secrets.MAVEN_SIGNING_KEY }}
         # The secrets reach the script only on file descriptors: exec replaces this shell, whose
         # initial environment holds them, with the script, whose environment does not.
         run: >-
-          exec env -u NPM_PUBLISH_TOKEN -u CORE_DEPLOY_KEY -u BUNDLE_DEPLOY_KEY
+          exec env -u NPM_PUBLISH_TOKEN -u CORE_DEPLOY_KEY -u BUNDLE_DEPLOY_KEY -u CENTRAL_PUBLISH_TOKEN -u SIGNING_PRIVATE_KEY
           bash scripts/release/publish-package-units.sh "$PWD/.artifacts/release/$GITHUB_REF_NAME"
           3< <(printf '%s' "$NPM_PUBLISH_TOKEN")
           4< <(printf '%s' "$CORE_DEPLOY_KEY")
           5< <(printf '%s' "$BUNDLE_DEPLOY_KEY")
+          6< <(printf '%s' "$CENTRAL_PUBLISH_TOKEN")
+          7< <(printf '%s' "$SIGNING_PRIVATE_KEY")
       # The commit-tagged image push and its Trivy scan precede the application's public destinations.
       - name: Publish commit-tagged image with attestations
         if: steps.preflight.outputs.gauntlet == 'true'

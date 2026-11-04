@@ -44,7 +44,7 @@ dependencyResolutionManagement {
                 }
             }
             filter {
-                includeGroup("dev.eightlines.gauntlet")
+                includeGroup("dev.8lines.gauntlet")
             }
         }
         maven {
@@ -56,7 +56,7 @@ dependencyResolutionManagement {
                 artifact()
             }
             content {
-                excludeGroup("dev.eightlines.gauntlet")
+                excludeGroup("dev.8lines.gauntlet")
             }
         }
     }
