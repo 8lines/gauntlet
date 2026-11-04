@@ -82,3 +82,4 @@ passes; never rewrite individual reviews to make a scenario aggregate uniform.
 - 2026-11-03: Release preparation moved gauntlet to 0.2.4, symfony-bundle to 0.1.9, skills to 0.1.15. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
 - 2026-11-03: The Helm runbook documents the base path, authentication secret and extra environment values. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
 - 2026-11-03: Release preparation moved gauntlet to 0.2.5, skills to 0.1.16. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
+- 2026-11-04: The Java install references moved to Maven Central and the group dev.8lines.gauntlet. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.

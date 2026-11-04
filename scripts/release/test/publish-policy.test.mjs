@@ -16,7 +16,7 @@ const LINUX_RUNNER = "blacksmith-4vcpu-ubuntu-2404";
 const BLACKSMITH_CHECKOUT = /^useblacksmith\/checkout@[0-9a-f]{40}$/u;
 
 const RELEASE_SCRIPT = "scripts/release/release-unit.sh";
-const PUBLISH_COMMAND = /npm publish|gradlew|publish-composer\.mjs|skopeo|imagetools create|helm push/u;
+const PUBLISH_COMMAND = /npm publish|publish-maven-central\.mjs|publish-composer\.mjs|skopeo|imagetools create|helm push/u;
 const PUBLICATION_STEPS = Object.freeze([
   "Reproduce and verify staged release",
   "Check every remote destination",
@@ -35,9 +35,10 @@ function releaseScript() {
 }
 
 const PACKAGE_SCRIPT = "scripts/release/publish-package-units.sh";
-const PACKAGE_STEP_RUN = "exec env -u NPM_PUBLISH_TOKEN -u CORE_DEPLOY_KEY -u BUNDLE_DEPLOY_KEY"
+const PACKAGE_STEP_RUN = "exec env -u NPM_PUBLISH_TOKEN -u CORE_DEPLOY_KEY -u BUNDLE_DEPLOY_KEY -u CENTRAL_PUBLISH_TOKEN -u SIGNING_PRIVATE_KEY"
   + ' bash scripts/release/publish-package-units.sh "$PWD/.artifacts/release/$GITHUB_REF_NAME"'
-  + ` 3< <(printf '%s' "$NPM_PUBLISH_TOKEN") 4< <(printf '%s' "$CORE_DEPLOY_KEY") 5< <(printf '%s' "$BUNDLE_DEPLOY_KEY")`;
+  + ` 3< <(printf '%s' "$NPM_PUBLISH_TOKEN") 4< <(printf '%s' "$CORE_DEPLOY_KEY") 5< <(printf '%s' "$BUNDLE_DEPLOY_KEY")`
+  + ` 6< <(printf '%s' "$CENTRAL_PUBLISH_TOKEN") 7< <(printf '%s' "$SIGNING_PRIVATE_KEY")`;
 
 function packageScript() {
   return readFileSync(resolve(ROOT, PACKAGE_SCRIPT), "utf8");
@@ -165,6 +166,8 @@ test("each unit is published, verified and released before the next unit is publ
     NPM_PUBLISH_TOKEN: "${{ secrets.NPM_TOKEN }}",
     CORE_DEPLOY_KEY: "${{ secrets.COMPOSER_SPLIT_CORE_DEPLOY_KEY }}",
     BUNDLE_DEPLOY_KEY: "${{ secrets.COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY }}",
+    CENTRAL_PUBLISH_TOKEN: "${{ secrets.MAVEN_CENTRAL_TOKEN }}",
+    SIGNING_PRIVATE_KEY: "${{ secrets.MAVEN_SIGNING_KEY }}",
   });
   assert.equal(packages.run, PACKAGE_STEP_RUN);
   const script = packageScript();
@@ -173,7 +176,7 @@ test("each unit is published, verified and released before the next unit is publ
   assert.match(script, /^RELEASE_DIRECTORY="\$1"$/mu);
   const loop = script.slice(script.indexOf("for UNIT in $PACKAGE_UNITS; do"));
   assert.equal((script.match(/\bfor UNIT in\b/gu) ?? []).length, 1);
-  for (const command of [/release-unit\.sh/gu, /check-published\.mjs/gu, /require-state/gu, /npm publish/gu, /gradlew/gu]) {
+  for (const command of [/release-unit\.sh/gu, /check-published\.mjs/gu, /require-state/gu, /npm publish/gu, /publish-maven-central\.mjs/gu]) {
     assert.equal((loop.match(command) ?? []).length, 1, String(command));
   }
   const end = assertOrdered(loop, [
@@ -182,9 +185,9 @@ test("each unit is published, verified and released before the next unit is publ
     /release-set\.mjs artifact --release-directory "\$RELEASE_DIRECTORY" --unit "\$UNIT"/u,
     /npm publish "\$PACKAGE" --registry=https:\/\/registry\.npmjs\.org\/ --access public\n/u,
     /elif \[\[ " \$MAVEN_UNITS " == \*" \$UNIT "\* \]\]; then/u,
-    /java-core\) TASK=":core:publish" ;;/u,
-    /spring-boot-starter\) TASK=":spring-boot-starter:publish" ;;/u,
-    /packages\/java\/gradlew --no-daemon --no-configuration-cache --console=plain -p packages\/java "\$TASK"\n/u,
+    /release-set\.mjs artifact --release-directory "\$RELEASE_DIRECTORY" --unit "\$UNIT"/u,
+    /release-set\.mjs field --release-directory "\$RELEASE_DIRECTORY" --unit "\$UNIT" --field version/u,
+    /publish-maven-central\.mjs --archive "\$ARCHIVE" --unit "\$UNIT" --version "\$VERSION"\n/u,
     /elif \[\[ " \$COMPOSER_UNITS " == \*" \$UNIT "\* \]\]; then/u,
     /php-core\) [^\n]*publish-composer\.mjs \\\n\s*--release-directory "\$RELEASE_DIRECTORY" --source-commit "\$GITHUB_SHA" --unit "\$UNIT" ;;/u,
     /symfony-bundle\) [^\n]*publish-composer\.mjs \\\n\s*--release-directory "\$RELEASE_DIRECTORY" --source-commit "\$GITHUB_SHA" --unit "\$UNIT" ;;/u,
@@ -458,8 +461,19 @@ test("each Composer deploy key reaches only its own split publication command", 
     shell: "BUNDLE_KEY",
     uses: [/^\s*symfony-bundle\) COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY="\$BUNDLE_KEY" env -u GH_TOKEN node scripts\/release\/publish-composer\.mjs \\$/u],
   });
-  // The Maven credentials are the job token, given to the Gradle command line only.
-  assert.match(packageScript(), /ORG_GRADLE_PROJECT_gauntletRemotePublishing=true \\\n\s*ORG_GRADLE_PROJECT_gauntletRemoteUsername="\$GITHUB_ACTOR" \\\n\s*ORG_GRADLE_PROJECT_gauntletRemotePassword="\$GH_TOKEN" \\\n\s*packages\/java\/gradlew /u);
+  // The Central credentials reach only the upload command, which runs without GH_TOKEN.
+  assertDescriptorScopedSecret({
+    variable: "CENTRAL_PUBLISH_TOKEN",
+    descriptor: 6,
+    shell: "CENTRAL_SECRET",
+    uses: [/^\s*MAVEN_CENTRAL_TOKEN="\$CENTRAL_SECRET" MAVEN_SIGNING_KEY="\$SIGNING_SECRET" env -u GH_TOKEN \\$/u],
+  });
+  assertDescriptorScopedSecret({
+    variable: "SIGNING_PRIVATE_KEY",
+    descriptor: 7,
+    shell: "SIGNING_SECRET",
+    uses: [/^\s*MAVEN_CENTRAL_TOKEN="\$CENTRAL_SECRET" MAVEN_SIGNING_KEY="\$SIGNING_SECRET" env -u GH_TOKEN \\$/u],
+  });
   for (const step of steps) {
     assert.equal(Object.keys(step.env ?? {}).some((name) => name.startsWith("ORG_GRADLE_PROJECT_")), false, `${step.name} Gradle env`);
   }
@@ -470,6 +484,8 @@ test("each Composer deploy key reaches only its own split publication command", 
   assert.deepEqual(secretReferences, [
     "COMPOSER_SPLIT_BUNDLE_DEPLOY_KEY",
     "COMPOSER_SPLIT_CORE_DEPLOY_KEY",
+    "MAVEN_CENTRAL_TOKEN",
+    "MAVEN_SIGNING_KEY",
     "NPM_TOKEN",
   ]);
 });

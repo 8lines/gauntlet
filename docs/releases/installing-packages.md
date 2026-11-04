@@ -10,7 +10,7 @@ operation definitions.
 | --- | --- | --- |
 | npm packages | `https://registry.npmjs.org`, scope `@8lines` | public, no authentication |
 | Composer packages | Packagist: `8lines/gauntlet-php-core` and `8lines/gauntlet-symfony-bundle` | public, no authentication |
-| Maven artifacts | `https://maven.pkg.github.com/8lines/gauntlet` | GitHub token with `read:packages` |
+| Maven artifacts | Maven Central, group `dev.8lines.gauntlet` | public, no authentication |
 | image and Helm chart | `ghcr.io/8lines/gauntlet` and `oci://ghcr.io/8lines/charts/gauntlet` | public, anonymous pull |
 
 Public packages do not change the deployment rules. Gauntlet v0.1 has no
@@ -38,8 +38,8 @@ current. Which package versions work with which application release is listed in
 | `widget` | `@8lines/gauntlet-widget` | 0.1.8 |
 | `php-core` | `8lines/gauntlet-php-core` | 0.1.8 |
 | `symfony-bundle` | `8lines/gauntlet-symfony-bundle` | 0.1.9 |
-| `java-core` | `dev.eightlines.gauntlet:core` | 0.1.8 |
-| `spring-boot-starter` | `dev.eightlines.gauntlet:spring-boot-starter` | 0.1.8 |
+| `java-core` | `dev.8lines.gauntlet:core` | 0.1.8 |
+| `spring-boot-starter` | `dev.8lines.gauntlet:spring-boot-starter` | 0.1.8 |
 | `skills` | `gauntlet-skills` | 0.1.16 |
 <!-- gauntlet:unit-versions:end -->
 
@@ -86,34 +86,24 @@ contributions go to the monorepo.
 
 ## Maven
 
-The Java packages remain on GitHub Packages. GitHub Packages requires
-authentication for every Maven download, including public packages, so a
-consumer needs a GitHub account and a personal access token (classic) with the
-`read:packages` scope. Supply it from environment-backed CI configuration and
-never commit the real username/token pair:
+The Java packages are on Maven Central, so they need no token and no extra
+repository beyond `mavenCentral()`:
 
 ```kotlin
 repositories {
     mavenCentral()
-    maven {
-        name = "gauntlet"
-        url = uri("https://maven.pkg.github.com/8lines/gauntlet")
-        credentials(PasswordCredentials::class)
-    }
 }
 ```
 
-With this declaration Gradle reads `gauntletUsername` and `gauntletPassword`
-from Gradle properties, for example `ORG_GRADLE_PROJECT_gauntletUsername` and
-`ORG_GRADLE_PROJECT_gauntletPassword` in CI. For Maven, reference a
-`settings.xml` server whose credentials come from the environment; the
-repository ID used by the application and `settings.xml` must match.
+Versions before the move to Maven Central were published as
+`dev.eightlines.gauntlet` on GitHub Packages. The Java package names did not
+change.
 
 Consume immutable coordinates:
 
 ```text
-dev.eightlines.gauntlet:core:0.1.8
-dev.eightlines.gauntlet:spring-boot-starter:0.1.8
+dev.8lines.gauntlet:core:0.1.8
+dev.8lines.gauntlet:spring-boot-starter:0.1.8
 ```
 
 Keep Gradle dependency verification and lock metadata enabled in the consumer.
@@ -138,8 +128,7 @@ argument, for example
 
 ## Credential hygiene
 
-Only the GitHub Packages Maven repository and private mirrors need a
-credential. Use a short-lived or narrowly scoped identity with read access
+Only private mirrors need a credential. Use a short-lived or narrowly scoped identity with read access
 only, prefer CI secret storage or a platform credential helper, and do not
 paste tokens into a shell command, issue, README, or committed configuration.
 Rotate or revoke exposed credentials immediately, remove them from

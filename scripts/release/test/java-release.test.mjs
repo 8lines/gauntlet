@@ -233,11 +233,11 @@ test("the committed consumer closes Gauntlet resolution to the staged repository
   assert.deepEqual(urls, [MAVEN_CENTRAL]);
   assert.match(settings, /RepositoriesMode\.FAIL_ON_PROJECT_REPOS/);
   assert.match(settings, /exclusiveContent/);
-  assert.match(settings, /includeGroup\("dev\.eightlines\.gauntlet"\)/);
-  assert.match(settings, /excludeGroup\("dev\.eightlines\.gauntlet"\)/);
+  assert.match(settings, /includeGroup\("dev\.8lines\.gauntlet"\)/);
+  assert.match(settings, /excludeGroup\("dev\.8lines\.gauntlet"\)/);
   assert.doesNotMatch(build, /repositories\s*\{/);
   assert.match(build, /lockMode\.set\(LockMode\.STRICT\)/);
-  assert.equal(build.includes(`dev.eightlines.gauntlet:spring-boot-starter:${version}`), true);
+  assert.equal(build.includes(`dev.8lines.gauntlet:spring-boot-starter:${version}`), true);
   assert.doesNotMatch(executableInputs, /(?:SNAPSHOT|project\s*\(|includeBuild|mavenLocal)/u);
   assert.doesNotMatch(
     executableInputs,
@@ -265,8 +265,8 @@ test("the committed consumer closes Gauntlet resolution to the staged repository
     "testCompileClasspath",
     "testRuntimeClasspath",
   ]);
-  assert.equal(locked.some((line) => line.startsWith(`dev.eightlines.gauntlet:core:${versions["java-core"]}=`)), true);
-  assert.equal(locked.some((line) => line.startsWith(`dev.eightlines.gauntlet:spring-boot-starter:${version}=`)), true);
+  assert.equal(locked.some((line) => line.startsWith(`dev.8lines.gauntlet:core:${versions["java-core"]}=`)), true);
+  assert.equal(locked.some((line) => line.startsWith(`dev.8lines.gauntlet:spring-boot-starter:${version}=`)), true);
   assert.doesNotMatch(
     lock,
     /(?:https?:|file:|SNAPSHOT|\bLATEST\b|\bRELEASE\b|\[[^\]]*\]|\([^)]*\)|\+|GITHUB_|password|credentials?|authorization|bearer|private[_-]?key|secret|token|username)/iu,
@@ -279,11 +279,11 @@ test("the committed consumer closes Gauntlet resolution to the staged repository
     { settings: settings.replace(MAVEN_CENTRAL, "https://maven.pkg.github.com/8lines/gauntlet") },
     { settings: `${settings}\ncredentials { username = "leak" }\n` },
     { build: build.replace(`:${version}`, ":0.1.+") },
-    { lock: lock.replace(`dev.eightlines.gauntlet:core:${versions["java-core"]}`, `dev.eightlines.gauntlet:core:${versions["java-core"]}-SNAPSHOT`) },
+    { lock: lock.replace(`dev.8lines.gauntlet:core:${versions["java-core"]}`, `dev.8lines.gauntlet:core:${versions["java-core"]}-SNAPSHOT`) },
     { versions: { "java-core": versions["java-core"] } },
     { versions: { ...versions, extra: "0.1.0" } },
     { versions: { ...versions, "java-core": "not-a-version" } },
-    { lock: `${lock}dev.eightlines.gauntlet:other:${version}=compileClasspath\n` },
+    { lock: `${lock}dev.8lines.gauntlet:other:${version}=compileClasspath\n` },
   ]) {
     assert.throws(
       () => validateJavaConsumerFixture({ settings, build, lock, source, versions, ...change }),
@@ -295,8 +295,8 @@ test("the committed consumer closes Gauntlet resolution to the staged repository
   const diverged = { "java-core": "0.1.9", "spring-boot-starter": "0.1.10" };
   const divergedBuild = build.replace(`spring-boot-starter:${version}`, `spring-boot-starter:${diverged["spring-boot-starter"]}`);
   const lockAt = (core, starter) => lock
-    .replace(`dev.eightlines.gauntlet:core:${versions["java-core"]}=`, `dev.eightlines.gauntlet:core:${core}=`)
-    .replace(`dev.eightlines.gauntlet:spring-boot-starter:${version}=`, `dev.eightlines.gauntlet:spring-boot-starter:${starter}=`);
+    .replace(`dev.8lines.gauntlet:core:${versions["java-core"]}=`, `dev.8lines.gauntlet:core:${core}=`)
+    .replace(`dev.8lines.gauntlet:spring-boot-starter:${version}=`, `dev.8lines.gauntlet:spring-boot-starter:${starter}=`);
   assert.deepEqual(
     validateJavaConsumerFixture({
       settings, build: divergedBuild, lock: lockAt("0.1.9", "0.1.10"), source, versions: diverged,

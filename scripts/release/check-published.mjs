@@ -1420,36 +1420,14 @@ async function probeNpm(check) {
 }
 
 async function probeMaven(check) {
-  const actor = process.env.GITHUB_ACTOR;
-  const token = validatedToken("GH_TOKEN");
-  if (typeof actor !== "string" || !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(actor)) throw new Error(FAILURE);
   const artifactId = check.id.slice("maven:".length);
-  const url = `${check.destination}/${artifactId}-${check.version}.jar`;
-  let response = await fetch(url, {
+  const response = await fetch(`${check.destination}/${artifactId}-${check.version}.jar`, {
     method: "GET",
-    redirect: "manual",
+    redirect: "error",
     signal: AbortSignal.timeout(30_000),
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${actor}:${token}`, "utf8").toString("base64")}`,
-      "User-Agent": "8lines-gauntlet-release",
-    },
+    headers: { "User-Agent": "8lines-gauntlet-release" },
   });
   if (response.status === 404) return { id: check.id, state: "absent" };
-  // GitHub Packages answers an existing file with one redirect to a pre-signed
-  // githubusercontent.com URL; follow exactly that hop, without the credential.
-  if ([301, 302, 303, 307, 308].includes(response.status)) {
-    const location = response.headers.get("location");
-    if (typeof location !== "string" || location === "") throw new Error(FAILURE);
-    const next = new URL(location, url);
-    if (next.protocol !== "https:" || next.username !== "" || next.password !== "" || next.port !== ""
-        || !next.hostname.endsWith(".githubusercontent.com")) throw new Error(FAILURE);
-    response = await fetch(next, {
-      method: "GET",
-      redirect: "error",
-      signal: AbortSignal.timeout(30_000),
-      headers: { "User-Agent": "8lines-gauntlet-release" },
-    });
-  }
   if (response.status !== 200) throw new Error(FAILURE);
   const bytes = Buffer.from(await response.arrayBuffer());
   if (bytes.length === 0 || bytes.length > 512 * 1024 * 1024) throw new Error(FAILURE);

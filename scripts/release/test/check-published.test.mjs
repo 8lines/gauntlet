@@ -206,7 +206,7 @@ test("release evidence materializes archive consumers into owned temporary trees
     assert.match(collected.units[0].evidence["composer:php-core"], /^[0-9a-f]{40}$/u);
     assert.equal(
       collected.units[1].evidence["maven:core"],
-      createHash("sha256").update("jar:dev.eightlines.gauntlet:core\n").digest("hex"),
+      createHash("sha256").update("jar:dev.8lines.gauntlet:core\n").digest("hex"),
     );
     assert.deepEqual(readdirSync(temporaryDirectory), []);
   });

@@ -103,15 +103,15 @@ test("rejects snapshot, ranged, and scalar released SDK examples", async (t) => 
   const root = await fixture({
     ...UNIT_VERSION_FILES,
     "packages/java/README.md": [
-      "`dev.eightlines.gauntlet:core:0.1.0-SNAPSHOT`",
-      "`dev.eightlines.gauntlet:spring-boot-starter:0.1.0`",
+      "`dev.8lines.gauntlet:core:0.1.0-SNAPSHOT`",
+      "`dev.8lines.gauntlet:spring-boot-starter:0.1.0`",
       "gauntlet:",
       "  application:",
       "    environment: staging",
       "",
     ].join("\n"),
     "packages/java/spring-boot-starter/README.md": [
-      "`dev.eightlines.gauntlet:spring-boot-starter:0.1.0-SNAPSHOT`",
+      "`dev.8lines.gauntlet:spring-boot-starter:0.1.0-SNAPSHOT`",
       "gauntlet:",
       "  application:",
       "    environment: staging",
@@ -153,8 +153,8 @@ test("accepts exact released SDK coordinates and structured environments", async
   const root = await fixture({
     ...UNIT_VERSION_FILES,
     "packages/java/README.md": [
-      "`dev.eightlines.gauntlet:core:0.1.0`",
-      "`dev.eightlines.gauntlet:spring-boot-starter:0.1.0`",
+      "`dev.8lines.gauntlet:core:0.1.0`",
+      "`dev.8lines.gauntlet:spring-boot-starter:0.1.0`",
       "gauntlet:",
       "  application:",
       "    environment:",
@@ -163,7 +163,7 @@ test("accepts exact released SDK coordinates and structured environments", async
       "",
     ].join("\n"),
     "packages/java/spring-boot-starter/README.md": [
-      "implementation(\"dev.eightlines.gauntlet:spring-boot-starter:0.1.0\")",
+      "implementation(\"dev.8lines.gauntlet:spring-boot-starter:0.1.0\")",
       "gauntlet:",
       "  application:",
       "    environment:",
@@ -226,9 +226,9 @@ test("rejects released SDK guides with required consumer coordinates removed", a
   t.after(() => rm(root, { recursive: true, force: true }));
 
   assert.deepEqual((await checkDocumentation({ root })).errors, [
-    "packages/java/README.md is missing Java consumer coordinate dev.eightlines.gauntlet:core:0.1.0",
-    "packages/java/README.md is missing Java consumer coordinate dev.eightlines.gauntlet:spring-boot-starter:0.1.0",
-    "packages/java/spring-boot-starter/README.md is missing Java consumer coordinate dev.eightlines.gauntlet:spring-boot-starter:0.1.0",
+    "packages/java/README.md is missing Java consumer coordinate dev.8lines.gauntlet:core:0.1.0",
+    "packages/java/README.md is missing Java consumer coordinate dev.8lines.gauntlet:spring-boot-starter:0.1.0",
+    "packages/java/spring-boot-starter/README.md is missing Java consumer coordinate dev.8lines.gauntlet:spring-boot-starter:0.1.0",
     "packages/php/symfony-bundle/README.md is missing Composer consumer coordinate 8lines/gauntlet-php-core:0.1.0",
     "packages/php/symfony-bundle/README.md is missing Composer consumer coordinate 8lines/gauntlet-symfony-bundle:0.1.0",
   ]);
@@ -300,8 +300,8 @@ test("compares Maven and Composer coordinates with their own release units", asy
   ].join("\n");
   const files = (javaCore, bundle) => ({
     "packages/java/README.md": [
-      `\`dev.eightlines.gauntlet:core:${javaCore}\``,
-      "`dev.eightlines.gauntlet:spring-boot-starter:0.1.2`",
+      `\`dev.8lines.gauntlet:core:${javaCore}\``,
+      "`dev.8lines.gauntlet:spring-boot-starter:0.1.2`",
       environment,
     ].join("\n"),
     "packages/php/symfony-bundle/README.md": [

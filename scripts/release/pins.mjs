@@ -11,7 +11,7 @@ const MAX_SCANNED_BYTES = 4 * 1024 * 1024;
 export const PIN_PATTERNS = Object.freeze([
   String.raw`@8lines/gauntlet-[a-z0-9-]+@${VERSION}`,
   String.raw`8lines/gauntlet-(?:php-core|symfony-bundle)(?::|"\s*:\s*"\^?)${VERSION}`,
-  String.raw`dev\.eightlines\.gauntlet:(?:core|spring-boot-starter):${VERSION}`,
+  String.raw`dev\.8lines\.gauntlet:(?:core|spring-boot-starter):${VERSION}`,
   String.raw`ghcr\.io/8lines/gauntlet:${VERSION}`,
   String.raw`charts/gauntlet --version ${VERSION}`,
   String.raw`(?<![\w-])gauntlet-${VERSION}\.tgz`,

@@ -77,7 +77,7 @@ configuration and first operation. For Kubernetes, use the
 
 ## Connect an application
 
-Install the matching SDK from npm, Packagist or GitHub Packages (see
+Install the matching SDK from npm, Packagist or Maven Central (see
 [installing packages](docs/releases/installing-packages.md)), register the
 actions your team needs, and add the application to Gauntlet's configuration. The dashboard and MCP use the same
 catalog; there is no separate AI adapter to maintain.

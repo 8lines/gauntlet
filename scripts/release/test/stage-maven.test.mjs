@@ -21,12 +21,12 @@ import { MAVEN_TOOLCHAIN, MAVEN_UNIT_IDS, publishMavenLocally, readMavenStageVer
 const ROOT = realpathSync(resolve(import.meta.dirname, "../../.."));
 const VERSIONS = readMavenStageVersions(ROOT);
 const COORDINATE_UNITS = new Map([
-  ["dev.eightlines.gauntlet:core", "java-core"],
-  ["dev.eightlines.gauntlet:spring-boot-starter", "spring-boot-starter"],
+  ["dev.8lines.gauntlet:core", "java-core"],
+  ["dev.8lines.gauntlet:spring-boot-starter", "spring-boot-starter"],
 ]);
 const COORDINATES = [
-  "dev.eightlines.gauntlet:core",
-  "dev.eightlines.gauntlet:spring-boot-starter",
+  "dev.8lines.gauntlet:core",
+  "dev.8lines.gauntlet:spring-boot-starter",
 ];
 const ROLES = ["binary", "sources", "javadoc", "pom", "module"];
 
@@ -239,10 +239,10 @@ test("stages only the included Java unit at its own version", async () => {
     const artifacts = await publishMavenLocally({
       root: ROOT, outputDirectory, versions: VERSIONS, include: ["spring-boot-starter"],
     });
-    assert.deepEqual(artifacts.map(({ name }) => name), ["dev.eightlines.gauntlet:spring-boot-starter"]);
+    assert.deepEqual(artifacts.map(({ name }) => name), ["dev.8lines.gauntlet:spring-boot-starter"]);
     assert.equal(artifacts[0].version, VERSIONS["spring-boot-starter"]);
-    assert.equal(existsSync(join(outputDirectory, "dev/eightlines/gauntlet/core")), false);
-    assert.deepEqual(readdirSync(join(outputDirectory, "dev/eightlines/gauntlet")), ["spring-boot-starter"]);
+    assert.equal(existsSync(join(outputDirectory, "dev/8lines/gauntlet/core")), false);
+    assert.deepEqual(readdirSync(join(outputDirectory, "dev/8lines/gauntlet")), ["spring-boot-starter"]);
   } finally {
     rmSync(sandbox, { recursive: true, force: true });
   }

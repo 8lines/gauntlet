@@ -55,8 +55,8 @@ const SOURCE_TASKS = Object.freeze([
   ":starter-api-consumer-test:check",
 ]);
 const EXPECTED_ARTIFACTS = Object.freeze([
-  "dev.eightlines.gauntlet:core",
-  "dev.eightlines.gauntlet:spring-boot-starter",
+  "dev.8lines.gauntlet:core",
+  "dev.8lines.gauntlet:spring-boot-starter",
 ]);
 const JAVA_VERSION_PATHS = Object.freeze({
   "java-core": "packages/java/core/VERSION",
@@ -216,12 +216,12 @@ export function validateJavaConsumerFixture(options) {
       || /(?:SNAPSHOT|project\s*\(|includeBuild|mavenLocal|gradlePluginPortal|google\s*\(|ivy\s*\{|flatDir\s*\{)/u.test(executableInputs)
       || !/RepositoriesMode\.FAIL_ON_PROJECT_REPOS/u.test(settings)
       || !/exclusiveContent/u.test(settings)
-      || !/includeGroup\("dev\.eightlines\.gauntlet"\)/u.test(settings)
-      || !/excludeGroup\("dev\.eightlines\.gauntlet"\)/u.test(settings)
+      || !/includeGroup\("dev\.8lines\.gauntlet"\)/u.test(settings)
+      || !/excludeGroup\("dev\.8lines\.gauntlet"\)/u.test(settings)
       || /repositories\s*\{/u.test(build)
       || !/lockAllConfigurations\(\)/u.test(build)
       || !/lockMode\.set\(LockMode\.STRICT\)/u.test(build)
-      || !build.includes(`implementation("dev.eightlines.gauntlet:spring-boot-starter:${versions["spring-boot-starter"]}")`)
+      || !build.includes(`implementation("dev.8lines.gauntlet:spring-boot-starter:${versions["spring-boot-starter"]}")`)
       || !source.includes("import dev.eightlines.gauntlet.core.model.ProtocolId;")
       || !source.includes("import dev.eightlines.gauntlet.spring.GauntletAutoConfiguration;")
       || !source.includes("import dev.eightlines.gauntlet.spring.GauntletProperties;")
@@ -255,10 +255,10 @@ export function validateJavaConsumerFixture(options) {
   ];
   if (!emptySeen || coordinates.size < 20
       || JSON.stringify([...configurations].sort()) !== JSON.stringify(expectedConfigurations)
-      || coordinates.get("dev.eightlines.gauntlet:core") !== versions["java-core"]
-      || coordinates.get("dev.eightlines.gauntlet:spring-boot-starter") !== versions["spring-boot-starter"]
-      || [...coordinates.keys()].some((coordinate) => coordinate.startsWith("dev.eightlines.gauntlet:")
-        && !["dev.eightlines.gauntlet:core", "dev.eightlines.gauntlet:spring-boot-starter"].includes(coordinate))) invalidFixture();
+      || coordinates.get("dev.8lines.gauntlet:core") !== versions["java-core"]
+      || coordinates.get("dev.8lines.gauntlet:spring-boot-starter") !== versions["spring-boot-starter"]
+      || [...coordinates.keys()].some((coordinate) => coordinate.startsWith("dev.8lines.gauntlet:")
+        && !["dev.8lines.gauntlet:core", "dev.8lines.gauntlet:spring-boot-starter"].includes(coordinate))) invalidFixture();
   return Object.freeze({ dependencies: coordinates.size, configurations: configurations.size });
 }
 
@@ -546,7 +546,7 @@ function assertDistribution(step, repository, versions) {
     const installed = safeFileBytes(resolve(library, filename));
     const staged = safeFileBytes(resolve(
       repository,
-      `dev/eightlines/gauntlet/${artifactId}/${version}/${filename}`,
+      `dev/8lines/gauntlet/${artifactId}/${version}/${filename}`,
     ));
     if (!installed.equals(staged)) fail();
   }

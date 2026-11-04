@@ -60,16 +60,16 @@ const releaseArtifacts = {
   ],
   maven: [
     {
-      name: "dev.eightlines.gauntlet:core",
+      name: "dev.8lines.gauntlet:core",
       directory: "packages/java/core",
       project: ":core",
-      repository: "https://maven.pkg.github.com/8lines/gauntlet",
+      repository: "https://repo1.maven.org/maven2",
     },
     {
-      name: "dev.eightlines.gauntlet:spring-boot-starter",
+      name: "dev.8lines.gauntlet:spring-boot-starter",
       directory: "packages/java/spring-boot-starter",
       project: ":spring-boot-starter",
-      repository: "https://maven.pkg.github.com/8lines/gauntlet",
+      repository: "https://repo1.maven.org/maven2",
     },
   ],
   image: {
@@ -373,7 +373,7 @@ function hasGradleVersionContract(source) {
     "StandardCharsets.US_ASCII",
     '"""^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\n$"""',
     'record.removeSuffix("\\n")',
-    'group = "dev.eightlines.gauntlet"',
+    'group = "dev.8lines.gauntlet"',
     'projectReleaseVersion(project.file("VERSION"))',
   ];
   return requiredFragments.every((fragment) => source.includes(fragment)) && !source.includes("SNAPSHOT") && !/version\s*=\s*"/.test(source);
@@ -480,13 +480,13 @@ export function renderUnitVersionTable(versions) {
 export const RELEASE_TEXT_FILES = deeplyFreeze([
   {
     path: "tests/consumers/java/build.gradle.kts",
-    slots: [{ unit: "spring-boot-starter", prefix: "implementation(\"dev.eightlines.gauntlet:spring-boot-starter:", suffix: "\")" }],
+    slots: [{ unit: "spring-boot-starter", prefix: "implementation(\"dev.8lines.gauntlet:spring-boot-starter:", suffix: "\")" }],
   },
   {
     path: "tests/consumers/java/gradle.lockfile",
     slots: [
-      { unit: "java-core", prefix: "dev.eightlines.gauntlet:core:", suffix: "=" },
-      { unit: "spring-boot-starter", prefix: "dev.eightlines.gauntlet:spring-boot-starter:", suffix: "=" },
+      { unit: "java-core", prefix: "dev.8lines.gauntlet:core:", suffix: "=" },
+      { unit: "spring-boot-starter", prefix: "dev.8lines.gauntlet:spring-boot-starter:", suffix: "=" },
     ],
   },
   {
@@ -515,7 +515,7 @@ export const RELEASE_TEXT_FILES = deeplyFreeze([
   {
     path: "skills/gauntlet-app-integration/references/spring.md",
     slots: [
-      { unit: "spring-boot-starter", prefix: "implementation(\"dev.eightlines.gauntlet:spring-boot-starter:", suffix: "\")" },
+      { unit: "spring-boot-starter", prefix: "implementation(\"dev.8lines.gauntlet:spring-boot-starter:", suffix: "\")" },
       { unit: "spring-boot-starter", prefix: "Prefer released `", suffix: "` metadata" },
       { unit: "spring-boot-starter", prefix: "reject `", suffix: "-SNAPSHOT` coordinates" },
     ],
@@ -562,8 +562,8 @@ export const RELEASE_TEXT_FILES = deeplyFreeze([
       { unit: "typescript-node", prefix: "  @8lines/gauntlet-typescript-node@", suffix: "\n" },
       { unit: "symfony-bundle", prefix: "composer require 8lines/gauntlet-symfony-bundle:", suffix: "\n" },
       { unit: "php-core", prefix: "`8lines/gauntlet-php-core:", suffix: "` alone" },
-      { unit: "java-core", prefix: "dev.eightlines.gauntlet:core:", suffix: "\n" },
-      { unit: "spring-boot-starter", prefix: "dev.eightlines.gauntlet:spring-boot-starter:", suffix: "\n" },
+      { unit: "java-core", prefix: "dev.8lines.gauntlet:core:", suffix: "\n" },
+      { unit: "spring-boot-starter", prefix: "dev.8lines.gauntlet:spring-boot-starter:", suffix: "\n" },
       { unit: "gauntlet", prefix: "docker pull ghcr.io/8lines/gauntlet:", suffix: "\n" },
       { unit: "gauntlet", prefix: "helm pull oci://ghcr.io/8lines/charts/gauntlet --version ", suffix: "\n" },
       { unit: "gauntlet", prefix: "at exact version `", suffix: "`, render that local archive" },
@@ -579,8 +579,8 @@ export const RELEASE_TEXT_FILES = deeplyFreeze([
       { unit: "next-adapter", prefix: "`@8lines/gauntlet-next-adapter@", suffix: "` |" },
       { unit: "php-core", prefix: "`8lines/gauntlet-php-core` at `", suffix: "` |" },
       { unit: "symfony-bundle", prefix: "`8lines/gauntlet-symfony-bundle` at `", suffix: "` |" },
-      { unit: "java-core", prefix: "| Java 21 | `dev.eightlines.gauntlet:core:", suffix: "` |" },
-      { unit: "spring-boot-starter", prefix: "Core and `dev.eightlines.gauntlet:spring-boot-starter:", suffix: "` |" },
+      { unit: "java-core", prefix: "| Java 21 | `dev.8lines.gauntlet:core:", suffix: "` |" },
+      { unit: "spring-boot-starter", prefix: "Core and `dev.8lines.gauntlet:spring-boot-starter:", suffix: "` |" },
     ],
   },
   {
@@ -594,23 +594,23 @@ export const RELEASE_TEXT_FILES = deeplyFreeze([
   {
     path: "packages/java/README.md",
     slots: [
-      { unit: "java-core", prefix: "- `dev.eightlines.gauntlet:core:", suffix: "` —" },
-      { unit: "spring-boot-starter", prefix: "- `dev.eightlines.gauntlet:spring-boot-starter:", suffix: "` —" },
-      { unit: "spring-boot-starter", prefix: "implementation(\"dev.eightlines.gauntlet:spring-boot-starter:", suffix: "\")" },
+      { unit: "java-core", prefix: "- `dev.8lines.gauntlet:core:", suffix: "` —" },
+      { unit: "spring-boot-starter", prefix: "- `dev.8lines.gauntlet:spring-boot-starter:", suffix: "` —" },
+      { unit: "spring-boot-starter", prefix: "implementation(\"dev.8lines.gauntlet:spring-boot-starter:", suffix: "\")" },
     ],
   },
   {
     path: "packages/java/core/README.md",
     slots: [
-      { unit: "java-core", prefix: "`dev.eightlines.gauntlet:core:", suffix: "` is the framework-neutral" },
-      { unit: "java-core", prefix: "implementation(\"dev.eightlines.gauntlet:core:", suffix: "\")" },
+      { unit: "java-core", prefix: "`dev.8lines.gauntlet:core:", suffix: "` is the framework-neutral" },
+      { unit: "java-core", prefix: "implementation(\"dev.8lines.gauntlet:core:", suffix: "\")" },
     ],
   },
   {
     path: "packages/java/spring-boot-starter/README.md",
     slots: [
-      { unit: "spring-boot-starter", prefix: "`dev.eightlines.gauntlet:spring-boot-starter:", suffix: "` is the Java 21" },
-      { unit: "spring-boot-starter", prefix: "implementation(\"dev.eightlines.gauntlet:spring-boot-starter:", suffix: "\")" },
+      { unit: "spring-boot-starter", prefix: "`dev.8lines.gauntlet:spring-boot-starter:", suffix: "` is the Java 21" },
+      { unit: "spring-boot-starter", prefix: "implementation(\"dev.8lines.gauntlet:spring-boot-starter:", suffix: "\")" },
     ],
   },
   {

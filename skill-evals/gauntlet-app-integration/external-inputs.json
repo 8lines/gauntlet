@@ -35,7 +35,7 @@
     },
     {
       "path": "scripts/release/release-model.mjs",
-      "sha256": "73dc192bf5ffa235bc0f2a0cb4748008c5097802cca4b2580dd65735b4cc4391"
+      "sha256": "7ee1d28d4f26f937e3c0bf7ad184bd78eb59a901f2b65a9920bcf4e60ff3080e"
     },
     {
       "path": "scripts/release/stage-composer.mjs",
@@ -43,7 +43,7 @@
     },
     {
       "path": "scripts/release/units.mjs",
-      "sha256": "5c987dbae56a6d95aa31e803cc837294629b782c031604e73765a6f43e7209be"
+      "sha256": "faa8e638e2fc44b83862777b5ca62ae1f0aa7b58cdf78ceb9e2e4f20043c3095"
     },
     {
       "path": "tsconfig.base.json",

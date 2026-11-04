@@ -13,11 +13,11 @@ Gauntlet then adds one explicit target with a matching environment identity.
 | Next.js App Router on Node.js 24–26 | `@8lines/gauntlet-typescript-core@0.1.8` and `@8lines/gauntlet-next-adapter@0.1.8` | [Next.js bridge](../../packages/typescript/next/README.md) |
 | PHP 8.3+ without a framework transport | `8lines/gauntlet-php-core` at `0.1.8` | [PHP Core](../../packages/php/core/README.md) |
 | Symfony 7.4 on PHP 8.3+, or Symfony 8.x on PHP 8.4+ | PHP Core and `8lines/gauntlet-symfony-bundle` at `0.1.9` | [Symfony bundle](../../packages/php/symfony-bundle/README.md) |
-| Java 21 | `dev.eightlines.gauntlet:core:0.1.8` | [Java SDK](../../packages/java/README.md) |
-| Spring Boot on Java 21 | Core and `dev.eightlines.gauntlet:spring-boot-starter:0.1.8` | [Spring starter](../../packages/java/spring-boot-starter/README.md) |
+| Java 21 | `dev.8lines.gauntlet:core:0.1.8` | [Java SDK](../../packages/java/README.md) |
+| Spring Boot on Java 21 | Core and `dev.8lines.gauntlet:spring-boot-starter:0.1.8` | [Spring starter](../../packages/java/spring-boot-starter/README.md) |
 
-npm and Composer packages are public on npmjs.org and Packagist; the Java
-packages come from GitHub Packages, which requires a GitHub token to read.
+npm, Composer and Java packages are public on npmjs.org, Packagist and Maven
+Central.
 [Installing packages](../releases/installing-packages.md) covers every
 ecosystem. Do not copy SDK source directories into an application; consume the
 immutable released artifact.

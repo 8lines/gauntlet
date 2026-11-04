@@ -115,7 +115,7 @@ fun projectReleaseVersion(versionFile: java.io.File): String {
 }
 
 allprojects {
-    group = "dev.eightlines.gauntlet"
+    group = "dev.8lines.gauntlet"
     version = projectReleaseVersion(project.file("VERSION"))
 }
 `;
@@ -130,11 +130,11 @@ export function releaseTextFixtures(version) {
   return new Map([
     [
       "tests/consumers/java/build.gradle.kts",
-      `dependencies {\n    implementation("dev.eightlines.gauntlet:spring-boot-starter:${version}")\n}\n`,
+      `dependencies {\n    implementation("dev.8lines.gauntlet:spring-boot-starter:${version}")\n}\n`,
     ],
     [
       "tests/consumers/java/gradle.lockfile",
-      `dev.eightlines.gauntlet:core:${version}=compileClasspath,runtimeClasspath\ndev.eightlines.gauntlet:spring-boot-starter:${version}=compileClasspath,runtimeClasspath\nempty=annotationProcessor\n`,
+      `dev.8lines.gauntlet:core:${version}=compileClasspath,runtimeClasspath\ndev.8lines.gauntlet:spring-boot-starter:${version}=compileClasspath,runtimeClasspath\nempty=annotationProcessor\n`,
     ],
     [
       "skills/gauntlet-app-integration/references/node.md",
@@ -150,7 +150,7 @@ export function releaseTextFixtures(version) {
     ],
     [
       "skills/gauntlet-app-integration/references/spring.md",
-      `Support Java 21 and Spring Boot 4.1.\nimplementation("dev.eightlines.gauntlet:spring-boot-starter:${version}")\nPrefer released \`${version}\` metadata; reject \`${version}-SNAPSHOT\` coordinates.\n`,
+      `Support Java 21 and Spring Boot 4.1.\nimplementation("dev.8lines.gauntlet:spring-boot-starter:${version}")\nPrefer released \`${version}\` metadata; reject \`${version}-SNAPSHOT\` coordinates.\n`,
     ],
     [
       "skills/gauntlet-app-integration/references/deployment.md",
@@ -182,7 +182,7 @@ export function releaseTextFixtures(version) {
         + `pnpm add @8lines/gauntlet-protocol@${version} \\\n  @8lines/gauntlet-typescript-core@${version} \\\n  @8lines/gauntlet-typescript-node@${version}\n`
         + `composer require 8lines/gauntlet-symfony-bundle:${version}\n`
         + `For a framework-neutral integration, require \`8lines/gauntlet-php-core:${version}\` alone.\n`
-        + `dev.eightlines.gauntlet:core:${version}\ndev.eightlines.gauntlet:spring-boot-starter:${version}\n`
+        + `dev.8lines.gauntlet:core:${version}\ndev.8lines.gauntlet:spring-boot-starter:${version}\n`
         + `docker pull ghcr.io/8lines/gauntlet:${version}\nhelm pull oci://ghcr.io/8lines/charts/gauntlet --version ${version}\n`
         + `Pull the Helm chart at exact version \`${version}\`, render that local archive, and install the same bytes.\n`,
     ],
@@ -192,8 +192,8 @@ export function releaseTextFixtures(version) {
         + `| Next.js App Router on Node.js 24–26 | \`@8lines/gauntlet-typescript-core@${version}\` and \`@8lines/gauntlet-next-adapter@${version}\` | Next.js |\n`
         + `| PHP 8.3+ | \`8lines/gauntlet-php-core\` at \`${version}\` | PHP |\n`
         + `| Symfony 7.4 | PHP Core and \`8lines/gauntlet-symfony-bundle\` at \`${version}\` | Symfony |\n`
-        + `| Java 21 | \`dev.eightlines.gauntlet:core:${version}\` | Java |\n`
-        + `| Spring Boot on Java 21 | Core and \`dev.eightlines.gauntlet:spring-boot-starter:${version}\` | Spring |\n`,
+        + `| Java 21 | \`dev.8lines.gauntlet:core:${version}\` | Java |\n`
+        + `| Spring Boot on Java 21 | Core and \`dev.8lines.gauntlet:spring-boot-starter:${version}\` | Spring |\n`,
     ],
     ["docs/integrations/widget.md", `npm install @8lines/gauntlet-widget@${version}\n`],
     [
@@ -204,19 +204,19 @@ export function releaseTextFixtures(version) {
     ],
     [
       "packages/java/README.md",
-      `- \`dev.eightlines.gauntlet:core:${version}\` — Java 21 protocol models\n`
-        + `- \`dev.eightlines.gauntlet:spring-boot-starter:${version}\` — Spring Boot auto-configuration\n`
-        + `    implementation("dev.eightlines.gauntlet:spring-boot-starter:${version}")\n`,
+      `- \`dev.8lines.gauntlet:core:${version}\` — Java 21 protocol models\n`
+        + `- \`dev.8lines.gauntlet:spring-boot-starter:${version}\` — Spring Boot auto-configuration\n`
+        + `    implementation("dev.8lines.gauntlet:spring-boot-starter:${version}")\n`,
     ],
     [
       "packages/java/core/README.md",
-      `\`dev.eightlines.gauntlet:core:${version}\` is the framework-neutral Java 21 core.\n`
-        + `    implementation("dev.eightlines.gauntlet:core:${version}")\n`,
+      `\`dev.8lines.gauntlet:core:${version}\` is the framework-neutral Java 21 core.\n`
+        + `    implementation("dev.8lines.gauntlet:core:${version}")\n`,
     ],
     [
       "packages/java/spring-boot-starter/README.md",
-      `\`dev.eightlines.gauntlet:spring-boot-starter:${version}\` is the Java 21 and Spring Boot starter.\n`
-        + `    implementation("dev.eightlines.gauntlet:spring-boot-starter:${version}")\n`,
+      `\`dev.8lines.gauntlet:spring-boot-starter:${version}\` is the Java 21 and Spring Boot starter.\n`
+        + `    implementation("dev.8lines.gauntlet:spring-boot-starter:${version}")\n`,
     ],
     [
       "packages/php/symfony-bundle/README.md",

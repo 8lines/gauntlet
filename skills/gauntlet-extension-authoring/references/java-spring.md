@@ -1,7 +1,7 @@
 # Java and Spring extension
 
 Use the already-integrated exact
-`dev.eightlines.gauntlet:spring-boot-starter` version. Spring discovers only
+`dev.8lines.gauntlet:spring-boot-starter` version. Spring discovers only
 explicit annotated beans. Keep the operation and its definition resource in
 application code; do not add a controller, servlet filter, or route.
 

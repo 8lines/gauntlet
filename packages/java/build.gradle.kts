@@ -9,7 +9,6 @@ import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.javadoc.Javadoc
 import org.gradle.external.javadoc.StandardJavadocDocletOptions
 import org.gradle.api.tasks.testing.Test
-import org.gradle.api.credentials.PasswordCredentials
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
@@ -59,7 +58,7 @@ fun localPublishingUri(raw: String): URI {
 }
 
 allprojects {
-    group = "dev.eightlines.gauntlet"
+    group = "dev.8lines.gauntlet"
     repositories { mavenCentral() }
 }
 
@@ -118,23 +117,10 @@ subprojects {
         extensions.configure<PublishingExtension> {
             repositories {
                 val local = providers.gradleProperty("gauntletPublishingRepository").orNull
-                val remote = providers.gradleProperty("gauntletRemotePublishing").orNull
-                require(local == null || remote == null) {
-                    "local and remote Gauntlet publication modes are mutually exclusive"
-                }
                 if (local != null) {
                     maven {
                         name = "gauntletLocal"
                         url = uri(localPublishingUri(local))
-                    }
-                } else if (remote != null) {
-                    require(remote == "true") {
-                        "gauntletRemotePublishing must be exactly true when present"
-                    }
-                    maven {
-                        name = "gauntletRemote"
-                        url = uri("https://maven.pkg.github.com/8lines/gauntlet")
-                        credentials(PasswordCredentials::class)
                     }
                 }
             }
@@ -146,6 +132,13 @@ subprojects {
                             name.set("Apache-2.0")
                             url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
                             distribution.set("repo")
+                        }
+                    }
+                    developers {
+                        developer {
+                            id.set("8lines")
+                            name.set("8lines")
+                            url.set("https://github.com/8lines")
                         }
                     }
                     scm {
