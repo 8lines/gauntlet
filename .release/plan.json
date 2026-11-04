@@ -2,22 +2,27 @@
   "schemaVersion": 1,
   "units": [
     {
-      "id": "gauntlet",
-      "from": "0.2.4",
-      "to": "0.2.5"
+      "id": "java-core",
+      "from": "0.1.8",
+      "to": "0.2.0"
+    },
+    {
+      "id": "spring-boot-starter",
+      "from": "0.1.8",
+      "to": "0.2.0"
     },
     {
       "id": "skills",
-      "from": "0.1.15",
-      "to": "0.1.16"
+      "from": "0.1.16",
+      "to": "0.1.17"
     }
   ],
   "order": [
-    "gauntlet",
+    "java-core",
+    "spring-boot-starter",
     "skills"
   ],
   "changes": [
-    "base-path.md",
-    "helm-extra-environment.md"
+    "maven-central.md"
   ]
 }

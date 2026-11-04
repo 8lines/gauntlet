@@ -10,6 +10,18 @@ Releases up to 0.1.8 were published together with the application and are record
 
 ## Unreleased
 
+## [0.1.17] - 2026-11-04
+
+### Changed
+
+- The Java packages moved to Maven Central under the group `dev.8lines.gauntlet`, so they need no token and no extra repository.
+- Updated `java-core` to 0.2.0.
+- Updated `spring-boot-starter` to 0.2.0.
+
+### Upgrade
+
+- This version has required upgrade steps; follow the [upgrade guide](https://github.com/8lines/gauntlet/blob/skills-v0.1.17/docs/upgrades/skills/0.1.17.md).
+
 ## [0.1.16] - 2026-11-03
 
 ### Changed

@@ -38,9 +38,9 @@ current. Which package versions work with which application release is listed in
 | `widget` | `@8lines/gauntlet-widget` | 0.1.8 |
 | `php-core` | `8lines/gauntlet-php-core` | 0.1.8 |
 | `symfony-bundle` | `8lines/gauntlet-symfony-bundle` | 0.1.9 |
-| `java-core` | `dev.8lines.gauntlet:core` | 0.1.8 |
-| `spring-boot-starter` | `dev.8lines.gauntlet:spring-boot-starter` | 0.1.8 |
-| `skills` | `gauntlet-skills` | 0.1.16 |
+| `java-core` | `dev.8lines.gauntlet:core` | 0.2.0 |
+| `spring-boot-starter` | `dev.8lines.gauntlet:spring-boot-starter` | 0.2.0 |
+| `skills` | `gauntlet-skills` | 0.1.17 |
 <!-- gauntlet:unit-versions:end -->
 
 ## npm
@@ -102,8 +102,8 @@ change.
 Consume immutable coordinates:
 
 ```text
-dev.8lines.gauntlet:core:0.1.8
-dev.8lines.gauntlet:spring-boot-starter:0.1.8
+dev.8lines.gauntlet:core:0.2.0
+dev.8lines.gauntlet:spring-boot-starter:0.2.0
 ```
 
 Keep Gradle dependency verification and lock metadata enabled in the consumer.

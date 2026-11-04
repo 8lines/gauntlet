@@ -119,3 +119,4 @@ checked the final bytes.
 - 2026-11-03: Release preparation moved gauntlet to 0.2.4, symfony-bundle to 0.1.9, skills to 0.1.15. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
 - 2026-11-03: Release preparation moved gauntlet to 0.2.5, skills to 0.1.16. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
 - 2026-11-04: The Java install references moved to Maven Central and the group dev.8lines.gauntlet. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
+- 2026-11-04: Release preparation moved java-core to 0.2.0, spring-boot-starter to 0.2.0, skills to 0.1.17. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
