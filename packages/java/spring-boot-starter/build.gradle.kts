@@ -7,17 +7,17 @@ plugins {
 
 dependencies {
     api(project(":core"))
-    api(platform("org.springframework.boot:spring-boot-dependencies:4.1.1"))
+    api(platform("org.springframework.boot:spring-boot-dependencies:4.1.2"))
     // Spring Boot 4.1.1 manages Jackson 3.1.5; pin 3.1.7 for current security fixes.
-    api(platform("tools.jackson:jackson-bom:3.1.7"))
+    api(platform("tools.jackson:jackson-bom:3.2.4"))
     api("org.springframework.boot:spring-boot-starter-webmvc")
     api("org.springframework.boot:spring-boot-starter-validation")
-    api("org.apache.tomcat.embed:tomcat-embed-core:11.0.25")
-    api("org.apache.tomcat.embed:tomcat-embed-el:11.0.25")
-    api("org.apache.tomcat.embed:tomcat-embed-websocket:11.0.25")
-    annotationProcessor(platform("org.springframework.boot:spring-boot-dependencies:4.1.1"))
+    api("org.apache.tomcat.embed:tomcat-embed-core:11.0.27")
+    api("org.apache.tomcat.embed:tomcat-embed-el:11.0.27")
+    api("org.apache.tomcat.embed:tomcat-embed-websocket:11.0.27")
+    annotationProcessor(platform("org.springframework.boot:spring-boot-dependencies:4.1.2"))
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
-    testImplementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.1"))
+    testImplementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.2"))
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 }
