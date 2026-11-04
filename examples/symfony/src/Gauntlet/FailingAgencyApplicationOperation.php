@@ -55,7 +55,7 @@ final readonly class FailingAgencyApplicationOperation implements OperationHandl
             ])),
             order: 20,
             tags: ['fixture', 'failure'],
-            requirements: new ProtocolRequirements(profiles: ['tc-schema-core@1']),
+            requirements: new ProtocolRequirements(profiles: ['gauntlet-schema-core@1']),
             inputClass: FinalizeAgencyApplicationInput::class,
         );
     }

@@ -77,7 +77,7 @@ function buildDocuments(scenario: AdapterV1ExtendedScenario): ExtendedDocuments 
   const failure = operation(
     scenario.handlerFailure.operationId,
     "Fail agency application",
-    ["tc-schema-core@1"],
+    ["gauntlet-schema-core@1"],
     {
       $schema: "https://json-schema.org/draft/2020-12/schema",
       type: "object",
@@ -87,7 +87,7 @@ function buildDocuments(scenario: AdapterV1ExtendedScenario): ExtendedDocuments 
   const custom = operation(
     scenario.customBinding.operationId,
     "Finalize agency application",
-    ["tc-schema-core@1", "tc-rich-forms@1", "tc-rich-results@1"],
+    ["gauntlet-schema-core@1", "gauntlet-rich-forms@1", "gauntlet-rich-results@1"],
     {
       $schema: "https://json-schema.org/draft/2020-12/schema",
       type: "object",
@@ -140,7 +140,7 @@ function buildDocuments(scenario: AdapterV1ExtendedScenario): ExtendedDocuments 
   const manifestWithoutRevision = {
     protocolVersion: "1.0",
     schemaDialect: "https://json-schema.org/draft/2020-12/schema",
-    profiles: ["tc-schema-core@1", "tc-rich-forms@1", "tc-rich-results@1"],
+    profiles: ["gauntlet-schema-core@1", "gauntlet-rich-forms@1", "gauntlet-rich-results@1"],
     capabilities: [],
     application: {
       id: "extended-conformance-adapter",

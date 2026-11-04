@@ -21,7 +21,7 @@ final class MissingCapabilityOperation implements OperationHandler
         return FixtureOperationDefinitions::definition(
             'fixture.missing-capability',
             'Missing capability',
-            new ProtocolRequirements(capabilities: ['tc-uploads@1']),
+            new ProtocolRequirements(capabilities: ['gauntlet-uploads@1']),
         );
     }
 

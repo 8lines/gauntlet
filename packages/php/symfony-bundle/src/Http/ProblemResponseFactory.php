@@ -50,6 +50,6 @@ final class ProblemResponseFactory
 
     public static function correlationId(): string
     {
-        return 'tc-' . bin2hex(random_bytes(12));
+        return 'gauntlet-' . bin2hex(random_bytes(12));
     }
 }

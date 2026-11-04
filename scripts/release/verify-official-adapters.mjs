@@ -721,7 +721,7 @@ function createTaskSandbox() {
   for (const candidate of candidates) {
     try {
       const base = realpathSync(candidate);
-      const sandbox = realpathSync(mkdtempSync(join(base, "tc-oa-")));
+      const sandbox = realpathSync(mkdtempSync(join(base, "gauntlet-oa-")));
       chmodSync(sandbox, 0o700);
       if (sandbox.length <= 48 && safeAbsolutePath(sandbox)) return sandbox;
       rmSync(sandbox, { recursive: true, force: true });

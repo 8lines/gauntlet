@@ -5,7 +5,7 @@ import { createGauntletRouteHandler } from "../src/index.js";
 const manifestFixture = {
   protocolVersion: "1.0",
   schemaDialect: "https://json-schema.org/draft/2020-12/schema",
-  profiles: ["tc-schema-core@1"],
+  profiles: ["gauntlet-schema-core@1"],
   capabilities: [],
   application: {
     id: "fixture",
@@ -31,7 +31,7 @@ const manifestFixture = {
       maxLimit: 20,
     },
   }],
-  manifestRevision: "sha256:0978b30e3feb38b0f038a9a6ce5aad0d7fc2ed6eba6c774d2a6d6417088524d7",
+  manifestRevision: "sha256:65fb34ae00843d03c53e28f57cd50f09dfd728851e573f22047371ff9db8c8a1",
 } as const;
 
 test("bridge returns the adapter disabled response for a canonical normalized target", async () => {
@@ -49,7 +49,7 @@ test("bridge synchronously applies the enabled adapter startup gate", () => {
       ...manifestFixture.application,
       environment: { name: "live-eu", kind: "preview" },
     },
-    manifestRevision: "sha256:7395a8db912b1ea4eabf6e67f3fb85d4f724e40c493c30a1bce80ad589b08426",
+    manifestRevision: "sha256:011ca853c33580cf337b15fd3fa007f5523960db060edbd43107647204643b11",
   } as never;
 
   assert.throws(

@@ -27,7 +27,7 @@ final class InvalidSemanticsOperation implements OperationHandler
         return new OperationDefinition(...array_replace(
             get_object_vars($base),
             ['uiSchema' => new OperationUiSchema(JsonOwnership::object([
-                'profile' => 'tc-rich-forms@1',
+                'profile' => 'gauntlet-rich-forms@1',
                 'root' => [
                     'type' => 'field',
                     'pointer' => '/applicationId',

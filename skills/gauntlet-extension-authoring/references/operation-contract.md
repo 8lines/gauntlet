@@ -20,7 +20,7 @@ handler, and derive its revision through the SDK rather than hard-coding it.
 Use Draft 2020-12 with an object root, explicit `required`, declared
 `properties`, and `additionalProperties: false`. Bound every variable-size
 value with an enum, format, length, numeric range, item count, media type, or
-application rule. Stay within the portable `tc-schema-core@1` profile; use only
+application rule. Stay within the portable `gauntlet-schema-core@1` profile; use only
 local, statically attributable schema references. Do not use remote references
 or a generic JSON object to smuggle dispatch choices.
 

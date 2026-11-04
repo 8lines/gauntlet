@@ -27,7 +27,7 @@ export function OperationForm(props: OperationFormProps) {
 }
 
 /**
- * The adapter does not have to expose `uiSchema` (the tc-rich-forms@1 profile is optional).
+ * The adapter does not have to expose `uiSchema` (the gauntlet-rich-forms@1 profile is optional).
  * In that case the layout is derived from the input schema alone — each property becomes one field.
  */
 export function layoutFromSchema(schema: unknown): UiNode | undefined {

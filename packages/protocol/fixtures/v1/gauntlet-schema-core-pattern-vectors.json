@@ -1,5 +1,5 @@
 {
-  "profile": "tc-schema-core@1",
+  "profile": "gauntlet-schema-core@1",
   "semantics": "ecmascript-unicode-search",
   "instanceDomain": "unicode-scalar-sequences",
   "vectors": [
@@ -342,7 +342,7 @@
       "name": "repository-profile-pattern",
       "sourceJson": "\"^[A-Za-z0-9][A-Za-z0-9._:-]*@[1-9][0-9]*$\"",
       "valid": true,
-      "matches": ["tc-schema-core@1", "x@20"],
+      "matches": ["gauntlet-schema-core@1", "x@20"],
       "nonMatches": ["@1", "x@0"]
     },
     {

@@ -79,10 +79,10 @@ test("a future 1.x manifest with an unknown optional extension remains valid", a
 test("an unavailable summary keeps unmet requirements and an omitted-operation diagnostic", async () => {
   const manifest = changedManifest((document) => {
     document.profiles = document.profiles.filter(
-      (profile: string) => profile !== "tc-rich-results@1",
+      (profile: string) => profile !== "gauntlet-rich-results@1",
     );
     document.capabilities = document.capabilities.filter(
-      (capability: string) => capability !== "tc-session-launch@1",
+      (capability: string) => capability !== "gauntlet-session-launch@1",
     );
     document.operations[0].availability = {
       state: "unavailable",
@@ -106,8 +106,8 @@ test("an unavailable summary keeps unmet requirements and an omitted-operation d
   assert.equal(result.ok, true);
   if (result.ok && !result.value.notModified) {
     assert.deepEqual(result.value.manifest.operations[0]?.requirements, {
-      profiles: ["tc-schema-core@1", "tc-rich-forms@1", "tc-rich-results@1"],
-      capabilities: ["tc-uploads@1", "tc-session-launch@1"],
+      profiles: ["gauntlet-schema-core@1", "gauntlet-rich-forms@1", "gauntlet-rich-results@1"],
+      capabilities: ["gauntlet-uploads@1", "gauntlet-session-launch@1"],
     });
     assert.equal(result.value.manifest.diagnostics?.[0]?.operationId, "omitted-operation");
   }

@@ -7,7 +7,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 public final class IdempotencyFingerprint {
-  private static final byte[] DOMAIN = "tc-idempotency:v1\0".getBytes(StandardCharsets.UTF_8);
+  private static final byte[] DOMAIN = "gauntlet-idempotency:v1\0".getBytes(StandardCharsets.UTF_8);
 
   private IdempotencyFingerprint() {}
 
@@ -21,7 +21,7 @@ public final class IdempotencyFingerprint {
       hmac.update(operationId.getBytes(StandardCharsets.UTF_8));
       hmac.update((byte) 0);
       hmac.update(rawKey.getBytes(StandardCharsets.UTF_8));
-      return "tc-idempotency:v1:" + HexFormat.of().formatHex(hmac.doFinal());
+      return "gauntlet-idempotency:v1:" + HexFormat.of().formatHex(hmac.doFinal());
     } catch (GeneralSecurityException exception) {
       throw new IllegalStateException("HMAC-SHA256 unavailable", exception);
     }

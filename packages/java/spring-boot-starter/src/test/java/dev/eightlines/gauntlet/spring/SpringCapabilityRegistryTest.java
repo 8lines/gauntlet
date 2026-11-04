@@ -28,8 +28,8 @@ class SpringCapabilityRegistryTest {
   @Test
   void genericProvidersCannotClaimCoreIdsAndFutureIdsRequireExactlyOneProvider() {
     CapabilityProvider core = () -> SpringCapabilityRegistry.UPLOADS;
-    CapabilityProvider firstFuture = () -> "tc-future@1";
-    CapabilityProvider secondFuture = () -> "tc-future@1";
+    CapabilityProvider firstFuture = () -> "gauntlet-future@1";
+    CapabilityProvider secondFuture = () -> "gauntlet-future@1";
 
     var accepted =
         new SpringCapabilityRegistry(
@@ -38,7 +38,7 @@ class SpringCapabilityRegistryTest {
         new SpringCapabilityRegistry(
             List.of(), List.of(), List.of(), List.of(), List.of(core, firstFuture, secondFuture));
 
-    assertThat(accepted.ids()).containsExactly("tc-future@1");
+    assertThat(accepted.ids()).containsExactly("gauntlet-future@1");
     assertThat(rejected.ids()).isEmpty();
     assertThat(rejected.diagnostics())
         .extracting(diagnostic -> diagnostic.code())

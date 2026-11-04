@@ -17,7 +17,7 @@ final class ManifestBuilderTest extends TestCase
         $manifest = (new ManifestBuilder(
             'app',
             'App',
-            ['tc-schema-core@1'],
+            ['gauntlet-schema-core@1'],
             environment: EnvironmentDescriptor::fromProtocolValue(['name' => 'app-dev', 'kind' => 'development']),
         ))->build([new FeatureDefinition('z', 'Z'), new FeatureDefinition('a', 'A')], [], []);
         $wire = $manifest->toProtocolArray();

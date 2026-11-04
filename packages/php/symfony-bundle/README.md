@@ -62,7 +62,7 @@ gauntlet:
       name: 'billing-staging'
       kind: 'staging'
   profiles:
-    - 'tc-schema-core@1'
+    - 'gauntlet-schema-core@1'
   idempotency_secret: '%env(GAUNTLET_IDEMPOTENCY_SECRET)%'
   max_json_bytes: 1048576
 ```
@@ -232,7 +232,7 @@ input and invocation context. Core discards the callback after queued
 cancellation so a dispatcher retaining the task no longer retains those values.
 
 Register `ManagedCancelRunEndpoint` to expose the Core manager's validated
-cancellation transition through `tc-run-cancellation@1`:
+cancellation transition through `gauntlet-run-cancellation@1`:
 
 ```yaml
 services:
@@ -280,10 +280,10 @@ composition described above:
 
 | Capability | Symfony SPI | Route |
 | --- | --- | --- |
-| `tc-run-cancellation@1` | `CancelRunEndpoint` | `POST /runs/{runId}/cancel` |
-| `tc-run-sse@1` | `RunEventsEndpoint` | `GET /runs/{runId}/events` |
-| `tc-uploads@1` | `UploadEndpoint` | `POST /uploads` |
-| `tc-session-launch@1` | `SessionLaunchEndpoint` | `POST /runs/{runId}/artifacts/{artifactId}/launch` |
+| `gauntlet-run-cancellation@1` | `CancelRunEndpoint` | `POST /runs/{runId}/cancel` |
+| `gauntlet-run-sse@1` | `RunEventsEndpoint` | `GET /runs/{runId}/events` |
+| `gauntlet-uploads@1` | `UploadEndpoint` | `POST /uploads` |
+| `gauntlet-session-launch@1` | `SessionLaunchEndpoint` | `POST /runs/{runId}/artifacts/{artifactId}/launch` |
 
 Implementing an SPI is sufficient when service autoconfiguration is enabled.
 For Runs owned by the Core manager, use the supplied

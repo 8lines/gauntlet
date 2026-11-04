@@ -18,7 +18,7 @@ The bridge sees a normalized Web `Request`, not the original request target. Put
 
 - accepts only canonical origin-form Adapter v1 targets;
 - rejects percent escapes, backslashes, absolute-form targets, SP/HTAB, query or fragment syntax, repeated slashes, dot segments, trailing slashes, and unsafe path IDs;
-- strips client-supplied `X-TC-*` and `X-Forwarded-*` headers;
+- strips client-supplied `X-Gauntlet-*` and `X-Forwarded-*` headers;
 - gives fixed malformed responses in enabled and disabled upstream modes;
 - denies `/_gauntlet/v1` on every public listener and forwards it only on the private path.
 

@@ -10,7 +10,7 @@ use EightLines\Gauntlet\Core\Json\JsonOwnership;
 use EightLines\Gauntlet\Core\Json\Rfc8785CanonicalJson;
 use EightLines\Gauntlet\Core\Protocol\ProtocolExtensions;
 use EightLines\Gauntlet\Core\Registry\RegistryDiagnostic;
-use EightLines\Gauntlet\Core\Schema\TcSchemaCore;
+use EightLines\Gauntlet\Core\Schema\GauntletSchemaCore;
 
 final readonly class AdapterManifest
 {
@@ -48,7 +48,7 @@ final readonly class AdapterManifest
     {
         $document = [
             'protocolVersion' => '1.0',
-            'schemaDialect' => TcSchemaCore::DIALECT,
+            'schemaDialect' => GauntletSchemaCore::DIALECT,
             'profiles' => $this->profiles,
             'capabilities' => $this->capabilities,
             'application' => $this->application,

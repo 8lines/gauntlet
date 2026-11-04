@@ -143,7 +143,7 @@ final class FixtureKernel extends Kernel
                     'kind' => 'test',
                 ],
             ],
-            'profiles' => ['tc-schema-core@1', 'tc-rich-forms@1'],
+            'profiles' => ['gauntlet-schema-core@1', 'gauntlet-rich-forms@1'],
             'idempotency_secret' => 'fixture-stable-idempotency-secret',
             'max_json_bytes' => 4096,
         ];

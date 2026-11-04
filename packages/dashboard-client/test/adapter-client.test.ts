@@ -432,25 +432,25 @@ test("optional endpoints accept only their own unsupported-capability Problem", 
   });
   const cases = [
     {
-      expected: "tc-uploads@1" as const,
+      expected: "gauntlet-uploads@1" as const,
       invoke: async (capability: `${string}@${number}`) => await createAdapterClient({
         fetch: async () => unsupported(capability),
       }).createUpload(target, file, validUpload.file.name),
     },
     {
-      expected: "tc-run-cancellation@1" as const,
+      expected: "gauntlet-run-cancellation@1" as const,
       invoke: async (capability: `${string}@${number}`) => await createAdapterClient({
         fetch: async () => unsupported(capability),
       }).cancelRun(target, validRun.id),
     },
     {
-      expected: "tc-run-sse@1" as const,
+      expected: "gauntlet-run-sse@1" as const,
       invoke: async (capability: `${string}@${number}`) => await createAdapterClient({
         fetch: async () => unsupported(capability),
       }).streamRunEvents(target, validRun.id),
     },
     {
-      expected: "tc-session-launch@1" as const,
+      expected: "gauntlet-session-launch@1" as const,
       invoke: async (capability: `${string}@${number}`) => await createAdapterClient({
         fetch: async () => unsupported(capability),
       }).createSessionLaunch(target, validRun.id, "launch-1"),

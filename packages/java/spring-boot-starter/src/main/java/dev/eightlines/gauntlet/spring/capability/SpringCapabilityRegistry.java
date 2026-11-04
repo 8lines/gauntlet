@@ -14,10 +14,10 @@ import java.util.Set;
 
 /** Resolves capability advertisement from concrete endpoint SPIs, never configuration strings. */
 public final class SpringCapabilityRegistry {
-  public static final String CANCELLATION = "tc-run-cancellation@1";
-  public static final String EVENTS = "tc-run-sse@1";
-  public static final String UPLOADS = "tc-uploads@1";
-  public static final String SESSION_LAUNCH = "tc-session-launch@1";
+  public static final String CANCELLATION = "gauntlet-run-cancellation@1";
+  public static final String EVENTS = "gauntlet-run-sse@1";
+  public static final String UPLOADS = "gauntlet-uploads@1";
+  public static final String SESSION_LAUNCH = "gauntlet-session-launch@1";
 
   private static final Set<String> CORE = Set.of(CANCELLATION, EVENTS, UPLOADS, SESSION_LAUNCH);
 

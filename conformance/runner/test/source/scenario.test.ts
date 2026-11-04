@@ -41,7 +41,7 @@ const expectedScenario = {
   },
   idempotencyKey: "conformance-finalize-01",
   expectedTerminalState: "succeeded",
-  requiredProfiles: ["tc-schema-core@1", "tc-rich-forms@1", "tc-rich-results@1"],
+  requiredProfiles: ["gauntlet-schema-core@1", "gauntlet-rich-forms@1", "gauntlet-rich-results@1"],
   requiredCapabilities: [],
   browserLaunch: {
     artifactId: "conformance-browser-session",
@@ -53,7 +53,7 @@ async function withScenarioBytes(
   bytes: string | Uint8Array,
   exercise: (path: string) => Promise<void>,
 ): Promise<void> {
-  const directory = await mkdtemp(join(tmpdir(), "tc-scenario-"));
+  const directory = await mkdtemp(join(tmpdir(), "gauntlet-scenario-"));
   const path = join(directory, "scenario.json");
   try {
     await writeFile(path, bytes);
@@ -91,10 +91,10 @@ test("missing, extra, malformed, duplicate, and unsafe scenario members are reje
     { ...expectedScenario, expectedValidationPointer: "/bad~pointer" },
     { ...expectedScenario, expectedTerminalState: "running" },
     { ...expectedScenario, idempotencyKey: "" },
-    { ...expectedScenario, requiredProfiles: ["tc-schema-core@1", "tc-schema-core@1"] },
-    { ...expectedScenario, requiredCapabilities: ["tc-run-sse@1", "tc-run-sse@1"] },
-    { ...expectedScenario, requiredProfiles: ["tc-schema-core@0"] },
-    { ...expectedScenario, requiredCapabilities: ["tc-run-sse"] },
+    { ...expectedScenario, requiredProfiles: ["gauntlet-schema-core@1", "gauntlet-schema-core@1"] },
+    { ...expectedScenario, requiredCapabilities: ["gauntlet-run-sse@1", "gauntlet-run-sse@1"] },
+    { ...expectedScenario, requiredProfiles: ["gauntlet-schema-core@0"] },
+    { ...expectedScenario, requiredCapabilities: ["gauntlet-run-sse"] },
     { ...expectedScenario, browserLaunch: { ...expectedScenario.browserLaunch, artifactId: "unsafe!id" } },
     { ...expectedScenario, browserLaunch: { ...expectedScenario.browserLaunch, expectedPublicOrigin: "https://u:p@example.test" } },
     { ...expectedScenario, browserLaunch: { ...expectedScenario.browserLaunch, expectedPublicOrigin: "https://example.test/path" } },

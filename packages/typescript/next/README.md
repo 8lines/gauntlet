@@ -5,7 +5,7 @@ see the original raw target and never claims native raw-target equivalence. It
 contains no dashboard UI. A trusted ingress is mandatory: it alone receives
 untrusted traffic, rejects percent escapes, dot segments, repeated slashes,
 backslashes, query/fragment syntax, and literal SP/HTAB before forwarding,
-strips every client-supplied `X-TC-*` and `X-Forwarded-*` header, and returns a
+strips every client-supplied `X-Gauntlet-*` and `X-Forwarded-*` header, and returns a
 fixed malformed 400 even when the upstream adapter is disabled.
 
 ```ts

@@ -67,7 +67,7 @@ const runs = new RunManager(operations, new InMemoryRunStore(), {
 });
 const catalog = createAdapterCatalog({
   application: { id: "packed-consumer", label: "Packed consumer", environment: { name: "packed-test", kind: "test" } },
-  profiles: ["tc-schema-core@1"],
+  profiles: ["gauntlet-schema-core@1"],
   capabilities: new CapabilityRegistry(),
   operations,
   dataSources: new DataSourceRegistry(),

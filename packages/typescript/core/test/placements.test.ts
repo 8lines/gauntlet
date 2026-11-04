@@ -13,7 +13,7 @@ const inputSchema = {
   properties: { orderId: { type: "string" }, token: { type: "string" } },
 } as const;
 
-function catalogWith(operations: ReturnType<typeof operation>[], profiles: readonly `${string}@${number}`[] = ["tc-schema-core@1"]) {
+function catalogWith(operations: ReturnType<typeof operation>[], profiles: readonly `${string}@${number}`[] = ["gauntlet-schema-core@1"]) {
   const registry = new OperationRegistry();
   registry.registerFeature(feature("orders"));
   for (const value of operations) registry.register(value);
@@ -53,7 +53,7 @@ test("manifest summaries carry placements and advertise the profile once", () =>
   assert.equal(manifest.profiles.filter((id) => id === PAGE_PLACEMENTS_PROFILE).length, 1);
   assert.deepEqual(catalog.operation("orders.pay")?.placements, placements);
 
-  const explicit = catalogWith([operation("orders.pay", { inputSchema, placements })], ["tc-schema-core@1", PAGE_PLACEMENTS_PROFILE]);
+  const explicit = catalogWith([operation("orders.pay", { inputSchema, placements })], ["gauntlet-schema-core@1", PAGE_PLACEMENTS_PROFILE]);
   assert.equal(explicit.manifest().profiles.filter((id) => id === PAGE_PLACEMENTS_PROFILE).length, 1);
 });
 

@@ -18,10 +18,10 @@
     "$schema": {
       "const": "https://schemas.8lines.dev/gauntlet/fixtures/v1/adapter-semantic-vectors.schema.json"
     },
-    "format": { "const": "tc-adapter-semantic-vectors@1" },
+    "format": { "const": "gauntlet-adapter-semantic-vectors@1" },
     "patchProfile": { "const": "rfc6902-test-subset@1" },
-    "presetAssemblyProfile": { "const": "tc-preset-operation@1" },
-    "workloadProfile": { "const": "tc-preset-workloads@1" },
+    "presetAssemblyProfile": { "const": "gauntlet-preset-operation@1" },
+    "workloadProfile": { "const": "gauntlet-preset-workloads@1" },
     "sourceFixtures": {
       "type": "array",
       "prefixItems": [

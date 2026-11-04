@@ -172,7 +172,7 @@ public final class ProblemResponseFactory {
         500,
         null,
         null,
-        "tc-" + UUID.randomUUID(),
+        "gauntlet-" + UUID.randomUUID(),
         List.of(),
         null,
         empty());

@@ -39,9 +39,9 @@
   "idempotencyKey": "conformance-finalize-01",
   "expectedTerminalState": "succeeded",
   "requiredProfiles": [
-    "tc-schema-core@1",
-    "tc-rich-forms@1",
-    "tc-rich-results@1"
+    "gauntlet-schema-core@1",
+    "gauntlet-rich-forms@1",
+    "gauntlet-rich-results@1"
   ],
   "requiredCapabilities": [],
   "browserLaunch": {

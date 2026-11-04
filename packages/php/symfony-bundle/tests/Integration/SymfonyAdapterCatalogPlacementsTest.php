@@ -29,9 +29,9 @@ final class SymfonyAdapterCatalogPlacementsTest extends TestCase
 {
     public function testProfilesKeepTheirSortedPreBranchShapeWithoutPlacements(): void
     {
-        $manifest = self::catalog(['tc-schema-core@1', 'tc-rich-forms@1'], [])->manifest()->toProtocolArray();
+        $manifest = self::catalog(['gauntlet-schema-core@1', 'gauntlet-rich-forms@1'], [])->manifest()->toProtocolArray();
 
-        self::assertSame(['tc-rich-forms@1', 'tc-schema-core@1'], $manifest['profiles']);
+        self::assertSame(['gauntlet-rich-forms@1', 'gauntlet-schema-core@1'], $manifest['profiles']);
     }
 
     public function testPlacementsAdvertiseTheProfileExactlyOnce(): void
@@ -40,11 +40,11 @@ final class SymfonyAdapterCatalogPlacementsTest extends TestCase
             OperationPlacement::global(),
             OperationPlacement::subject('order', ['/orderId' => 'orderId']),
         ];
-        foreach ([['tc-schema-core@1'], ['tc-schema-core@1', PlacementRules::PROFILE]] as $configured) {
+        foreach ([['gauntlet-schema-core@1'], ['gauntlet-schema-core@1', PlacementRules::PROFILE]] as $configured) {
             $catalog = self::catalog($configured, $placements);
             $manifest = $catalog->manifest()->toProtocolArray();
 
-            self::assertSame([PlacementRules::PROFILE, 'tc-schema-core@1'], $manifest['profiles']);
+            self::assertSame([PlacementRules::PROFILE, 'gauntlet-schema-core@1'], $manifest['profiles']);
             $expected = [
                 ['kind' => 'global'],
                 ['kind' => 'subject', 'subjectType' => 'order', 'bindings' => ['/orderId' => 'orderId']],

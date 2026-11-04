@@ -144,7 +144,7 @@ final class DependencyInjectionTest extends TestCase
                 'label' => 'Fixture App',
                 'environment' => ['name' => 'fixture-test', 'kind' => 'test'],
             ],
-            'profiles' => ['tc-schema-core@1', 'tc-rich-forms@1'],
+            'profiles' => ['gauntlet-schema-core@1', 'gauntlet-rich-forms@1'],
             'idempotency_secret' => 'fixture-stable-idempotency-secret',
         ]);
 
@@ -160,7 +160,7 @@ final class DependencyInjectionTest extends TestCase
             'label' => 'Fixture App',
             'environment' => ['name' => 'fixture-test', 'kind' => 'test'],
         ], $configuration->application());
-        self::assertSame(['tc-schema-core@1', 'tc-rich-forms@1'], $configuration->profiles);
+        self::assertSame(['gauntlet-schema-core@1', 'gauntlet-rich-forms@1'], $configuration->profiles);
         self::assertFalse($configuration->hasConfiguredCapabilities());
     }
 

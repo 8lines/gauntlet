@@ -12,7 +12,7 @@ use EightLines\Gauntlet\Core\Definition\OperationImpact;
 use EightLines\Gauntlet\Core\Definition\OperationOutput;
 use EightLines\Gauntlet\Core\Json\JsonOwnership;
 use EightLines\Gauntlet\Core\Result\OperationResult;
-use EightLines\Gauntlet\Core\Schema\TcSchemaCore;
+use EightLines\Gauntlet\Core\Schema\GauntletSchemaCore;
 use EightLines\Gauntlet\SymfonyBundle\Attribute\AsGauntletOperation;
 
 #[AsGauntletOperation]
@@ -28,7 +28,7 @@ final class CancellableOperation implements OperationHandler
             label: 'Cancellable',
             description: null,
             inputSchema: JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 'additionalProperties' => false,
             ]),
@@ -47,7 +47,7 @@ final class CancellableOperation implements OperationHandler
                 concurrency: 'forbid',
             ),
             output: new OperationOutput(JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 'additionalProperties' => false,
             ])),

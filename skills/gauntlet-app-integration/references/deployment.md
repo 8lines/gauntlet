@@ -51,4 +51,4 @@ targets:
       kind: staging
 ```
 
-Add target `publicUrl` only when `tc-session-launch@1` is advertised; it is the canonical public application origin and every returned launch URL must match it. When selecting `GAUNTLET_CONFIG_FILE`, remove all four legacy inputs (`GAUNTLET_TARGETS_JSON`, `GAUNTLET_INSTANCE_NAME`, `GAUNTLET_ENVIRONMENT_NAME`, `GAUNTLET_ENVIRONMENT_KIND`) because mixing sources must fail startup.
+Add target `publicUrl` only when `gauntlet-session-launch@1` is advertised; it is the canonical public application origin and every returned launch URL must match it. When selecting `GAUNTLET_CONFIG_FILE`, remove all four legacy inputs (`GAUNTLET_TARGETS_JSON`, `GAUNTLET_INSTANCE_NAME`, `GAUNTLET_ENVIRONMENT_NAME`, `GAUNTLET_ENVIRONMENT_KIND`) because mixing sources must fail startup.

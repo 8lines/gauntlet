@@ -15,7 +15,7 @@ final class ManagedCancellationHttpTest extends BundleWebTestCase
         $client->disableReboot();
         $client->request('GET', '/_gauntlet/v1/manifest');
         self::assertContains(
-            'tc-run-cancellation@1',
+            'gauntlet-run-cancellation@1',
             $this->responseJson($client->getResponse())['capabilities'],
         );
         $revision = $this->operationRevision($client, 'fixture.cancellable');
@@ -99,7 +99,7 @@ final class ManagedCancellationHttpTest extends BundleWebTestCase
         $client = self::createClient(['environment' => 'managed_cancellation']);
         $client->request('GET', '/_gauntlet/v1/manifest');
         self::assertContains(
-            'tc-run-cancellation@1',
+            'gauntlet-run-cancellation@1',
             $this->responseJson($client->getResponse())['capabilities'],
         );
 

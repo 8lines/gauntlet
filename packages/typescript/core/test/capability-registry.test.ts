@@ -4,7 +4,7 @@ import { CapabilityRegistry } from "../src/index.js";
 
 test("registry rejects a generic provider that claims a core capability", () => {
   const registry = new CapabilityRegistry();
-  assert.throws(() => registry.registerProvider({ id: "tc-uploads@1" }), /core capability/i);
+  assert.throws(() => registry.registerProvider({ id: "gauntlet-uploads@1" }), /core capability/i);
 });
 
 test("registry retains one future non-core provider", () => {
@@ -34,9 +34,9 @@ test("each Core SPI is absent by default and rejects duplicate registration", ()
   assert.throws(() => registry.registerUploads(uploads), /duplicate/i);
   assert.throws(() => registry.registerSessionLaunch(session), /duplicate/i);
   assert.deepEqual(registry.ids(), [
-    "tc-run-cancellation@1",
-    "tc-run-sse@1",
-    "tc-session-launch@1",
-    "tc-uploads@1",
+    "gauntlet-run-cancellation@1",
+    "gauntlet-run-sse@1",
+    "gauntlet-session-launch@1",
+    "gauntlet-uploads@1",
   ]);
 });

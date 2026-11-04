@@ -520,7 +520,7 @@ export function createAdapterClient(options: AdapterClientOptions = {}): Adapter
         return fail(adapterUnavailableProblem());
       }
       if (!(response instanceof Response)) return fail(invalidResponseProblem());
-      if (response.status !== 201) return await remoteProblem(response, "tc-uploads@1");
+      if (response.status !== 201) return await remoteProblem(response, "gauntlet-uploads@1");
       try {
         if (mediaType(response) !== "application/json") {
           await cancelBody(response);
@@ -544,7 +544,7 @@ export function createAdapterClient(options: AdapterClientOptions = {}): Adapter
         statuses: new Set([202]),
         validator: protocolValidators.run,
         semantics: (run) => run.id === runId && runSemanticsAreValid(run),
-        expectedCapability: "tc-run-cancellation@1",
+        expectedCapability: "gauntlet-run-cancellation@1",
       }, { method: "POST" });
     },
 
@@ -577,7 +577,7 @@ export function createAdapterClient(options: AdapterClientOptions = {}): Adapter
       }
       if (response.status !== 200) {
         try {
-          return await remoteProblem(response, "tc-run-sse@1");
+          return await remoteProblem(response, "gauntlet-run-sse@1");
         } finally {
           clearTimeout(timer);
         }
@@ -608,7 +608,7 @@ export function createAdapterClient(options: AdapterClientOptions = {}): Adapter
       return await perform(target, [runId, artifactId], () => `/_gauntlet/v1/runs/${runId}/artifacts/${artifactId}/launch`, {
         statuses: new Set([201]),
         validator: protocolValidators.sessionLaunch,
-        expectedCapability: "tc-session-launch@1",
+        expectedCapability: "gauntlet-session-launch@1",
       }, { method: "POST" });
     },
   };

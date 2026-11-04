@@ -34,7 +34,7 @@ use EightLines\Gauntlet\Core\Run\RunManager;
 use EightLines\Gauntlet\Core\Run\RunStoreCreateResult;
 use EightLines\Gauntlet\Core\Schema\OpisSchemaValidator;
 use EightLines\Gauntlet\Core\Schema\SchemaValidator;
-use EightLines\Gauntlet\Core\Schema\TcSchemaCore;
+use EightLines\Gauntlet\Core\Schema\GauntletSchemaCore;
 use PHPUnit\Framework\TestCase;
 
 final class RunManagerExecutionPolicyTest extends TestCase
@@ -1451,7 +1451,7 @@ final class PolicyHandler implements OperationHandler
             label: 'Policy',
             description: null,
             inputSchema: JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 'required' => ['message'],
                 'properties' => ['message' => ['type' => 'string']],
@@ -1464,7 +1464,7 @@ final class PolicyHandler implements OperationHandler
             presets: [],
             execution: $this->policy,
             output: new OperationOutput(JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 'additionalProperties' => false,
             ])),

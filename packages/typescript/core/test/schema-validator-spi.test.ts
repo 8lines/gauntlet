@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createAjvSchemaValidator } from "../src/index.js";
 
-test("public validator rejects an invalid tc-schema-core schema without retrieving refs", () => {
+test("public validator rejects an invalid gauntlet-schema-core schema without retrieving refs", () => {
   const validator = createAjvSchemaValidator();
   assert.throws(() => validator.validate({ $schema: "https://json-schema.org/draft/2020-12/schema", $ref: "https://hostile.invalid/schema" }, {}), /non-fragment/i);
 });

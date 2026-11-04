@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { chmodSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
 
 const scenarios = new Set(["spring-ingress", "prod-alias", "node-compose"]);
@@ -133,6 +133,26 @@ function pressureFixture(root, scenario) {
   ].join("\n"));
 }
 
+const historicalWorkspacePackages = Object.freeze({
+  "gauntlet-protocol": "packages/protocol",
+  "gauntlet-typescript-core": "packages/typescript/core",
+});
+
+// Third-party dependencies come from the checkout, but workspace siblings must
+// stay on the historical tag or the old sources compile against current types.
+function linkHistoricalDependencies(historicalRoot, packagePath) {
+  const source = resolve(repositoryRoot, packagePath, "node_modules");
+  const target = resolve(historicalRoot, packagePath, "node_modules");
+  mkdirSync(resolve(target, "@8lines"), { recursive: true });
+  for (const entry of readdirSync(source)) {
+    if (entry !== "@8lines") symlinkSync(resolve(source, entry), resolve(target, entry), "dir");
+  }
+  for (const entry of Object.keys(historicalWorkspacePackages)) {
+    if (!existsSync(resolve(source, "@8lines", entry))) continue;
+    symlinkSync(resolve(historicalRoot, historicalWorkspacePackages[entry]), resolve(target, "@8lines", entry), "dir");
+  }
+}
+
 function packSuppliedCandidateSdk(root) {
   const artifactRoot = resolve(root, "artifacts");
   mkdirSync(artifactRoot, { recursive: true, mode: 0o700 });
@@ -144,7 +164,7 @@ function packSuppliedCandidateSdk(root) {
   try {
     symlinkSync(resolve(repositoryRoot, "node_modules"), resolve(historicalRoot, "node_modules"), "dir");
     for (const packagePath of ["packages/protocol", "packages/typescript/core", "packages/typescript/node"]) {
-      symlinkSync(resolve(repositoryRoot, packagePath, "node_modules"), resolve(historicalRoot, packagePath, "node_modules"), "dir");
+      linkHistoricalDependencies(historicalRoot, packagePath);
     }
     for (const packageName of [
       "@8lines/gauntlet-protocol",

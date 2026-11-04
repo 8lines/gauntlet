@@ -20,7 +20,7 @@ final class AdvertisedCapabilityHttpTest extends BundleWebTestCase
         $client->disableReboot();
         $client->request('GET', '/_gauntlet/v1/manifest');
         self::assertSame(
-            ['tc-run-cancellation@1', 'tc-run-sse@1', 'tc-session-launch@1', 'tc-uploads@1'],
+            ['gauntlet-run-cancellation@1', 'gauntlet-run-sse@1', 'gauntlet-session-launch@1', 'gauntlet-uploads@1'],
             $this->responseJson($client->getResponse())['capabilities'],
         );
 
@@ -54,7 +54,7 @@ final class AdvertisedCapabilityHttpTest extends BundleWebTestCase
         self::assertResponseStatusCodeSame(422);
         self::assertSame(1, self::getContainer()->get(FixtureEventsEndpoint::class)->invocations);
 
-        $temporaryFile = tempnam(sys_get_temp_dir(), 'tc-upload-');
+        $temporaryFile = tempnam(sys_get_temp_dir(), 'gauntlet-upload-');
         self::assertIsString($temporaryFile);
         file_put_contents($temporaryFile, 'fixture');
         try {
@@ -130,7 +130,7 @@ final class AdvertisedCapabilityHttpTest extends BundleWebTestCase
         $problem = $this->responseJson($client->getResponse());
         self::assertSame('urn:gauntlet:problem:adapter-internal-error', $problem['type']);
         self::assertSame(500, $problem['status']);
-        self::assertStringStartsWith('tc-', $problem['correlationId']);
+        self::assertStringStartsWith('gauntlet-', $problem['correlationId']);
         self::assertStringNotContainsString('731904', $body);
         self::assertStringNotContainsString('RuntimeException', $body);
         self::assertStringNotContainsString('private capability failure', $body);
@@ -158,7 +158,7 @@ final class AdvertisedCapabilityHttpTest extends BundleWebTestCase
         }
 
         foreach (['missing.txt', 'extra.txt', 'scalar.txt'] as $name) {
-            $temporaryFile = tempnam(sys_get_temp_dir(), 'tc-hostile-upload-');
+            $temporaryFile = tempnam(sys_get_temp_dir(), 'gauntlet-hostile-upload-');
             self::assertIsString($temporaryFile);
             file_put_contents($temporaryFile, 'x');
             try {
@@ -409,7 +409,7 @@ final class AdvertisedCapabilityHttpTest extends BundleWebTestCase
         $problem = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
         self::assertSame('urn:gauntlet:problem:adapter-internal-error', $problem['type']);
         self::assertSame(500, $problem['status']);
-        self::assertMatchesRegularExpression('/^tc-[a-f0-9]{24}$/D', $problem['correlationId']);
+        self::assertMatchesRegularExpression('/^gauntlet-[a-f0-9]{24}$/D', $problem['correlationId']);
         self::assertStringNotContainsString('731904', $body);
         self::assertStringNotContainsString('RuntimeException', $body);
     }

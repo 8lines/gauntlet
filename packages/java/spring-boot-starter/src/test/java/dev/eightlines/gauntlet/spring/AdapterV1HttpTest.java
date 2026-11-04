@@ -258,13 +258,13 @@ class AdapterV1HttpTest {
         .andExpect(jsonPath("$.type").value("urn:gauntlet:problem:run-not-found"));
     mvc.perform(get("/_gauntlet/v1/runs/run-1/events"))
         .andExpect(status().isNotImplemented())
-        .andExpect(jsonPath("$.capability").value("tc-run-sse@1"));
+        .andExpect(jsonPath("$.capability").value("gauntlet-run-sse@1"));
     mvc.perform(post("/_gauntlet/v1/uploads").content("not multipart"))
         .andExpect(status().isNotImplemented())
-        .andExpect(jsonPath("$.capability").value("tc-uploads@1"));
+        .andExpect(jsonPath("$.capability").value("gauntlet-uploads@1"));
     mvc.perform(post("/_gauntlet/v1/runs/run-1/artifacts/launch-1/launch"))
         .andExpect(status().isNotImplemented())
-        .andExpect(jsonPath("$.capability").value("tc-session-launch@1"));
+        .andExpect(jsonPath("$.capability").value("gauntlet-session-launch@1"));
   }
 
   @Test

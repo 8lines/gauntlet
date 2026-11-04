@@ -5,7 +5,7 @@ import {
 import { assertNonProductionEnvironment } from "./environment.js";
 import { PAGE_PLACEMENTS_PROFILE, operationPlacementsAreValid } from "./placements.js";
 import { assertRuntimeJsonData, canonicalizeForRevision, computeRevision } from "./revision.js";
-import { assertTcSchemaCore } from "./schema-profile.js";
+import { assertGauntletSchemaCore } from "./schema-profile.js";
 import type {
   AdapterManifest,
   DataSourceResolveRequest,
@@ -100,10 +100,10 @@ export function manifestSemanticsAreValid(manifest: AdapterManifest): boolean {
         return false;
       }
       if (dataSource.dependencySchema !== undefined) {
-        assertTcSchemaCore(dataSource.dependencySchema, { requireObjectRoot: true });
+        assertGauntletSchemaCore(dataSource.dependencySchema, { requireObjectRoot: true });
       }
       if (dataSource.contextSchema !== undefined) {
-        assertTcSchemaCore(dataSource.contextSchema, { requireObjectRoot: true });
+        assertGauntletSchemaCore(dataSource.contextSchema, { requireObjectRoot: true });
       }
     }
     return true;
@@ -145,11 +145,11 @@ export function operationSemanticsAreValid(operation: OperationDefinition): bool
     if (computeRevision(operation as unknown as JsonObject) !== operation.revision) {
       return false;
     }
-    assertTcSchemaCore(operation.inputSchema, { requireObjectRoot: true });
+    assertGauntletSchemaCore(operation.inputSchema, { requireObjectRoot: true });
     if (operation.contextSchema !== undefined) {
-      assertTcSchemaCore(operation.contextSchema, { requireObjectRoot: true });
+      assertGauntletSchemaCore(operation.contextSchema, { requireObjectRoot: true });
     }
-    assertTcSchemaCore(operation.output.schema);
+    assertGauntletSchemaCore(operation.output.schema);
 
     const dataSourceIds = operation.dataSources.map(({ id }) => id);
     if (!allUnique(dataSourceIds) || !allUnique(operation.presets.map(({ id }) => id))) {

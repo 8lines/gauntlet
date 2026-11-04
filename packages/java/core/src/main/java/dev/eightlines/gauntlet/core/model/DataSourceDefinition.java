@@ -1,7 +1,7 @@
 package dev.eightlines.gauntlet.core.model;
 
 import dev.eightlines.gauntlet.core.json.JsonObject;
-import dev.eightlines.gauntlet.core.schema.TcSchemaCore;
+import dev.eightlines.gauntlet.core.schema.GauntletSchemaCore;
 
 public record DataSourceDefinition(
     String id,
@@ -26,10 +26,10 @@ public record DataSourceDefinition(
       throw new IllegalArgumentException("invalid data source limits");
     }
     if (dependencySchema != null) {
-      TcSchemaCore.assertValid(dependencySchema, true);
+      GauntletSchemaCore.assertValid(dependencySchema, true);
     }
     if (contextSchema != null) {
-      TcSchemaCore.assertValid(contextSchema, true);
+      GauntletSchemaCore.assertValid(contextSchema, true);
     }
     extensions = ProtocolValidation.requireExtensions(extensions);
   }

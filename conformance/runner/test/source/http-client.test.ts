@@ -164,14 +164,14 @@ test("success and error media, Problem status, type, and capability are exact", 
   const capabilityClient = new AdapterV1HttpClient({
     baseUrl: "http://example.test",
     fetch: async () => problemResponse(501, "urn:gauntlet:problem:unsupported-capability", {
-      capability: "tc-run-sse@1",
+      capability: "gauntlet-run-sse@1",
     }),
   });
   await capabilityClient.expectEventsProblem(
     "conformance-missing-run",
     501,
     "urn:gauntlet:problem:unsupported-capability",
-    "tc-run-sse@1",
+    "gauntlet-run-sse@1",
   );
 });
 

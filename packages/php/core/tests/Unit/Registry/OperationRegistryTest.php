@@ -13,7 +13,7 @@ use EightLines\Gauntlet\Core\Definition\OperationOutput;
 use EightLines\Gauntlet\Core\Json\JsonOwnership;
 use EightLines\Gauntlet\Core\Registry\OperationRegistry;
 use EightLines\Gauntlet\Core\Result\OperationResult;
-use EightLines\Gauntlet\Core\Schema\TcSchemaCore;
+use EightLines\Gauntlet\Core\Schema\GauntletSchemaCore;
 use PHPUnit\Framework\TestCase;
 
 final class OperationRegistryTest extends TestCase
@@ -40,7 +40,7 @@ final class RegistryHandler implements OperationHandler
             'Label',
             null,
             JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
             ]),
             null,
@@ -50,7 +50,7 @@ final class RegistryHandler implements OperationHandler
             [],
             new ExecutionPolicy(OperationImpact::READ, false, false, 'optional', false),
             new OperationOutput(JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
             ])),
         );

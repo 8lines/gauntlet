@@ -69,13 +69,13 @@ Internal exception details, upstream credentials and raw response bodies are
 not included. Unknown routes return 404 and unsupported methods on known
 routes return 405 with an `Allow` header.
 
-The run-event route requires `tc-run-sse@1`. It accepts an optional
+The run-event route requires `gauntlet-run-sse@1`. It accepts an optional
 `Last-Event-ID`, emits validated `run.updated` snapshots and closes its upstream
 stream when the downstream client disconnects. Cancellation requires
-`tc-run-cancellation@1` and does not undo domain effects.
+`gauntlet-run-cancellation@1` and does not undo domain effects.
 
 Session launch requires a known `browser-launch` artifact, advertised
-`tc-session-launch@1` and a configured `publicUrl`. The server validates the
+`gauntlet-session-launch@1` and a configured `publicUrl`. The server validates the
 returned URL's origin and expiry and returns it without fetching it.
 
 ## Pinned operations

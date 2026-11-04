@@ -59,8 +59,8 @@ export function createApplicationCatalog(
     order: 10,
     tags: ["applications", "workflow"],
     requirements: {
-      profiles: ["tc-schema-core@1", "tc-rich-forms@1", "tc-rich-results@1"],
-      capabilities: ["tc-run-cancellation@1"],
+      profiles: ["gauntlet-schema-core@1", "gauntlet-rich-forms@1", "gauntlet-rich-results@1"],
+      capabilities: ["gauntlet-run-cancellation@1"],
     },
     inputSchema: {
       $schema: schemaDialect,
@@ -76,7 +76,7 @@ export function createApplicationCatalog(
       additionalProperties: false,
     },
     uiSchema: {
-      profile: "tc-rich-forms@1",
+      profile: "gauntlet-rich-forms@1",
       root: {
         type: "group",
         label: "Workflow change",
@@ -147,7 +147,7 @@ export function createApplicationCatalog(
         },
         additionalProperties: false,
       },
-      presentation: { profile: "tc-rich-results@1", defaultView: "summary" },
+      presentation: { profile: "gauntlet-rich-results@1", defaultView: "summary" },
     },
   }, async (input, context) => {
     context.report({ phase: "changing-state", current: 0, total: 1 });
@@ -232,7 +232,7 @@ export function createApplicationCatalog(
       label: "Portal",
       environment: dependencies.environment,
     },
-    profiles: ["tc-schema-core@1", "tc-rich-forms@1", "tc-rich-results@1"],
+    profiles: ["gauntlet-schema-core@1", "gauntlet-rich-forms@1", "gauntlet-rich-results@1"],
     capabilities,
     operations,
     dataSources,

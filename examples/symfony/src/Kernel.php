@@ -65,7 +65,7 @@ final class Kernel extends BaseKernel
                     'kind' => 'test',
                 ],
             ],
-            'profiles' => ['tc-schema-core@1', 'tc-rich-forms@1', 'tc-rich-results@1'],
+            'profiles' => ['gauntlet-schema-core@1', 'gauntlet-rich-forms@1', 'gauntlet-rich-results@1'],
             'idempotency_secret' => $this->idempotencySecret(),
             'max_json_bytes' => 65_536,
         ];

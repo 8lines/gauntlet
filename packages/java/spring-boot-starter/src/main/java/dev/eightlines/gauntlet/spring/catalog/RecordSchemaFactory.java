@@ -2,7 +2,7 @@ package dev.eightlines.gauntlet.spring.catalog;
 
 import dev.eightlines.gauntlet.core.json.JsonObject;
 import dev.eightlines.gauntlet.core.json.JsonOwnership;
-import dev.eightlines.gauntlet.core.schema.TcSchemaCore;
+import dev.eightlines.gauntlet.core.schema.GauntletSchemaCore;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -72,7 +72,7 @@ public final class RecordSchemaFactory {
     document.put("properties", properties);
     document.put("additionalProperties", false);
     JsonObject schema = JsonOwnership.object(document);
-    TcSchemaCore.assertValid(schema, true);
+    GauntletSchemaCore.assertValid(schema, true);
     return schema;
   }
 

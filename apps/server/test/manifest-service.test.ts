@@ -339,21 +339,21 @@ test("unsupported operation requirements do not change the target state", async 
 
 test("supported requirement sets are explicit and injectable", () => {
   const defaultService = service(["acme"], client());
-  assert.equal(defaultService.checkRequirements({ profiles: ["tc-schema-core@1", "tc-rich-forms@1", "tc-rich-results@1"] }).ok, true);
-  assert.equal(defaultService.checkRequirements({ capabilities: ["tc-session-launch@1"] }).ok, true);
-  assert.equal(defaultService.checkRequirements({ capabilities: ["tc-uploads@1"] }).ok, true);
-  assert.equal(defaultService.checkRequirements({ capabilities: ["tc-run-cancellation@1"] }).ok, true);
-  assert.equal(defaultService.checkRequirements({ capabilities: ["tc-run-sse@1"] }).ok, true);
+  assert.equal(defaultService.checkRequirements({ profiles: ["gauntlet-schema-core@1", "gauntlet-rich-forms@1", "gauntlet-rich-results@1"] }).ok, true);
+  assert.equal(defaultService.checkRequirements({ capabilities: ["gauntlet-session-launch@1"] }).ok, true);
+  assert.equal(defaultService.checkRequirements({ capabilities: ["gauntlet-uploads@1"] }).ok, true);
+  assert.equal(defaultService.checkRequirements({ capabilities: ["gauntlet-run-cancellation@1"] }).ok, true);
+  assert.equal(defaultService.checkRequirements({ capabilities: ["gauntlet-run-sse@1"] }).ok, true);
 
   const injected = createManifestService({
     registry: registry(["acme"]),
     client: client(),
     store: createInMemoryGauntletStore(),
-    supportedProfiles: ["tc-schema-core@1"],
-    supportedCapabilities: ["tc-uploads@1"],
+    supportedProfiles: ["gauntlet-schema-core@1"],
+    supportedCapabilities: ["gauntlet-uploads@1"],
   });
-  assert.equal(injected.checkRequirements({ capabilities: ["tc-uploads@1"] }).ok, true);
-  assert.equal(injected.checkRequirements({ profiles: ["tc-rich-forms@1"] }).ok, false);
+  assert.equal(injected.checkRequirements({ capabilities: ["gauntlet-uploads@1"] }).ok, true);
+  assert.equal(injected.checkRequirements({ profiles: ["gauntlet-rich-forms@1"] }).ok, false);
 });
 
 test("public snapshots are owned, immutable, and omit internal target URLs", async () => {

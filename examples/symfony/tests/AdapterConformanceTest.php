@@ -95,7 +95,7 @@ final class AdapterConformanceTest extends TestCase
         $scenario = $this->scenario();
         $manifest = $this->getJson('/_gauntlet/v1/manifest');
         self::assertContains($scenario['operationId'], array_column($manifest['operations'], 'id'));
-        self::assertSame(['tc-session-launch@1'], $manifest['capabilities']);
+        self::assertSame(['gauntlet-session-launch@1'], $manifest['capabilities']);
         self::assertSame(
             ['name' => 'symfony-example-test', 'kind' => 'test'],
             $manifest['application']['environment'],
@@ -206,9 +206,9 @@ final class AdapterConformanceTest extends TestCase
         self::assertNotSame($first['items'][0]['value'], $second['items'][0]['value']);
 
         foreach ([
-            ['POST', '/_gauntlet/v1/runs/run-1/cancel', 'tc-run-cancellation@1'],
-            ['GET', '/_gauntlet/v1/runs/run-1/events', 'tc-run-sse@1'],
-            ['POST', '/_gauntlet/v1/uploads', 'tc-uploads@1'],
+            ['POST', '/_gauntlet/v1/runs/run-1/cancel', 'gauntlet-run-cancellation@1'],
+            ['GET', '/_gauntlet/v1/runs/run-1/events', 'gauntlet-run-sse@1'],
+            ['POST', '/_gauntlet/v1/uploads', 'gauntlet-uploads@1'],
         ] as [$method, $path, $capability]) {
             $this->client->request($method, $path);
             self::assertSame(501, $this->client->getResponse()->getStatusCode());

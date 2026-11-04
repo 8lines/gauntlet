@@ -1,7 +1,7 @@
 import { Ajv2020, type ErrorObject, type ValidateFunction } from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import {
-  assertTcSchemaCore,
+  assertGauntletSchemaCore,
   canonicalizeForRevision,
   type JsonObject,
   type JsonValue,
@@ -56,7 +56,7 @@ export class AjvSchemaValidator implements SchemaValidator {
     let validate = this.#compiledByIdentity.get(schema);
     if (validate === undefined) {
       const ownedSchema = cloneAndDeepFreeze(schema);
-      assertTcSchemaCore(ownedSchema);
+      assertGauntletSchemaCore(ownedSchema);
       const key = canonicalizeForRevision(ownedSchema);
       validate = this.#compiledByCanonicalSchema.get(key);
       if (validate === undefined) {

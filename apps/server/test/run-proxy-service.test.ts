@@ -1023,7 +1023,7 @@ test("launch requires configured public origin and an advertised capability", as
   const manifest = mutateManifest(operation, (document) => {
     (document as unknown as { capabilities: string[] }).capabilities = [];
     (document as unknown as { operations: Array<{ requirements?: { capabilities?: string[] } }> }).operations[0]!.requirements = {
-      profiles: ["tc-schema-core@1", "tc-rich-forms@1", "tc-rich-results@1"],
+      profiles: ["gauntlet-schema-core@1", "gauntlet-rich-forms@1", "gauntlet-rich-results@1"],
     };
   });
   const noCapabilityFake = createFakeAdapter({ manifest, operation });
@@ -1120,9 +1120,9 @@ test("upload, cancellation, and SSE are capability-gated and persist monotonic r
 test("an unadvertised control capability fails before its adapter endpoint is invoked", async () => {
   const operation = createHappyOperation();
   const manifest = mutateManifest(operation, (document) => {
-    (document as unknown as { capabilities: string[] }).capabilities = ["tc-session-launch@1"];
+    (document as unknown as { capabilities: string[] }).capabilities = ["gauntlet-session-launch@1"];
     (document as unknown as { operations: Array<{ requirements: { capabilities: string[] } }> })
-      .operations[0]!.requirements.capabilities = ["tc-session-launch@1"];
+      .operations[0]!.requirements.capabilities = ["gauntlet-session-launch@1"];
   });
   const fake = createFakeAdapter({ manifest, operation });
   const { runs, store } = harness({ fake });

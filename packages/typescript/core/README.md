@@ -98,8 +98,8 @@ operations.register(defineOperation({
   order: 10,
   tags: ["applications", "workflow"],
   requirements: {
-    profiles: ["tc-schema-core@1", "tc-rich-forms@1", "tc-rich-results@1"],
-    capabilities: ["tc-run-cancellation@1"],
+    profiles: ["gauntlet-schema-core@1", "gauntlet-rich-forms@1", "gauntlet-rich-results@1"],
+    capabilities: ["gauntlet-run-cancellation@1"],
   },
   inputSchema: {
     $schema: "https://json-schema.org/draft/2020-12/schema",
@@ -115,7 +115,7 @@ operations.register(defineOperation({
     additionalProperties: false,
   },
   uiSchema: {
-    profile: "tc-rich-forms@1",
+    profile: "gauntlet-rich-forms@1",
     root: {
       type: "group",
       label: "Workflow change",
@@ -173,7 +173,7 @@ operations.register(defineOperation({
       $schema: "https://json-schema.org/draft/2020-12/schema",
       type: "object",
     },
-    presentation: { profile: "tc-rich-results@1", defaultView: "summary" },
+    presentation: { profile: "gauntlet-rich-results@1", defaultView: "summary" },
   },
 }, async (input, context) => {
   context.report({ phase: "changing-state", current: 0, total: 1 });
@@ -282,7 +282,7 @@ the local timeout acknowledgement.
 
 Uploads, SSE, and session launch are advertised only when their typed endpoint
 is registered. A real `RunManager` automatically advertises managed
-`tc-run-cancellation@1`; an optional cancellation endpoint remains a fallback
+`gauntlet-run-cancellation@1`; an optional cancellation endpoint remains a fallback
 for run IDs owned outside that manager:
 
 ```ts
@@ -293,8 +293,8 @@ capabilities.registerUploads(uploadEndpoint);
 capabilities.registerSessionLaunch(sessionLaunchEndpoint);
 ```
 
-The matching capabilities are `tc-run-cancellation@1`, `tc-run-sse@1`,
-`tc-uploads@1`, and `tc-session-launch@1`. An absent optional SPI stays
+The matching capabilities are `gauntlet-run-cancellation@1`, `gauntlet-run-sse@1`,
+`gauntlet-uploads@1`, and `gauntlet-session-launch@1`. An absent optional SPI stays
 unadvertised and the transport returns the protocol's fixed 501 response.
 Endpoint results are treated as untrusted and validated before crossing the
 adapter boundary.

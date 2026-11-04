@@ -31,9 +31,9 @@ import dev.eightlines.gauntlet.core.registry.DataSourceRegistry;
 import dev.eightlines.gauntlet.core.registry.FeatureRegistry;
 import dev.eightlines.gauntlet.core.registry.OperationRegistry;
 import dev.eightlines.gauntlet.core.run.RunManager;
+import dev.eightlines.gauntlet.core.schema.GauntletSchemaCore;
 import dev.eightlines.gauntlet.core.schema.PlacementRules;
 import dev.eightlines.gauntlet.core.schema.SchemaValidator;
-import dev.eightlines.gauntlet.core.schema.TcSchemaCore;
 import dev.eightlines.gauntlet.core.spi.ExecutionCoordinator;
 import dev.eightlines.gauntlet.core.spi.FileReferenceValidator;
 import dev.eightlines.gauntlet.core.spi.RunStore;
@@ -582,7 +582,7 @@ public final class SpringAdapterCatalog implements AutoCloseable {
   }
 
   private static JsonObject schema(JsonObject value) {
-    TcSchemaCore.assertValid(value, true);
+    GauntletSchemaCore.assertValid(value, true);
     return value;
   }
 

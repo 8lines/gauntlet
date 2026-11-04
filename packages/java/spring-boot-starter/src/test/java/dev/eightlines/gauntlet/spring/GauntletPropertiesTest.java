@@ -16,7 +16,7 @@ class GauntletPropertiesTest {
     var properties = new GauntletProperties(false, null, null);
 
     assertThat(properties.enabled()).isFalse();
-    assertThat(properties.profiles()).containsExactly("tc-schema-core@1");
+    assertThat(properties.profiles()).containsExactly("gauntlet-schema-core@1");
   }
 
   @Test
@@ -31,7 +31,7 @@ class GauntletPropertiesTest {
                         "unsafe!id",
                         "Fixture",
                         new GauntletEnvironmentProperties("fixture-test", "test")),
-                    List.of("tc-schema-core@1")))
+                    List.of("gauntlet-schema-core@1")))
         .isInstanceOf(IllegalArgumentException.class);
   }
 

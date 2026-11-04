@@ -595,8 +595,8 @@ test("idempotency fingerprints are keyed, operation-scoped, and stable with shar
   );
   await secondHarness.manager.create(firstOperation.definition.id, requestFor(firstOperation, rawKey));
 
-  const expected = `tc-idempotency:v1:${createHmac("sha256", expectedSecret)
-    .update("tc-idempotency:v1\0", "utf8")
+  const expected = `gauntlet-idempotency:v1:${createHmac("sha256", expectedSecret)
+    .update("gauntlet-idempotency:v1\0", "utf8")
     .update(firstOperation.definition.id, "utf8")
     .update("\0", "utf8")
     .update(rawKey, "utf8")

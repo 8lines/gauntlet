@@ -270,7 +270,7 @@ final class ProtocolSemantics
         if (!$schema instanceof \stdClass) {
             throw new \InvalidArgumentException('Schema root must be an object.');
         }
-        TcSchemaCore::assert(JsonOwnership::object(get_object_vars($schema)), $requireObjectRoot);
+        GauntletSchemaCore::assert(JsonOwnership::object(get_object_vars($schema)), $requireObjectRoot);
     }
 
     /** @param list<mixed> $features */

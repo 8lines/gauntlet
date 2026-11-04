@@ -1,13 +1,13 @@
 {
   "id": "agency-applications.fail",
-  "revision": "sha256:92e8fdfe138a5c9638ef88e42292d724bce7c3ac268784bafdd5cc4ed4876d07",
+  "revision": "sha256:9e308db4af0fd76adb1b822fd9f9811d933c38ccb271ad6eb2cd0c7c2bda4770",
   "label": "Fail agency application",
   "featureId": "agency-applications",
   "description": "Exercise canonical handler failure behavior.",
   "order": 20,
   "tags": ["agency", "failure"],
   "requirements": {
-    "profiles": ["tc-rich-forms@1", "tc-rich-results@1", "tc-schema-core@1"]
+    "profiles": ["gauntlet-rich-forms@1", "gauntlet-rich-results@1", "gauntlet-schema-core@1"]
   },
   "inputSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -72,7 +72,7 @@
       "additionalProperties": false
     },
     "presentation": {
-      "profile": "tc-rich-results@1",
+      "profile": "gauntlet-rich-results@1",
       "defaultView": "summary"
     }
   }

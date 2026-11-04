@@ -425,7 +425,7 @@ test("synchronous, invalid-terminal, disabled-session, and secret-echo modes are
         scenario.browserLaunch!.artifactId,
         501,
         "urn:gauntlet:problem:unsupported-capability",
-        "tc-session-launch@1",
+        "gauntlet-session-launch@1",
       );
     }
   }
@@ -445,9 +445,9 @@ test("the default fixture exposes exact missing, unsafe, absent-capability, and 
   );
   await client.expectRunProblem("conformance-missing-run", 404, "urn:gauntlet:problem:run-not-found");
   await client.expectUnsafeOperationProblem();
-  await client.expectCancelProblem("conformance-run-01", 501, "urn:gauntlet:problem:unsupported-capability", "tc-run-cancellation@1");
-  await client.expectEventsProblem("conformance-run-01", 501, "urn:gauntlet:problem:unsupported-capability", "tc-run-sse@1");
-  await client.expectUploadsProblem(501, "urn:gauntlet:problem:unsupported-capability", "tc-uploads@1");
+  await client.expectCancelProblem("conformance-run-01", 501, "urn:gauntlet:problem:unsupported-capability", "gauntlet-run-cancellation@1");
+  await client.expectEventsProblem("conformance-run-01", 501, "urn:gauntlet:problem:unsupported-capability", "gauntlet-run-sse@1");
+  await client.expectUploadsProblem(501, "urn:gauntlet:problem:unsupported-capability", "gauntlet-uploads@1");
   const launch = await client.launchSession(
     "conformance-run-01",
     scenario.browserLaunch!.artifactId,

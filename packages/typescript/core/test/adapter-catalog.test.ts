@@ -24,12 +24,12 @@ function catalog(
   };
   const capabilities = new CapabilityRegistry();
   configure?.(capabilities, operation.definition.revision);
-  const value = createAdapterCatalog({ application: { id: "fixture", label: "Fixture", environment: { name: "fixture-test", kind: "test" } }, profiles: ["tc-schema-core@1"], capabilities, operations, dataSources: new DataSourceRegistry(), runs: runs as never, schemaValidator: createAjvSchemaValidator() });
+  const value = createAdapterCatalog({ application: { id: "fixture", label: "Fixture", environment: { name: "fixture-test", kind: "test" } }, profiles: ["gauntlet-schema-core@1"], capabilities, operations, dataSources: new DataSourceRegistry(), runs: runs as never, schemaValidator: createAjvSchemaValidator() });
   return { value, capabilities, creates: () => creates };
 }
 
 test("unavailable summary stops create before the run manager", async () => {
-  const fixture = catalog({ capabilities: ["tc-uploads@1"] });
+  const fixture = catalog({ capabilities: ["gauntlet-uploads@1"] });
   const summary = fixture.value.manifest().operations[0]!;
   const result = await fixture.value.createRun("fixture.run", {} as never);
   assert.equal(result.ok, false);
@@ -38,10 +38,10 @@ test("unavailable summary stops create before the run manager", async () => {
 });
 
 test("profile and Core SPI availability is authoritative and exact", async () => {
-  const missingProfile = catalog({ profiles: ["tc-rich-forms@1"] } as never);
+  const missingProfile = catalog({ profiles: ["gauntlet-rich-forms@1"] } as never);
   assert.equal(missingProfile.value.manifest().operations[0]?.availability.state, "unavailable");
 
-  const missingUpload = catalog({ capabilities: ["tc-uploads@1"] });
+  const missingUpload = catalog({ capabilities: ["gauntlet-uploads@1"] });
   const summary = missingUpload.value.manifest().operations[0]!;
   assert.equal(summary.availability.state, "unavailable");
   const rejected = await missingUpload.value.createRun("fixture.run", {} as never);
@@ -50,7 +50,7 @@ test("profile and Core SPI availability is authoritative and exact", async () =>
     assert.strictEqual(rejected.problem, summary.availability.problem);
   }
 
-  const available = catalog({ capabilities: ["tc-uploads@1"] }, (capabilities) => {
+  const available = catalog({ capabilities: ["gauntlet-uploads@1"] }, (capabilities) => {
     capabilities.registerUploads({
       create: () => ({
         file: {
@@ -96,7 +96,7 @@ test("catalog omits an operation with an unregistered data-source binding", () =
   }, () => ({ output: null })));
   const value = createAdapterCatalog({
     application: { id: "fixture", label: "Fixture", environment: { name: "fixture-test", kind: "test" } },
-    profiles: ["tc-schema-core@1"],
+    profiles: ["gauntlet-schema-core@1"],
     capabilities: new CapabilityRegistry(),
     operations,
     dataSources: new DataSourceRegistry(),
@@ -159,10 +159,10 @@ test("all optional public dispatches return their installed endpoint values", as
     });
   });
   for (const capability of [
-    "tc-run-cancellation@1",
-    "tc-run-sse@1",
-    "tc-uploads@1",
-    "tc-session-launch@1",
+    "gauntlet-run-cancellation@1",
+    "gauntlet-run-sse@1",
+    "gauntlet-uploads@1",
+    "gauntlet-session-launch@1",
   ] as const) assert.deepEqual(fixture.value.capabilityAvailability(capability), { supported: true });
   assert.equal((await fixture.value.cancelRun("run-1")).ok, true);
   const events = await fixture.value.runEvents("run-1");
@@ -227,8 +227,8 @@ test("catalog advertises managed cancellation without a dummy capability endpoin
     }),
   });
 
-  assert.equal(fixture.value.manifest().capabilities.includes("tc-run-cancellation@1"), true);
-  assert.deepEqual(fixture.value.capabilityAvailability("tc-run-cancellation@1"), {
+  assert.equal(fixture.value.manifest().capabilities.includes("gauntlet-run-cancellation@1"), true);
+  assert.deepEqual(fixture.value.capabilityAvailability("gauntlet-run-cancellation@1"), {
     supported: true,
   });
   assert.deepEqual(await fixture.value.cancelRun("run-1"), {
@@ -324,7 +324,7 @@ test("catalog owns application metadata before any accessor can run", () => {
   const operations = new OperationRegistry();
   const options = {
     application: application as never,
-    profiles: ["tc-schema-core@1" as const],
+    profiles: ["gauntlet-schema-core@1" as const],
     capabilities: new CapabilityRegistry(),
     operations,
     dataSources: new DataSourceRegistry(),
@@ -338,7 +338,7 @@ test("catalog owns application metadata before any accessor can run", () => {
 test("catalog rejects production-like and unsupported environments before other catalog work", () => {
   const operations = new OperationRegistry();
   const common = {
-    profiles: ["tc-schema-core@1" as const],
+    profiles: ["gauntlet-schema-core@1" as const],
     capabilities: new CapabilityRegistry(),
     operations,
     dataSources: new DataSourceRegistry(),
@@ -407,7 +407,7 @@ test("catalog rejects hostile data-source requests before invoking the source", 
   });
   const value = createAdapterCatalog({
     application: { id: "fixture", label: "Fixture", environment: { name: "fixture-test", kind: "test" } },
-    profiles: ["tc-schema-core@1"],
+    profiles: ["gauntlet-schema-core@1"],
     capabilities: new CapabilityRegistry(),
     operations,
     dataSources,
@@ -470,7 +470,7 @@ test("declared data-source schemas require complete dependencies and context", a
   });
   const value = createAdapterCatalog({
     application: { id: "fixture", label: "Fixture", environment: { name: "fixture-test", kind: "test" } },
-    profiles: ["tc-schema-core@1"],
+    profiles: ["gauntlet-schema-core@1"],
     capabilities: new CapabilityRegistry(),
     operations: new OperationRegistry(),
     dataSources,
@@ -514,8 +514,8 @@ test("declared data-source schemas require complete dependencies and context", a
 
 test("catalog fails closed before publishing a schema-invalid manifest", () => {
   const invalidOptions = [
-    { application: { id: "unsafe!id", label: "Fixture", environment: { name: "fixture-test", kind: "test" } }, profiles: ["tc-schema-core@1"] },
-    { application: { id: "fixture", label: "", environment: { name: "fixture-test", kind: "test" } }, profiles: ["tc-schema-core@1"] },
+    { application: { id: "unsafe!id", label: "Fixture", environment: { name: "fixture-test", kind: "test" } }, profiles: ["gauntlet-schema-core@1"] },
+    { application: { id: "fixture", label: "", environment: { name: "fixture-test", kind: "test" } }, profiles: ["gauntlet-schema-core@1"] },
     { application: { id: "fixture", label: "Fixture", environment: { name: "fixture-test", kind: "test" } }, profiles: ["not-versioned"] },
   ] as const;
 
@@ -535,7 +535,7 @@ test("catalog fails closed before publishing a schema-invalid manifest", () => {
   capabilities.registerProvider({ id: "not-versioned" as never });
   assert.throws(() => createAdapterCatalog({
     application: { id: "fixture", label: "Fixture", environment: { name: "fixture-test", kind: "test" } },
-    profiles: ["tc-schema-core@1"],
+    profiles: ["gauntlet-schema-core@1"],
     capabilities,
     operations: new OperationRegistry(),
     dataSources: new DataSourceRegistry(),

@@ -6,7 +6,7 @@ namespace EightLines\Gauntlet\Core\Tests\Unit\Schema;
 
 use EightLines\Gauntlet\Core\Json\JsonOwnership;
 use EightLines\Gauntlet\Core\Schema\OpisSchemaValidator;
-use EightLines\Gauntlet\Core\Schema\TcSchemaCore;
+use EightLines\Gauntlet\Core\Schema\GauntletSchemaCore;
 use PHPUnit\Framework\TestCase;
 
 final class SchemaValidatorTest extends TestCase
@@ -14,7 +14,7 @@ final class SchemaValidatorTest extends TestCase
     public function testItUsesDraft202012WithLocalReferencesAndNormalizedSafeErrors(): void
     {
         $schema = JsonOwnership::object([
-            '$schema' => TcSchemaCore::DIALECT,
+            '$schema' => GauntletSchemaCore::DIALECT,
             'type' => 'object',
             'required' => ['profile'],
             'properties' => [
@@ -59,7 +59,7 @@ final class SchemaValidatorTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         (new OpisSchemaValidator())->validate(
             JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 '$ref' => 'https://example.invalid/schema.json',
             ]),
@@ -71,7 +71,7 @@ final class SchemaValidatorTest extends TestCase
     {
         $errors = (new OpisSchemaValidator())->validate(
             JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 'properties' => ['requestId' => ['type' => 'string']],
                 'additionalProperties' => false,
@@ -86,7 +86,7 @@ final class SchemaValidatorTest extends TestCase
     {
         $errors = (new OpisSchemaValidator())->validate(
             JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 'required' => ['applicationId'],
                 'properties' => [

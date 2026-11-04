@@ -8,7 +8,7 @@ use EightLines\Gauntlet\Core\Json\JsonObject;
 use EightLines\Gauntlet\Core\Protocol\ProtocolExtensions;
 use EightLines\Gauntlet\Core\Protocol\ProtocolId;
 use EightLines\Gauntlet\Core\Protocol\ProtocolValue;
-use EightLines\Gauntlet\Core\Schema\TcSchemaCore;
+use EightLines\Gauntlet\Core\Schema\GauntletSchemaCore;
 
 final readonly class DataSourceDefinition
 {
@@ -34,10 +34,10 @@ final readonly class DataSourceDefinition
             throw new \InvalidArgumentException('Invalid data source limits.');
         }
         if ($dependencySchema !== null) {
-            TcSchemaCore::assert($dependencySchema, true);
+            GauntletSchemaCore::assert($dependencySchema, true);
         }
         if ($contextSchema !== null) {
-            TcSchemaCore::assert($contextSchema, true);
+            GauntletSchemaCore::assert($contextSchema, true);
         }
     }
 

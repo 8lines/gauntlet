@@ -361,7 +361,7 @@ const crossDocumentMutations: readonly CrossDocumentMutation[] = [
     name: "selected operation has one extra fully advertised required capability",
     expected: "Scenario requirements do not match the manifest",
     mutate(documents, scenario) {
-      const capability = "tc-extra-capability@1";
+      const capability = "gauntlet-extra-capability@1";
       const requirements = {
         profiles: [...scenario.requiredProfiles],
         capabilities: [capability],
@@ -381,7 +381,7 @@ const crossDocumentMutations: readonly CrossDocumentMutation[] = [
     manifestEnvelopeOnly: true,
     mutate(documents) {
       documents.manifest.profiles = (documents.manifest.profiles as string[]).filter(
-        (profile) => profile !== "tc-rich-forms@1",
+        (profile) => profile !== "gauntlet-rich-forms@1",
       );
       refreshManifestRevision(documents);
     },

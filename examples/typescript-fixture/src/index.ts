@@ -39,7 +39,7 @@ const output = {
     properties: { finalized: { const: true } },
     additionalProperties: false,
   },
-  presentation: { profile: "tc-rich-results@1", defaultView: "summary" },
+  presentation: { profile: "gauntlet-rich-results@1", defaultView: "summary" },
 } as const;
 
 function operationMetadata(
@@ -55,7 +55,7 @@ function operationMetadata(
     order: id.endsWith(".fail") ? 20 : 10,
     tags: ["agency", "applications"],
     requirements: {
-      profiles: ["tc-schema-core@1", "tc-rich-forms@1", "tc-rich-results@1"],
+      profiles: ["gauntlet-schema-core@1", "gauntlet-rich-forms@1", "gauntlet-rich-results@1"],
     },
     placements: [subjectPlacement("agency-application", { "/applicationId": "applicationId" })],
     inputSchema,
@@ -200,7 +200,7 @@ export function createConformanceCatalog(): AdapterCatalog {
       label: "Conformance fixture",
       environment: { name: "typescript-fixture-test", kind: "test" },
     },
-    profiles: ["tc-schema-core@1", "tc-rich-forms@1", "tc-rich-results@1"],
+    profiles: ["gauntlet-schema-core@1", "gauntlet-rich-forms@1", "gauntlet-rich-results@1"],
     capabilities: new CapabilityRegistry(),
     operations,
     dataSources,

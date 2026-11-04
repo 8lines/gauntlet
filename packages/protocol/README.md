@@ -8,7 +8,7 @@ across TypeScript, PHP, and Java.
 
 The executable sources of truth are:
 
-- `fixtures/v1/tc-schema-core-pattern-vectors.json` for portable regular
+- `fixtures/v1/gauntlet-schema-core-pattern-vectors.json` for portable regular
   expressions; and
 - `fixtures/v1/jcs-revision-vectors.json` for canonical JSON and revision
   hashing; and
@@ -20,7 +20,7 @@ An SDK implementation is conformant only when it accepts and rejects those
 vectors exactly. It must not broaden the grammar based on features available in
 its host regular-expression engine.
 
-## `tc-schema-core@1` patterns
+## `gauntlet-schema-core@1` patterns
 
 Patterns use case-sensitive ECMAScript Unicode search semantics over the
 `unicode-scalar-sequences` instance domain declared by the vector artifact. No
@@ -214,7 +214,7 @@ Manifest and operation revisions are handled afterward by the explicit
 `preserve` or `set` directive, and every declared match or mismatch is checked
 independently before the semantic predicate runs.
 
-The `tc-preset-operation@1` profile clones the verified operation fixture,
+The `gauntlet-preset-operation@1` profile clones the verified operation fixture,
 uses the suite's literal object input schema, and emits one ordered secret rule
 per `secretPointers` entry without deduplication. It removes `uiSchema`, sets
 `dataSources` to `[]`, and creates `preset-<index>` / `Preset <index>` entries
@@ -252,7 +252,7 @@ Static traversal covers local `$ref`, `properties`, `dependentSchemas`,
 `propertyNames`, `unevaluatedItems`, `unevaluatedProperties`, and
 `contentSchema` make a target dynamically addressed and therefore fail closed.
 
-The closed `tc-preset-workloads@1` recipes are `deep-chain`,
+The closed `gauntlet-preset-workloads@1` recipes are `deep-chain`,
 `rules-presets-cartesian`, `dense-mutual-reference`, and `wide-array`. Their
 parameters, expected revisions, and canonical full-operation UTF-8 byte counts
 are portable requirements; the wide operation is generated only inside an

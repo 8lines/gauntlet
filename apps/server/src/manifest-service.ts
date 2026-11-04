@@ -22,15 +22,15 @@ import type { TargetRegistry } from "./target-registry.js";
 import type { GauntletStore } from "./gauntlet-store.js";
 
 const DEFAULT_PROFILES: readonly ProfileId[] = Object.freeze([
-  "tc-schema-core@1",
-  "tc-rich-forms@1",
-  "tc-rich-results@1",
+  "gauntlet-schema-core@1",
+  "gauntlet-rich-forms@1",
+  "gauntlet-rich-results@1",
 ]);
 const DEFAULT_CAPABILITIES: readonly CapabilityId[] = Object.freeze([
-  "tc-uploads@1",
-  "tc-run-cancellation@1",
-  "tc-run-sse@1",
-  "tc-session-launch@1",
+  "gauntlet-uploads@1",
+  "gauntlet-run-cancellation@1",
+  "gauntlet-run-sse@1",
+  "gauntlet-session-launch@1",
 ]);
 
 export interface TargetSnapshot {

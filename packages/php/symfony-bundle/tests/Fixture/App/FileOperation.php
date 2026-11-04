@@ -14,7 +14,7 @@ use EightLines\Gauntlet\Core\Definition\OperationOutput;
 use EightLines\Gauntlet\Core\Json\JsonOwnership;
 use EightLines\Gauntlet\Core\Protocol\ProtocolRequirements;
 use EightLines\Gauntlet\Core\Result\OperationResult;
-use EightLines\Gauntlet\Core\Schema\TcSchemaCore;
+use EightLines\Gauntlet\Core\Schema\GauntletSchemaCore;
 use EightLines\Gauntlet\SymfonyBundle\Attribute\AsGauntletOperation;
 
 #[AsGauntletOperation]
@@ -30,7 +30,7 @@ final class FileOperation implements OperationHandler
             label: 'Consume fixture upload',
             description: null,
             inputSchema: JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 'required' => ['attachment'],
                 'properties' => [
@@ -72,11 +72,11 @@ final class FileOperation implements OperationHandler
                 cancellationSupported: false,
             ),
             output: new OperationOutput(JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 'additionalProperties' => false,
             ])),
-            requirements: new ProtocolRequirements(profiles: ['tc-schema-core@1']),
+            requirements: new ProtocolRequirements(profiles: ['gauntlet-schema-core@1']),
         );
     }
 

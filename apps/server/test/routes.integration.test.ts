@@ -893,9 +893,9 @@ test("unsupported control-plane capabilities return 501 without invoking their a
       ...await multipartFile("fixture", "fixture.txt"),
     });
     assert.equal(upload.statusCode, 501);
-    assert.equal(upload.json().capability, "tc-uploads@1");
+    assert.equal(upload.json().capability, "gauntlet-uploads@1");
     assert.equal(routeCalls(fake, "/uploads", "POST"), 0);
-  }, { supportedCapabilities: ["tc-session-launch@1"] });
+  }, { supportedCapabilities: ["gauntlet-session-launch@1"] });
 });
 
 test("SSE emits only validated monotonic events when the upstream stream later regresses", async () => {

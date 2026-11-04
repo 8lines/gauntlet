@@ -34,7 +34,7 @@ final class AdapterHttpTest extends BundleWebTestCase
             ['name' => 'fixture-test', 'kind' => 'test'],
             $manifest['application']['environment'],
         );
-        self::assertSame(['tc-rich-forms@1', 'tc-schema-core@1'], $manifest['profiles']);
+        self::assertSame(['gauntlet-rich-forms@1', 'gauntlet-schema-core@1'], $manifest['profiles']);
         self::assertSame([], $manifest['capabilities']);
         self::assertContains('fixture.users', array_column($manifest['dataSources'], 'id'));
         self::assertContains('invalid_operation_definition', array_column($manifest['diagnostics'], 'code'));
@@ -54,7 +54,7 @@ final class AdapterHttpTest extends BundleWebTestCase
         $body = (string) $client->getResponse()->getContent();
         $definition = $this->responseJson($client->getResponse());
         self::assertSame(['requestId'], $definition['contextSchema']['required']);
-        self::assertSame('tc-rich-forms@1', $definition['uiSchema']['profile']);
+        self::assertSame('gauntlet-rich-forms@1', $definition['uiSchema']['profile']);
         self::assertSame('/applicationId', $definition['dataSources'][0]['inputPointer']);
         self::assertEquals(new \stdClass(), (object) $definition['presets'][0]['input']);
         self::assertStringNotContainsString('EightLines\\', $body);
@@ -589,10 +589,10 @@ final class AdapterHttpTest extends BundleWebTestCase
         }
 
         foreach ([
-            ['POST', '/_gauntlet/v1/runs/run-1/cancel', 'tc-run-cancellation@1'],
-            ['GET', '/_gauntlet/v1/runs/run-1/events', 'tc-run-sse@1'],
-            ['POST', '/_gauntlet/v1/uploads', 'tc-uploads@1'],
-            ['POST', '/_gauntlet/v1/runs/run-1/artifacts/artifact-1/launch', 'tc-session-launch@1'],
+            ['POST', '/_gauntlet/v1/runs/run-1/cancel', 'gauntlet-run-cancellation@1'],
+            ['GET', '/_gauntlet/v1/runs/run-1/events', 'gauntlet-run-sse@1'],
+            ['POST', '/_gauntlet/v1/uploads', 'gauntlet-uploads@1'],
+            ['POST', '/_gauntlet/v1/runs/run-1/artifacts/artifact-1/launch', 'gauntlet-session-launch@1'],
         ] as [$method, $uri, $capability]) {
             $client->request($method, $uri, content: '{not-json');
             self::assertResponseStatusCodeSame(501);
@@ -621,7 +621,7 @@ final class AdapterHttpTest extends BundleWebTestCase
         self::assertSame('urn:gauntlet:problem:adapter-internal-error', $problem['type']);
         self::assertSame('Adapter internal error', $problem['title']);
         self::assertSame(500, $problem['status']);
-        self::assertMatchesRegularExpression('/^tc-[a-f0-9]{24}$/D', $problem['correlationId']);
+        self::assertMatchesRegularExpression('/^gauntlet-[a-f0-9]{24}$/D', $problem['correlationId']);
         self::assertStringNotContainsString('not-a-data-source-item', (string) $response->getContent());
         self::assertStringNotContainsString('forbidden-cursor', (string) $response->getContent());
     }

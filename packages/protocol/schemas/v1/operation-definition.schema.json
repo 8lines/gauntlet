@@ -216,7 +216,7 @@
       "type": "object",
       "required": ["profile", "root"],
       "properties": {
-        "profile": { "const": "tc-rich-forms@1" },
+        "profile": { "const": "gauntlet-rich-forms@1" },
         "root": { "$ref": "#/$defs/uiNode" },
         "extensions": { "$ref": "./common.schema.json#/$defs/extensions" }
       },
@@ -307,7 +307,7 @@
       "type": "object",
       "required": ["profile"],
       "properties": {
-        "profile": { "const": "tc-rich-results@1" },
+        "profile": { "const": "gauntlet-rich-results@1" },
         "defaultView": { "enum": ["summary", "details", "artifacts"] }
       },
       "additionalProperties": false

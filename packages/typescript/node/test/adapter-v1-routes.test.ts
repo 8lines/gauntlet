@@ -112,9 +112,9 @@ test("every successful response family is validated again before serialization",
   const cases: readonly {
     readonly name: string;
     readonly capabilities?: readonly (
-      | "tc-run-cancellation@1"
-      | "tc-uploads@1"
-      | "tc-session-launch@1"
+      | "gauntlet-run-cancellation@1"
+      | "gauntlet-uploads@1"
+      | "gauntlet-session-launch@1"
     )[];
     readonly replace: (catalog: ReturnType<typeof createFixtureCatalog>["catalog"]) => void;
     readonly request: () => ReturnType<typeof boundary>;
@@ -226,7 +226,7 @@ test("every successful response family is validated again before serialization",
     },
     {
       name: "cancelled run",
-      capabilities: ["tc-run-cancellation@1"],
+      capabilities: ["gauntlet-run-cancellation@1"],
       replace: (catalog) => {
         catalog.cancelRun = async () => ({
           ok: true,
@@ -237,7 +237,7 @@ test("every successful response family is validated again before serialization",
     },
     {
       name: "upload response",
-      capabilities: ["tc-uploads@1"],
+      capabilities: ["gauntlet-uploads@1"],
       replace: (catalog) => {
         catalog.createUpload = async () => ({
           ok: true,
@@ -262,7 +262,7 @@ test("every successful response family is validated again before serialization",
     },
     {
       name: "session-launch response",
-      capabilities: ["tc-session-launch@1"],
+      capabilities: ["gauntlet-session-launch@1"],
       replace: (catalog) => {
         catalog.launchSession = async () => ({
           ok: true,
@@ -298,7 +298,7 @@ test("every successful response family is validated again before serialization",
 test("invalid catalog Problems fail closed without echoing provider data", async () => {
   const cases: readonly {
     readonly name: string;
-    readonly capabilities?: readonly "tc-run-cancellation@1"[];
+    readonly capabilities?: readonly "gauntlet-run-cancellation@1"[];
     readonly replace: (catalog: ReturnType<typeof createFixtureCatalog>["catalog"]) => void;
     readonly request: () => ReturnType<typeof boundary>;
   }[] = [
@@ -326,7 +326,7 @@ test("invalid catalog Problems fail closed without echoing provider data", async
             type: "urn:gauntlet:problem:unsupported-capability",
             title: "Unsupported capability",
             status: 501,
-            capability: "tc-run-cancellation@1",
+            capability: "gauntlet-run-cancellation@1",
             hostile: hostileResponseSentinel,
           },
         } as never);
@@ -335,7 +335,7 @@ test("invalid catalog Problems fail closed without echoing provider data", async
     },
     {
       name: "capability dispatch",
-      capabilities: ["tc-run-cancellation@1"],
+      capabilities: ["gauntlet-run-cancellation@1"],
       replace: (catalog) => {
         catalog.cancelRun = async () => ({
           ok: false,
@@ -343,7 +343,7 @@ test("invalid catalog Problems fail closed without echoing provider data", async
             type: "urn:gauntlet:problem:unsupported-capability",
             title: "Unsupported capability",
             status: 501,
-            capability: "tc-run-cancellation@1",
+            capability: "gauntlet-run-cancellation@1",
             hostile: hostileResponseSentinel,
           },
         } as never);
@@ -405,7 +405,7 @@ test("schema-valid catalog Problems are normalized before they cross HTTP", asyn
 });
 
 test("cancellation policy conflicts cross HTTP as fixed 409 Problems", async () => {
-  const fixture = createFixtureCatalog({ capabilities: ["tc-run-cancellation@1"] });
+  const fixture = createFixtureCatalog({ capabilities: ["gauntlet-run-cancellation@1"] });
   fixture.catalog.cancelRun = async () => ({
     ok: false,
     problem: {
@@ -440,7 +440,7 @@ test("operation definitions must match the complete manifest summary identity", 
     },
     {
       name: "requirements",
-      change: { requirements: { profiles: ["tc-schema-core@1"] } },
+      change: { requirements: { profiles: ["gauntlet-schema-core@1"] } },
     },
   ] as const;
 
@@ -504,14 +504,14 @@ test("Run responses enforce output schemas and manifest action references", asyn
     },
     {
       name: "cancel",
-      capabilities: ["tc-run-cancellation@1"] as const,
+      capabilities: ["gauntlet-run-cancellation@1"] as const,
       prepare: () => {},
       request: () => boundary("POST", "/_gauntlet/v1/runs/run-1/cancel"),
       stream: false,
     },
     {
       name: "SSE",
-      capabilities: ["tc-run-sse@1"] as const,
+      capabilities: ["gauntlet-run-sse@1"] as const,
       prepare: () => {},
       request: () => boundary("GET", "/_gauntlet/v1/runs/run-1/events"),
       stream: true,
@@ -640,7 +640,7 @@ test("Run responses validate invoke-operation input against the target definitio
 });
 
 test("an invalid SSE event aborts the stream without serializing provider data", async () => {
-  const fixture = createFixtureCatalog({ capabilities: ["tc-run-sse@1"] });
+  const fixture = createFixtureCatalog({ capabilities: ["gauntlet-run-sse@1"] });
   let producerClosed = false;
   fixture.catalog.runEvents = async () => ({
     ok: true,
@@ -675,7 +675,7 @@ test("an invalid SSE event aborts the stream without serializing provider data",
 });
 
 test("SSE rejects regressing snapshots and closes the provider", async () => {
-  const fixture = createFixtureCatalog({ capabilities: ["tc-run-sse@1"] });
+  const fixture = createFixtureCatalog({ capabilities: ["gauntlet-run-sse@1"] });
   let producerClosed = false;
   fixture.catalog.runEvents = async () => ({
     ok: true,
@@ -736,7 +736,7 @@ test("failed Run problem sanitization is deterministic for immutable snapshot re
 });
 
 test("session launch rejects an otherwise valid response beyond the 15 minute TTL", async () => {
-  const fixture = createFixtureCatalog({ capabilities: ["tc-session-launch@1"] });
+  const fixture = createFixtureCatalog({ capabilities: ["gauntlet-session-launch@1"] });
   fixture.catalog.launchSession = async () => ({
     ok: true,
     value: {
@@ -757,10 +757,10 @@ test("optional preflight wins before body parsing and installed endpoints use ca
   const absentFixture = createFixtureCatalog();
   const absent = createAdapterFetchHandler({ enabled: true, catalog: absentFixture.catalog });
   for (const [method, target, capability] of [
-    ["POST", "/_gauntlet/v1/runs/run-1/cancel", "tc-run-cancellation@1"],
-    ["GET", "/_gauntlet/v1/runs/run-1/events", "tc-run-sse@1"],
-    ["POST", "/_gauntlet/v1/uploads", "tc-uploads@1"],
-    ["POST", "/_gauntlet/v1/runs/run-1/artifacts/artifact-1/launch", "tc-session-launch@1"],
+    ["POST", "/_gauntlet/v1/runs/run-1/cancel", "gauntlet-run-cancellation@1"],
+    ["GET", "/_gauntlet/v1/runs/run-1/events", "gauntlet-run-sse@1"],
+    ["POST", "/_gauntlet/v1/uploads", "gauntlet-uploads@1"],
+    ["POST", "/_gauntlet/v1/runs/run-1/artifacts/artifact-1/launch", "gauntlet-session-launch@1"],
   ] as const) {
     const response = await absent(boundary(method, target, method === "GET" ? undefined : "not multipart"));
     assert.equal(response.status, 501);
@@ -771,10 +771,10 @@ test("optional preflight wins before body parsing and installed endpoints use ca
 
   const fixture = createFixtureCatalog({
     capabilities: [
-      "tc-run-cancellation@1",
-      "tc-run-sse@1",
-      "tc-uploads@1",
-      "tc-session-launch@1",
+      "gauntlet-run-cancellation@1",
+      "gauntlet-run-sse@1",
+      "gauntlet-uploads@1",
+      "gauntlet-session-launch@1",
     ],
   });
   const handler = createAdapterFetchHandler({
@@ -804,7 +804,7 @@ test("optional preflight wins before body parsing and installed endpoints use ca
 });
 
 test("SSE rejects an invalid Last-Event-ID before provider dispatch", async () => {
-  const fixture = createFixtureCatalog({ capabilities: ["tc-run-sse@1"] });
+  const fixture = createFixtureCatalog({ capabilities: ["gauntlet-run-sse@1"] });
   let dispatches = 0;
   fixture.catalog.runEvents = async () => {
     dispatches += 1;

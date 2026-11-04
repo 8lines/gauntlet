@@ -28,7 +28,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import tools.jackson.databind.ObjectMapper;
 
-/** Strict local loader and materializer for {@code tc-adapter-semantic-vectors@1}. */
+/** Strict local loader and materializer for {@code gauntlet-adapter-semantic-vectors@1}. */
 final class SemanticVectorLoader {
   private static final String ARTIFACT_NAME = "adapter-semantic-vectors.json";
   private static final String SCHEMA_NAME = "adapter-semantic-vectors.schema.json";
@@ -421,10 +421,10 @@ final class SemanticVectorLoader {
 
   private static void assertGlobalIntegrity(Loaded loaded) {
     JsonObject artifact = loaded.artifact;
-    requireEquals(artifact, "format", "tc-adapter-semantic-vectors@1");
+    requireEquals(artifact, "format", "gauntlet-adapter-semantic-vectors@1");
     requireEquals(artifact, "patchProfile", "rfc6902-test-subset@1");
-    requireEquals(artifact, "presetAssemblyProfile", "tc-preset-operation@1");
-    requireEquals(artifact, "workloadProfile", "tc-preset-workloads@1");
+    requireEquals(artifact, "presetAssemblyProfile", "gauntlet-preset-operation@1");
+    requireEquals(artifact, "workloadProfile", "gauntlet-preset-workloads@1");
     List<JsonObject> documents = objects(artifact.get("documentVectors"));
     List<JsonObject> suites = objects(artifact.get("presetSuites"));
     List<JsonObject> workloads = objects(artifact.get("workloads"));

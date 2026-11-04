@@ -91,7 +91,7 @@ export const destructiveOperation = operationWithRevision({
   },
   inputHandling: undefined,
   uiSchema: {
-    profile: "tc-rich-forms@1",
+    profile: "gauntlet-rich-forms@1",
     root: {
       type: "field",
       pointer: "/roles",
@@ -150,7 +150,7 @@ export const desktopOperation = operationWithRevision({
     }],
   },
   uiSchema: {
-    profile: "tc-rich-forms@1",
+    profile: "gauntlet-rich-forms@1",
     root: {
       type: "field",
       pointer: "/attachment",
@@ -186,7 +186,7 @@ export const followUpOperation = operationWithRevision({
   },
   inputHandling: undefined,
   uiSchema: {
-    profile: "tc-rich-forms@1",
+    profile: "gauntlet-rich-forms@1",
     root: {
       type: "field",
       pointer: "/email",
@@ -213,7 +213,7 @@ export const followUpInput = Object.freeze({ email: "next@acme.test" });
 
 function manifestFor(operations: readonly OperationDefinition[]): AdapterManifest {
   const { manifestRevision: _revision, ...canonical } = structuredClone(manifestDocument);
-  const capabilities = [...new Set([...canonical.capabilities, "tc-run-cancellation@1"])] as AdapterManifest["capabilities"];
+  const capabilities = [...new Set([...canonical.capabilities, "gauntlet-run-cancellation@1"])] as AdapterManifest["capabilities"];
   const draft = {
     ...canonical,
     capabilities,

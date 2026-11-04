@@ -2,7 +2,7 @@ import type { CapabilityId, CoreCapabilityId } from "@8lines/gauntlet-protocol";
 import type { RunCancellationEndpoint, RunEventsEndpoint, SessionLaunchEndpoint, UploadEndpoint } from "./capability-endpoints.js";
 
 export interface CapabilityProvider { readonly id: CapabilityId; }
-const core = new Set<CoreCapabilityId>(["tc-uploads@1", "tc-run-cancellation@1", "tc-run-sse@1", "tc-session-launch@1"]);
+const core = new Set<CoreCapabilityId>(["gauntlet-uploads@1", "gauntlet-run-cancellation@1", "gauntlet-run-sse@1", "gauntlet-session-launch@1"]);
 
 export class CapabilityRegistry {
   #cancel?: RunCancellationEndpoint;
@@ -25,8 +25,8 @@ export class CapabilityRegistry {
   sessionLaunch(): SessionLaunchEndpoint | undefined { return this.#sessions; }
   ids(): readonly CapabilityId[] {
     return [
-      ...(this.#cancel ? ["tc-run-cancellation@1" as const] : []), ...(this.#events ? ["tc-run-sse@1" as const] : []),
-      ...(this.#uploads ? ["tc-uploads@1" as const] : []), ...(this.#sessions ? ["tc-session-launch@1" as const] : []), ...this.#providers.keys(),
+      ...(this.#cancel ? ["gauntlet-run-cancellation@1" as const] : []), ...(this.#events ? ["gauntlet-run-sse@1" as const] : []),
+      ...(this.#uploads ? ["gauntlet-uploads@1" as const] : []), ...(this.#sessions ? ["gauntlet-session-launch@1" as const] : []), ...this.#providers.keys(),
     ].sort();
   }
 }

@@ -118,7 +118,7 @@ class UnavailableOperationPreflightHttpTest {
       label = "Missing profile",
       input = FinalizeInput.class,
       idempotency = Idempotency.OPTIONAL,
-      requiredProfiles = {"tc-schema-core@1", "tc-rich-forms@1"})
+      requiredProfiles = {"gauntlet-schema-core@1", "gauntlet-rich-forms@1"})
   static final class MissingProfileOperation implements TypedOperationHandler<FinalizeInput> {
     private final AtomicInteger invocations = new AtomicInteger();
 
@@ -139,7 +139,7 @@ class UnavailableOperationPreflightHttpTest {
       label = "Missing capability",
       input = FinalizeInput.class,
       idempotency = Idempotency.OPTIONAL,
-      requiredCapabilities = "tc-uploads@1")
+      requiredCapabilities = "gauntlet-uploads@1")
   static final class MissingCapabilityOperation implements TypedOperationHandler<FinalizeInput> {
     private final AtomicInteger invocations = new AtomicInteger();
 

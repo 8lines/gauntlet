@@ -31,7 +31,7 @@ public final class NetworkntSchemaValidator implements SchemaValidator {
 
   @Override
   public List<ValidationError> validate(JsonObject schemaDocument, JsonValue instance) {
-    TcSchemaCore.assertValid(schemaDocument, false);
+    GauntletSchemaCore.assertValid(schemaDocument, false);
     try {
       Schema schema =
           registry.getSchema(CanonicalJson.encodeString(schemaDocument), InputFormat.JSON);

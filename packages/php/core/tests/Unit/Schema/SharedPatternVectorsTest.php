@@ -9,17 +9,17 @@ use PHPUnit\Framework\TestCase;
 
 final class SharedPatternVectorsTest extends TestCase
 {
-    private const SHA256 = '1f84ff58db9996f86a34be8a38f25287cb6122fee6023cbef149ea40a4031a09';
+    private const SHA256 = 'ef1f71cbfce75c385f2be11792fcb1d803606261aa34a32131fcbd7dc4f8ebb2';
 
     public function testEverySharedPortablePatternVector(): void
     {
-        $path = dirname(__DIR__, 6) . '/packages/protocol/fixtures/v1/tc-schema-core-pattern-vectors.json';
+        $path = dirname(__DIR__, 6) . '/packages/protocol/fixtures/v1/gauntlet-schema-core-pattern-vectors.json';
         $bytes = file_get_contents($path);
         self::assertIsString($bytes);
         self::assertSame(self::SHA256, hash('sha256', $bytes));
 
         $fixture = json_decode($bytes, true, 512, JSON_THROW_ON_ERROR);
-        self::assertSame('tc-schema-core@1', $fixture['profile']);
+        self::assertSame('gauntlet-schema-core@1', $fixture['profile']);
         self::assertSame('ecmascript-unicode-search', $fixture['semantics']);
         self::assertSame('unicode-scalar-sequences', $fixture['instanceDomain']);
         self::assertCount(113, $fixture['vectors']);

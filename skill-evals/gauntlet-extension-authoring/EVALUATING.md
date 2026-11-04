@@ -99,3 +99,4 @@ passes; never rewrite individual reviews to make a scenario aggregate uniform.
 - 2026-11-03: The workspace lock moved to vite 8.2.4 and fast-uri 3.1.9 and 4.2.3 to clear dependency advisories. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
 - 2026-11-03: The trusted Compose fixture dependency pins moved to fast-uri 3.1.9 with the workspace lock. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
 - 2026-11-04: The Java install references moved to Maven Central and the group dev.8lines.gauntlet. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.
+- 2026-11-04: The legacy tc prefix was renamed to gauntlet in protocol identifiers and bound fixtures. Hashes were re-bound to the current bytes without new model samples; this confirms content integrity, not behaviour.

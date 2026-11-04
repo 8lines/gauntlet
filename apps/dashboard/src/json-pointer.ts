@@ -27,7 +27,7 @@ export function writePointer<T>(data: T, pointer: JsonPointer, value: unknown): 
   return copy(data, 0) as T;
 }
 
-/** Evaluates a `visibleWhen` / `enabledWhen` condition from the tc-rich-forms@1 profile. */
+/** Evaluates a `visibleWhen` / `enabledWhen` condition from the gauntlet-rich-forms@1 profile. */
 export function conditionHolds(condition: UiCondition | undefined, data: unknown): boolean {
   if (condition === undefined) return true;
   switch (condition.op) {

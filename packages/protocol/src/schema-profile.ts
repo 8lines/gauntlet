@@ -123,7 +123,7 @@ function validatePortablePattern(pattern: unknown, pointer: string): void {
   try {
     assertPortablePattern(pattern);
   } catch {
-    fail(pointer, "pattern is not in the tc-schema-core@1 portable profile");
+    fail(pointer, "pattern is not in the gauntlet-schema-core@1 portable profile");
   }
 }
 
@@ -175,7 +175,7 @@ function validateSchemaShape(schema: boolean | Record<string, unknown>, pointer:
   }
 }
 
-export function assertTcSchemaCore(
+export function assertGauntletSchemaCore(
   schema: JsonObject,
   options: { requireObjectRoot?: boolean } = {},
 ): void {

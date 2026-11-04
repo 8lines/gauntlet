@@ -122,7 +122,7 @@ export function createAdapterCatalog(options: AdapterCatalogOptions): AdapterCat
   const capabilities = cloneAndDeepFreeze([
     ...new Set<CapabilityId>([
       ...options.capabilities.ids(),
-      ...(typeof managedCancel === "function" ? ["tc-run-cancellation@1" as const] : []),
+      ...(typeof managedCancel === "function" ? ["gauntlet-run-cancellation@1" as const] : []),
     ]),
   ].sort());
   const capabilitySet = new Set(capabilities);
@@ -251,12 +251,12 @@ export function createAdapterCatalog(options: AdapterCatalogOptions): AdapterCat
         }
         if (!endpoint) return { ok: false as const, problem };
       }
-      if (!endpoint) return { ok: false as const, problem: unavailable("tc-run-cancellation@1") };
+      if (!endpoint) return { ok: false as const, problem: unavailable("gauntlet-run-cancellation@1") };
       return { ok: true as const, value: ownCanonicalRun(await endpoint.cancel(id)) };
     },
     runEvents: async (id, lastEventId) => {
       const endpoint = options.capabilities.events();
-      if (!endpoint) return { ok: false as const, problem: unavailable("tc-run-sse@1") };
+      if (!endpoint) return { ok: false as const, problem: unavailable("gauntlet-run-sse@1") };
       const events = endpoint.events(id, lastEventId);
       return {
         ok: true as const,
@@ -269,13 +269,13 @@ export function createAdapterCatalog(options: AdapterCatalogOptions): AdapterCat
       const endpoint = options.capabilities.uploads();
       return endpoint
         ? { ok: true as const, value: ownCanonicalUploadResponse(await endpoint.create(file)) }
-        : { ok: false as const, problem: unavailable("tc-uploads@1") };
+        : { ok: false as const, problem: unavailable("gauntlet-uploads@1") };
     },
     launchSession: async (runId, artifactId) => {
       const endpoint = options.capabilities.sessionLaunch();
       return endpoint
         ? { ok: true as const, value: ownCanonicalSessionLaunchResponse(await endpoint.create(runId, artifactId)) }
-        : { ok: false as const, problem: unavailable("tc-session-launch@1") };
+        : { ok: false as const, problem: unavailable("gauntlet-session-launch@1") };
     },
   };
   return Object.freeze(catalog);

@@ -15,7 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
       "gauntlet.application.label=Fixture application",
       "gauntlet.application.environment.name=fixture-test",
       "gauntlet.application.environment.kind=test",
-      "gauntlet.profiles=tc-schema-core@1,tc-rich-forms@1"
+      "gauntlet.profiles=gauntlet-schema-core@1,gauntlet-rich-forms@1"
     })
 class SpringAdapterCatalogTest {
   @Autowired GauntletProperties properties;
@@ -35,7 +35,8 @@ class SpringAdapterCatalogTest {
   void manifestProfilesAreExactlyTheConfiguredProfilesWithoutPlacements() {
     assertThat(catalog.manifest().operations())
         .allSatisfy(summary -> assertThat(summary.placements()).isEmpty());
-    assertThat(properties.profiles()).containsExactly("tc-rich-forms@1", "tc-schema-core@1");
+    assertThat(properties.profiles())
+        .containsExactly("gauntlet-rich-forms@1", "gauntlet-schema-core@1");
     assertThat(catalog.manifest().profiles()).containsExactlyElementsOf(properties.profiles());
   }
 

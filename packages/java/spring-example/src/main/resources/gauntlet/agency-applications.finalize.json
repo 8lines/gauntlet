@@ -1,13 +1,13 @@
 {
   "id": "agency-applications.finalize",
-  "revision": "sha256:ef1bc695367770928c54f4cbf35ddcba25d7f47a4a95afb56ee39af1ff4cb9e6",
+  "revision": "sha256:140f71c06d393ebb68c4f433f26280df611faeceb7589ece5d37642aa7d128ac",
   "label": "Finalize agency application",
   "featureId": "agency-applications",
   "description": "Finalize one pending agency application.",
   "order": 10,
   "tags": ["agency", "workflow"],
   "requirements": {
-    "profiles": ["tc-rich-forms@1", "tc-rich-results@1", "tc-schema-core@1"]
+    "profiles": ["gauntlet-rich-forms@1", "gauntlet-rich-results@1", "gauntlet-schema-core@1"]
   },
   "placements": [
     {
@@ -88,7 +88,7 @@
     "additionalProperties": false
   },
   "uiSchema": {
-    "profile": "tc-rich-forms@1",
+    "profile": "gauntlet-rich-forms@1",
     "root": {
       "type": "group",
       "label": "Finalize application",
@@ -131,7 +131,7 @@
       "additionalProperties": false
     },
     "presentation": {
-      "profile": "tc-rich-results@1",
+      "profile": "gauntlet-rich-results@1",
       "defaultView": "summary"
     }
   }

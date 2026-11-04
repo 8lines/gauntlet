@@ -13,7 +13,7 @@ import {
 import { assertEndpointDocument } from "./schema-validator.js";
 
 const MAX_SCENARIO_BYTES = 4 * 1024 * 1024;
-const FORMAT = "tc-adapter-v1-extended@1";
+const FORMAT = "gauntlet-adapter-v1-extended@1";
 const REVISION_PLACEHOLDER = `sha256:${"0".repeat(64)}`;
 
 interface InvocationCase {

@@ -105,10 +105,10 @@ export type SemanticWorkload = {
 
 export type SemanticVectorArtifact = {
   readonly $schema: string;
-  readonly format: "tc-adapter-semantic-vectors@1";
+  readonly format: "gauntlet-adapter-semantic-vectors@1";
   readonly patchProfile: "rfc6902-test-subset@1";
-  readonly presetAssemblyProfile: "tc-preset-operation@1";
-  readonly workloadProfile: "tc-preset-workloads@1";
+  readonly presetAssemblyProfile: "gauntlet-preset-operation@1";
+  readonly workloadProfile: "gauntlet-preset-workloads@1";
   readonly sourceFixtures: readonly {
     readonly id: "manifest" | "operation" | "resolve-request" | "resolve-response";
     readonly file: string;

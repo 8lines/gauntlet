@@ -26,15 +26,15 @@ final class CapabilityRegistryTest extends TestCase
             sessionLaunchEndpoints: [$session],
         );
 
-        self::assertSame(['tc-session-launch@1', 'urn-fixture@1'], $registry->capabilities());
-        self::assertSame($session, $registry->endpoint('tc-session-launch@1'));
+        self::assertSame(['gauntlet-session-launch@1', 'urn-fixture@1'], $registry->capabilities());
+        self::assertSame($session, $registry->endpoint('gauntlet-session-launch@1'));
         self::assertSame([], $registry->diagnostics());
     }
 
     public function testGenericProviderCannotClaimCoreCapability(): void
     {
         $registry = new CapabilityRegistry(
-            providers: [new FutureCapabilityFixture('tc-run-cancellation@1')],
+            providers: [new FutureCapabilityFixture('gauntlet-run-cancellation@1')],
             cancelEndpoints: [],
             eventEndpoints: [],
             uploadEndpoints: [],
@@ -56,7 +56,7 @@ final class CapabilityRegistryTest extends TestCase
         );
 
         self::assertSame([], $registry->capabilities());
-        self::assertNull($registry->endpoint('tc-run-cancellation@1'));
+        self::assertNull($registry->endpoint('gauntlet-run-cancellation@1'));
         self::assertSame('duplicate_capability_endpoint', $registry->diagnostics()[0]->code);
     }
 
@@ -88,10 +88,10 @@ final class CapabilityRegistryTest extends TestCase
         );
 
         self::assertSame([], $registry->capabilities());
-        self::assertNull($registry->endpoint('tc-run-cancellation@1'));
-        self::assertNull($registry->endpoint('tc-run-sse@1'));
-        self::assertNull($registry->endpoint('tc-uploads@1'));
-        self::assertNull($registry->endpoint('tc-session-launch@1'));
+        self::assertNull($registry->endpoint('gauntlet-run-cancellation@1'));
+        self::assertNull($registry->endpoint('gauntlet-run-sse@1'));
+        self::assertNull($registry->endpoint('gauntlet-uploads@1'));
+        self::assertNull($registry->endpoint('gauntlet-session-launch@1'));
         self::assertCount(4, $registry->diagnostics());
         self::assertSame('invalid_capability_endpoint', $registry->diagnostics()[0]->code);
         self::assertSame(

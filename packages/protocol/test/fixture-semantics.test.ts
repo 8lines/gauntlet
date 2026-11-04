@@ -4,13 +4,13 @@ import { test } from "node:test";
 import type { ValidateFunction } from "ajv";
 import Ajv2020 from "ajv/dist/2020.js";
 import { computeRevision } from "../src/revision.js";
-import { assertTcSchemaCore } from "../src/schema-profile.js";
+import { assertGauntletSchemaCore } from "../src/schema-profile.js";
 import type { JsonObject } from "../src/types.js";
 
-const OPERATION_REVISION = "sha256:2e301a636fb48d2bec64fc7e91b62d8a45e47af3a28f665b6b809f6a4b19d9e8";
-const MANIFEST_REVISION = "sha256:bd7df155fca5ce7504431416bdd0c7562255fcc238af5aade4eb0d557cf2a9cd";
+const OPERATION_REVISION = "sha256:ea955d5ed2fcff2e0b9274e05b0f2e9f09bd6305ffcb3169c51ef80e0b873662";
+const MANIFEST_REVISION = "sha256:e3eb79349264ab4254fbb91b4409e5e1132fdd5c760a6bc1a7a9bb34b885b64f";
 const MINOR_FORWARD_MANIFEST_REVISION =
-  "sha256:33f8e78bd95af05e886a747771876584eb3fe1080377e7fe4397524d628f25b6";
+  "sha256:14c1e76d94972d7e159e2a721e36f1ab8b8d8d35daf7a7f266d3ca6530057dd7";
 
 interface OperationFixture extends JsonObject {
   readonly revision: string;
@@ -58,7 +58,7 @@ async function fixture<T extends JsonObject>(name: string): Promise<T> {
 }
 
 function compileObjectSchema(schema: JsonObject): ValidateFunction {
-  assertTcSchemaCore(schema, { requireObjectRoot: true });
+  assertGauntletSchemaCore(schema, { requireObjectRoot: true });
   return new Ajv2020({ strict: true, validateFormats: false }).compile(schema);
 }
 

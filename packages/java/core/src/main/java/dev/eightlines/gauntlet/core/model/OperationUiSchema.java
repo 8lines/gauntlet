@@ -8,7 +8,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-/** Validated {@code tc-rich-forms@1} UI tree. */
+/** Validated {@code gauntlet-rich-forms@1} UI tree. */
 public record OperationUiSchema(String profile, JsonObject root, JsonObject extensions) {
   private static final Set<String> BUILT_IN_WIDGETS =
       Set.of(
@@ -31,7 +31,7 @@ public record OperationUiSchema(String profile, JsonObject root, JsonObject exte
       Pattern.compile("^urn:[A-Za-z0-9][A-Za-z0-9:._/-]*$");
 
   public OperationUiSchema {
-    if (!"tc-rich-forms@1".equals(profile)) {
+    if (!"gauntlet-rich-forms@1".equals(profile)) {
       throw new IllegalArgumentException("unsupported UI profile");
     }
     root = Objects.requireNonNull(root, "root");

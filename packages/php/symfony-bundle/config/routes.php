@@ -45,21 +45,21 @@ return static function (RoutingConfigurator $routes): void {
 
     $routes->add('gauntlet_v1_cancel_run', '/_gauntlet/v1/runs/{runId}/cancel')
         ->controller(CapabilityAction::class)
-        ->defaults(['capability' => 'tc-run-cancellation@1'])
+        ->defaults(['capability' => 'gauntlet-run-cancellation@1'])
         ->requirements(['runId' => $id])
         ->methods(['POST']);
     $routes->add('gauntlet_v1_run_events', '/_gauntlet/v1/runs/{runId}/events')
         ->controller(CapabilityAction::class)
-        ->defaults(['capability' => 'tc-run-sse@1'])
+        ->defaults(['capability' => 'gauntlet-run-sse@1'])
         ->requirements(['runId' => $id])
         ->methods(['GET']);
     $routes->add('gauntlet_v1_upload', '/_gauntlet/v1/uploads')
         ->controller(CapabilityAction::class)
-        ->defaults(['capability' => 'tc-uploads@1'])
+        ->defaults(['capability' => 'gauntlet-uploads@1'])
         ->methods(['POST']);
     $routes->add('gauntlet_v1_session_launch', '/_gauntlet/v1/runs/{runId}/artifacts/{artifactId}/launch')
         ->controller(CapabilityAction::class)
-        ->defaults(['capability' => 'tc-session-launch@1'])
+        ->defaults(['capability' => 'gauntlet-session-launch@1'])
         ->requirements(['runId' => $id, 'artifactId' => $id])
         ->methods(['POST']);
 };

@@ -106,8 +106,8 @@ final class SymfonyAdapterCatalog
                 static fn (string $capability): bool => !isset($capabilitySet[$capability]),
             ));
             if (($definition->inputHandling?->hasFiles() ?? false)
-                && !isset($capabilitySet['tc-uploads@1'])) {
-                $missingCapabilities[] = 'tc-uploads@1';
+                && !isset($capabilitySet['gauntlet-uploads@1'])) {
+                $missingCapabilities[] = 'gauntlet-uploads@1';
             }
             if ($missingProfiles === [] && $missingCapabilities === []) {
                 $summary = OperationSummary::available($definition);

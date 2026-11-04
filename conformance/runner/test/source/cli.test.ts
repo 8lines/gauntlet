@@ -69,7 +69,7 @@ test("every runner flag grammar failure is exact usage with exit 2 and no stdout
 });
 
 test("a symlinked runner bin still executes while ordinary imports stay side-effect free", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "tc-bin-link-"));
+  const directory = await mkdtemp(join(tmpdir(), "gauntlet-bin-link-"));
   const link = join(directory, "gauntlet-conformance.ts");
   try {
     await symlink(join(process.cwd(), "src/cli.ts"), link);

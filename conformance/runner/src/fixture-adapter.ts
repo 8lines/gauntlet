@@ -117,7 +117,7 @@ function buildDocuments(scenario: AdapterV1Scenario, sessionEnabled: boolean): F
         },
         additionalProperties: false,
       },
-      presentation: { profile: "tc-rich-results@1", defaultView: "summary" },
+      presentation: { profile: "gauntlet-rich-results@1", defaultView: "summary" },
     },
   };
   const operation = {
@@ -181,10 +181,10 @@ function buildDocuments(scenario: AdapterV1Scenario, sessionEnabled: boolean): F
   const manifestWithoutRevision = {
     protocolVersion: "1.0",
     schemaDialect: "https://json-schema.org/draft/2020-12/schema",
-    profiles: unique(["tc-schema-core@1", "tc-rich-forms@1", "tc-rich-results@1", ...scenario.requiredProfiles]),
+    profiles: unique(["gauntlet-schema-core@1", "gauntlet-rich-forms@1", "gauntlet-rich-results@1", ...scenario.requiredProfiles]),
     capabilities: unique([
       ...scenario.requiredCapabilities,
-      ...(sessionEnabled ? ["tc-session-launch@1"] : []),
+      ...(sessionEnabled ? ["gauntlet-session-launch@1"] : []),
     ]),
     application: {
       id: "conformance-adapter",
@@ -437,17 +437,17 @@ function makeHandler(
     }
     if (method === "POST" && path === "/_gauntlet/v1/uploads") {
       log(0, "none");
-      writeProblem(response, 501, "urn:gauntlet:problem:unsupported-capability", { capability: "tc-uploads@1" });
+      writeProblem(response, 501, "urn:gauntlet:problem:unsupported-capability", { capability: "gauntlet-uploads@1" });
       return;
     }
     if (method === "POST" && path === "/_gauntlet/v1/runs/conformance-run-01/cancel") {
       log(0, "none");
-      writeProblem(response, 501, "urn:gauntlet:problem:unsupported-capability", { capability: "tc-run-cancellation@1" });
+      writeProblem(response, 501, "urn:gauntlet:problem:unsupported-capability", { capability: "gauntlet-run-cancellation@1" });
       return;
     }
     if (method === "GET" && path === "/_gauntlet/v1/runs/conformance-run-01/events") {
       log(0, "none");
-      writeProblem(response, 501, "urn:gauntlet:problem:unsupported-capability", { capability: "tc-run-sse@1" });
+      writeProblem(response, 501, "urn:gauntlet:problem:unsupported-capability", { capability: "gauntlet-run-sse@1" });
       return;
     }
 
@@ -455,7 +455,7 @@ function makeHandler(
     if (method === "POST" && launchMatch !== null) {
       log(0, "none");
       if (mode === "session-disabled") {
-        writeProblem(response, 501, "urn:gauntlet:problem:unsupported-capability", { capability: "tc-session-launch@1" });
+        writeProblem(response, 501, "urn:gauntlet:problem:unsupported-capability", { capability: "gauntlet-session-launch@1" });
       } else if (launchMatch[1] === "conformance-run-01"
         && launchMatch[2] === scenario.browserLaunch?.artifactId
         && scenario.browserLaunch !== undefined) {

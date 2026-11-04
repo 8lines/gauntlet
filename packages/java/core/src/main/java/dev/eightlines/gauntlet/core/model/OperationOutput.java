@@ -1,17 +1,17 @@
 package dev.eightlines.gauntlet.core.model;
 
 import dev.eightlines.gauntlet.core.json.JsonObject;
-import dev.eightlines.gauntlet.core.schema.TcSchemaCore;
+import dev.eightlines.gauntlet.core.schema.GauntletSchemaCore;
 import java.util.Objects;
 import java.util.Set;
 
 public record OperationOutput(JsonObject schema, JsonObject presentation, JsonObject extensions) {
   public OperationOutput {
     schema = Objects.requireNonNull(schema, "schema");
-    TcSchemaCore.assertValid(schema, false);
+    GauntletSchemaCore.assertValid(schema, false);
     if (presentation != null) {
       if (!Set.of("profile", "defaultView").containsAll(presentation.values().keySet())
-          || !"tc-rich-results@1".equals(string(presentation, "profile"))) {
+          || !"gauntlet-rich-results@1".equals(string(presentation, "profile"))) {
         throw new IllegalArgumentException("invalid result presentation");
       }
       String defaultView = string(presentation, "defaultView");

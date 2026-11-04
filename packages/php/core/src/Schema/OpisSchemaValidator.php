@@ -25,7 +25,7 @@ final class OpisSchemaValidator implements SchemaValidator
     /** @return list<ValidationError> */
     public function validate(JsonObject $schema, JsonValue $instance): array
     {
-        TcSchemaCore::assert($schema);
+        GauntletSchemaCore::assert($schema);
         $schemaValue = JsonOwnership::transport(JsonOwnership::own($schema));
         $instanceValue = JsonOwnership::transport(JsonOwnership::own($instance));
 

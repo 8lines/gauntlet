@@ -13,7 +13,7 @@ use EightLines\Gauntlet\Core\Protocol\ProtocolRequirements;
 use EightLines\Gauntlet\Core\Protocol\ProtocolValue;
 use EightLines\Gauntlet\Core\Schema\PlacementRules;
 use EightLines\Gauntlet\Core\Schema\PresetSecretAnalyzer;
-use EightLines\Gauntlet\Core\Schema\TcSchemaCore;
+use EightLines\Gauntlet\Core\Schema\GauntletSchemaCore;
 
 final readonly class OperationDefinition
 {
@@ -48,9 +48,9 @@ final readonly class OperationDefinition
         ProtocolId::assert($id);
         ProtocolId::assert($featureId);
         ProtocolValue::assertNonBlank($label, 'Operation label');
-        TcSchemaCore::assert($inputSchema, true);
+        GauntletSchemaCore::assert($inputSchema, true);
         if ($contextSchema !== null) {
-            TcSchemaCore::assert($contextSchema, true);
+            GauntletSchemaCore::assert($contextSchema, true);
         }
         self::assertDefinitions($dataSources, DataSourceReference::class, 'data source reference');
         self::assertDefinitions($presets, OperationPreset::class, 'operation preset');

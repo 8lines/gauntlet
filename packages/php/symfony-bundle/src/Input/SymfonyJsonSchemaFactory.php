@@ -6,7 +6,7 @@ namespace EightLines\Gauntlet\SymfonyBundle\Input;
 
 use EightLines\Gauntlet\Core\Json\JsonObject;
 use EightLines\Gauntlet\Core\Json\JsonOwnership;
-use EightLines\Gauntlet\Core\Schema\TcSchemaCore;
+use EightLines\Gauntlet\Core\Schema\GauntletSchemaCore;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -51,7 +51,7 @@ final class SymfonyJsonSchemaFactory
         }
 
         $schema = [
-            '$schema' => TcSchemaCore::DIALECT,
+            '$schema' => GauntletSchemaCore::DIALECT,
             'type' => 'object',
             'properties' => $properties,
             'additionalProperties' => false,
@@ -61,7 +61,7 @@ final class SymfonyJsonSchemaFactory
         }
 
         $owned = JsonOwnership::object($schema);
-        TcSchemaCore::assert($owned, true);
+        GauntletSchemaCore::assert($owned, true);
 
         return $owned;
     }

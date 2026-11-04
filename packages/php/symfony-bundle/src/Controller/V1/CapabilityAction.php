@@ -42,10 +42,10 @@ final readonly class CapabilityAction
 
         try {
             return match ($capability) {
-                'tc-run-cancellation@1' => $this->cancel($endpoint, $runId),
-                'tc-run-sse@1' => $this->events($endpoint, $request, $runId),
-                'tc-uploads@1' => $this->upload($endpoint, $request),
-                'tc-session-launch@1' => $this->launch($endpoint, $runId, $artifactId),
+                'gauntlet-run-cancellation@1' => $this->cancel($endpoint, $runId),
+                'gauntlet-run-sse@1' => $this->events($endpoint, $request, $runId),
+                'gauntlet-uploads@1' => $this->upload($endpoint, $request),
+                'gauntlet-session-launch@1' => $this->launch($endpoint, $runId, $artifactId),
                 default => ($this->unsupported)($capability),
             };
         } catch (\Throwable) {
@@ -61,7 +61,7 @@ final readonly class CapabilityAction
         $result = $endpoint->cancel($runId);
 
         return $result instanceof Problem
-            ? $this->problems->create($result, expectedCapability: 'tc-run-cancellation@1')
+            ? $this->problems->create($result, expectedCapability: 'gauntlet-run-cancellation@1')
             : $this->responses->json($this->responseValidator->run($result, $runId), 202);
     }
 
@@ -77,7 +77,7 @@ final readonly class CapabilityAction
         }
         $events = $endpoint->events($runId, $lastEventId);
         if ($events instanceof Problem) {
-            return $this->problems->create($events, expectedCapability: 'tc-run-sse@1');
+            return $this->problems->create($events, expectedCapability: 'gauntlet-run-sse@1');
         }
 
         return $this->eventStream->create($events, $runId);
@@ -95,7 +95,7 @@ final readonly class CapabilityAction
         $result = $endpoint->upload($file);
 
         return $result instanceof Problem
-            ? $this->problems->create($result, expectedCapability: 'tc-uploads@1')
+            ? $this->problems->create($result, expectedCapability: 'gauntlet-uploads@1')
             : $this->responses->json($this->responseValidator->upload($result), 201);
     }
 
@@ -107,7 +107,7 @@ final readonly class CapabilityAction
         $result = $endpoint->launch($runId, $artifactId);
 
         return $result instanceof Problem
-            ? $this->problems->create($result, expectedCapability: 'tc-session-launch@1')
+            ? $this->problems->create($result, expectedCapability: 'gauntlet-session-launch@1')
             : $this->responses->json($this->responseValidator->session($result), 201);
     }
 }

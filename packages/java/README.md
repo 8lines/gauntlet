@@ -60,7 +60,7 @@ final class FinalizeOperation implements TypedOperationHandler<FinalizeInput> {
 
 `TypedDataSource` supplies cursor query and ordered resolve behavior. The
 starter installs a `CancelRunEndpoint` backed by Core's run manager, so
-`tc-run-cancellation@1` is available without application glue; one application
+`gauntlet-run-cancellation@1` is available without application glue; one application
 `CancelRunEndpoint` bean replaces that bridge. The remaining optional HTTP
 capabilities are advertised only when exactly one matching SPI bean exists:
 `RunEventsEndpoint`, `UploadEndpoint`, or `SessionLaunchEndpoint`.
@@ -139,7 +139,7 @@ custom output presentation, set `definitionResource` on the annotation:
 Resources are loaded only from the application classpath. A local JSON Pointer
 fragment such as `gauntlet/operations.json#/finalize` is supported. Absolute
 paths, URLs, filesystem fallback, traversal, unreadable resources, mismatched
-annotation identity, invalid `tc-schema-core@1` documents, or incorrect JCS
+annotation identity, invalid `gauntlet-schema-core@1` documents, or incorrect JCS
 revisions fail closed and never become executable. Data sources offer the
 analogous `definitionResource`, `dependencySchemaResource`, and
 `contextSchemaResource` attributes.
@@ -159,11 +159,11 @@ gauntlet:
       name: example-app-staging
       kind: staging
   profiles:
-    - tc-rich-forms@1
+    - gauntlet-rich-forms@1
   idempotency-secret: ${GAUNTLET_IDEMPOTENCY_SECRET}
 ```
 
-`tc-schema-core@1` is always included. Additional `profiles` must be genuine
+`gauntlet-schema-core@1` is always included. Additional `profiles` must be genuine
 implemented profile IDs; capabilities are SPI-derived only. Spring
 configuration metadata is generated for the typed properties and augmented
 with the secret contract under `META-INF/spring-configuration-metadata.json`.

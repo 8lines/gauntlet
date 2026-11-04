@@ -15,7 +15,7 @@ use EightLines\Gauntlet\Core\Json\JsonOwnership;
 use EightLines\Gauntlet\Core\Manifest\ManifestBuilder;
 use EightLines\Gauntlet\Core\Protocol\EnvironmentDescriptor;
 use EightLines\Gauntlet\Core\Schema\PlacementRules;
-use EightLines\Gauntlet\Core\Schema\TcSchemaCore;
+use EightLines\Gauntlet\Core\Schema\GauntletSchemaCore;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -78,13 +78,13 @@ final class OperationPlacementTest extends TestCase
         $environment = EnvironmentDescriptor::fromProtocolValue(['name' => 'fixture-test', 'kind' => 'test']);
         $features = [new FeatureDefinition('test', 'Test')];
         $placed = [self::operation([OperationPlacement::global()])];
-        foreach ([['tc-schema-core@1'], ['tc-schema-core@1', PlacementRules::PROFILE]] as $profiles) {
+        foreach ([['gauntlet-schema-core@1'], ['gauntlet-schema-core@1', PlacementRules::PROFILE]] as $profiles) {
             $manifest = (new ManifestBuilder('fixture', 'Fixture', $profiles, $environment))
                 ->build($features, $placed, [])->toProtocolArray();
             self::assertSame(1, count(array_keys($manifest['profiles'], PlacementRules::PROFILE, true)));
             self::assertSame([['kind' => 'global']], $manifest['operations'][0]['placements']);
         }
-        $plain = (new ManifestBuilder('fixture', 'Fixture', ['tc-schema-core@1'], $environment))
+        $plain = (new ManifestBuilder('fixture', 'Fixture', ['gauntlet-schema-core@1'], $environment))
             ->build($features, [self::operation([])], [])->toProtocolArray();
         self::assertNotContains(PlacementRules::PROFILE, $plain['profiles']);
     }
@@ -92,7 +92,7 @@ final class OperationPlacementTest extends TestCase
     public function testManifestKeepsConfiguredProfileOrderWithoutPlacements(): void
     {
         $environment = EnvironmentDescriptor::fromProtocolValue(['name' => 'fixture-test', 'kind' => 'test']);
-        $configured = ['tc-schema-core@1', 'tc-rich-forms@1'];
+        $configured = ['gauntlet-schema-core@1', 'gauntlet-rich-forms@1'];
         $builder = new ManifestBuilder('fixture', 'Fixture', $configured, $environment);
         $features = [new FeatureDefinition('test', 'Test')];
 
@@ -102,7 +102,7 @@ final class OperationPlacementTest extends TestCase
         $placed = $builder->build($features, [self::operation([OperationPlacement::global()])], [])->toProtocolArray();
         self::assertSame([...$configured, PlacementRules::PROFILE], $placed['profiles']);
 
-        $declared = ['tc-schema-core@1', PlacementRules::PROFILE, 'tc-rich-forms@1'];
+        $declared = ['gauntlet-schema-core@1', PlacementRules::PROFILE, 'gauntlet-rich-forms@1'];
         $explicit = (new ManifestBuilder('fixture', 'Fixture', $declared, $environment))
             ->build($features, [self::operation([OperationPlacement::global()])], [])->toProtocolArray();
         self::assertSame($declared, $explicit['profiles']);
@@ -117,7 +117,7 @@ final class OperationPlacementTest extends TestCase
             label: 'Pay',
             description: null,
             inputSchema: JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 'properties' => [
                     'orderId' => ['type' => 'string'],
@@ -133,7 +133,7 @@ final class OperationPlacementTest extends TestCase
             dataSources: [],
             presets: [],
             execution: new ExecutionPolicy(OperationImpact::READ, false, false, 'optional', false),
-            output: new OperationOutput(JsonOwnership::object(['$schema' => TcSchemaCore::DIALECT])),
+            output: new OperationOutput(JsonOwnership::object(['$schema' => GauntletSchemaCore::DIALECT])),
             placements: $placements,
         );
     }

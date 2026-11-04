@@ -105,7 +105,7 @@ function isAdapterPacket(packet: Buffer | undefined): boolean {
 export function sanitizedIngressHeaders(input: HeadersInit): Headers {
   const headers = new Headers(input);
   for (const name of [...headers.keys()]) {
-    if (name.startsWith("x-tc-") || name.startsWith("x-forwarded-")) {
+    if (name.startsWith("x-gauntlet-") || name.startsWith("x-forwarded-")) {
       headers.delete(name);
     }
   }

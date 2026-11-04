@@ -124,7 +124,7 @@ test("the deployable Symfony example contains no built-in framework or idempoten
 });
 
 test("Spring conformance forwards one generated secret through the process environment, never a Docker argument", async (t) => {
-  const sandbox = realpathSync(mkdtempSync(join(realpathSync("/tmp"), "tc-oa-spring-secret-")));
+  const sandbox = realpathSync(mkdtempSync(join(realpathSync("/tmp"), "gauntlet-oa-spring-secret-")));
   t.after(() => rmSync(sandbox, { recursive: true, force: true }));
   const artifacts = resolve(sandbox, "artifacts");
   mkdirSync(artifacts, { mode: 0o700 });
@@ -219,7 +219,7 @@ test("builds Symfony from a task-owned allowlisted context instead of the produc
 });
 
 test("stages nested Symfony and conformance inputs without copying ignored dependency trees", () => {
-  const sandbox = realpathSync(mkdtempSync(join(realpathSync("/tmp"), "tc-oa-context-test-")));
+  const sandbox = realpathSync(mkdtempSync(join(realpathSync("/tmp"), "gauntlet-oa-context-test-")));
   try {
     prepareSymfonyBuildContext(REPOSITORY_ROOT, sandbox);
     const context = join(sandbox, "symfony-context");

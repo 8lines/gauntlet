@@ -38,7 +38,7 @@ public @interface GauntletOperation {
 
   String concurrency() default "";
 
-  String[] requiredProfiles() default {"tc-schema-core@1"};
+  String[] requiredProfiles() default {"gauntlet-schema-core@1"};
 
   String[] requiredCapabilities() default {};
 

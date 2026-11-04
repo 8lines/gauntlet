@@ -4,7 +4,7 @@
 
 The application and the packages agree on versioned runtime contracts: the
 adapter protocol major (`protocolVersion` 1.x, checked by `dashboard-client`)
-with its profiles and capabilities (`tc-*@1`), and the widget channel
+with its profiles and capabilities (`gauntlet-*@1`), and the widget channel
 (`WIDGET_CHANNEL_VERSION`). Each row records a unit's current released version
 and the contract majors it implements; the `gauntlet` row records the majors
 the application supports. A package works with an application release that

@@ -21,7 +21,7 @@ final class MissingProfileOperation implements OperationHandler
         return FixtureOperationDefinitions::definition(
             'fixture.missing-profile',
             'Missing profile',
-            new ProtocolRequirements(profiles: ['tc-unknown-profile@1']),
+            new ProtocolRequirements(profiles: ['gauntlet-unknown-profile@1']),
         );
     }
 

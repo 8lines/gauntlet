@@ -11,5 +11,5 @@ gauntlet:
       name: spring-example-test
       kind: test
   profiles:
-    - tc-rich-forms@1
-    - tc-rich-results@1
+    - gauntlet-rich-forms@1
+    - gauntlet-rich-results@1

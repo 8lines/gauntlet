@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.eightlines.gauntlet.core.json.JsonObject;
 import dev.eightlines.gauntlet.core.json.JsonOwnership;
+import dev.eightlines.gauntlet.core.schema.GauntletSchemaCore;
 import dev.eightlines.gauntlet.core.schema.NetworkntSchemaValidator;
-import dev.eightlines.gauntlet.core.schema.TcSchemaCore;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
@@ -23,7 +23,7 @@ class SchemaValidatorTest {
         JsonOwnership.object(
             Map.of(
                 "$schema",
-                TcSchemaCore.DIALECT,
+                GauntletSchemaCore.DIALECT,
                 "type",
                 "object",
                 "required",
@@ -46,7 +46,7 @@ class SchemaValidatorTest {
         JsonOwnership.object(
             Map.of(
                 "$schema",
-                TcSchemaCore.DIALECT,
+                GauntletSchemaCore.DIALECT,
                 "type",
                 "object",
                 "required",
@@ -68,23 +68,28 @@ class SchemaValidatorTest {
     assertThrows(
         IllegalArgumentException.class,
         () ->
-            TcSchemaCore.assertValid(
+            GauntletSchemaCore.assertValid(
                 JsonOwnership.object(
                     Map.of(
-                        "$schema", TcSchemaCore.DIALECT, "$ref", "https://example.invalid/schema")),
+                        "$schema",
+                        GauntletSchemaCore.DIALECT,
+                        "$ref",
+                        "https://example.invalid/schema")),
                 false));
     assertThrows(
         IllegalArgumentException.class,
         () ->
-            TcSchemaCore.assertValid(
+            GauntletSchemaCore.assertValid(
                 JsonOwnership.object(
-                    Map.of("$schema", TcSchemaCore.DIALECT, "type", "object", "unknown", true)),
+                    Map.of(
+                        "$schema", GauntletSchemaCore.DIALECT, "type", "object", "unknown", true)),
                 true));
     assertThrows(
         IllegalArgumentException.class,
         () ->
-            TcSchemaCore.assertValid(
-                JsonOwnership.object(Map.of("$schema", TcSchemaCore.DIALECT, "type", "array")),
+            GauntletSchemaCore.assertValid(
+                JsonOwnership.object(
+                    Map.of("$schema", GauntletSchemaCore.DIALECT, "type", "array")),
                 true));
   }
 
@@ -94,13 +99,13 @@ class SchemaValidatorTest {
         List.of(
             JsonOwnership.object(
                 Map.of(
-                    "$schema", TcSchemaCore.DIALECT,
+                    "$schema", GauntletSchemaCore.DIALECT,
                     "type", "object",
                     "required", "id")),
             JsonOwnership.object(
                 Map.of(
                     "$schema",
-                    TcSchemaCore.DIALECT,
+                    GauntletSchemaCore.DIALECT,
                     "type",
                     "object",
                     "properties",
@@ -108,13 +113,14 @@ class SchemaValidatorTest {
             JsonOwnership.object(
                 Map.of(
                     "$schema",
-                    TcSchemaCore.DIALECT,
+                    GauntletSchemaCore.DIALECT,
                     "type",
                     "object",
                     "properties",
                     Map.of("id", Map.of("type", "string", "minLength", -1)))));
     for (JsonObject schema : malformed) {
-      assertThrows(IllegalArgumentException.class, () -> TcSchemaCore.assertValid(schema, true));
+      assertThrows(
+          IllegalArgumentException.class, () -> GauntletSchemaCore.assertValid(schema, true));
     }
   }
 
@@ -124,7 +130,7 @@ class SchemaValidatorTest {
         JsonOwnership.object(
             Map.of(
                 "$schema",
-                TcSchemaCore.DIALECT,
+                GauntletSchemaCore.DIALECT,
                 "type",
                 "object",
                 "$defs",
@@ -140,20 +146,21 @@ class SchemaValidatorTest {
                                 Map.of("type", "array", "items", Map.of("$ref", "#/$defs/node"))))),
                 "properties",
                 Map.of("root", Map.of("$ref", "#/$defs/node"))));
-    TcSchemaCore.assertValid(productive, true);
+    GauntletSchemaCore.assertValid(productive, true);
 
     assertThrows(
         IllegalArgumentException.class,
         () ->
-            TcSchemaCore.assertValid(
-                JsonOwnership.object(Map.of("$schema", TcSchemaCore.DIALECT, "$ref", "#")), false));
+            GauntletSchemaCore.assertValid(
+                JsonOwnership.object(Map.of("$schema", GauntletSchemaCore.DIALECT, "$ref", "#")),
+                false));
     assertThrows(
         IllegalArgumentException.class,
         () ->
-            TcSchemaCore.assertValid(
+            GauntletSchemaCore.assertValid(
                 JsonOwnership.object(
                     Map.of(
-                        "$schema", TcSchemaCore.DIALECT,
+                        "$schema", GauntletSchemaCore.DIALECT,
                         "type", "object",
                         "default", Map.of("$ref", "#/examples/0"),
                         "examples", List.of(Map.of("$ref", "#/default")),
@@ -167,36 +174,39 @@ class SchemaValidatorTest {
         JsonOwnership.object(
             Map.of(
                 "$schema",
-                TcSchemaCore.DIALECT,
+                GauntletSchemaCore.DIALECT,
                 "type",
                 "object",
                 "default",
                 Map.of("transform", List.of("trim")),
                 "properties",
                 Map.of("value", Map.of("$ref", "#/default"))));
-    assertThrows(IllegalArgumentException.class, () -> TcSchemaCore.assertValid(referenced, true));
+    assertThrows(
+        IllegalArgumentException.class, () -> GauntletSchemaCore.assertValid(referenced, true));
 
     var unreferenced =
         JsonOwnership.object(
             Map.of(
                 "$schema",
-                TcSchemaCore.DIALECT,
+                GauntletSchemaCore.DIALECT,
                 "type",
                 "object",
                 "default",
                 Map.of("transform", List.of("trim"))));
-    TcSchemaCore.assertValid(unreferenced, true);
+    GauntletSchemaCore.assertValid(unreferenced, true);
   }
 
   @Test
   @SuppressWarnings("unchecked")
   void everyPortablePatternVectorHasTheFrozenValidityAndSearchSemantics() throws Exception {
     try (InputStream source =
-        getClass().getClassLoader().getResourceAsStream("tc-schema-core-pattern-vectors.json")) {
+        getClass()
+            .getClassLoader()
+            .getResourceAsStream("gauntlet-schema-core-pattern-vectors.json")) {
       org.junit.jupiter.api.Assertions.assertNotNull(
           source, "mounted pattern vectors are required");
       Map<String, Object> document = mapper.readValue(source, Map.class);
-      assertEquals("tc-schema-core@1", document.get("profile"));
+      assertEquals("gauntlet-schema-core@1", document.get("profile"));
       List<Map<String, Object>> vectors = (List<Map<String, Object>>) document.get("vectors");
       assertEquals(113, vectors.size());
 
@@ -208,8 +218,9 @@ class SchemaValidatorTest {
         try {
           schema =
               JsonOwnership.object(
-                  Map.of("$schema", TcSchemaCore.DIALECT, "type", "string", "pattern", pattern));
-          TcSchemaCore.assertValid(schema, false);
+                  Map.of(
+                      "$schema", GauntletSchemaCore.DIALECT, "type", "string", "pattern", pattern));
+          GauntletSchemaCore.assertValid(schema, false);
           valid = true;
         } catch (IllegalArgumentException exception) {
           valid = false;

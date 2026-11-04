@@ -825,12 +825,12 @@ function confirmationErrors(
 
 function idempotencyStorageKey(operationId: string, key: string, secret: Uint8Array): string {
   const fingerprint = createHmac("sha256", secret)
-    .update("tc-idempotency:v1\0", "utf8")
+    .update("gauntlet-idempotency:v1\0", "utf8")
     .update(operationId, "utf8")
     .update("\0", "utf8")
     .update(key, "utf8")
     .digest("hex");
-  return `tc-idempotency:v1:${fingerprint}`;
+  return `gauntlet-idempotency:v1:${fingerprint}`;
 }
 
 class InvocationContextLease {

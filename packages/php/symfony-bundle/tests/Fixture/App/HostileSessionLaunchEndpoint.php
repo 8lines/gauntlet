@@ -65,7 +65,7 @@ final class HostileSessionLaunchEndpoint implements SessionLaunchEndpoint
                 type: 'urn:gauntlet:problem:unsupported-capability',
                 title: 'private capability 731904',
                 status: 501,
-                capability: 'tc-uploads@1',
+                capability: 'gauntlet-uploads@1',
             ),
             default => new JsonObject($valid),
         };

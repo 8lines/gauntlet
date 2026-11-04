@@ -22,7 +22,7 @@ use EightLines\Gauntlet\Core\Run\CreateRunRequest;
 use EightLines\Gauntlet\Core\Run\InMemoryRunStore;
 use EightLines\Gauntlet\Core\Run\RunManager;
 use EightLines\Gauntlet\Core\Schema\OpisSchemaValidator;
-use EightLines\Gauntlet\Core\Schema\TcSchemaCore;
+use EightLines\Gauntlet\Core\Schema\GauntletSchemaCore;
 use PHPUnit\Framework\TestCase;
 
 final class InputHandlingGuardTest extends TestCase
@@ -34,7 +34,7 @@ final class InputHandlingGuardTest extends TestCase
 
         self::assertSame(501, $result->problem?->status);
         self::assertSame('urn:gauntlet:problem:unsupported-capability', $result->problem?->type);
-        self::assertSame('tc-uploads@1', $result->problem?->capability);
+        self::assertSame('gauntlet-uploads@1', $result->problem?->capability);
         self::assertSame(0, $handler->executions);
     }
 
@@ -167,7 +167,7 @@ final class FileRuleHandler implements OperationHandler
             'File operation',
             null,
             JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 'required' => ['attachment'],
                 'properties' => [
@@ -205,7 +205,7 @@ final class FileRuleHandler implements OperationHandler
             [],
             new ExecutionPolicy(OperationImpact::WRITE, true, false, 'optional', false),
             new OperationOutput(JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 'additionalProperties' => false,
             ])),

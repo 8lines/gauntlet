@@ -128,7 +128,7 @@ for (const service of Object.values(topology.services)) {
 const smokeReadme = rootReadme.match(/^### Container smoke test\n([\s\S]*?)(?=^## )/m)?.[1];
 assert.ok(smokeReadme !== undefined, "root README must contain the bounded smoke section");
 assert.match(smokeReadme, /\n~~~sh\npnpm smoke:compose\n~~~\n/);
-assert.doesNotMatch(smokeReadme, /docker compose|GAUNTLET_URL|127\.0\.0\.1:8080|tc_project/);
+assert.doesNotMatch(smokeReadme, /docker compose|GAUNTLET_URL|127\.0\.0\.1:8080/);
 
 const manifest = JSON.parse(readFileSync(
   resolve(repositoryRoot, "conformance/smoke/manifest.json"),

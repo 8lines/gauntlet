@@ -257,12 +257,12 @@ class ProtocolModelTest {
 
   @Test
   void protocolCollectionsAreDefensivelyOwnedAndValidated() {
-    var source = new java.util.ArrayList<>(List.of("tc-schema-core@1"));
+    var source = new java.util.ArrayList<>(List.of("gauntlet-schema-core@1"));
     var requirements =
         new dev.eightlines.gauntlet.core.model.ProtocolRequirements(
-            source, List.of("tc-uploads@1"));
+            source, List.of("gauntlet-uploads@1"));
     source.clear();
-    assertEquals(List.of("tc-schema-core@1"), requirements.profiles());
+    assertEquals(List.of("gauntlet-schema-core@1"), requirements.profiles());
     assertThrows(
         IllegalArgumentException.class,
         () ->

@@ -97,9 +97,9 @@ non-negative, may not be negative zero, and `current` may not exceed `total`.
 
 ## Schema and input handling
 
-`OpisSchemaValidator` evaluates the supported Draft 2020-12 profile through the pinned Opis engine. Definitions and runtime payloads first pass the portable `tc-schema-core@1` restrictions, including local fragment references and bounded combinators.
+`OpisSchemaValidator` evaluates the supported Draft 2020-12 profile through the pinned Opis engine. Definitions and runtime payloads first pass the portable `gauntlet-schema-core@1` restrictions, including local fragment references and bounded combinators.
 
-Secret and file behavior is declared with `InputHandling`. Secret-handled values are prohibited from persisted runs, problems, logs, output, artifacts, and actions. File-handled operations require a `FileReferenceValidator`; without it, invocation fails with the typed `tc-uploads@1` unsupported-capability problem. Framework adapters may provide their own `InputMapper` and file ownership/expiry validator.
+Secret and file behavior is declared with `InputHandling`. Secret-handled values are prohibited from persisted runs, problems, logs, output, artifacts, and actions. File-handled operations require a `FileReferenceValidator`; without it, invocation fails with the typed `gauntlet-uploads@1` unsupported-capability problem. Framework adapters may provide their own `InputMapper` and file ownership/expiry validator.
 
 ## Verify
 

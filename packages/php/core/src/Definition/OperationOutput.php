@@ -6,7 +6,7 @@ namespace EightLines\Gauntlet\Core\Definition;
 
 use EightLines\Gauntlet\Core\Json\JsonObject;
 use EightLines\Gauntlet\Core\Protocol\ProtocolExtensions;
-use EightLines\Gauntlet\Core\Schema\TcSchemaCore;
+use EightLines\Gauntlet\Core\Schema\GauntletSchemaCore;
 
 final readonly class OperationOutput
 {
@@ -15,7 +15,7 @@ final readonly class OperationOutput
         public ?JsonObject $presentation = null,
         public ?ProtocolExtensions $extensions = null,
     ) {
-        TcSchemaCore::assert($schema);
+        GauntletSchemaCore::assert($schema);
         if ($presentation !== null) {
             self::assertPresentation($presentation);
         }
@@ -44,7 +44,7 @@ final readonly class OperationOutput
                 throw new \InvalidArgumentException('Invalid output presentation.');
             }
         }
-        if (!property_exists($value, 'profile') || $value->profile !== 'tc-rich-results@1') {
+        if (!property_exists($value, 'profile') || $value->profile !== 'gauntlet-rich-results@1') {
             throw new \InvalidArgumentException('Invalid output presentation profile.');
         }
         if (property_exists($value, 'defaultView')

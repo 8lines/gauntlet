@@ -32,7 +32,7 @@ import org.springframework.context.annotation.Bean;
       "gauntlet.application.label=Fixture application",
       "gauntlet.application.environment.name=fixture-test",
       "gauntlet.application.environment.kind=test",
-      "gauntlet.profiles=tc-schema-core@1,tc-rich-forms@1"
+      "gauntlet.profiles=gauntlet-schema-core@1,gauntlet-rich-forms@1"
     })
 class SpringAdapterCatalogPlacementsTest {
   private static final List<OperationPlacement> EXPECTED =
@@ -59,7 +59,8 @@ class SpringAdapterCatalogPlacementsTest {
     var expected = new ArrayList<>(properties.profiles());
     expected.add(PlacementRules.PROFILE);
 
-    assertThat(properties.profiles()).containsExactly("tc-rich-forms@1", "tc-schema-core@1");
+    assertThat(properties.profiles())
+        .containsExactly("gauntlet-rich-forms@1", "gauntlet-schema-core@1");
     assertThat(catalog.manifest().profiles()).containsExactlyElementsOf(expected);
     assertThat(Collections.frequency(catalog.manifest().profiles(), PlacementRules.PROFILE))
         .isEqualTo(1);

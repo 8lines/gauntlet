@@ -12,7 +12,7 @@ use EightLines\Gauntlet\Core\Definition\OperationImpact;
 use EightLines\Gauntlet\Core\Definition\OperationOutput;
 use EightLines\Gauntlet\Core\Definition\OperationPreset;
 use EightLines\Gauntlet\Core\Json\JsonOwnership;
-use EightLines\Gauntlet\Core\Schema\TcSchemaCore;
+use EightLines\Gauntlet\Core\Schema\GauntletSchemaCore;
 use PHPUnit\Framework\TestCase;
 
 final class OperationDefinitionTest extends TestCase
@@ -76,7 +76,7 @@ final class OperationDefinitionTest extends TestCase
             'Echo',
             null,
             JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 'properties' => ['token' => ['type' => 'string']],
             ]),
@@ -93,13 +93,13 @@ final class OperationDefinitionTest extends TestCase
     private static function objectSchema(): \EightLines\Gauntlet\Core\Json\JsonObject
     {
         return JsonOwnership::object([
-            '$schema' => TcSchemaCore::DIALECT,
+            '$schema' => GauntletSchemaCore::DIALECT,
             'type' => 'object',
         ]);
     }
 
     private static function anySchema(): \EightLines\Gauntlet\Core\Json\JsonObject
     {
-        return JsonOwnership::object(['$schema' => TcSchemaCore::DIALECT]);
+        return JsonOwnership::object(['$schema' => GauntletSchemaCore::DIALECT]);
     }
 }

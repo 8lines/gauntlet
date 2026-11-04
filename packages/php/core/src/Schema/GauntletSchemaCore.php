@@ -8,8 +8,8 @@ use EightLines\Gauntlet\Core\Json\JsonObject;
 use EightLines\Gauntlet\Core\Json\JsonOwnership;
 use Opis\JsonSchema\CompliantValidator;
 
-/** Validates the portable tc-schema-core@1 subset of Draft 2020-12. */
-final class TcSchemaCore
+/** Validates the portable gauntlet-schema-core@1 subset of Draft 2020-12. */
+final class GauntletSchemaCore
 {
     public const DIALECT = 'https://json-schema.org/draft/2020-12/schema';
 

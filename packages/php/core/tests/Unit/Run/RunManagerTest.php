@@ -27,7 +27,7 @@ use EightLines\Gauntlet\Core\Run\Run;
 use EightLines\Gauntlet\Core\Run\RunStatus;
 use EightLines\Gauntlet\Core\Run\RunStoreCreateResult;
 use EightLines\Gauntlet\Core\Schema\OpisSchemaValidator;
-use EightLines\Gauntlet\Core\Schema\TcSchemaCore;
+use EightLines\Gauntlet\Core\Schema\GauntletSchemaCore;
 use PHPUnit\Framework\TestCase;
 
 final class RunManagerTest extends TestCase
@@ -219,7 +219,7 @@ final class RunHandler implements OperationHandler
             'Echo',
             null,
             JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 'required' => ['message'],
                 'properties' => ['message' => ['type' => 'string']],
@@ -232,7 +232,7 @@ final class RunHandler implements OperationHandler
             [],
             new ExecutionPolicy(OperationImpact::READ, false, false, 'optional', false),
             new OperationOutput(JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 'additionalProperties' => false,
             ])),

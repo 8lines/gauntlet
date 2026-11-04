@@ -79,7 +79,7 @@ test("defineOperation rejects definitions that violate shared protocol semantics
       overrides: {
         dataSources: [],
         uiSchema: {
-          profile: "tc-rich-forms@1",
+          profile: "gauntlet-rich-forms@1",
           root: {
             type: "field",
             pointer: "/applicationId",

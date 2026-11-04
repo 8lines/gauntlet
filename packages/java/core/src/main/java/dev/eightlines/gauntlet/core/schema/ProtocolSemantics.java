@@ -100,9 +100,9 @@ public final class ProtocolSemantics {
         long maxLimit = number(sourceCapabilities.get("maxLimit")).longValue();
         if (defaultLimit > maxLimit) return false;
         if (source.get("dependencySchema") != null)
-          TcSchemaCore.assertValid(object(source.get("dependencySchema")), true);
+          GauntletSchemaCore.assertValid(object(source.get("dependencySchema")), true);
         if (source.get("contextSchema") != null)
-          TcSchemaCore.assertValid(object(source.get("contextSchema")), true);
+          GauntletSchemaCore.assertValid(object(source.get("contextSchema")), true);
       }
       return true;
     } catch (RuntimeException exception) {
@@ -119,10 +119,10 @@ public final class ProtocolSemantics {
         return false;
       }
       if (!revisionMatches(operation, "revision")) return false;
-      TcSchemaCore.assertValid(object(operation.get("inputSchema")), true);
+      GauntletSchemaCore.assertValid(object(operation.get("inputSchema")), true);
       if (operation.get("contextSchema") != null)
-        TcSchemaCore.assertValid(object(operation.get("contextSchema")), true);
-      TcSchemaCore.assertValid(object(object(operation.get("output")).get("schema")), false);
+        GauntletSchemaCore.assertValid(object(operation.get("contextSchema")), true);
+      GauntletSchemaCore.assertValid(object(object(operation.get("output")).get("schema")), false);
       List<JsonObject> dataSources = objects(operation.get("dataSources"));
       List<JsonObject> presets = objects(operation.get("presets"));
       if (!uniqueIds(dataSources) || !uniqueIds(presets)) return false;

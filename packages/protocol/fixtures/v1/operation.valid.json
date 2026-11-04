@@ -1,6 +1,6 @@
 {
   "id": "application-access-review",
-  "revision": "sha256:2e301a636fb48d2bec64fc7e91b62d8a45e47af3a28f665b6b809f6a4b19d9e8",
+  "revision": "sha256:ea955d5ed2fcff2e0b9274e05b0f2e9f09bd6305ffcb3169c51ef80e0b873662",
   "label": "Review application access",
   "featureId": "security",
   "description": "Review application access and optionally notify its owners.",
@@ -8,8 +8,8 @@
   "order": 10,
   "tags": ["access", "security"],
   "requirements": {
-    "profiles": ["tc-schema-core@1", "tc-rich-forms@1", "tc-rich-results@1"],
-    "capabilities": ["tc-uploads@1", "tc-session-launch@1"]
+    "profiles": ["gauntlet-schema-core@1", "gauntlet-rich-forms@1", "gauntlet-rich-results@1"],
+    "capabilities": ["gauntlet-uploads@1", "gauntlet-session-launch@1"]
   },
   "inputSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -134,7 +134,7 @@
     "additionalProperties": false
   },
   "uiSchema": {
-    "profile": "tc-rich-forms@1",
+    "profile": "gauntlet-rich-forms@1",
     "root": {
       "type": "group",
       "label": "Access review",
@@ -220,7 +220,7 @@
       "additionalProperties": false
     },
     "presentation": {
-      "profile": "tc-rich-results@1",
+      "profile": "gauntlet-rich-results@1",
       "defaultView": "summary"
     }
   }

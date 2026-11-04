@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace EightLines\Gauntlet\Core\Schema;
 
-/** Exact parser for the bounded tc-schema-core@1 regular-expression subset. */
+/** Exact parser for the bounded gauntlet-schema-core@1 regular-expression subset. */
 final class PortablePattern
 {
     public static function assert(string $pattern): void
@@ -534,6 +534,6 @@ final class PortablePatternParser
 
     private function invalid(): never
     {
-        throw new \InvalidArgumentException('Pattern is not in the tc-schema-core@1 portable profile.');
+        throw new \InvalidArgumentException('Pattern is not in the gauntlet-schema-core@1 portable profile.');
     }
 }

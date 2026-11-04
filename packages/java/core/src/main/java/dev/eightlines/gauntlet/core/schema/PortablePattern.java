@@ -10,7 +10,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-/** Parser and determinism gate for the frozen {@code tc-schema-core@1} pattern subset. */
+/** Parser and determinism gate for the frozen {@code gauntlet-schema-core@1} pattern subset. */
 final class PortablePattern {
   private static final int MAX_PATTERN_CODE_UNITS = 512;
   private static final int MAX_QUANTIFIER_BOUND = 1_000;

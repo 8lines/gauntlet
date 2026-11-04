@@ -76,7 +76,7 @@ export const terminalRun: Run = Object.freeze({
 const baseManifest = {
   protocolVersion: "1.0",
   schemaDialect: "https://json-schema.org/draft/2020-12/schema",
-  profiles: ["tc-schema-core@1"],
+  profiles: ["gauntlet-schema-core@1"],
   capabilities: [],
   application: {
     id: "fixture",
@@ -120,10 +120,10 @@ export interface FixtureCatalogState {
 
 export function createFixtureCatalog(options: {
   readonly capabilities?: readonly (
-    | "tc-run-cancellation@1"
-    | "tc-run-sse@1"
-    | "tc-uploads@1"
-    | "tc-session-launch@1"
+    | "gauntlet-run-cancellation@1"
+    | "gauntlet-run-sse@1"
+    | "gauntlet-uploads@1"
+    | "gauntlet-session-launch@1"
   )[];
   readonly throwOnQuery?: boolean;
 } = {}): { readonly catalog: AdapterCatalog; readonly state: FixtureCatalogState } {
@@ -190,12 +190,12 @@ export function createFixtureCatalog(options: {
     },
     capabilityAvailability: availability,
     cancelRun: async () => {
-      if (!installed.has("tc-run-cancellation@1")) return unsupported("tc-run-cancellation@1");
+      if (!installed.has("gauntlet-run-cancellation@1")) return unsupported("gauntlet-run-cancellation@1");
       state.cancellations += 1;
       return { ok: true, value: terminalRun };
     },
     runEvents: async () => {
-      if (!installed.has("tc-run-sse@1")) return unsupported("tc-run-sse@1");
+      if (!installed.has("gauntlet-run-sse@1")) return unsupported("gauntlet-run-sse@1");
       const event: RunEvent = {
         id: "event-1",
         sequence: terminalRun.sequence,
@@ -211,7 +211,7 @@ export function createFixtureCatalog(options: {
       };
     },
     createUpload: async () => {
-      if (!installed.has("tc-uploads@1")) return unsupported("tc-uploads@1");
+      if (!installed.has("gauntlet-uploads@1")) return unsupported("gauntlet-uploads@1");
       state.uploads += 1;
       return {
         ok: true,
@@ -228,7 +228,7 @@ export function createFixtureCatalog(options: {
       };
     },
     launchSession: async () => {
-      if (!installed.has("tc-session-launch@1")) return unsupported("tc-session-launch@1");
+      if (!installed.has("gauntlet-session-launch@1")) return unsupported("gauntlet-session-launch@1");
       state.launches += 1;
       return {
         ok: true,

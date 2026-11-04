@@ -23,16 +23,16 @@ test("real Next process passes frozen P0 HTTP conformance", { timeout: 30_000 },
       await runAdapterV1Conformance({ baseUrl: ingress.url, scenario: await loadAdapterV1Scenario(new URL("../../../conformance/scenarios/adapter-v1.json", import.meta.url)) });
       const host = await fetch(`${ingress.url}/host-health`, {
         headers: {
-          "x-tc-actor": "forged",
-          "x-tc-workload": "forged",
+          "x-gauntlet-actor": "forged",
+          "x-gauntlet-workload": "forged",
           "x-forwarded-for": "203.0.113.9",
         },
       });
       assert.equal(host.status, 200);
       const forwarded = ingress.forwardedHeaders();
       assert.ok(forwarded);
-      assert.equal(forwarded.get("x-tc-actor"), null);
-      assert.equal(forwarded.get("x-tc-workload"), null);
+      assert.equal(forwarded.get("x-gauntlet-actor"), null);
+      assert.equal(forwarded.get("x-gauntlet-workload"), null);
       assert.equal(forwarded.get("x-forwarded-for"), null);
 
       const ordinary = await fetch(`${ingress.url}/ordinary/v1/health`);

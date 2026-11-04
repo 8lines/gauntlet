@@ -1,15 +1,15 @@
 {
   "protocolVersion": "1.0",
-  "manifestRevision": "sha256:bd7df155fca5ce7504431416bdd0c7562255fcc238af5aade4eb0d557cf2a9cd",
+  "manifestRevision": "sha256:e3eb79349264ab4254fbb91b4409e5e1132fdd5c760a6bc1a7a9bb34b885b64f",
   "schemaDialect": "https://json-schema.org/draft/2020-12/schema",
   "profiles": [
-    "tc-schema-core@1",
-    "tc-rich-forms@1",
-    "tc-rich-results@1"
+    "gauntlet-schema-core@1",
+    "gauntlet-rich-forms@1",
+    "gauntlet-rich-results@1"
   ],
   "capabilities": [
-    "tc-uploads@1",
-    "tc-session-launch@1"
+    "gauntlet-uploads@1",
+    "gauntlet-session-launch@1"
   ],
   "application": {
     "id": "acme-portal",
@@ -29,7 +29,7 @@
   "operations": [
     {
       "id": "application-access-review",
-      "revision": "sha256:2e301a636fb48d2bec64fc7e91b62d8a45e47af3a28f665b6b809f6a4b19d9e8",
+      "revision": "sha256:ea955d5ed2fcff2e0b9274e05b0f2e9f09bd6305ffcb3169c51ef80e0b873662",
       "label": "Review application access",
       "featureId": "security",
       "availability": {
@@ -37,13 +37,13 @@
       },
       "requirements": {
         "profiles": [
-          "tc-schema-core@1",
-          "tc-rich-forms@1",
-          "tc-rich-results@1"
+          "gauntlet-schema-core@1",
+          "gauntlet-rich-forms@1",
+          "gauntlet-rich-results@1"
         ],
         "capabilities": [
-          "tc-uploads@1",
-          "tc-session-launch@1"
+          "gauntlet-uploads@1",
+          "gauntlet-session-launch@1"
         ]
       }
     }

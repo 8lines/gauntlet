@@ -32,7 +32,7 @@ function replaceJson(response: Response, document: unknown): Response {
 
 test("the committed extended scenario is exact, portable, and mutation-closed", async () => {
   const scenario = await loadAdapterV1ExtendedScenario(scenarioUrl);
-  assert.equal(scenario.format, "tc-adapter-v1-extended@1");
+  assert.equal(scenario.format, "gauntlet-adapter-v1-extended@1");
   assert.equal(scenario.handlerFailure.operationId, "agency-applications.fail");
   assert.equal(scenario.pagination.query.limit, 1);
   assert.equal(scenario.customBinding.operationId, "agency-applications.finalize");

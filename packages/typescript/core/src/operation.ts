@@ -1,5 +1,5 @@
 import {
-  assertTcSchemaCore,
+  assertGauntletSchemaCore,
   computeRevision,
   operationSemanticsAreValid,
   type Artifact,
@@ -47,11 +47,11 @@ export function defineOperation<I extends JsonObject>(
   handler: OperationHandler<I>,
 ): RegisteredOperation<I> {
   const canonicalDraft = cloneAndDeepFreeze(draft);
-  assertTcSchemaCore(canonicalDraft.inputSchema, { requireObjectRoot: true });
+  assertGauntletSchemaCore(canonicalDraft.inputSchema, { requireObjectRoot: true });
   if (canonicalDraft.contextSchema !== undefined) {
-    assertTcSchemaCore(canonicalDraft.contextSchema, { requireObjectRoot: true });
+    assertGauntletSchemaCore(canonicalDraft.contextSchema, { requireObjectRoot: true });
   }
-  assertTcSchemaCore(canonicalDraft.output.schema);
+  assertGauntletSchemaCore(canonicalDraft.output.schema);
 
   const definition: OperationDefinition = cloneAndDeepFreeze({
     ...canonicalDraft,

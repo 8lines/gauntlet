@@ -35,9 +35,9 @@ final class CapabilityRegistry
         iterable $sessionLaunchEndpoints,
     ) {
         $this->registerCancelEndpoint($cancelEndpoints);
-        $this->registerEndpoint('tc-run-sse@1', RunEventsEndpoint::class, $eventEndpoints);
-        $this->registerEndpoint('tc-uploads@1', UploadEndpoint::class, $uploadEndpoints);
-        $this->registerEndpoint('tc-session-launch@1', SessionLaunchEndpoint::class, $sessionLaunchEndpoints);
+        $this->registerEndpoint('gauntlet-run-sse@1', RunEventsEndpoint::class, $eventEndpoints);
+        $this->registerEndpoint('gauntlet-uploads@1', UploadEndpoint::class, $uploadEndpoints);
+        $this->registerEndpoint('gauntlet-session-launch@1', SessionLaunchEndpoint::class, $sessionLaunchEndpoints);
         $this->registerProviders($providers);
     }
 
@@ -116,7 +116,7 @@ final class CapabilityRegistry
                     message: 'A capability endpoint is registered more than once.',
                 );
             }
-            $this->endpoints['tc-run-cancellation@1'] = count($custom) === 1
+            $this->endpoints['gauntlet-run-cancellation@1'] = count($custom) === 1
                 ? new ManagedFirstCancelRunEndpoint($managed[0], $custom[0])
                 : $managed[0];
 
@@ -132,7 +132,7 @@ final class CapabilityRegistry
         }
 
         if (count($custom) === 1) {
-            $this->endpoints['tc-run-cancellation@1'] = $custom[0];
+            $this->endpoints['gauntlet-run-cancellation@1'] = $custom[0];
 
             return;
         }
@@ -154,10 +154,10 @@ final class CapabilityRegistry
                 if (preg_match('/^[A-Za-z0-9][A-Za-z0-9._:-]*@[1-9][0-9]*$/D', $capability) !== 1) {
                     throw new \InvalidArgumentException('Invalid capability ID.');
                 }
-                if (str_starts_with($capability, 'tc-run-cancellation@')
-                    || str_starts_with($capability, 'tc-run-sse@')
-                    || str_starts_with($capability, 'tc-uploads@')
-                    || str_starts_with($capability, 'tc-session-launch@')) {
+                if (str_starts_with($capability, 'gauntlet-run-cancellation@')
+                    || str_starts_with($capability, 'gauntlet-run-sse@')
+                    || str_starts_with($capability, 'gauntlet-uploads@')
+                    || str_starts_with($capability, 'gauntlet-session-launch@')) {
                     $this->diagnostics[] = new RegistryDiagnostic(
                         code: 'core_capability_requires_endpoint_spi',
                         message: 'A core capability requires its endpoint SPI.',

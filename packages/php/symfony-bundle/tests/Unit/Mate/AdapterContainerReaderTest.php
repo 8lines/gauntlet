@@ -44,7 +44,7 @@ final class AdapterContainerReaderTest extends TestCase
                   </parameter>
                 </parameter>
                 <parameter key="gauntlet.profiles" type="collection">
-                  <parameter>tc-schema-core@1</parameter>
+                  <parameter>gauntlet-schema-core@1</parameter>
                 </parameter>
                 <parameter key="kernel.secret">must-not-leak</parameter>
               </parameters>
@@ -79,7 +79,7 @@ final class AdapterContainerReaderTest extends TestCase
             'label' => 'Billing API',
             'environment' => ['name' => 'billing-staging', 'kind' => 'staging'],
         ], $report['application']);
-        self::assertSame(['tc-schema-core@1'], $report['profiles']);
+        self::assertSame(['gauntlet-schema-core@1'], $report['profiles']);
         self::assertSame(
             ['services' => ['App\Gauntlet\RefundOperation' => 'App\Gauntlet\RefundOperation'], 'count' => 1, 'truncated' => false],
             $report['services']['operations'],

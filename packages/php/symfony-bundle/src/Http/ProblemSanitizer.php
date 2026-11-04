@@ -11,10 +11,10 @@ use EightLines\Gauntlet\Core\Problem\ValidationError;
 final class ProblemSanitizer
 {
     private const CORE_CAPABILITIES = [
-        'tc-run-cancellation@1',
-        'tc-run-sse@1',
-        'tc-uploads@1',
-        'tc-session-launch@1',
+        'gauntlet-run-cancellation@1',
+        'gauntlet-run-sse@1',
+        'gauntlet-uploads@1',
+        'gauntlet-session-launch@1',
     ];
 
     public function sanitize(Problem $problem, ?string $expectedCapability = null): Problem

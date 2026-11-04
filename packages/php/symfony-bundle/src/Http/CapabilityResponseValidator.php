@@ -162,7 +162,7 @@ final class CapabilityResponseValidator
             }
         }
 
-        $fileValidator = $this->capabilities->endpoint('tc-uploads@1');
+        $fileValidator = $this->capabilities->endpoint('gauntlet-uploads@1');
         if (!RuntimeGuard::storedRunIsValid(
             run: $run,
             expectedId: $expectedRunId ?? $run->id,

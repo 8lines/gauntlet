@@ -88,7 +88,7 @@ function absentContainer(name) {
 test("plans an isolated pinned-Docker Java working-tree check", () => {
   const plan = createJavaSourcePlan({
     root: "/private/repository",
-    sandbox: "/private/tc-java-source-123",
+    sandbox: "/private/gauntlet-java-source-123",
     versions: { "java-core": "0.1.0", "spring-boot-starter": "0.1.1" },
     uid: 501,
     gid: 20,
@@ -118,16 +118,16 @@ test("plans an isolated pinned-Docker Java working-tree check", () => {
   assert.equal(plan.run.args.includes("ALL"), true);
   assert.equal(plan.run.args.includes("no-new-privileges"), true);
   assert.equal(plan.run.args.includes("--dependency-verification=strict"), true);
-  assert.equal(plan.run.args.includes("type=bind,src=/private/tc-java-source-123/source,dst=/workspace"), true);
+  assert.equal(plan.run.args.includes("type=bind,src=/private/gauntlet-java-source-123/source,dst=/workspace"), true);
   assert.equal(plan.run.args.some((argument) => argument.includes("/private/repository")), false);
   assert.equal(plan.run.args.some((argument) => /docker\.sock|DOCKER_HOST/u.test(argument)), false);
   assert.deepEqual(plan.run.args.slice(-plan.tasks.length), plan.tasks);
   assert.deepEqual(plan.environment, {
     PATH: "/safe/bin",
-    HOME: "/private/tc-java-source-123/host-home",
-    DOCKER_CONFIG: "/private/tc-java-source-123/docker-config",
+    HOME: "/private/gauntlet-java-source-123/host-home",
+    DOCKER_CONFIG: "/private/gauntlet-java-source-123/docker-config",
     DOCKER_HOST: "unix:///var/run/docker.sock",
-    TMPDIR: "/private/tc-java-source-123/host-tmp",
+    TMPDIR: "/private/gauntlet-java-source-123/host-tmp",
     LANG: "C",
     LC_ALL: "C",
     TZ: "UTC",
@@ -283,7 +283,7 @@ test("rejects Docker endpoint result accessors without evaluating them", () => {
 test("rejects unsafe plan inputs before constructing Docker arguments", () => {
   const base = {
     root: "/private/repository",
-    sandbox: "/private/tc-java-source-123",
+    sandbox: "/private/gauntlet-java-source-123",
     versions: { "java-core": "0.1.0", "spring-boot-starter": "0.1.1" },
     uid: 501,
     gid: 20,

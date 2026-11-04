@@ -47,7 +47,7 @@ final class FixtureOperationDefinitions
                 'additionalProperties' => false,
             ]),
             uiSchema: new OperationUiSchema(JsonOwnership::object([
-                'profile' => 'tc-rich-forms@1',
+                'profile' => 'gauntlet-rich-forms@1',
                 'root' => [
                     'type' => 'group',
                     'children' => [[
@@ -86,7 +86,7 @@ final class FixtureOperationDefinitions
             order: 10,
             tags: ['fixture'],
             requirements: $requirements ?? new ProtocolRequirements(
-                profiles: ['tc-schema-core@1', 'tc-rich-forms@1'],
+                profiles: ['gauntlet-schema-core@1', 'gauntlet-rich-forms@1'],
             ),
             inputClass: EchoInput::class,
         );

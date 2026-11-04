@@ -132,7 +132,7 @@ function createServer(dependencies: McpDependencies): McpServer {
   }, guard(async ({ targetId, runId }) => clientResult(await dependencies.runs.get(targetId, runId))));
 
   server.registerTool("gauntlet_cancel_run", {
-    description: "Request cooperative cancellation of a known run. Requires the target's tc-run-cancellation@1 capability and operation cancellation support. Inspect the returned state; cancellation does not undo side effects.",
+    description: "Request cooperative cancellation of a known run. Requires the target's gauntlet-run-cancellation@1 capability and operation cancellation support. Inspect the returned state; cancellation does not undo side effects.",
     inputSchema: z.strictObject(run), annotations: mutation,
   }, guard(async ({ targetId, runId }) => clientResult(await dependencies.runs.cancel(targetId, runId))));
 
@@ -152,7 +152,7 @@ function createServer(dependencies: McpDependencies): McpServer {
   }, guard(async ({ targetId, dataSourceId, request }) => clientResult(await dependencies.dataSources.resolve(targetId, dataSourceId, request))));
 
   server.registerTool("gauntlet_create_upload", {
-    description: "Upload supplied file bytes to a target supporting tc-uploads@1 and return a file reference for operation input. Accepts canonical padded base64, never a filesystem path or URL. Subject to the MCP JSON body limit and upload byte limit.",
+    description: "Upload supplied file bytes to a target supporting gauntlet-uploads@1 and return a file reference for operation input. Accepts canonical padded base64, never a filesystem path or URL. Subject to the MCP JSON body limit and upload byte limit.",
     inputSchema: z.strictObject({ ...target, name: z.string().min(1), mediaType: z.string().min(1),
       base64: z.string().max(4 * Math.ceil(dependencies.maxUploadBytes / 3)),
     }), annotations: { ...mutation, destructiveHint: false },
@@ -164,7 +164,7 @@ function createServer(dependencies: McpDependencies): McpServer {
   }));
 
   server.registerTool("gauntlet_create_session_launch", {
-    description: "Create a short-lived, single-use launch URL for a browser-launch artifact of a known run. Requires tc-session-launch@1 and a configured public origin. This can assume a test user's role: use only when requested. Returns the URL without opening a browser.",
+    description: "Create a short-lived, single-use launch URL for a browser-launch artifact of a known run. Requires gauntlet-session-launch@1 and a configured public origin. This can assume a test user's role: use only when requested. Returns the URL without opening a browser.",
     inputSchema: z.strictObject({ ...run, artifactId: id }), annotations: mutation,
   }, guard(async ({ targetId, runId, artifactId }) => clientResult(await dependencies.runs.createSessionLaunch(targetId, runId, artifactId))));
 

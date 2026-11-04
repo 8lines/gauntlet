@@ -12,7 +12,7 @@ public record GauntletProperties(
     boolean enabled,
     @NestedConfigurationProperty GauntletApplicationProperties application,
     List<String> profiles) {
-  public static final String CORE_PROFILE = "tc-schema-core@1";
+  public static final String CORE_PROFILE = "gauntlet-schema-core@1";
 
   public GauntletProperties {
     var configured = profiles == null ? List.<String>of() : List.copyOf(profiles);

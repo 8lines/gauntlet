@@ -12,6 +12,6 @@ final class IdempotencyFingerprint
             throw new \InvalidArgumentException('Idempotency fingerprint secret must contain at least 32 bytes.');
         }
 
-        return hash_hmac('sha256', "tc-idempotency:v1\0" . $operationId . "\0" . $key, $secret);
+        return hash_hmac('sha256', "gauntlet-idempotency:v1\0" . $operationId . "\0" . $key, $secret);
     }
 }

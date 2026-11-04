@@ -11,16 +11,16 @@ use PHPUnit\Framework\TestCase;
 
 final class ProtocolSemanticsTest extends TestCase
 {
-    private const ARTIFACT_SHA256 = 'eda4d229cb32beb7aa37e9e09df67c3b66cef29d30667af0376b66ae6b075331';
-    private const SCHEMA_SHA256 = '0200906fd69b625bc8b696bbc781441dfd0f5f2908181c2448f91b8a11369368';
+    private const ARTIFACT_SHA256 = 'ea437a56bb568fa88730807ecb85613afdd618324b281945e578935a921676fa';
+    private const SCHEMA_SHA256 = '4b9783423446ced2e14dc1b4d994312b9446b755b4ac546cf415f5c1f65931d7';
 
     public function testSharedArtifactIsDraft202012ValidAndHasExactly117UniqueOutcomeIds(): void
     {
         [$artifact] = self::fixture();
-        self::assertSame('tc-adapter-semantic-vectors@1', $artifact->format);
+        self::assertSame('gauntlet-adapter-semantic-vectors@1', $artifact->format);
         self::assertSame('rfc6902-test-subset@1', $artifact->patchProfile);
-        self::assertSame('tc-preset-operation@1', $artifact->presetAssemblyProfile);
-        self::assertSame('tc-preset-workloads@1', $artifact->workloadProfile);
+        self::assertSame('gauntlet-preset-operation@1', $artifact->presetAssemblyProfile);
+        self::assertSame('gauntlet-preset-workloads@1', $artifact->workloadProfile);
         self::assertCount(56, $artifact->documentVectors);
         self::assertCount(7, $artifact->workloads);
 

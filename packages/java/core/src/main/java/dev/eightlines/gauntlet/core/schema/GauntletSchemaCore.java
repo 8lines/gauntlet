@@ -15,8 +15,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Frozen {@code tc-schema-core@1} authoring profile. */
-public final class TcSchemaCore {
+/** Frozen {@code gauntlet-schema-core@1} authoring profile. */
+public final class GauntletSchemaCore {
   public static final String DIALECT = "https://json-schema.org/draft/2020-12/schema";
 
   private static final Set<String> ALLOWED_KEYWORDS =
@@ -122,7 +122,7 @@ public final class TcSchemaCore {
   private static final List<String> BOOLEAN_KEYWORDS =
       List.of("uniqueItems", "deprecated", "readOnly", "writeOnly");
 
-  private TcSchemaCore() {}
+  private GauntletSchemaCore() {}
 
   public static void assertValid(JsonObject schema, boolean requireObjectRoot) {
     if (!DIALECT.equals(string(schema.get("$schema")))) {

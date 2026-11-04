@@ -48,7 +48,7 @@ final class FinalizeAgencyApplicationOperation implements OperationHandler
             ]),
             contextSchema: null,
             uiSchema: new OperationUiSchema(JsonOwnership::object([
-                'profile' => 'tc-rich-forms@1',
+                'profile' => 'gauntlet-rich-forms@1',
                 'root' => [
                     'type' => 'group',
                     'label' => 'Application finalization',
@@ -96,14 +96,14 @@ final class FinalizeAgencyApplicationOperation implements OperationHandler
                     'additionalProperties' => false,
                 ]),
                 presentation: JsonOwnership::object([
-                    'profile' => 'tc-rich-results@1',
+                    'profile' => 'gauntlet-rich-results@1',
                     'defaultView' => 'summary',
                 ]),
             ),
             order: 10,
             tags: ['agency', 'finalize'],
             requirements: new ProtocolRequirements(
-                profiles: ['tc-schema-core@1', 'tc-rich-forms@1', 'tc-rich-results@1'],
+                profiles: ['gauntlet-schema-core@1', 'gauntlet-rich-forms@1', 'gauntlet-rich-results@1'],
                 capabilities: [],
             ),
             inputClass: FinalizeAgencyApplicationInput::class,

@@ -33,7 +33,7 @@ final class InputHandlingGuard
                 'Capability is not supported',
                 501,
                 correlationId: $correlationId,
-                capability: 'tc-uploads@1',
+                capability: 'gauntlet-uploads@1',
             );
         }
 

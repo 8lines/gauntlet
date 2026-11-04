@@ -1,7 +1,7 @@
 import { Ajv2020, type ErrorObject, type ValidateFunction } from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import {
-  assertTcSchemaCore,
+  assertGauntletSchemaCore,
   canonicalizeForRevision,
   manifestSemanticsAreValid,
   operationSemanticsAreValid,
@@ -176,7 +176,7 @@ export function compileDeclaredSchema(
 ): (value: unknown) => void {
   assertCanonicalJson(schema, "Declared schema document is not canonical JSON");
   try {
-    assertTcSchemaCore(schema, { requireObjectRoot: kind !== "output" });
+    assertGauntletSchemaCore(schema, { requireObjectRoot: kind !== "output" });
   } catch {
     throw new TypeError(`Declared ${kind} schema is invalid`);
   }

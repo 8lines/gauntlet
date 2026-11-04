@@ -585,22 +585,22 @@ export function createAdapterFetchHandler(options: AdapterFetchHandlerOptions): 
       }
       if (segments[0] === "uploads") {
         if (request.method !== "POST") return methodNotAllowed();
-        const unavailable = unavailableCapability(options.catalog, "tc-uploads@1");
+        const unavailable = unavailableCapability(options.catalog, "gauntlet-uploads@1");
         if (unavailable !== undefined) return unavailable;
         const multipart = await readMultipartFile(request);
         if (!multipart.ok) return problemResponse(multipart.problem);
         const result = await options.catalog.createUpload(multipart.file);
         return result.ok
           ? jsonResponse(ownCanonicalUploadResponse(result.value), 201)
-          : catalogProblemResponse(result.problem, "tc-uploads@1");
+          : catalogProblemResponse(result.problem, "gauntlet-uploads@1");
       }
       if (segments[0] === "runs" && segments[2] === "cancel") {
         if (request.method !== "POST") return methodNotAllowed();
-        const unavailable = unavailableCapability(options.catalog, "tc-run-cancellation@1");
+        const unavailable = unavailableCapability(options.catalog, "gauntlet-run-cancellation@1");
         if (unavailable !== undefined) return unavailable;
         const result = await options.catalog.cancelRun(segments[1]!);
         if (!result.ok) {
-          return catalogProblemResponse(result.problem, "tc-run-cancellation@1");
+          return catalogProblemResponse(result.problem, "gauntlet-run-cancellation@1");
         }
         const run = await ownCatalogRun(result.value, options.catalog, schemaValidator, {
           runId: segments[1]!,
@@ -609,7 +609,7 @@ export function createAdapterFetchHandler(options: AdapterFetchHandlerOptions): 
       }
       if (segments[0] === "runs" && segments[2] === "events") {
         if (request.method !== "GET") return methodNotAllowed();
-        const unavailable = unavailableCapability(options.catalog, "tc-run-sse@1");
+        const unavailable = unavailableCapability(options.catalog, "gauntlet-run-sse@1");
         if (unavailable !== undefined) return unavailable;
         const lastEventId = request.headers.get("last-event-id");
         if (lastEventId !== null && !isProtocolId(lastEventId)) {
@@ -629,15 +629,15 @@ export function createAdapterFetchHandler(options: AdapterFetchHandlerOptions): 
                 segments[1]!,
               ),
             )
-          : catalogProblemResponse(result.problem, "tc-run-sse@1");
+          : catalogProblemResponse(result.problem, "gauntlet-run-sse@1");
       }
       if (segments[0] === "runs") {
         if (request.method !== "POST") return methodNotAllowed();
-        const unavailable = unavailableCapability(options.catalog, "tc-session-launch@1");
+        const unavailable = unavailableCapability(options.catalog, "gauntlet-session-launch@1");
         if (unavailable !== undefined) return unavailable;
         const result = await options.catalog.launchSession(segments[1]!, segments[3]!);
         if (!result.ok) {
-          return catalogProblemResponse(result.problem, "tc-session-launch@1");
+          return catalogProblemResponse(result.problem, "gauntlet-session-launch@1");
         }
         const value = ownCanonicalSessionLaunchResponse(result.value);
         return sessionIsSafe(value, now) ? jsonResponse(value, 201) : internalError();

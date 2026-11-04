@@ -544,16 +544,16 @@ async function execute(options: ValidatedOptions): Promise<void> {
   await client.expectUnsafeOperationProblem();
 
   const capabilities = new Set(manifest.capabilities);
-  if (!capabilities.has("tc-run-cancellation@1")) {
-    await client.expectCancelProblem(current.id, 501, UNSUPPORTED, "tc-run-cancellation@1");
+  if (!capabilities.has("gauntlet-run-cancellation@1")) {
+    await client.expectCancelProblem(current.id, 501, UNSUPPORTED, "gauntlet-run-cancellation@1");
   }
-  if (!capabilities.has("tc-run-sse@1")) {
-    await client.expectEventsProblem(current.id, 501, UNSUPPORTED, "tc-run-sse@1");
+  if (!capabilities.has("gauntlet-run-sse@1")) {
+    await client.expectEventsProblem(current.id, 501, UNSUPPORTED, "gauntlet-run-sse@1");
   }
-  if (!capabilities.has("tc-uploads@1")) {
-    await client.expectUploadsProblem(501, UNSUPPORTED, "tc-uploads@1");
+  if (!capabilities.has("gauntlet-uploads@1")) {
+    await client.expectUploadsProblem(501, UNSUPPORTED, "gauntlet-uploads@1");
   }
-  if (capabilities.has("tc-session-launch@1") && scenario.browserLaunch !== undefined) {
+  if (capabilities.has("gauntlet-session-launch@1") && scenario.browserLaunch !== undefined) {
     const artifact = current.artifacts.find(({ id, kind }) =>
       id === scenario.browserLaunch?.artifactId && kind === "browser-launch");
     const action = current.actions.find(({ kind, artifactId }) =>
@@ -578,13 +578,13 @@ async function execute(options: ValidatedOptions): Promise<void> {
       || expiry - now > MAX_SESSION_TTL_MS) {
       fail("Session launch must expire within the bounded future window");
     }
-  } else if (!capabilities.has("tc-session-launch@1")) {
+  } else if (!capabilities.has("gauntlet-session-launch@1")) {
     await client.expectLaunchProblem(
       current.id,
       scenario.browserLaunch?.artifactId ?? "conformance-missing-artifact",
       501,
       UNSUPPORTED,
-      "tc-session-launch@1",
+      "gauntlet-session-launch@1",
     );
   }
 }

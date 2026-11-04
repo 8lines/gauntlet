@@ -505,7 +505,7 @@ export function createRunProxyService(options: RunProxyServiceOptions): RunProxy
     },
 
     async createUpload(targetId: string, file: Blob, fileName?: string): Promise<ClientResult<UploadResponse>> {
-      const compatible = await requireCapability(targetId, "tc-uploads@1");
+      const compatible = await requireCapability(targetId, "gauntlet-uploads@1");
       if (!compatible.ok) return failure(compatible.problem);
       const result = await options.client.createUpload(compatible.target, file, fileName);
       if (!result.ok) return result;
@@ -517,7 +517,7 @@ export function createRunProxyService(options: RunProxyServiceOptions): RunProxy
     },
 
     async cancel(targetId: string, runId: string): Promise<ClientResult<Run>> {
-      const compatible = await requireCapability(targetId, "tc-run-cancellation@1");
+      const compatible = await requireCapability(targetId, "gauntlet-run-cancellation@1");
       if (!compatible.ok) return failure(compatible.problem);
       const current = await resolveStoredOperation(compatible, runId);
       if (!current.ok) return failure(current.problem);
@@ -536,7 +536,7 @@ export function createRunProxyService(options: RunProxyServiceOptions): RunProxy
     },
 
     async streamEvents(targetId: string, runId: string, lastEventId?: string): Promise<ClientResult<AdapterRunEventStream>> {
-      const compatible = await requireCapability(targetId, "tc-run-sse@1");
+      const compatible = await requireCapability(targetId, "gauntlet-run-sse@1");
       if (!compatible.ok) return failure(compatible.problem);
       const current = await resolveStoredOperation(compatible, runId);
       if (!current.ok) return failure(current.problem);
@@ -591,7 +591,7 @@ export function createRunProxyService(options: RunProxyServiceOptions): RunProxy
     },
 
     async createSessionLaunch(targetId: string, runId: string, artifactId: string): Promise<ClientResult<SessionLaunchResponse>> {
-      const compatible = await requireCapability(targetId, "tc-session-launch@1");
+      const compatible = await requireCapability(targetId, "gauntlet-session-launch@1");
       if (!compatible.ok) {
         return failure(compatible.problem);
       }

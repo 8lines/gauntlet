@@ -38,10 +38,10 @@ export function createHappyOperation(): OperationDefinition {
     requirements: { profiles: string[]; capabilities: string[] };
   };
   mutable.requirements.capabilities = [
-    "tc-uploads@1",
-    "tc-run-cancellation@1",
-    "tc-run-sse@1",
-    "tc-session-launch@1",
+    "gauntlet-uploads@1",
+    "gauntlet-run-cancellation@1",
+    "gauntlet-run-sse@1",
+    "gauntlet-session-launch@1",
   ];
   mutable.revision = computeRevision(mutable);
   return operation;
@@ -55,10 +55,10 @@ export function createHappyManifest(operation = createHappyOperation()): Adapter
     operations: Array<Record<string, unknown>>;
   };
   mutable.capabilities = [
-    "tc-uploads@1",
-    "tc-run-cancellation@1",
-    "tc-run-sse@1",
-    "tc-session-launch@1",
+    "gauntlet-uploads@1",
+    "gauntlet-run-cancellation@1",
+    "gauntlet-run-sse@1",
+    "gauntlet-session-launch@1",
   ];
   mutable.operations = [{
     id: operation.id,

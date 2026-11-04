@@ -28,7 +28,7 @@ use EightLines\Gauntlet\Core\Run\RunStatus;
 use EightLines\Gauntlet\Core\Run\RunStoreCreateResult;
 use EightLines\Gauntlet\Core\Schema\OpisSchemaValidator;
 use EightLines\Gauntlet\Core\Schema\SchemaValidator;
-use EightLines\Gauntlet\Core\Schema\TcSchemaCore;
+use EightLines\Gauntlet\Core\Schema\GauntletSchemaCore;
 use PHPUnit\Framework\TestCase;
 
 final class RunManagerBoundaryTest extends TestCase
@@ -540,7 +540,7 @@ final class BoundaryHandler implements OperationHandler
             'Boundary operation',
             null,
             JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 'required' => ['apiToken'],
                 'properties' => [
@@ -554,7 +554,7 @@ final class BoundaryHandler implements OperationHandler
                 'retention' => 'none',
             ]]),
             $this->requireContext ? JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 'required' => ['requestId'],
                 'properties' => ['requestId' => ['type' => 'string']],
@@ -565,7 +565,7 @@ final class BoundaryHandler implements OperationHandler
             [],
             new ExecutionPolicy(OperationImpact::READ, false, false, 'optional', false),
             new OperationOutput(JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 'required' => ['ok'],
                 'properties' => [
@@ -658,7 +658,7 @@ final class JsonValueBoundaryHandler implements OperationHandler
     public function definition(): OperationDefinition
     {
         $outputSchema = [
-            '$schema' => TcSchemaCore::DIALECT,
+            '$schema' => GauntletSchemaCore::DIALECT,
         ];
         if ($this->mode === 'invalid-schema') {
             $outputSchema['type'] = 'string';
@@ -670,7 +670,7 @@ final class JsonValueBoundaryHandler implements OperationHandler
             'JSON value operation',
             null,
             JsonOwnership::object([
-                '$schema' => TcSchemaCore::DIALECT,
+                '$schema' => GauntletSchemaCore::DIALECT,
                 'type' => 'object',
                 'required' => ['token'],
                 'properties' => ['token' => ['type' => 'string']],

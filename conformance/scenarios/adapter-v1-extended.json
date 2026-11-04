@@ -1,5 +1,5 @@
 {
-  "format": "tc-adapter-v1-extended@1",
+  "format": "gauntlet-adapter-v1-extended@1",
   "secretSentinels": ["731904"],
   "handlerFailure": {
     "operationId": "agency-applications.fail",
