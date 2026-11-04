@@ -19,7 +19,7 @@
     },
     {
       "path": "examples/symfony/composer.lock",
-      "sha256": "728b1327577107bf3c45e4be814ec9f89433be48e489057144d3934475483704"
+      "sha256": "f809c2361f7d1c5a4d71872bcdb953b10a861bf817090f4862d27f9c9e0fc82a"
     },
     {
       "path": "package.json",
@@ -73,7 +73,7 @@
         ".phpunit.result.cache",
         "vendor"
       ],
-      "sha256": "f7fde18c93072f41bd285c177ad3fb69b6c4384d1ce565a6338f25d28a5da299"
+      "sha256": "e23d040224e6e7cadf244555fc1a28d5a3231c2c52c5003bed6c195f04d433c9"
     },
     {
       "path": "packages/protocol",
