@@ -9,3 +9,14 @@ Releases up to 0.1.8 were published together with the application and are record
 [root changelog](../../../CHANGELOG.md).
 
 ## Unreleased
+
+## [0.2.0] - 2026-11-04
+
+### Changed
+
+- The Java packages moved to Maven Central under the group `dev.8lines.gauntlet`, so they need no token and no extra repository.
+- Updated `java-core` to 0.2.0.
+
+### Upgrade
+
+- This version has required upgrade steps; follow the [upgrade guide](https://github.com/8lines/gauntlet/blob/spring-boot-starter-v0.2.0/docs/upgrades/spring-boot-starter/0.2.0.md).

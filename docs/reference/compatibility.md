@@ -24,6 +24,6 @@ moving a unit's version by hand moves its version cell here too.
 | `widget` | 0.1.8 | none | none |
 | `php-core` | 0.1.8 | protocol 1 | none |
 | `symfony-bundle` | 0.1.9 | protocol 1 | none |
-| `java-core` | 0.1.8 | protocol 1 | none |
-| `spring-boot-starter` | 0.1.8 | protocol 1 | none |
-| `skills` | 0.1.16 | none | none |
+| `java-core` | 0.2.0 | protocol 1 | none |
+| `spring-boot-starter` | 0.2.0 | protocol 1 | none |
+| `skills` | 0.1.17 | none | none |
