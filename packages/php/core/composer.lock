@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ff11471a90673fe0bda8d0907cff342c",
+    "content-hash": "8e3ffa379fc87aa234c0c23f83ba9672",
     "packages": [
         {
             "name": "onematrix/tracing-sdk",
-            "version": "1.1.0",
+            "version": "1.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/OneMatrixL1/tracing-sdk-php.git",
-                "reference": "a1592326fd45cb3e0f0aa8295cfbb2338de9855b"
+                "reference": "3a5e813284663159f28c452120fabb06f90803bf"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/OneMatrixL1/tracing-sdk-php/zipball/a1592326fd45cb3e0f0aa8295cfbb2338de9855b",
-                "reference": "a1592326fd45cb3e0f0aa8295cfbb2338de9855b",
+                "url": "https://api.github.com/repos/OneMatrixL1/tracing-sdk-php/zipball/3a5e813284663159f28c452120fabb06f90803bf",
+                "reference": "3a5e813284663159f28c452120fabb06f90803bf",
                 "shasum": ""
             },
             "require": {
@@ -48,22 +48,22 @@
             "description": "Tracing SDK: canonicalize (RFC 8785 JSON Canonicalization Scheme, or W3C C14N for XML) and hash (Keccak-256) data-integrity records, then send them to an Indexer service over HTTP.",
             "support": {
                 "issues": "https://github.com/OneMatrixL1/tracing-sdk-php/issues",
-                "source": "https://github.com/OneMatrixL1/tracing-sdk-php/tree/1.1.0"
+                "source": "https://github.com/OneMatrixL1/tracing-sdk-php/tree/1.2.0"
             },
-            "time": "2026-08-20T07:12:02+00:00"
+            "time": "2026-08-21T03:24:50+00:00"
         },
         {
             "name": "opis/json-schema",
-            "version": "2.6.0",
+            "version": "2.6.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/opis/json-schema.git",
-                "reference": "8458763e0dd0b6baa310e04f1829fc73da4e8c8a"
+                "reference": "7d8685a78db131eb6a1571cc7b4db8f4b59e8628"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/opis/json-schema/zipball/8458763e0dd0b6baa310e04f1829fc73da4e8c8a",
-                "reference": "8458763e0dd0b6baa310e04f1829fc73da4e8c8a",
+                "url": "https://api.github.com/repos/opis/json-schema/zipball/7d8685a78db131eb6a1571cc7b4db8f4b59e8628",
+                "reference": "7d8685a78db131eb6a1571cc7b4db8f4b59e8628",
                 "shasum": ""
             },
             "require": {
@@ -113,9 +113,9 @@
             ],
             "support": {
                 "issues": "https://github.com/opis/json-schema/issues",
-                "source": "https://github.com/opis/json-schema/tree/2.6.0"
+                "source": "https://github.com/opis/json-schema/tree/2.6.1"
             },
-            "time": "2025-10-17T12:46:48+00:00"
+            "time": "2026-11-06T04:25:16+00:00"
         },
         {
             "name": "opis/string",
